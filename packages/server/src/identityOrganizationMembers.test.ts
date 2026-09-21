@@ -2,18 +2,18 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
-import { Database } from './modules/data_platform/index.js';
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { describe, expect, it, vi } from 'vitest'
+import { Database } from './modules/data_platform/index.js'
 import {
   createMemberDirectoryFacade,
   type MemberRepositoryStore,
-} from './modules/identity_organization/index.js';
+} from './modules/identity_organization/index.js'
 
 function createDatabase(): Database {
-  const database = new Database(':memory:');
+  const database = new Database(':memory:')
   database.exec(`
     CREATE TABLE employees (
       id TEXT NOT NULL,
@@ -31,18 +31,18 @@ function createDatabase(): Database {
       offboarded_at TEXT,
       PRIMARY KEY (organization_id, id)
     );
-  `);
-  return database;
+  `)
+  return database
 }
 
 describe('identity_organization member directory', () => {
   it('isolates member lists and offboarding by organization', () => {
-    const database = createDatabase();
-    const audit = vi.fn();
+    const database = createDatabase()
+    const audit = vi.fn()
     const store: MemberRepositoryStore = {
       db: () => database,
       defaultOrganizationId: 'org-default',
-      organizationExists: (organizationId) =>
+      organizationExists: organizationId =>
         ['org-a', 'org-b'].includes(organizationId),
       resolveAssignmentIdentity: (_database, _organizationId, input) => ({
         department: input.department?.trim() || null,
@@ -52,8 +52,8 @@ describe('identity_organization member directory', () => {
       }),
       audit,
       legacyMemoryPaths: () => [],
-    };
-    const members = createMemberDirectoryFacade(store);
+    }
+    const members = createMemberDirectoryFacade(store)
 
     try {
       members.createEmployee({
@@ -61,49 +61,49 @@ describe('identity_organization member directory', () => {
         organizationId: 'org-a',
         name: 'Alice',
         department: 'Engineering',
-      });
+      })
       members.createEmployee({
         id: 'member-b',
         organizationId: 'org-b',
         name: 'Bob',
         department: 'Operations',
-      });
+      })
 
       expect(
-        members.listEmployees(undefined, 'org-a').map((row) => row.id),
-      ).toEqual(['member-a']);
+        members.listEmployees(undefined, 'org-a').map(row => row.id),
+      ).toEqual(['member-a'])
       expect(
-        members.listEmployees(undefined, 'org-b').map((row) => row.id),
-      ).toEqual(['member-b']);
-      expect(members.getEmployee('member-a', 'org-b')).toBeNull();
-      expect(members.getEmployee('member-b')).toBeNull();
+        members.listEmployees(undefined, 'org-b').map(row => row.id),
+      ).toEqual(['member-b'])
+      expect(members.getEmployee('member-a', 'org-b')).toBeNull()
+      expect(members.getEmployee('member-b')).toBeNull()
 
-      expect(members.offboardEmployee('member-a', 'org-b')).toBe(false);
-      expect(members.offboardEmployee('member-b')).toBe(false);
+      expect(members.offboardEmployee('member-a', 'org-b')).toBe(false)
+      expect(members.offboardEmployee('member-b')).toBe(false)
       expect(members.getEmployee('member-a', 'org-a')).toMatchObject({
         status: 'active',
-      });
-      expect(members.offboardEmployee('member-a', 'org-a')).toBe(true);
-      expect(members.listEmployees(undefined, 'org-a')).toEqual([]);
+      })
+      expect(members.offboardEmployee('member-a', 'org-a')).toBe(true)
+      expect(members.listEmployees(undefined, 'org-a')).toEqual([])
       expect(members.getEmployee('member-a', 'org-a')).toMatchObject({
         status: 'offboarded',
-      });
+      })
       expect(members.getEmployee('member-b', 'org-b')).toMatchObject({
         status: 'active',
-      });
+      })
       expect(audit).toHaveBeenCalledWith(
         'offboard',
         'member-a',
         'Employee offboarded',
         'org-a',
-      );
+      )
     } finally {
-      database.close();
+      database.close()
     }
-  });
+  })
 
   it('rejects creation for an organization outside the injected identity store', () => {
-    const database = createDatabase();
+    const database = createDatabase()
     const members = createMemberDirectoryFacade({
       db: () => database,
       defaultOrganizationId: 'org-default',
@@ -116,7 +116,7 @@ describe('identity_organization member directory', () => {
       }),
       audit: vi.fn(),
       legacyMemoryPaths: () => [],
-    });
+    })
 
     try {
       expect(() =>
@@ -125,18 +125,18 @@ describe('identity_organization member directory', () => {
           organizationId: 'org-unknown',
           name: 'Unknown',
         }),
-      ).toThrow('Organization not found');
+      ).toThrow('Organization not found')
     } finally {
-      database.close();
+      database.close()
     }
-  });
+  })
 
   it('limits legacy OrgMemoryStore fallback to the default organization', () => {
-    const database = createDatabase();
+    const database = createDatabase()
     const temporaryDirectory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'clawmaster-members-'),
-    );
-    const legacyPath = path.join(temporaryDirectory, 'memory-store.json');
+    )
+    const legacyPath = path.join(temporaryDirectory, 'memory-store.json')
     fs.writeFileSync(
       legacyPath,
       JSON.stringify({
@@ -151,7 +151,7 @@ describe('identity_organization member directory', () => {
         ],
         teams: [{ id: 'legacy-team', name: 'Legacy Team' }],
       }),
-    );
+    )
     const members = createMemberDirectoryFacade({
       db: () => database,
       defaultOrganizationId: 'org-default',
@@ -164,7 +164,7 @@ describe('identity_organization member directory', () => {
       }),
       audit: vi.fn(),
       legacyMemoryPaths: () => [legacyPath],
-    });
+    })
 
     try {
       expect(members.getEmployee('legacy-member', 'org-default')).toMatchObject(
@@ -172,15 +172,15 @@ describe('identity_organization member directory', () => {
           name: 'Legacy User',
           department: 'Legacy Team',
         },
-      );
+      )
       expect(members.listEmployees(undefined, 'org-default')).toContainEqual(
         expect.objectContaining({ id: 'legacy-member' }),
-      );
-      expect(members.getEmployee('legacy-member', 'org-other')).toBeNull();
-      expect(members.listEmployees(undefined, 'org-other')).toEqual([]);
+      )
+      expect(members.getEmployee('legacy-member', 'org-other')).toBeNull()
+      expect(members.listEmployees(undefined, 'org-other')).toEqual([])
     } finally {
-      database.close();
-      fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+      database.close()
+      fs.rmSync(temporaryDirectory, { recursive: true, force: true })
     }
-  });
+  })
 });

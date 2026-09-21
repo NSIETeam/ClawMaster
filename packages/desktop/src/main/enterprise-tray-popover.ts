@@ -1,62 +1,62 @@
-export const ENTERPRISE_TRAY_POPOVER_WIDTH = 420;
-export const ENTERPRISE_TRAY_POPOVER_MAX_CONTACTS = 5;
+export const ENTERPRISE_TRAY_POPOVER_WIDTH = 420
+export const ENTERPRISE_TRAY_POPOVER_MAX_CONTACTS = 5
 
-const ATOA_REQUEST_PREFIX = 'CLAWMASTER_ATOA_REQUEST ';
-const ATOA_RESPONSE_PREFIX = 'CLAWMASTER_ATOA_RESPONSE ';
+const ATOA_REQUEST_PREFIX = 'CLAWMASTER_ATOA_REQUEST '
+const ATOA_RESPONSE_PREFIX = 'CLAWMASTER_ATOA_RESPONSE '
 
 export interface EnterpriseTrayContact {
-  accountId: string;
-  name: string;
-  preview: string;
-  count: number;
-  createdAt: string;
+  accountId: string
+  name: string
+  preview: string
+  count: number
+  createdAt: string
 }
 
 /** 非企业消息的托盘提醒摘要（园区工单等）。 */
 export interface EnterpriseTraySummarySection {
-  kind: 'collaboration' | 'park-ticket' | 'other';
-  label: string;
-  count: number;
-  preview: string;
+  kind: 'collaboration' | 'park-ticket' | 'other'
+  label: string
+  count: number
+  preview: string
 }
 
 interface EnterpriseUnreadMessageLike {
-  senderAccountId: string;
-  senderName: string;
-  preview: string;
-  createdAt: string;
-  count?: number;
+  senderAccountId: string
+  senderName: string
+  preview: string
+  createdAt: string
+  count?: number
 }
 
 interface RectangleLike {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 interface SizeLike {
-  width: number;
-  height: number;
+  width: number
+  height: number
 }
 
 export function parseEnterpriseMessageTimestamp(value: string): number {
-  const trimmed = value.trim();
+  const trimmed = value.trim()
   const normalized = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(
     trimmed,
   )
     ? `${trimmed.replace(' ', 'T')}Z`
-    : trimmed;
-  const parsed = Date.parse(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
+    : trimmed
+  const parsed = Date.parse(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function normalizePreview(value: string): string {
-  if (value.startsWith(ATOA_REQUEST_PREFIX)) return '对方正在请求你的 ClawMaster 协作';
-  if (value.startsWith(ATOA_RESPONSE_PREFIX)) return '对方 ClawMaster 已回复你的企业协作请求';
-  const compact = value.replace(/\s+/g, ' ').trim();
-  if (!compact) return '发来一条新消息';
-  return compact.length > 140 ? `${compact.slice(0, 137)}…` : compact;
+  if (value.startsWith(ATOA_REQUEST_PREFIX)) return '对方正在请求你的 ClawMaster 协作'
+  if (value.startsWith(ATOA_RESPONSE_PREFIX)) return '对方 ClawMaster 已回复你的企业协作请求'
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (!compact) return '发来一条新消息'
+  return compact.length > 140 ? `${compact.slice(0, 137)}…` : compact
 }
 
 function escapeHtml(value: string): string {
@@ -67,41 +67,41 @@ function escapeHtml(value: string): string {
       '>': '&gt;',
       '"': '&quot;',
       "'": '&#39;',
-    };
-    return entities[character] ?? character;
+    }
+    return entities[character] ?? character
   });
 }
 
 function avatarTone(accountId: string): number {
-  let hash = 0;
-  for (const character of accountId) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
-  return Math.abs(hash) % 6;
+  let hash = 0
+  for (const character of accountId) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0
+  return Math.abs(hash) % 6
 }
 
 function avatarText(name: string): string {
-  return Array.from(name.trim())[0] || 'O';
+  return Array.from(name.trim())[0] || 'O'
 }
 
 function formatMessageTime(createdAt: string, now: number): string {
-  const created = parseEnterpriseMessageTimestamp(createdAt);
-  if (!created) return '';
-  const elapsed = Math.max(0, now - created);
-  if (elapsed < 60_000) return '刚刚';
-  if (elapsed < 60 * 60_000) return `${Math.floor(elapsed / 60_000)} 分钟前`;
-  if (elapsed < 24 * 60 * 60_000) return `${Math.floor(elapsed / (60 * 60_000))} 小时前`;
-  if (elapsed < 48 * 60 * 60_000) return '昨天';
+  const created = parseEnterpriseMessageTimestamp(createdAt)
+  if (!created) return ''
+  const elapsed = Math.max(0, now - created)
+  if (elapsed < 60_000) return '刚刚'
+  if (elapsed < 60 * 60_000) return `${Math.floor(elapsed / 60_000)} 分钟前`
+  if (elapsed < 24 * 60 * 60_000) return `${Math.floor(elapsed / (60 * 60_000))} 小时前`
+  if (elapsed < 48 * 60 * 60_000) return '昨天'
   return new Intl.DateTimeFormat('zh-CN', {
     month: 'numeric',
     day: 'numeric',
-  }).format(new Date(created));
+  }).format(new Date(created))
 }
 
 export function summarizeEnterpriseTrayContacts(
   items: readonly EnterpriseUnreadMessageLike[],
 ): EnterpriseTrayContact[] {
-  const byAccount = new Map<string, EnterpriseTrayContact>();
+  const byAccount = new Map<string, EnterpriseTrayContact>()
   for (const item of items) {
-    const current = byAccount.get(item.senderAccountId);
+    const current = byAccount.get(item.senderAccountId)
     if (!current) {
       byAccount.set(item.senderAccountId, {
         accountId: item.senderAccountId,
@@ -109,32 +109,32 @@ export function summarizeEnterpriseTrayContacts(
         preview: normalizePreview(item.preview),
         count: Math.max(1, Math.floor(item.count ?? 1)),
         createdAt: item.createdAt,
-      });
+      })
       continue;
     }
-    current.count += Math.max(1, Math.floor(item.count ?? 1));
+    current.count += Math.max(1, Math.floor(item.count ?? 1))
     if (
       parseEnterpriseMessageTimestamp(item.createdAt) >=
       parseEnterpriseMessageTimestamp(current.createdAt)
     ) {
-      current.name = item.senderName.trim() || current.name;
-      current.preview = normalizePreview(item.preview);
-      current.createdAt = item.createdAt;
+      current.name = item.senderName.trim() || current.name
+      current.preview = normalizePreview(item.preview)
+      current.createdAt = item.createdAt
     }
   }
   return [...byAccount.values()].sort(
     (left, right) =>
       parseEnterpriseMessageTimestamp(right.createdAt) -
       parseEnterpriseMessageTimestamp(left.createdAt),
-  );
+  )
 }
 
 export function enterpriseTrayPopoverHeight(contactCount: number): number {
   const visibleCount = Math.min(
     ENTERPRISE_TRAY_POPOVER_MAX_CONTACTS,
     Math.max(1, Math.floor(contactCount)),
-  );
-  return Math.min(526, 142 + visibleCount * 76);
+  )
+  return Math.min(526, 142 + visibleCount * 76)
 }
 
 export function positionEnterpriseTrayPopover(
@@ -142,44 +142,44 @@ export function positionEnterpriseTrayPopover(
   workArea: RectangleLike,
   windowSize: SizeLike,
 ): { x: number; y: number } {
-  const margin = 12;
-  const workRight = workArea.x + workArea.width;
-  const workBclawmasterm = workArea.y + workArea.height;
-  const centeredX = Math.round(trayBounds.x + trayBounds.width / 2 - windowSize.width / 2);
+  const margin = 12
+  const workRight = workArea.x + workArea.width
+  const workBclawmasterm = workArea.y + workArea.height
+  const centeredX = Math.round(trayBounds.x + trayBounds.width / 2 - windowSize.width / 2)
   const x = Math.min(
     workRight - windowSize.width - margin,
     Math.max(workArea.x + margin, centeredX),
-  );
-  const aboveTray = Math.round(trayBounds.y - windowSize.height - margin);
-  const belowTray = Math.round(trayBounds.y + trayBounds.height + margin);
+  )
+  const aboveTray = Math.round(trayBounds.y - windowSize.height - margin)
+  const belowTray = Math.round(trayBounds.y + trayBounds.height + margin)
   const y = aboveTray >= workArea.y + margin
     ? aboveTray
-    : Math.min(workBclawmasterm - windowSize.height - margin, belowTray);
-  return { x, y };
+    : Math.min(workBclawmasterm - windowSize.height - margin, belowTray)
+  return { x, y }
 }
 
 export function renderEnterpriseTrayPopoverHtml(
   contacts: readonly EnterpriseTrayContact[],
   options: {
-    now?: number;
-    summarySections?: readonly EnterpriseTraySummarySection[];
-    otherUnreadCount?: number;
+    now?: number
+    summarySections?: readonly EnterpriseTraySummarySection[]
+    otherUnreadCount?: number
   } = {},
 ): string {
-  const now = options.now ?? Date.now();
-  const summarySections = options.summarySections ?? [];
-  const otherUnreadCount = options.otherUnreadCount ?? 0;
-  const enterpriseUnread = contacts.reduce((total, contact) => total + contact.count, 0);
-  const totalUnread = enterpriseUnread + otherUnreadCount;
-  const visibleContacts = contacts.slice(0, ENTERPRISE_TRAY_POPOVER_MAX_CONTACTS);
-  const hiddenContacts = Math.max(0, contacts.length - visibleContacts.length);
+  const now = options.now ?? Date.now()
+  const summarySections = options.summarySections ?? []
+  const otherUnreadCount = options.otherUnreadCount ?? 0
+  const enterpriseUnread = contacts.reduce((total, contact) => total + contact.count, 0)
+  const totalUnread = enterpriseUnread + otherUnreadCount
+  const visibleContacts = contacts.slice(0, ENTERPRISE_TRAY_POPOVER_MAX_CONTACTS)
+  const hiddenContacts = Math.max(0, contacts.length - visibleContacts.length)
   const enterpriseRows = visibleContacts.length > 0
     ? visibleContacts.map((contact) => {
-      const name = escapeHtml(contact.name);
-      const preview = escapeHtml(contact.preview);
-      const time = escapeHtml(formatMessageTime(contact.createdAt, now));
-      const href = `clawmaster-tray://message/${encodeURIComponent(contact.accountId)}`;
-      const count = contact.count > 99 ? '99+' : String(contact.count);
+      const name = escapeHtml(contact.name)
+      const preview = escapeHtml(contact.preview)
+      const time = escapeHtml(formatMessageTime(contact.createdAt, now))
+      const href = `clawmaster-tray://message/${encodeURIComponent(contact.accountId)}`
+      const count = contact.count > 99 ? '99+' : String(contact.count)
       return `
         <a class="message" href="${href}" aria-label="打开与 ${name} 的未读会话">
           <span class="avatar tone-${avatarTone(contact.accountId)}">${escapeHtml(avatarText(contact.name))}</span>
@@ -192,19 +192,19 @@ export function renderEnterpriseTrayPopoverHtml(
           </span>
           <span class="unread-count" aria-label="${count} 条未读">${count}</span>
           <span class="chevron" aria-hidden="true">›</span>
-        </a>`;
+        </a>`
     }).join('')
-    : '';
+    : ''
 
   const enterpriseSectionHeader = enterpriseUnread > 0
     ? `<div class="section-title">企业消息 <span>${enterpriseUnread} 条</span></div>`
-    : '';
+    : ''
 
   const summaryRows = summarySections.length > 0
     ? summarySections.map((section) => {
       const href = section.kind === 'park-ticket'
         ? 'clawmaster-tray://park'
-        : 'clawmaster-tray://open';
+        : 'clawmaster-tray://open'
       return `
         <a class="message summary-item" href="${href}" aria-label="${section.label} ${section.count} 条">
           <span class="avatar tone-3">${escapeHtml(section.label.slice(0, 1))}</span>
@@ -216,11 +216,11 @@ export function renderEnterpriseTrayPopoverHtml(
           </span>
           <span class="unread-count" aria-label="${section.count} 条未读">${section.count > 99 ? '99+' : String(section.count)}</span>
           <span class="chevron" aria-hidden="true">›</span>
-        </a>`;
+        </a>`
     }).join('')
-    : '';
+    : ''
 
-  const hasContent = enterpriseRows || summaryRows;
+  const hasContent = enterpriseRows || summaryRows
   const rows = hasContent
     ? `${enterpriseSectionHeader}${enterpriseRows}${summaryRows}`
     : `
@@ -228,11 +228,11 @@ export function renderEnterpriseTrayPopoverHtml(
         <span class="empty-icon">✓</span>
         <strong>消息都已读完</strong>
         <span>有新消息时会在这里显示发送人和内容摘要</span>
-      </div>`;
+      </div>`
 
   const hiddenLabel = hiddenContacts > 0
     ? `<span class="more">另有 ${hiddenContacts} 位联系人</span>`
-    : (hasContent ? '<span class="privacy"><i></i>仅展示消息摘要</span>' : '');
+    : (hasContent ? '<span class="privacy"><i></i>仅展示消息摘要</span>' : '')
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -470,5 +470,5 @@ export function renderEnterpriseTrayPopoverHtml(
     </footer>
   </section>
 </body>
-</html>`;
+</html>`
 }

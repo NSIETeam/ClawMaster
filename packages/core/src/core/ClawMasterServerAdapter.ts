@@ -12,27 +12,27 @@ import {
   CountTokensResponse,
   EmbedContentParameters,
   EmbedContentResponse,
-} from '@google/genai';
-import { stripUIFieldsFromArray } from '../types/extendedContent.js';
-import { ContentGenerator } from './contentGenerator.js';
-import { Config } from '../config/config.js';
-import { UserTierId } from '../code_assist/types.js';
-import { proxyAuthManager, type FeishuUserInfo } from './proxyAuth.js';
-import { buildProxyRequestUrl, getActiveProxyServerUrl } from '../config/proxyConfig.js';
-import { logger } from '../utils/enhancedLogger.js';
-import { UnauthorizedError, isOurAuthError } from '../utils/errors.js';
-import { SceneType, SceneManager } from './sceneManager.js';
-import { retryWithBackoff } from '../utils/retry.js';
-import { isClawMasterQuotaError } from '../utils/quotaErrorDetection.js';
+} from '@google/genai'
+import { stripUIFieldsFromArray } from '../types/extendedContent.js'
+import { ContentGenerator } from './contentGenerator.js'
+import { Config } from '../config/config.js'
+import { UserTierId } from '../code_assist/types.js'
+import { proxyAuthManager, type FeishuUserInfo } from './proxyAuth.js'
+import { buildProxyRequestUrl, getActiveProxyServerUrl } from '../config/proxyConfig.js'
+import { logger } from '../utils/enhancedLogger.js'
+import { UnauthorizedError, isOurAuthError } from '../utils/errors.js'
+import { SceneType, SceneManager } from './sceneManager.js'
+import { retryWithBackoff } from '../utils/retry.js'
+import { isClawMasterQuotaError } from '../utils/quotaErrorDetection.js'
 
-import { realTimeTokenEventManager } from '../events/realTimeTokenEvents.js';
-import { MESSAGE_ROLES } from '../config/messageRoles.js';
-import { getGlobalDispatcher } from 'undici';
-import { isCustomModel, effortToGeminiLevel, effortToGeminiBudget, effortToOpenAIEffort, effortToAnthropicEffort, effortToAnthropicBudget, ThinkingConfig, isAdaptiveThinkingClaude, applyAnthropicAdaptiveThinking } from '../types/customModel.js';
-import { callCustomModel, callCustomModelStream } from './customModelAdapter.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { realTimeTokenEventManager } from '../events/realTimeTokenEvents.js'
+import { MESSAGE_ROLES } from '../config/messageRoles.js'
+import { getGlobalDispatcher } from 'undici'
+import { isCustomModel, effortToGeminiLevel, effortToGeminiBudget, effortToOpenAIEffort, effortToAnthropicEffort, effortToAnthropicBudget, ThinkingConfig, isAdaptiveThinkingClaude, applyAnthropicAdaptiveThinking } from '../types/customModel.js'
+import { callCustomModel, callCustomModelStream } from './customModelAdapter.js'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 
 /**
  * 把出站请求体落盘到 ~/.clawmaster/last-N-requests/ 用于事后诊断。
@@ -50,167 +50,167 @@ import * as os from 'os';
  * @param kind  'stream' | 'unified'  区分流式 / 非流式路径
  * @param body  即将作为 JSON.stringify 出站的请求体对象
  */
-const REQUEST_DUMP_DIR = path.join(os.homedir(), '.clawmaster-user', 'last-requests');
-const REQUEST_DUMP_LATEST = path.join(os.homedir(), '.clawmaster-user', 'last-stream-request.json');
-const REQUEST_DUMP_RING_SIZE = 5;
+const REQUEST_DUMP_DIR = path.join(os.homedir(), '.clawmaster-user', 'last-requests')
+const REQUEST_DUMP_LATEST = path.join(os.homedir(), '.clawmaster-user', 'last-stream-request.json')
+const REQUEST_DUMP_RING_SIZE = 5
 
 /** The proxy may add provider-specific fields; only these fields are read locally. */
 interface DynamicFunctionCall {
-  id?: string;
-  name?: string;
-  args?: unknown;
+  id?: string
+  name?: string
+  args?: unknown
 }
 
 interface DynamicFunctionResponse {
-  id?: string;
-  name?: string;
-  response?: unknown;
+  id?: string
+  name?: string
+  response?: unknown
 }
 
 interface DynamicPart {
-  text?: string;
-  reasoning?: string;
-  functionCall?: DynamicFunctionCall;
-  functionResponse?: DynamicFunctionResponse;
+  text?: string
+  reasoning?: string
+  functionCall?: DynamicFunctionCall
+  functionResponse?: DynamicFunctionResponse
 }
 
 interface DynamicStreamPart extends DynamicPart {
-  thought?: boolean;
-  [key: string]: unknown;
+  thought?: boolean
+  [key: string]: unknown
 }
 
 interface DynamicStreamChunk {
-  type?: string;
-  error?: unknown;
-  usageMetadata?: Record<string, unknown>;
+  type?: string
+  error?: unknown
+  usageMetadata?: Record<string, unknown>
   candidates?: Array<{
-    content?: { parts?: DynamicStreamPart[] };
-    finishReason?: string;
-  }>;
+    content?: { parts?: DynamicStreamPart[] }
+    finishReason?: string
+  }>
 }
 
 interface DynamicContent {
-  role?: string;
-  parts?: DynamicPart[];
+  role?: string
+  parts?: DynamicPart[]
 }
 
-type MutableProxyConfig = Record<string, unknown>;
+type MutableProxyConfig = Record<string, unknown>
 
 interface ProxyRequestConfig {
-  generationConfig?: MutableProxyConfig;
-  thinkingConfig?: object;
-  httpOptions?: { headers?: Record<string, string> };
-  [key: string]: unknown;
+  generationConfig?: MutableProxyConfig
+  thinkingConfig?: object
+  httpOptions?: { headers?: Record<string, string> }
+  [key: string]: unknown
 }
 
 interface ProxyRequestBody {
-  model?: string;
-  config?: ProxyRequestConfig;
-  [key: string]: unknown;
+  model?: string
+  config?: ProxyRequestConfig
+  [key: string]: unknown
 }
 
 interface RetriableProxyError extends Error {
-  code?: string;
-  cause?: { code?: string };
-  status?: number;
-  response?: { status: number; headers: Record<string, string> };
+  code?: string
+  cause?: { code?: string }
+  status?: number
+  response?: { status: number; headers: Record<string, string> }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return isRecord(value) ? value : null;
+  return isRecord(value) ? value : null
 }
 
 function getProxyToolNames(requestBody: ProxyRequestBody): string[] {
-  const tools = requestBody.config?.tools;
+  const tools = requestBody.config?.tools
   if (!Array.isArray(tools)) {
-    return [];
+    return []
   }
 
   return tools.flatMap((tool) => {
     if (!isRecord(tool) || !Array.isArray(tool.functionDeclarations)) {
-      return [];
+      return []
     }
-    return tool.functionDeclarations.flatMap((declaration) =>
+    return tool.functionDeclarations.flatMap(declaration =>
       isRecord(declaration) && typeof declaration.name === 'string'
         ? [declaration.name]
         : [],
-    );
+    )
   });
 }
 
 function getFunctionCalls(response: GenerateContentResponse) {
-  return (response.candidates?.[0]?.content?.parts ?? []).flatMap((part) =>
+  return (response.candidates?.[0]?.content?.parts ?? []).flatMap(part =>
     part.functionCall ? [part.functionCall] : [],
-  );
+  )
 }
 
 function getUsageCount(usageMetadata: Record<string, unknown> | null, field: string): number {
-  const value = usageMetadata?.[field];
-  return typeof value === 'number' ? value : 0;
+  const value = usageMetadata?.[field]
+  return typeof value === 'number' ? value : 0
 }
 function dumpOutboundRequest(kind: 'stream' | 'unified', body: unknown): void {
   // 默认关闭：仅显式开启文件级调试时才把含对话内容的请求体落盘
   if (process.env.FILE_DEBUG !== '1') {
-    return;
+    return
   }
 
   // 同步部分尽量短；真正落盘走 promise 异步
-  let serialized: string;
-  let size: number;
+  let serialized: string
+  let size: number
   try {
-    serialized = JSON.stringify(body, null, 2);
-    size = serialized.length;
+    serialized = JSON.stringify(body, null, 2)
+    size = serialized.length
   } catch {
-    return; // 含循环引用等极端情况，直接放弃
+    return // 含循环引用等极端情况，直接放弃
   }
 
-  const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  const ringFile = path.join(REQUEST_DUMP_DIR, `${ts}_${kind}.json`);
+  const ts = new Date().toISOString().replace(/[:.]/g, '-')
+  const ringFile = path.join(REQUEST_DUMP_DIR, `${ts}_${kind}.json`)
 
   // 异步执行，错误吞掉避免污染主流程
   void (async () => {
     try {
-      await fs.promises.mkdir(REQUEST_DUMP_DIR, { recursive: true, mode: 0o700 });
+      await fs.promises.mkdir(REQUEST_DUMP_DIR, { recursive: true, mode: 0o700 })
       // 目录已存在时 mkdir 的 mode 不生效，chmod 兜底收紧
-      await fs.promises.chmod(REQUEST_DUMP_DIR, 0o700).catch(() => {});
-      await fs.promises.writeFile(ringFile, serialized, { encoding: 'utf8', mode: 0o600 });
+      await fs.promises.chmod(REQUEST_DUMP_DIR, 0o700).catch(() => {})
+      await fs.promises.writeFile(ringFile, serialized, { encoding: 'utf8', mode: 0o600 })
 
       // 维护 ring：保留最近 N 个，删掉更老的
-      const entries = await fs.promises.readdir(REQUEST_DUMP_DIR);
+      const entries = await fs.promises.readdir(REQUEST_DUMP_DIR)
       const sorted = entries
-        .filter((f) => f.endsWith('.json'))
+        .filter(f => f.endsWith('.json'))
         .sort()
-        .reverse(); // 最新在前
-      const toDelete = sorted.slice(REQUEST_DUMP_RING_SIZE);
+        .reverse() // 最新在前
+      const toDelete = sorted.slice(REQUEST_DUMP_RING_SIZE)
       await Promise.all(
-        toDelete.map((f) =>
+        toDelete.map(f =>
           fs.promises.unlink(path.join(REQUEST_DUMP_DIR, f)).catch(() => {}),
         ),
-      );
+      )
 
       // 兼容旧 probe 脚本：写一份 last-stream-request.json 指向最新
       // （仅 stream 路径写，避免 unified 请求覆盖掉 stream 路径的诊断价值）
       if (kind === 'stream') {
-        await fs.promises.writeFile(REQUEST_DUMP_LATEST, serialized, { encoding: 'utf8', mode: 0o600 });
+        await fs.promises.writeFile(REQUEST_DUMP_LATEST, serialized, { encoding: 'utf8', mode: 0o600 })
         // 覆盖已存在文件时 writeFile 的 mode 不生效，chmod 兜底收紧
-        await fs.promises.chmod(REQUEST_DUMP_LATEST, 0o600).catch(() => {});
+        await fs.promises.chmod(REQUEST_DUMP_LATEST, 0o600).catch(() => {})
       }
     } catch (err) {
       // 落盘失败不影响主流程，记一条 warn 即可
       logger.warn?.('[ClawMaster Runtime] request dump failed', {
         error: err instanceof Error ? err.message : String(err),
-      });
+      })
     }
-  })();
+  })()
 
   // 同步打一行简短日志，便于在 export-debug 里看到落盘行为发生过
   console.log(
     `[request-dump] ${kind} body dumped (${size}B) → ~/.clawmaster/last-requests/${path.basename(ringFile)}`,
-  );
+  )
 }
 
 /**
@@ -221,36 +221,36 @@ function dumpOutboundRequest(kind: 'stream' | 'unified', body: unknown): void {
  * @returns true if the model supports SSE streaming
  */
 function supportsSSEStreaming(modelName: string): boolean {
-  const name = modelName.toLowerCase();
+  const name = modelName.toLowerCase()
 
   // Claude series - all versions support SSE
-  if (name.includes('claude')) return true;
+  if (name.includes('claude')) return true
 
   // Gemini series - all versions support SSE
-  if (name.includes('gemini')) return true;
+  if (name.includes('gemini')) return true
 
   // Kimi series (moonshotai)
-  if (name.includes('kimi') || name.includes('moonshot')) return true;
+  if (name.includes('kimi') || name.includes('moonshot')) return true
 
   // GPT series (openai)
-  if (name.includes('gpt')) return true;
+  if (name.includes('gpt')) return true
 
   // Qwen series
-  if (name.includes('qwen')) return true;
+  if (name.includes('qwen')) return true
 
   // Grok series (x-ai)
-  if (name.includes('grok')) return true;
+  if (name.includes('grok')) return true
 
   // GLM series (zhipu)
-  if (name.includes('glm')) return true;
+  if (name.includes('glm')) return true
 
   // DeepSeek series
-  if (name.includes('deepseek')) return true;
+  if (name.includes('deepseek')) return true
 
   // MiniMax series
-  if (name.startsWith('minimax')) return true;
+  if (name.startsWith('minimax')) return true
 
-  return false;
+  return false
 }
 
 /**
@@ -267,13 +267,13 @@ function applyGenAIThinkingConfig(
   console.log(
     `\x1b[35m[thinking-debug]\x1b[0m model=\x1b[36m${model}\x1b[0m  userThinkingConfig=${
       thinkingConfig === undefined ? 'undefined (走默认 auto)' : JSON.stringify(thinkingConfig)
-    }`
+    }`,
   );
 
-  if (!thinkingConfig) return reqConfig;
+  if (!thinkingConfig) return reqConfig
 
-  const modelLower = model.toLowerCase();
-  const config = { ...reqConfig };
+  const modelLower = model.toLowerCase()
+  const config = { ...reqConfig }
 
   // 🐛 FIX: thinkingConfig 应该写到 config.thinkingConfig（@google/genai SDK
   // GenerateContentConfig 标准位置），不是嵌套在 config.generationConfig 里。
@@ -289,41 +289,41 @@ function applyGenAIThinkingConfig(
 
   if (modelLower.includes('gemini')) {
     // 1. Gemini 系列自适应适配
-    const isGemini3 = modelLower.includes('gemini-3') || modelLower.includes('gemini-3.5');
+    const isGemini3 = modelLower.includes('gemini-3') || modelLower.includes('gemini-3.5')
     if (thinkingConfig.mode === 'off') {
       if (isGemini3) {
         config.thinkingConfig = {
-          thinkingLevel: 'minimal' // 🌟 Gemini 3/3.5 官方推荐的 "no thinking" 最小延迟档位
+          thinkingLevel: 'minimal', // 🌟 Gemini 3/3.5 官方推荐的 "no thinking" 最小延迟档位
         };
       } else {
         config.thinkingConfig = {
-          thinkingBudget: 0 // 🌟 Gemini 2.5 官方标准的 "disable thinking" 档位
+          thinkingBudget: 0, // 🌟 Gemini 2.5 官方标准的 "disable thinking" 档位
         };
       }
     } else {
       // 检查是否为 Gemini 3 / 3.5 系列 (未来/现代模型)
       if (isGemini3) {
-        const thinkingLevel = effortToGeminiLevel(thinkingConfig.effort) || 'medium';
+        const thinkingLevel = effortToGeminiLevel(thinkingConfig.effort) || 'medium'
         config.thinkingConfig = {
           thinkingLevel,
-          includeThoughts: true
+          includeThoughts: true,
         };
       } else {
         // Gemini 2.5 系列
         const thinkingBudget = thinkingConfig.budgetTokens !== undefined
           ? thinkingConfig.budgetTokens
-          : (effortToGeminiBudget(thinkingConfig.effort) || 2048); // 默认使用 2048 (或 -1 启用自适应)
+          : (effortToGeminiBudget(thinkingConfig.effort) || 2048) // 默认使用 2048 (或 -1 启用自适应)
         config.thinkingConfig = {
           thinkingBudget,
-          includeThoughts: true
+          includeThoughts: true,
         };
       }
     }
     // 同时清理掉旧的错位字段（避免老代码或下游误读到嵌套的旧值）
     if (config.generationConfig?.thinkingConfig) {
-      const cleaned = { ...config.generationConfig };
-      delete cleaned.thinkingConfig;
-      config.generationConfig = Object.keys(cleaned).length > 0 ? cleaned : undefined;
+      const cleaned = { ...config.generationConfig }
+      delete cleaned.thinkingConfig
+      config.generationConfig = Object.keys(cleaned).length > 0 ? cleaned : undefined
     }
   } else if (modelLower.includes('claude') || modelLower.includes('anthropic')) {
     // 2. Claude (Anthropic) 代理配置
@@ -331,48 +331,48 @@ function applyGenAIThinkingConfig(
     // 给 generationConfig 兜底，那行随 Gemini 改动被移除后，这里如果传进来的
     // generationConfig 是 undefined，下面 `config.generationConfig.thinking = ...`
     // 会抛 "Cannot set properties of undefined"。所以先确保它是个对象。
-    config.generationConfig = { ...(config.generationConfig || {}) };
-    const isHaiku = modelLower.includes('haiku');
+    config.generationConfig = { ...(config.generationConfig || {}) }
+    const isHaiku = modelLower.includes('haiku')
     if (isHaiku || thinkingConfig.mode === 'off') {
-      config.generationConfig.thinking = { type: 'disabled' };
+      config.generationConfig.thinking = { type: 'disabled' }
     } else {
       // 现代 Claude 4.6+ / Sonnet 4.6/4.7+ 适配，彻底防范 400 报错
-      const isAdaptiveModel = isAdaptiveThinkingClaude(modelLower) || (thinkingConfig.effort !== undefined && thinkingConfig.effort !== 'auto');
+      const isAdaptiveModel = isAdaptiveThinkingClaude(modelLower) || (thinkingConfig.effort !== undefined && thinkingConfig.effort !== 'auto')
       if (isAdaptiveModel && thinkingConfig.budgetTokens === undefined) {
-        const effort = effortToAnthropicEffort(thinkingConfig.effort) || 'high';
-        applyAnthropicAdaptiveThinking(config.generationConfig, effort);
+        const effort = effortToAnthropicEffort(thinkingConfig.effort) || 'high'
+        applyAnthropicAdaptiveThinking(config.generationConfig, effort)
       } else {
         const budgetTokens = thinkingConfig.budgetTokens !== undefined
           ? thinkingConfig.budgetTokens
-          : effortToAnthropicBudget(thinkingConfig.effort);
+          : effortToAnthropicBudget(thinkingConfig.effort)
         config.generationConfig.thinking = {
           type: 'enabled',
-          budget_tokens: budgetTokens
+          budget_tokens: budgetTokens,
         };
       }
     }
   } else if (modelLower.includes('glm')) {
     // 3. 智谱 GLM 代理配置
     // 🐛 FIX: 同 Claude 路径，确保 generationConfig 是个对象再写字段。
-    config.generationConfig = { ...(config.generationConfig || {}) };
+    config.generationConfig = { ...(config.generationConfig || {}) }
     if (thinkingConfig.mode === 'off') {
-      config.generationConfig.thinking = { type: 'disabled' };
+      config.generationConfig.thinking = { type: 'disabled' }
     } else {
       config.generationConfig.thinking = {
         type: 'enabled',
-        clear_thinking: false // 保留式思考
+        clear_thinking: false, // 保留式思考
       };
     }
   } else if (modelLower.includes('o1') || modelLower.includes('o3') || modelLower.includes('gpt-')) {
     // 4. OpenAI 系列
     // 🐛 FIX: 同 Claude 路径，确保 generationConfig 是个对象再写字段。
-    config.generationConfig = { ...(config.generationConfig || {}) };
+    config.generationConfig = { ...(config.generationConfig || {}) }
     if (thinkingConfig.mode === 'off') {
-      config.generationConfig.reasoning_effort = 'none'; // 🌟 强制关闭思考 (gpt-5.5 / o-series 官方标准 none 档位)
+      config.generationConfig.reasoning_effort = 'none' // 🌟 强制关闭思考 (gpt-5.5 / o-series 官方标准 none 档位)
     } else {
-      const effort = effortToOpenAIEffort(thinkingConfig.effort);
+      const effort = effortToOpenAIEffort(thinkingConfig.effort)
       if (effort) {
-        config.generationConfig.reasoning_effort = effort;
+        config.generationConfig.reasoning_effort = effort
       }
     }
   } else if (modelLower.includes('qwen')) {
@@ -383,28 +383,28 @@ function applyGenAIThinkingConfig(
     //   Qwen3.6 系列默认开启思考。客户端这里只负责按用户开关注入字段，
     //   不与上游模型默认值博弈——上游会根据自身能力做容错。
     // FIX: 之前完全没有 qwen 分支，所有 Qwen 模型的 /thinking 设置静默丢失。
-    config.generationConfig = { ...(config.generationConfig || {}) };
+    config.generationConfig = { ...(config.generationConfig || {}) }
     config.generationConfig.extra_body = {
       ...(config.generationConfig.extra_body || {}),
       enable_thinking: thinkingConfig.mode !== 'off',
-    };
+    }
   }
 
   // 🐛 [thinking-debug] 出口处打印"实际写入 generationConfig 的思考字段"
   // 这是真正会随请求体发到 ClawMaster 后端的形态
-  const gc = config.generationConfig || {};
-  const injected: Record<string, unknown> = {};
-  if (gc.thinkingConfig !== undefined) injected.thinkingConfig = gc.thinkingConfig; // Gemini
-  if (gc.thinking !== undefined) injected.thinking = gc.thinking;                   // Claude / GLM
-  if (gc.reasoning_effort !== undefined) injected.reasoning_effort = gc.reasoning_effort; // OpenAI
+  const gc = config.generationConfig || {}
+  const injected: Record<string, unknown> = {}
+  if (gc.thinkingConfig !== undefined) injected.thinkingConfig = gc.thinkingConfig // Gemini
+  if (gc.thinking !== undefined) injected.thinking = gc.thinking                   // Claude / GLM
+  if (gc.reasoning_effort !== undefined) injected.reasoning_effort = gc.reasoning_effort // OpenAI
 
   console.log(
     `\x1b[35m[thinking-debug]\x1b[0m \u2192 injected to generationConfig: ${
       Object.keys(injected).length === 0 ? '(none, model not matched)' : JSON.stringify(injected)
-    }`
+    }`,
   );
 
-  return config;
+  return config
 }
 
 /**
@@ -413,28 +413,28 @@ function applyGenAIThinkingConfig(
  * 支持Claude和Gemini模型的统一接口
  */
 export class ClawMasterServerAdapter implements ContentGenerator {
-  userTier?: UserTierId;
-  private authHandler: (() => Promise<void>) | null = null;
-  private config?: Config;
+  userTier?: UserTierId
+  private authHandler: (() => Promise<void>) | null = null
+  private config?: Config
 
   constructor(_region: string, _projectId: string, proxyServerUrl?: string, config?: Config) {
     // 保存 Config 引用用于模型回退
-    this.config = config;
+    this.config = config
 
     // NOTE: region and projectId parameters are legacy, no longer used after switching to proxy-based architecture
     // 使用硬编码的代理服务器URL，用户无需配置
-    const finalProxyUrl = proxyServerUrl || getActiveProxyServerUrl();
-    proxyAuthManager.configure({ proxyServerUrl: finalProxyUrl });
+    const finalProxyUrl = proxyServerUrl || getActiveProxyServerUrl()
+    proxyAuthManager.configure({ proxyServerUrl: finalProxyUrl })
 
     // 初始化认证处理器 - 直接抛出UnauthorizedError触发/auth对话框
     this.authHandler = async () => {
-      console.log('🔄 [ClawMaster Runtime] Authentication required, opening auth dialog...');
-      throw new UnauthorizedError('Authentication required - please re-authenticate');
+      console.log('🔄 [ClawMaster Runtime] Authentication required, opening auth dialog...')
+      throw new UnauthorizedError('Authentication required - please re-authenticate')
     };
 
     // 只在调试模式下显示详细日志
     if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-      console.log(`[ClawMaster Runtime] Initialized with proxy server: ${finalProxyUrl}`);
+      console.log(`[ClawMaster Runtime] Initialized with proxy server: ${finalProxyUrl}`)
     }
   }
 
@@ -442,10 +442,10 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    * 设置飞书用户信息
    */
   setUserInfo(userInfo: FeishuUserInfo): void {
-    proxyAuthManager.setUserInfo(userInfo);
+    proxyAuthManager.setUserInfo(userInfo)
     // 只在调试模式下显示详细日志
     if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-      console.log(`[ClawMaster Runtime] User info configured: ${userInfo.name}`);
+      console.log(`[ClawMaster Runtime] User info configured: ${userInfo.name}`)
     }
   }
 
@@ -454,20 +454,20 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    */
   async verifyFeishuAuth(): Promise<boolean> {
     try {
-      const userInfo = proxyAuthManager.getUserInfo();
+      const userInfo = proxyAuthManager.getUserInfo()
       if (userInfo) {
         // 只在调试模式下显示详细日志
         if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-          console.log(`[ClawMaster Runtime] User info found: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+          console.log(`[ClawMaster Runtime] User info found: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`)
         }
-        return true;
+        return true
       } else {
-        console.warn(`[ClawMaster Runtime] No user info found, please login first`);
-        return false;
+        console.warn('[ClawMaster Runtime] No user info found, please login first');
+        return false
       }
     } catch (error) {
-      console.error(`[ClawMaster Runtime] Authentication check failed:`, error);
-      return false;
+      console.error('[ClawMaster Runtime] Authentication check failed:', error)
+      return false
     }
   }
 
@@ -476,46 +476,46 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    * 针对 Claude、Kimi、GLM 等对消息格式要求严格的模型
    */
   private cleanContents(contents: DynamicContent[]): DynamicContent[] {
-    if (!Array.isArray(contents)) return contents;
+    if (!Array.isArray(contents)) return contents
 
-    const consolidated: DynamicContent[] = [];
-    let accumulatedReasoning: DynamicPart[] = [];
+    const consolidated: DynamicContent[] = []
+    let accumulatedReasoning: DynamicPart[] = []
 
     for (const content of contents) {
       // 深度拷贝消息，同时过滤掉无效的空文本/空白字符块，防止传给服务端后转换为大模型格式（如 Anthropic）时报错
       const clonedParts = content.parts
         ? content.parts.filter((part) => {
-            if (part.text !== undefined) {
-              return part.text.trim() !== '';
+          if (part.text !== undefined) {
+            return part.text.trim() !== ''
             }
-            return true;
+          return true
           })
-        : [];
+        : []
 
       const clonedContent = {
         role: content.role,
-        parts: clonedParts
+        parts: clonedParts,
       };
 
       if (clonedContent.role === MESSAGE_ROLES.MODEL) {
-        const parts = clonedContent.parts || [];
+        const parts = clonedContent.parts || []
 
         // 分离思维部分与非思维部分（如文本、工具调用等）
-        const reasoningParts = parts.filter((part) => part.reasoning !== undefined);
-        const nonReasoningParts = parts.filter((part) => part.reasoning === undefined);
+        const reasoningParts = parts.filter(part => part.reasoning !== undefined)
+        const nonReasoningParts = parts.filter(part => part.reasoning === undefined)
 
         // 如果包含思维链，则累积暂存
         if (reasoningParts.length > 0) {
-          accumulatedReasoning.push(...reasoningParts);
+          accumulatedReasoning.push(...reasoningParts)
         }
 
         // 如果含有非思维的实质部分（文本、工具调用等），则保留该消息，并合并已暂存的思维链
         if (nonReasoningParts.length > 0) {
           if (accumulatedReasoning.length > 0) {
-            clonedContent.parts = [...accumulatedReasoning, ...nonReasoningParts];
-            accumulatedReasoning = []; // 消费后清除暂存
+            clonedContent.parts = [...accumulatedReasoning, ...nonReasoningParts]
+            accumulatedReasoning = [] // 消费后清除暂存
           } else {
-            clonedContent.parts = nonReasoningParts;
+            clonedContent.parts = nonReasoningParts
           }
 
           // 🔧 合并同一回合内连续的 model 消息
@@ -523,36 +523,36 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           // 需要将它们合并为单个 Content（包含 reasoning、text、functionCall）。
           // 否则 Server genaiAdapter 会将其转为多条 assistant 消息，
           // 导致 Kimi K2.6 等模型因 tool_call 消息缺少 reasoning_content 而报错。
-          const lastConsolidated = consolidated[consolidated.length - 1];
+          const lastConsolidated = consolidated[consolidated.length - 1]
           if (lastConsolidated && lastConsolidated.role === MESSAGE_ROLES.MODEL) {
-            lastConsolidated.parts!.push(...clonedContent.parts);
+            lastConsolidated.parts!.push(...clonedContent.parts)
           } else {
-            consolidated.push(clonedContent);
+            consolidated.push(clonedContent)
           }
         } else {
           // 如果是纯思维链消息（无任何实质正文/工具调用），且已经累积，则安全跳过此独立消息，避免发送连续的助手消息
-          continue;
+          continue
         }
       } else {
         // 遇到非 model 消息（user 或 tool），说明当前助手回合结束。清空暂存，防止跨回合污染
-        accumulatedReasoning = [];
-        consolidated.push(clonedContent);
+        accumulatedReasoning = []
+        consolidated.push(clonedContent)
       }
     }
 
-    const cleaned = consolidated.filter(content => {
+    const cleaned = consolidated.filter((content) => {
       // 1. 移除没有 parts 的消息
-      if (!content.parts || content.parts.length === 0) return false;
+      if (!content.parts || content.parts.length === 0) return false
 
       // 2. 检查 parts 是否有效
       const hasValidPart = content.parts.some((part) => {
         // 如果是文本，必须非空
-        if (part.text !== undefined) return part.text.trim() !== '';
+        if (part.text !== undefined) return part.text.trim() !== ''
         // 其他类型（functionCall, functionResponse, reasoning, etc.）视为有效
-        return true;
+        return true
       });
 
-      return hasValidPart;
+      return hasValidPart
     });
 
     // 🛡️ 协议安全网：删除"真孤儿 functionResponse"（找不到任何可配对 functionCall）
@@ -561,35 +561,35 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     // 上下文压缩/历史截断可能切掉 functionCall 却保留其 functionResponse，
     // 该孤儿转 OpenAI 格式后变成无前驱 tool_calls 的 role:'tool' → 严格网关 400。
     // 此清理对 Gemini / Claude / OpenAI 三家均无害：合法配对全部保留，仅删真孤儿。
-    const orphanCleaned = this.removeOrphanedToolResponses(cleaned);
+    const orphanCleaned = this.removeOrphanedToolResponses(cleaned)
 
     // 🔧 安全保障：确保清理后 contents 不以 model/assistant 结尾
     // 某些模型（如 AWS Bedrock Claude）不支持 assistant prefill，
     // 要求对话必须以 user 消息结尾。过滤空消息后末尾可能变成 model。
     if (orphanCleaned.length > 0 && orphanCleaned[orphanCleaned.length - 1].role === MESSAGE_ROLES.MODEL) {
-      logger.warn('[cleanContents] Contents ends with model message after cleanup — appending user placeholder');
+      logger.warn('[cleanContents] Contents ends with model message after cleanup — appending user placeholder')
       orphanCleaned.push({
         role: MESSAGE_ROLES.USER,
         parts: [{ text: '[Conversation continues]' }],
-      });
+      })
     }
 
     // 🆕 调试日志：输出整理后的历史结构，帮助诊断多轮对话中的思维块合并情况
     if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-      console.log(`[cleanContents] 整理后的历史记录列表 (共 ${orphanCleaned.length} 条):`);
+      console.log(`[cleanContents] 整理后的历史记录列表 (共 ${orphanCleaned.length} 条):`)
       orphanCleaned.forEach((c, idx) => {
         const partTypes = (c.parts || []).map((part) => {
-          if (part.text !== undefined) return `text(${part.text.length})`;
-          if (part.functionCall) return `functionCall(${part.functionCall.name})`;
-          if (part.functionResponse) return `functionResponse(${part.functionResponse.name})`;
-          if (part.reasoning) return `reasoning(${part.reasoning.length})`;
-          return 'unknown';
+          if (part.text !== undefined) return `text(${part.text.length})`
+          if (part.functionCall) return `functionCall(${part.functionCall.name})`
+          if (part.functionResponse) return `functionResponse(${part.functionResponse.name})`
+          if (part.reasoning) return `reasoning(${part.reasoning.length})`
+          return 'unknown'
         });
-        console.log(`  [${idx}] role=${c.role} parts=[${partTypes.join(', ')}]`);
+        console.log(`  [${idx}] role=${c.role} parts=[${partTypes.join(', ')}]`)
       });
     }
 
-    return orphanCleaned;
+    return orphanCleaned
   }
 
   /**
@@ -618,78 +618,78 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    *   - 孤儿 functionResponse 本就是三家协议的共同禁忌，删除只会让请求更合法。
    */
   private removeOrphanedToolResponses(contents: DynamicContent[]): DynamicContent[] {
-    if (!Array.isArray(contents) || contents.length === 0) return contents;
+    if (!Array.isArray(contents) || contents.length === 0) return contents
 
     // 快速通道：没有任何 functionResponse 时直接返回，零开销、零改动
     const hasAnyFunctionResponse = contents.some(
-      (content) => Array.isArray(content.parts) && content.parts.some((part) => part.functionResponse),
-    );
-    if (!hasAnyFunctionResponse) return contents;
+      content => Array.isArray(content.parts) && content.parts.some(part => part.functionResponse),
+    )
+    if (!hasAnyFunctionResponse) return contents
 
     // 1) 扫描所有 functionCall，每个 fc 建一个"配对槽"（含 id?/name，初始未消耗）。
     //    以 fc 为单位建槽是关键：一个 fc 同时有 id 和 name 时只能配 1 个 fr，
     //    绝不能让 id 和 name 各放行一个 fr（否则一个 fc 被算成 2 份配对额度）。
-    const slots: Array<{ id?: string; name?: string; consumed: boolean }> = [];
+    const slots: Array<{ id?: string; name?: string; consumed: boolean }> = []
     for (const content of contents) {
-      if (!Array.isArray(content?.parts)) continue;
+      if (!Array.isArray(content?.parts)) continue
       for (const part of content.parts) {
-        const fc = part?.functionCall;
-        if (!fc) continue;
-        slots.push({ id: fc.id, name: fc.name, consumed: false });
+        const fc = part?.functionCall
+        if (!fc) continue
+        slots.push({ id: fc.id, name: fc.name, consumed: false })
       }
     }
 
     // 2) 遍历每条消息，为每个 functionResponse 寻找一个未消耗的配对槽
-    let removedCount = 0;
-    const result: DynamicContent[] = [];
+    let removedCount = 0
+    const result: DynamicContent[] = []
     for (const content of contents) {
       if (!Array.isArray(content?.parts)) {
-        result.push(content);
+        result.push(content)
         continue;
       }
 
       const keptParts = content.parts.filter((part) => {
-        const fr = part?.functionResponse;
-        if (!fr) return true; // 非 functionResponse 一律保留
+        const fr = part?.functionResponse
+        if (!fr) return true // 非 functionResponse 一律保留
 
         // 优先 id 精确配对：找一个未消耗、id 相同的槽
         if (fr.id) {
-          const slot = slots.find((s) => !s.consumed && s.id === fr.id);
+          const slot = slots.find(s => !s.consumed && s.id === fr.id)
           if (slot) {
-            slot.consumed = true;
-            return true;
+            slot.consumed = true
+            return true
           }
         }
         // 回退 name 配对：找一个未消耗、name 相同的槽（覆盖 Gemini 无 id 及并行同名）
         if (fr.name) {
-          const slot = slots.find((s) => !s.consumed && s.name === fr.name);
+          const slot = slots.find(s => !s.consumed && s.name === fr.name)
           if (slot) {
-            slot.consumed = true;
-            return true;
+            slot.consumed = true
+            return true
           }
         }
         // 真孤儿：没有任何可配对的 functionCall 槽
-        removedCount++;
+        removedCount++
         logger.warn(
-          `[removeOrphanedToolResponses] ❌ Removing orphaned functionResponse: ` +
+          '[removeOrphanedToolResponses] ❌ Removing orphaned functionResponse: ' +
           `${fr.name} (id: ${fr.id ?? 'n/a'}) — no matching functionCall found.`,
-        );
-        return false;
+        )
+        return false
       });
 
       // 若该消息所有 part 都被删空，则整条丢弃；否则保留（可能含其他 part）
       if (keptParts.length > 0) {
-        result.push(keptParts.length === content.parts.length ? content : { ...content, parts: keptParts });
+        result.push(keptParts.length === content.parts.length ? content : { ...content, parts: keptParts })
       }
     }
 
     if (removedCount > 0) {
       logger.warn(
         `[removeOrphanedToolResponses] Removed ${removedCount} orphaned functionResponse(s) before sending to cloud.`,
-      );
+      )
     }
 
-    return result;
+    return result
   }
 
   /**
@@ -699,53 +699,53 @@ export class ClawMasterServerAdapter implements ContentGenerator {
   async generateContent(request: GenerateContentParameters, scene: SceneType): Promise<GenerateContentResponse> {
     try {
       // 1. 构建统一的GenAI格式请求
-      const sceneModel = SceneManager.getModelForScene(scene);
-      const userModel = this.config?.getModel();
+      const sceneModel = SceneManager.getModelForScene(scene)
+      const userModel = this.config?.getModel()
 
       // 🆕 如果用户使用自定义模型，辅助场景（非主对话场景）应该也使用用户的自定义模型
       // 这样可以避免在使用自定义模型时仍然调用 ClawMaster API
-      let modelToUse: string;
+      let modelToUse: string
       if (userModel && isCustomModel(userModel)) {
         // 用户使用自定义模型时：
         // - 如果 request.model 也是自定义模型，使用 request.model
         // - 否则使用用户的自定义模型（忽略场景固定模型）
         if (request.model && isCustomModel(request.model)) {
-          modelToUse = request.model;
+          modelToUse = request.model
         } else {
-          modelToUse = userModel;
+          modelToUse = userModel
         }
-        console.log(`[ClawMaster Runtime] User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
+        console.log(`[ClawMaster Runtime] User is using custom model, overriding scene model for ${scene}: ${modelToUse}`)
       } else {
         // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
         // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
-        modelToUse = request.model || sceneModel || userModel || 'auto';
+        modelToUse = request.model || sceneModel || userModel || 'auto'
       }
 
       // 检查是否为自定义模型
       if (isCustomModel(modelToUse) && this.config) {
-        const customModelConfig = this.config.getCustomModelConfig(modelToUse);
+        const customModelConfig = this.config.getCustomModelConfig(modelToUse)
         if (customModelConfig) {
-          console.log(`[ClawMaster Runtime] Using custom model: ${customModelConfig.displayName}`);
+          console.log(`[ClawMaster Runtime] Using custom model: ${customModelConfig.displayName}`)
           // 🆕 注入会话级/项目级 thinking 配置
-          const thinkingOverride = this.config.getThinkingConfig();
+          const thinkingOverride = this.config.getThinkingConfig()
           const resolvedConfig = {
             ...customModelConfig,
             ...(thinkingOverride && { thinking: thinkingOverride }),
-          };
-          return await callCustomModel(resolvedConfig, request, request.config?.abortSignal);
+          }
+          return await callCustomModel(resolvedConfig, request, request.config?.abortSignal)
         } else {
           // 保留 "configuration not found" 英文关键短语，便于上层 errorParsing 识别并友好化；
           // 同时追加可读中文与自助修复指引，避免该错误若被直接展示给用户时不可读。
           throw new Error(
             `Custom model configuration not found for: ${modelToUse}。` +
               `未找到该自定义模型「${modelToUse}」的配置，请用 /model 重新选择，或运行 clawmaster setup 重新配置。`,
-          );
+          )
         }
       }
 
       // 详细的模型决策日志 - 仅在调试模式下显示
       if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-        console.log(`[🎯 Model Resolution] Using model: ${modelToUse} for scene: ${scene}`);
+        console.log(`[🎯 Model Resolution] Using model: ${modelToUse} for scene: ${scene}`)
       }
 
       // 🆕 注入走 GenAI 格式 (ClawMaster 服务端代理) 的思考模式适配
@@ -753,7 +753,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         modelToUse,
         (request.config ?? {}) as unknown as ProxyRequestConfig,
         this.config?.getThinkingConfig(),
-      );
+      )
 
       const unifiedRequest = {
         model: modelToUse,
@@ -767,28 +767,28 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               ...resolvedConfig.httpOptions?.headers,
               'X-Scene-Type': scene,
               'X-Scene-Display': SceneManager.getSceneDisplayName(scene),
-            }
+            },
           }
-        }
+        },
       };
 
-      logger.info(`[ClawMaster Runtime] Calling unified chat API with model: ${modelToUse}`);
+      logger.info(`[ClawMaster Runtime] Calling unified chat API with model: ${modelToUse}`)
 
       // 2. 统一API调用 - 服务端处理所有模型差异
       // scene 是 SceneType 枚举，转为字符串后做合法性守卫，防止 "undefined" 流入服务端
-      const sceneValue = scene != null && String(scene) !== 'undefined' ? String(scene) : undefined;
-      const response = await this.callUnifiedChatAPI('/v1/chat/messages', unifiedRequest, request.config?.abortSignal, sceneValue);
+      const sceneValue = scene != null && String(scene) !== 'undefined' ? String(scene) : undefined
+      const response = await this.callUnifiedChatAPI('/v1/chat/messages', unifiedRequest, request.config?.abortSignal, sceneValue)
 
       // 3. 日志记录工具调用
       if (response.functionCalls && response.functionCalls.length > 0 && (process.env.DEBUG || process.env.NODE_ENV === 'development')) {
-        console.log(`[ClawMaster Runtime] Model called ${response.functionCalls.length} tool(s): ${response.functionCalls.map(fc => fc.name).join(', ')}`);
+        console.log(`[ClawMaster Runtime] Model called ${response.functionCalls.length} tool(s): ${response.functionCalls.map(fc => fc.name).join(', ')}`)
       }
 
-      console.log('[ClawMaster Runtime] Response received successfully', { model: modelToUse });
-      return response;
+      console.log('[ClawMaster Runtime] Response received successfully', { model: modelToUse })
+      return response
 
     } catch (error) {
-      return this.handleError(error);
+      return this.handleError(error)
     }
   }
 
@@ -807,39 +807,39 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         shouldRetry: (error: Error) => {
           // 🚫 ClawMaster配额错误(402) - 不重试，立即显示友好提示
           if (isClawMasterQuotaError(error)) {
-            return false;
+            return false
           }
           // 🚫 用户取消 - 不重试
           if (error.message.includes('cancelled by user') || error.name === 'AbortError') {
-            return false;
+            return false
           }
           // 🚫 认证错误 - 不重试
           if (error.message.includes('401') || error instanceof UnauthorizedError) {
-            return false;
+            return false
           }
           // 🚫 区域封锁 - 不重试
           if (error.message.includes('451') || error.message.includes('REGION_BLOCKED')) {
-            return false;
+            return false
           }
           // ✅ 429 限流 - 重试
           if (error.message.includes('429')) {
-            return true;
+            return true
           }
           // ✅ 5xx 服务器错误 - 重试
           if (error.message.match(/5\d{2}/)) {
-            return true;
+            return true
           }
           // ✅ 传输中断/连接异常 - 重试
-          const errorMessage = error.message.toLowerCase();
-          const retriableError = error as RetriableProxyError;
-          const errorCode = retriableError.cause?.code ?? retriableError.code;
+          const errorMessage = error.message.toLowerCase()
+          const retriableError = error as RetriableProxyError
+          const errorCode = retriableError.cause?.code ?? retriableError.code
           if (
             errorMessage.includes('terminated') ||
             errorMessage.includes('socket hang up') ||
             errorMessage.includes('connection closed') ||
             errorMessage.includes('other side closed')
           ) {
-            return true;
+            return true
           }
           if (
             errorCode &&
@@ -852,18 +852,18 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               'UND_ERR_SOCKET',
               'UND_ERR_CONNECT_TIMEOUT',
               'UND_ERR_HEADERS_TIMEOUT',
-              'UND_ERR_BODY_TIMEOUT'
+              'UND_ERR_BODY_TIMEOUT',
             ].includes(errorCode)
           ) {
-            return true;
+            return true
           }
           // ✅ 网络连接错误 - 重试
           if (error instanceof TypeError && error.message.includes('fetch failed')) {
-            return true;
+            return true
           }
-          return false;
+          return false
         },
-      }
+      },
     );
   }
 
@@ -872,26 +872,26 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    * 被 callUnifiedChatAPI 通过 retryWithBackoff 包装调用
    */
   private async executeUnifiedChatAPICall(endpoint: string, requestBody: ProxyRequestBody, abortSignal?: AbortSignal, sceneType?: string): Promise<GenerateContentResponse> {
-    const userHeaders = await proxyAuthManager.getUserHeaders(sceneType);
+    const userHeaders = await proxyAuthManager.getUserHeaders(sceneType)
     const proxyUrl = buildProxyRequestUrl(
       proxyAuthManager.getProxyServerUrl(),
       endpoint,
-    );
+    )
 
-    const controller = new AbortController();
-    let abortListener: (() => void) | null = null;
+    const controller = new AbortController()
+    let abortListener: (() => void) | null = null
 
     if (abortSignal) {
       // 🚨 防止内存泄漏：检查传入的signal是否已被中止
       if (abortSignal.aborted) {
-        controller.abort();
+        controller.abort()
       } else {
         const handleAbort = () => {
-          console.log('[ClawMaster Runtime] Request cancelled by user');
-          controller.abort();
+          console.log('[ClawMaster Runtime] Request cancelled by user')
+          controller.abort()
         };
-        abortSignal.addEventListener('abort', handleAbort);
-        abortListener = () => abortSignal.removeEventListener('abort', handleAbort);
+        abortSignal.addEventListener('abort', handleAbort)
+        abortListener = () => abortSignal.removeEventListener('abort', handleAbort)
       }
     }
 
@@ -903,23 +903,23 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     //   - 保护完整响应体的接收和 JSON 反序列化
     //   - 总请求时间 = 连接等待 + 数据接收 + 解析，均有保护
     const fetchTimeoutId = setTimeout(() => {
-      console.warn('[ClawMaster Runtime] API fetch timeout - aborting connection layer after 300s. Try: check your network, or say "continue" to retry.');
-      controller.abort();
-    }, 300000);
+      console.warn('[ClawMaster Runtime] API fetch timeout - aborting connection layer after 300s. Try: check your network, or say "continue" to retry.')
+      controller.abort()
+    }, 300000)
 
     // 🆕 数据层超时句柄提到外层作用域：在 try 内创建（833 行），
     // 但要让 catch / finally 也能看到并清理它，否则当
     // withTimeout(response.json()) reject 时这个 300s 幽灵定时器永不清除，
     // 会一直拖住 AbortController 闭包并在 300s 后对已结束请求误触发 abort。
-    let dataTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let dataTimeoutId: ReturnType<typeof setTimeout> | null = null
 
-    const startTime = Date.now();
+    const startTime = Date.now()
 
     try {
       console.log('[ClawMaster Runtime] Making unified API call', {
         endpoint,
         url: proxyUrl,
-        model: requestBody.model
+        model: requestBody.model,
       });
 
       // 🔍 [STOP-DEBUG][adapter] Outgoing tool manifest — non-stream path.
@@ -929,26 +929,26 @@ export class ClawMasterServerAdapter implements ContentGenerator {
       // 那就是 server 端的过滤/转换 bug。详见 client.ts:~500 (toolRegistry.
       // getFunctionDeclarations())。
       try {
-        const tools = requestBody.config?.tools;
+        const tools = requestBody.config?.tools
         const names = Array.isArray(tools)
           ? tools.flatMap((tool): string[] => {
-              if (!isRecord(tool) || !Array.isArray(tool.functionDeclarations)) return [];
+            if (!isRecord(tool) || !Array.isArray(tool.functionDeclarations)) return []
               return tool.functionDeclarations.flatMap((declaration): string[] =>
-                isRecord(declaration) && typeof declaration.name === 'string'
-                  ? [declaration.name]
-                  : [],
-              );
-            })
-          : [];
+              isRecord(declaration) && typeof declaration.name === 'string'
+                ? [declaration.name]
+                : [],
+            );
+          })
+          : []
         console.log(
           `[STOP-DEBUG][adapter] → ${endpoint} model=${requestBody.model} tools(${names.length})=[${names.join(', ')}]`,
-        );
+        )
       } catch {
         // 日志不能障碍请求
       }
 
       // 落盘出站请求体（异步，不阻塞 fetch；默认关闭，FILE_DEBUG=1 开启）。
-      dumpOutboundRequest('unified', requestBody);
+      dumpOutboundRequest('unified', requestBody)
 
       const response = await fetch(proxyUrl, {
         method: 'POST',
@@ -958,51 +958,51 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         },
         body: JSON.stringify(requestBody),
         signal: controller.signal,
-      });
+      })
 
       // 🚨 获取响应头后清理连接层超时，启用数据层超时
       // 响应头已收到说明连接正常，现在保护响应体接收和解析阶段
-      clearTimeout(fetchTimeoutId);
+      clearTimeout(fetchTimeoutId)
       dataTimeoutId = setTimeout(() => {
-        console.warn('[ClawMaster Runtime] API data timeout - response.json() taking too long (>300s) in data layer. Try: check your network, say "continue" to retry, or try a different model.');
-        controller.abort();
-      }, 300000);
+        console.warn('[ClawMaster Runtime] API data timeout - response.json() taking too long (>300s) in data layer. Try: check your network, say "continue" to retry, or try a different model.')
+        controller.abort()
+      }, 300000)
 
       if (!response.ok) {
-        clearTimeout(dataTimeoutId);
-        const errorText = await response.text();
+        clearTimeout(dataTimeoutId)
+        const errorText = await response.text()
 
         // 401错误特殊处理
         if (response.status === 401 && isOurAuthError(errorText)) {
-          console.error('[ClawMaster Runtime] 401 Unauthorized - triggering auth dialog');
+          console.error('[ClawMaster Runtime] 401 Unauthorized - triggering auth dialog')
           if (this.authHandler) {
-            await this.authHandler();
+            await this.authHandler()
           }
-          throw new UnauthorizedError('Authentication required - please re-authenticate');
+          throw new UnauthorizedError('Authentication required - please re-authenticate')
         }
 
         // 451错误特殊处理 - 立即中断
         if (response.status === 451) {
-          console.error('[ClawMaster Runtime] 451 Region Blocked - IMMEDIATE ABORT');
+          console.error('[ClawMaster Runtime] 451 Region Blocked - IMMEDIATE ABORT')
           // 立即中断当前请求
-          controller.abort();
+          controller.abort()
           // 抛出特殊异常立即中断事件循环
-          throw new Error(`REGION_BLOCKED_451: ${errorText}`);
+          throw new Error(`REGION_BLOCKED_451: ${errorText}`)
         }
 
         // 🆕 为 429/5xx 错误创建带状态码的错误对象，便于重试逻辑判断
-        const apiError = new Error(`API request failed (${response.status}): ${errorText}`);
-        const retriableError = apiError as RetriableProxyError;
-        retriableError.status = response.status;
+        const apiError = new Error(`API request failed (${response.status}): ${errorText}`)
+        const retriableError = apiError as RetriableProxyError
+        retriableError.status = response.status
         // 🆕 尝试解析 Retry-After 头，传递给重试逻辑
-        const retryAfter = response.headers.get('retry-after');
+        const retryAfter = response.headers.get('retry-after')
         if (retryAfter) {
           retriableError.response = {
             status: response.status,
-            headers: { 'retry-after': retryAfter }
+            headers: { 'retry-after': retryAfter },
           };
         }
-        throw apiError;
+        throw apiError
       }
 
       // 🚨 第三层保护：response.json() 解析也有独立的 300s 超时
@@ -1010,57 +1010,57 @@ export class ClawMasterServerAdapter implements ContentGenerator {
       const responseData = await this.withTimeout(
         response.json() as Promise<GenerateContentResponse>,
         300000,
-        '[ClawMaster Runtime] API response parsing timeout after 300s - JSON.parse() or streaming took too long. Try: check your network, say "continue" to retry, or try a different model.'
+        '[ClawMaster Runtime] API response parsing timeout after 300s - JSON.parse() or streaming took too long. Try: check your network, say "continue" to retry, or try a different model.',
       );
-      clearTimeout(dataTimeoutId);
+      clearTimeout(dataTimeoutId)
 
       // 确保响应对象有 functionCalls getter
       if (!responseData.functionCalls) {
         Object.defineProperty(responseData, 'functionCalls', {
           get() {
             if (this.candidates?.[0]?.content?.parts?.length === 0) {
-              return undefined;
+              return undefined
             }
             if (this.candidates && this.candidates.length > 1) {
               console.warn(
                 'there are multiple candidates in the response, returning function calls from the first one.',
-              );
+              )
             }
-            const functionCalls = getFunctionCalls(this as GenerateContentResponse);
+            const functionCalls = getFunctionCalls(this as GenerateContentResponse)
             if (functionCalls?.length === 0) {
-              return undefined;
+              return undefined
             }
-            return functionCalls;
+            return functionCalls
           },
           enumerable: false,
-          configurable: true
+          configurable: true,
         });
       }
 
-      const duration = Date.now() - startTime;
+      const duration = Date.now() - startTime
       console.log('[ClawMaster Runtime] API call completed', {
         endpoint,
         duration: `${duration}ms`,
-        status: response.status
+        status: response.status,
       });
 
-      return responseData;
+      return responseData
 
     } catch (error) {
-      const duration = Date.now() - startTime;
+      const duration = Date.now() - startTime
 
       // 🚨 清理资源：移除abort监听器和所有超时定时器
       if (abortListener) {
-        abortListener();
+        abortListener()
       }
-      clearTimeout(fetchTimeoutId);
-      if (dataTimeoutId) clearTimeout(dataTimeoutId);
+      clearTimeout(fetchTimeoutId)
+      if (dataTimeoutId) clearTimeout(dataTimeoutId)
 
       // 用户取消请求的优雅处理
       if (error instanceof Error &&
           (error.message.includes('cancelled by user') || error.name === 'AbortError')) {
-        console.log('⚠️  任务已取消');
-        throw error;
+        console.log('⚠️  任务已取消')
+        throw error
       }
 
       // 超时错误处理
@@ -1068,29 +1068,29 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         logger.warn('[ClawMaster Runtime] Request timeout', {
           endpoint,
           duration: `${duration}ms`,
-          reason: error.message
+          reason: error.message,
         });
       } else if (error instanceof Error && error.message.includes('abort')) {
         logger.warn('[ClawMaster Runtime] Request aborted', {
           endpoint,
           duration: `${duration}ms`,
-          reason: error.message
+          reason: error.message,
         });
       } else {
         logger.error('[ClawMaster Runtime] API call failed', {
           endpoint,
           duration: `${duration}ms`,
-          error: error instanceof Error ? error.message : error
+          error: error instanceof Error ? error.message : error,
         });
       }
 
-      throw error;
+      throw error
     } finally {
       // 🚨 最终清理：确保资源一定被释放
-      clearTimeout(fetchTimeoutId);
-      if (dataTimeoutId) clearTimeout(dataTimeoutId);
+      clearTimeout(fetchTimeoutId)
+      if (dataTimeoutId) clearTimeout(dataTimeoutId)
       if (abortListener) {
-        abortListener();
+        abortListener()
       }
     }
   }
@@ -1104,68 +1104,68 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     // 🚨 特殊处理用户中断 - 优雅处理，不显示错误堆栈
     if (error instanceof Error &&
         (error.message.includes('cancelled by user') || error.name === 'AbortError')) {
-      throw error;
+      throw error
     }
 
     // 🚨 特殊处理网络连接错误
     const isConnectionError = error instanceof TypeError &&
       (error.message.includes('fetch failed') ||
        error.message.includes('ECONNREFUSED') ||
-       (error as RetriableProxyError).cause?.code === 'ECONNREFUSED');
+       (error as RetriableProxyError).cause?.code === 'ECONNREFUSED')
 
     if (isConnectionError) {
-      console.error(`❌ 无法连接到服务器，请检查网络连接或服务器状态`);
+      console.error('❌ 无法连接到服务器，请检查网络连接或服务器状态');
     } else {
-      console.error('[ClawMaster Runtime] Error in generateContent:', error);
+      console.error('[ClawMaster Runtime] Error in generateContent:', error)
     }
 
     // 🚨 特殊处理401错误 - 提供更友好的错误信息
     if (error instanceof Error && (error as Error & { isAuthError?: boolean }).isAuthError) {
       const friendlyError = new Error(
         `Authentication failed (401): ${error.message}\n\n` +
-        `Please check your Feishu authentication token and try again.\n` +
-        `If the problem persists, you may need to re-authenticate.`
-      );
-      const annotatedError = friendlyError as Error & { isAuthError?: boolean; statusCode?: number };
-      annotatedError.isAuthError = true;
-      annotatedError.statusCode = 401;
-      throw friendlyError;
+        'Please check your Feishu authentication token and try again.\n' +
+        'If the problem persists, you may need to re-authenticate.'
+      )
+      const annotatedError = friendlyError as Error & { isAuthError?: boolean; statusCode?: number }
+      annotatedError.isAuthError = true
+      annotatedError.statusCode = 401
+      throw friendlyError
     }
 
 
-    throw error;
+    throw error
   }
 
   async generateContentStream(request: GenerateContentParameters, scene: SceneType): Promise<AsyncGenerator<GenerateContentResponse>> {
     // 检查是否为自定义模型
-    const sceneModel = SceneManager.getModelForScene(scene);
-    const userModel = this.config?.getModel();
+    const sceneModel = SceneManager.getModelForScene(scene)
+    const userModel = this.config?.getModel()
 
     // 🆕 如果用户使用自定义模型，辅助场景应该也使用用户的自定义模型
-    let modelToUse: string;
+    let modelToUse: string
     if (userModel && isCustomModel(userModel)) {
       // 用户使用自定义模型时：忽略场景固定模型，使用用户的自定义模型
       if (request.model && isCustomModel(request.model)) {
-        modelToUse = request.model;
+        modelToUse = request.model
       } else {
-        modelToUse = userModel;
+        modelToUse = userModel
       }
-      console.log(`[ClawMaster Runtime] (Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
+      console.log(`[ClawMaster Runtime] (Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`)
     } else {
-      modelToUse = request.model || sceneModel || userModel || 'auto';
+      modelToUse = request.model || sceneModel || userModel || 'auto'
     }
 
     if (isCustomModel(modelToUse) && this.config) {
-      const customModelConfig = this.config.getCustomModelConfig(modelToUse);
+      const customModelConfig = this.config.getCustomModelConfig(modelToUse)
       if (customModelConfig) {
-        console.log(`[ClawMaster Runtime] Custom model detected, using streaming mode`);
+        console.log('[ClawMaster Runtime] Custom model detected, using streaming mode');
         // 🆕 注入会话级/项目级 thinking 配置
-        const thinkingOverride = this.config.getThinkingConfig();
+        const thinkingOverride = this.config.getThinkingConfig()
         const resolvedConfig = {
           ...customModelConfig,
           ...(thinkingOverride && { thinking: thinkingOverride }),
-        };
-        return callCustomModelStream(resolvedConfig, request, request.config?.abortSignal);
+        }
+        return callCustomModelStream(resolvedConfig, request, request.config?.abortSignal)
       }
     }
 
@@ -1178,18 +1178,18 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     // "消息被打断"，但该限制在远程协议加入 thoughtId 聚合 + Thought/Reasoning
     // chunk 转发后已不再需要。流式体验对 thinking mode 至关重要，恢复默认行为。
     if (supportsSSEStreaming(request.model)) {
-      return this._generateContentStream(request, scene);
+      return this._generateContentStream(request, scene)
     } else {
       // 其他模型将非流式响应包装为流式格式
-      return this._generateContent(request, scene);
+      return this._generateContent(request, scene)
     }
   }
 
   async _generateContent(request: GenerateContentParameters, scene: SceneType): Promise<AsyncGenerator<GenerateContentResponse>> {
-    const response = await this.generateContent(request, scene);
+    const response = await this.generateContent(request, scene)
     return (async function* () {
-          yield response;
-    })();
+      yield response
+    })()
   }
 
   /**
@@ -1199,28 +1199,28 @@ export class ClawMasterServerAdapter implements ContentGenerator {
   async _generateContentStream(request: GenerateContentParameters, scene: SceneType): Promise<AsyncGenerator<GenerateContentResponse>> {
     try {
       // 构建流式请求
-      const sceneModel = SceneManager.getModelForScene(scene);
-      const userModel = this.config?.getModel();
+      const sceneModel = SceneManager.getModelForScene(scene)
+      const userModel = this.config?.getModel()
 
       // 🆕 如果用户使用自定义模型，辅助场景应该也使用用户的自定义模型
-      let modelToUse: string;
+      let modelToUse: string
       if (userModel && isCustomModel(userModel)) {
         // 用户使用自定义模型时：忽略场景固定模型，使用用户的自定义模型
         if (request.model && isCustomModel(request.model)) {
-          modelToUse = request.model;
+          modelToUse = request.model
         } else {
-          modelToUse = userModel;
+          modelToUse = userModel
         }
-        console.log(`[ClawMaster Runtime] (_Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
+        console.log(`[ClawMaster Runtime] (_Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`)
       } else {
         // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
         // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
-        modelToUse = request.model || sceneModel || userModel || 'auto';
+        modelToUse = request.model || sceneModel || userModel || 'auto'
       }
 
       // 详细的模型决策日志 - 仅在调试模式下显示
       if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-        console.log(`[🎯 Model Resolution (Stream)] Using model: ${modelToUse} for scene: ${scene}`);
+        console.log(`[🎯 Model Resolution (Stream)] Using model: ${modelToUse} for scene: ${scene}`)
       }
 
       // 🆕 注入走 GenAI 格式 (ClawMaster 服务端代理) 的思考模式适配 (流式)
@@ -1228,7 +1228,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         modelToUse,
         (request.config ?? {}) as unknown as ProxyRequestConfig,
         this.config?.getThinkingConfig(),
-      );
+      )
 
       const streamRequest = {
         model: modelToUse,
@@ -1243,24 +1243,24 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               ...resolvedConfig.httpOptions?.headers,
               'X-Scene-Type': scene,
               'X-Scene-Display': SceneManager.getSceneDisplayName(scene),
-            }
+            },
           }
-        }
+        },
       };
 
-      logger.info(`[ClawMaster Runtime] Starting stream with model: ${modelToUse}`);
+      logger.info(`[ClawMaster Runtime] Starting stream with model: ${modelToUse}`)
 
       // 调用流式API（错误处理已在callStreamAPI中统一处理）
       // scene 是 SceneType 枚举，转为字符串后做合法性守卫，防止 "undefined" 流入服务端
-      const sceneValue = scene != null && String(scene) !== 'undefined' ? String(scene) : undefined;
-      const response = await this.callStreamAPI('/v1/chat/stream', streamRequest, request.config?.abortSignal, sceneValue);
+      const sceneValue = scene != null && String(scene) !== 'undefined' ? String(scene) : undefined
+      const response = await this.callStreamAPI('/v1/chat/stream', streamRequest, request.config?.abortSignal, sceneValue)
 
       // 返回流式生成器
-      return this.createStreamGenerator(response, request.config?.abortSignal);
+      return this.createStreamGenerator(response, request.config?.abortSignal)
 
     } catch (error) {
-      logger.error('[ClawMaster Runtime] Stream request failed', { error });
-      return this.handleStreamError(error);
+      logger.error('[ClawMaster Runtime] Stream request failed', { error })
+      return this.handleStreamError(error)
     }
   }
 
@@ -1277,39 +1277,39 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         shouldRetry: (error: Error) => {
           // 🚫 ClawMaster配额错误(402) - 不重试，立即显示友好提示
           if (isClawMasterQuotaError(error)) {
-            return false;
+            return false
           }
           // 🚫 用户取消 - 不重试
           if (error.message.includes('cancelled by user') || error.name === 'AbortError') {
-            return false;
+            return false
           }
           // 🚫 认证错误 - 不重试
           if (error.message.includes('401') || error instanceof UnauthorizedError) {
-            return false;
+            return false
           }
           // 🚫 区域封锁 - 不重试
           if (error.message.includes('451') || error.message.includes('REGION_BLOCKED')) {
-            return false;
+            return false
           }
           // ✅ 429 限流 - 重试
           if (error.message.includes('429')) {
-            return true;
+            return true
           }
           // ✅ 5xx 服务器错误 - 重试
           if (error.message.match(/5\d{2}/)) {
-            return true;
+            return true
           }
           // ✅ 传输中断/连接异常 - 重试
-          const errorMessage = error.message.toLowerCase();
-          const retryError = error as RetriableProxyError;
-          const errorCode = retryError.cause?.code || retryError.code;
+          const errorMessage = error.message.toLowerCase()
+          const retryError = error as RetriableProxyError
+          const errorCode = retryError.cause?.code || retryError.code
           if (
             errorMessage.includes('terminated') ||
             errorMessage.includes('socket hang up') ||
             errorMessage.includes('connection closed') ||
             errorMessage.includes('other side closed')
           ) {
-            return true;
+            return true
           }
           if (
             errorCode &&
@@ -1322,18 +1322,18 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               'UND_ERR_SOCKET',
               'UND_ERR_CONNECT_TIMEOUT',
               'UND_ERR_HEADERS_TIMEOUT',
-              'UND_ERR_BODY_TIMEOUT'
+              'UND_ERR_BODY_TIMEOUT',
             ].includes(errorCode)
           ) {
-            return true;
+            return true
           }
           // ✅ 网络连接错误 - 重试
           if (error instanceof TypeError && error.message.includes('fetch failed')) {
-            return true;
+            return true
           }
-          return false;
+          return false
         },
-      }
+      },
     );
   }
 
@@ -1342,46 +1342,46 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    * 被 callStreamAPI 通过 retryWithBackoff 包装调用
    */
   private async executeStreamAPICall(endpoint: string, requestBody: ProxyRequestBody, abortSignal?: AbortSignal, sceneType?: string): Promise<Response> {
-    const userHeaders = await proxyAuthManager.getUserHeaders(sceneType);
+    const userHeaders = await proxyAuthManager.getUserHeaders(sceneType)
     const proxyUrl = buildProxyRequestUrl(
       proxyAuthManager.getProxyServerUrl(),
       endpoint,
-    );
+    )
 
     // 🔍 调试：打印代理相关信息（流式调用）- 仅在调试模式下显示
     if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-      console.log('🔍 [ClawMaster Debug Stream] Proxy environment variables:');
-      console.log('  HTTP_PROXY:', process.env.HTTP_PROXY);
-      console.log('  HTTPS_PROXY:', process.env.HTTPS_PROXY);
-      console.log('  http_proxy:', process.env.http_proxy);
-      console.log('  https_proxy:', process.env.https_proxy);
-      console.log('  Target URL:', proxyUrl);
+      console.log('🔍 [ClawMaster Debug Stream] Proxy environment variables:')
+      console.log('  HTTP_PROXY:', process.env.HTTP_PROXY)
+      console.log('  HTTPS_PROXY:', process.env.HTTPS_PROXY)
+      console.log('  http_proxy:', process.env.http_proxy)
+      console.log('  https_proxy:', process.env.https_proxy)
+      console.log('  Target URL:', proxyUrl)
 
       // 🔍 检查 undici 全局调度器（流式）
-      const globalDispatcher = getGlobalDispatcher();
-      console.log('🔍 [ClawMaster Debug Stream] Global dispatcher:', globalDispatcher?.constructor?.name || 'undefined');
-      const dispatcherWithUri = globalDispatcher as typeof globalDispatcher & { uri?: unknown };
+      const globalDispatcher = getGlobalDispatcher()
+      console.log('🔍 [ClawMaster Debug Stream] Global dispatcher:', globalDispatcher?.constructor?.name || 'undefined')
+      const dispatcherWithUri = globalDispatcher as typeof globalDispatcher & { uri?: unknown }
       if (typeof dispatcherWithUri?.uri === 'string') {
-        console.log('  Dispatcher URI:', dispatcherWithUri.uri);
+        console.log('  Dispatcher URI:', dispatcherWithUri.uri)
       }
     }
 
-    const controller = new AbortController();
-    let abortListener: (() => void) | null = null;
+    const controller = new AbortController()
+    let abortListener: (() => void) | null = null
 
     if (abortSignal) {
       // 🚨 防止内存泄漏：检查传入的signal是否已被中止
       if (abortSignal.aborted) {
-        controller.abort();
+        controller.abort()
       } else {
         const handleAbort = () => {
           if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-            console.log('[ClawMaster Runtime] Stream request cancelled by user');
+            console.log('[ClawMaster Runtime] Stream request cancelled by user')
           }
-          controller.abort();
+          controller.abort()
         };
-        abortSignal.addEventListener('abort', handleAbort);
-        abortListener = () => abortSignal.removeEventListener('abort', handleAbort);
+        abortSignal.addEventListener('abort', handleAbort)
+        abortListener = () => abortSignal.removeEventListener('abort', handleAbort)
       }
     }
 
@@ -1392,29 +1392,29 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     // 3. 全局定时器易导致定时器泄漏（流完成后无法清理）
     // 4. 用户可以通过 abortSignal 随时取消请求
 
-    const startTime = Date.now();
+    const startTime = Date.now()
 
     try {
       console.log('[ClawMaster Runtime] Making stream API call', {
         endpoint,
         url: proxyUrl,
-        model: requestBody.model
+        model: requestBody.model,
       });
 
       // 🔍 [STOP-DEBUG][adapter] Outgoing tool manifest — stream path.
       // 与 non-stream 路径同义，只是走的是 /v1/chat/stream。
       try {
-        const names = getProxyToolNames(requestBody);
+        const names = getProxyToolNames(requestBody)
         console.log(
           `[STOP-DEBUG][adapter] → ${endpoint} (stream) model=${requestBody.model} tools(${names.length})=[${names.join(', ')}]`,
-        );
+        )
       } catch {
         // 日志不能障碍请求
       }
 
       // 落盘出站请求体（异步，不阻塞 fetch；默认关闭）。
       // 用户报告问题时让他们带 FILE_DEBUG=1 复现，再把 ~/.clawmaster-user/last-requests/ 给我们做字节级对账。
-      dumpOutboundRequest('stream', requestBody);
+      dumpOutboundRequest('stream', requestBody)
 
       const response = await fetch(proxyUrl, {
         method: 'POST',
@@ -1425,57 +1425,57 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         },
         body: JSON.stringify(requestBody),
         signal: controller.signal,
-      });
+      })
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text()
 
         // 401错误特殊处理 - 与非流式API保持一致
         if (response.status === 401 && isOurAuthError(errorText)) {
-          console.error('[ClawMaster Runtime] Stream 401 Unauthorized - triggering auth dialog');
+          console.error('[ClawMaster Runtime] Stream 401 Unauthorized - triggering auth dialog')
           if (this.authHandler) {
-            await this.authHandler();
+            await this.authHandler()
           }
-          throw new UnauthorizedError('Authentication required - please re-authenticate');
+          throw new UnauthorizedError('Authentication required - please re-authenticate')
         }
 
         // 451错误特殊处理 - 立即中断
         if (response.status === 451) {
-          console.error('[ClawMaster Runtime] Stream 451 Region Blocked - IMMEDIATE ABORT');
+          console.error('[ClawMaster Runtime] Stream 451 Region Blocked - IMMEDIATE ABORT')
           // 立即中断当前请求
-          controller.abort();
+          controller.abort()
           // 抛出特殊异常立即中断事件循环
-          throw new Error(`REGION_BLOCKED_451: ${errorText}`);
+          throw new Error(`REGION_BLOCKED_451: ${errorText}`)
         }
 
         // 为 429/5xx 错误创建带状态码的错误对象，便于重试逻辑判断
         const apiError = new Error(`Stream API error (${response.status}): ${errorText}`);
-        (apiError as RetriableProxyError).status = response.status;
-        throw apiError;
+        (apiError as RetriableProxyError).status = response.status
+        throw apiError
       }
 
-      const duration = Date.now() - startTime;
+      const duration = Date.now() - startTime
       console.log('[ClawMaster Runtime] Stream API call initiated', {
         endpoint,
         duration: `${duration}ms`,
-        status: response.status
+        status: response.status,
       });
 
-      return response;
+      return response
 
     } catch (error) {
-      const duration = Date.now() - startTime;
+      const duration = Date.now() - startTime
 
       // 🚨 清理资源：移除abort监听器
       if (abortListener) {
-        abortListener();
+        abortListener()
       }
 
       // 用户取消请求的优雅处理
       if (error instanceof Error &&
           (error.message.includes('cancelled by user') || error.name === 'AbortError')) {
-        console.log('⚠️  流式任务已取消');
-        throw error;
+        console.log('⚠️  流式任务已取消')
+        throw error
       }
 
       // 超时错误处理
@@ -1483,21 +1483,21 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         logger.warn('[ClawMaster Runtime] Stream API aborted', {
           endpoint,
           duration: `${duration}ms`,
-          reason: error.message
+          reason: error.message,
         });
       } else {
         logger.error('[ClawMaster Runtime] Stream API call failed', {
           endpoint,
           duration: `${duration}ms`,
-          error: error instanceof Error ? error.message : error
+          error: error instanceof Error ? error.message : error,
         });
       }
 
-      throw error;
+      throw error
     } finally {
       // 清理abort监听器
       if (abortListener) {
-        abortListener();
+        abortListener()
       }
     }
   }
@@ -1515,15 +1515,15 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    * 设计意图：防止单个数据块卡顿，但允许完整的流式响应任意长
    */
   private async *createStreamGenerator(response: Response, abortSignal?: AbortSignal): AsyncGenerator<GenerateContentResponse> {
-    const reader = response.body?.getReader();
+    const reader = response.body?.getReader()
     if (!reader) {
-      throw new Error('No stream reader available');
+      throw new Error('No stream reader available')
     }
 
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let totalBytesRead = 0;
-    let lastUsageMetadata: Record<string, unknown> | null = null;
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let totalBytesRead = 0
+    let lastUsageMetadata: Record<string, unknown> | null = null
 
     // 🛡️ 工具调用累积器：服务端常常把同一个 functionCall 拆成多个 SSE chunk
     // 推送（先 name、再分批 args、最后 finishReason）。如果客户端把每个 chunk
@@ -1536,31 +1536,31 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     // 才 yield 一次完整的合并 chunk。纯文本 chunk 仍然立即 yield，保留流式打字体感。
     //
     // 注：mergeStreamContent 之前是死代码（定义但从未调用）；此处启用它。
-    let accumulatedToolChunk: GenerateContentResponse | null = null;
+    let accumulatedToolChunk: GenerateContentResponse | null = null
 
     // 🎯 关键保护机制：监听客户端取消信号
     // 当用户中断时，立即释放流读取器并停止消费数据
     const handleAbort = () => {
-      console.log('[ClawMaster Runtime] Stream cancelled by user - releasing reader and stopping consumption');
+      console.log('[ClawMaster Runtime] Stream cancelled by user - releasing reader and stopping consumption')
       try {
-        reader.cancel();  // 立即取消流读取
+        reader.cancel()  // 立即取消流读取
       } catch {
         // 忽略cancel可能抛出的错误
       }
-    };
+    }
 
     // 为 abortSignal 添加监听器，一旦用户取消就立即调用 handleAbort
-    let abortListener: (() => void) | undefined;
+    let abortListener: (() => void) | undefined
     if (abortSignal && !abortSignal.aborted) {
-      abortListener = handleAbort;
-      abortSignal.addEventListener('abort', abortListener);
+      abortListener = handleAbort
+      abortSignal.addEventListener('abort', abortListener)
     }
 
     try {
       while (true) {
         // 检查是否被用户中止（二次检查 + 快速退出）
         if (abortSignal?.aborted) {
-          console.log('[ClawMaster Runtime] Stream generation cancelled by user - exiting loop');
+          console.log('[ClawMaster Runtime] Stream generation cancelled by user - exiting loop')
 
           // 📊 记录部分消费的tokens（如果有）
           if (lastUsageMetadata) {
@@ -1570,34 +1570,34 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               totalTokens: getUsageCount(lastUsageMetadata, 'totalTokenCount'),
               stoppedReason: 'user_cancelled',
               bytesReceived: totalBytesRead,
-            });
+            })
           }
-          break;
+          break
         }
 
         // ⏱️ 为每个 read() 添加 300 秒的空闲超时
         // 保护机制：如果 300 秒内没有收到任何数据，认为连接已断或服务无响应
         // 但流中每来一个数据块，计时器就重置（新的 read() 调用）
-        let readResult;
+        let readResult
         try {
           readResult = await this.withTimeout(
             reader.read(),
             300000,
-            '[ClawMaster Runtime] Stream read timeout after 300s (no data received in this chunk)'
+            '[ClawMaster Runtime] Stream read timeout after 300s (no data received in this chunk)',
           );
         } catch (readError) {
           // 如果是 AbortError（由 reader.cancel() 引发），则优雅退出
           if (readError instanceof Error &&
               (readError.name === 'AbortError' || readError.message.includes('cancelled'))) {
-            console.log('[ClawMaster Runtime] Stream read cancelled - exiting');
+            console.log('[ClawMaster Runtime] Stream read cancelled - exiting')
             break;
           }
 
           // 🆕 捕获 TCP 中断错误（如服务器重启导致的连接断开）
           if (readError instanceof TypeError) {
-            const errorMessage = readError.message.toLowerCase();
-            const streamReadError = readError as RetriableProxyError;
-            const errorCode = streamReadError.cause?.code || streamReadError.code;
+            const errorMessage = readError.message.toLowerCase()
+            const streamReadError = readError as RetriableProxyError
+            const errorCode = streamReadError.cause?.code || streamReadError.code
 
             const isTCPInterrupt =
               errorMessage.includes('terminated') ||
@@ -1610,79 +1610,79 @@ export class ClawMasterServerAdapter implements ContentGenerator {
                 'EPIPE',
                 'ETIMEDOUT',
                 'UND_ERR_SOCKET',
-              ].includes(errorCode));
+              ].includes(errorCode))
 
             if (isTCPInterrupt) {
               // 创建一个带标记的错误，便于上层识别和处理
               const streamInterruptError = new Error(
-                `Stream interrupted: Connection was terminated mid-stream. ` +
-                `This may be caused by server restart or network issues. ` +
-                `Please retry your request. (Original: ${readError.message})`
+                'Stream interrupted: Connection was terminated mid-stream. ' +
+                'This may be caused by server restart or network issues. ' +
+                `Please retry your request. (Original: ${readError.message})`,
               );
               const annotatedError = streamInterruptError as Error & {
-                isStreamInterrupt?: boolean;
-                isRetryable?: boolean;
-                bytesReceived?: number;
-              };
-              annotatedError.isStreamInterrupt = true;
-              annotatedError.isRetryable = true;
-              annotatedError.bytesReceived = totalBytesRead;
-              console.warn(`⚠️  [ClawMaster Runtime] Stream connection interrupted after ${totalBytesRead} bytes. Cause: ${readError.message}`);
-              throw streamInterruptError;
+                isStreamInterrupt?: boolean
+                isRetryable?: boolean
+                bytesReceived?: number
+              }
+              annotatedError.isStreamInterrupt = true
+              annotatedError.isRetryable = true
+              annotatedError.bytesReceived = totalBytesRead
+              console.warn(`⚠️  [ClawMaster Runtime] Stream connection interrupted after ${totalBytesRead} bytes. Cause: ${readError.message}`)
+              throw streamInterruptError
             }
           }
 
           // 其他错误继续抛出
-          throw readError;
+          throw readError
         }
 
-        const { done, value } = readResult;
+        const { done, value } = readResult
         if (done) {
           // 🛡️ 流自然结束：flush 累积的工具调用 chunk
           if (accumulatedToolChunk) {
             // 🔍 [STOP-DEBUG][adapter] 诊断日志 #3a：done flush
-            const fcs = getFunctionCalls(accumulatedToolChunk);
+            const fcs = getFunctionCalls(accumulatedToolChunk)
             console.log(
-              `[STOP-DEBUG][adapter] FLUSH on reader.done: functionCallCount=${fcs.length}, names=[${fcs.map((functionCall) => functionCall.name ?? '').join(',')}]`,
-            );
-            this.finalizeAccumulatedToolChunk(accumulatedToolChunk);
-            yield accumulatedToolChunk;
-            accumulatedToolChunk = null;
+              `[STOP-DEBUG][adapter] FLUSH on reader.done: functionCallCount=${fcs.length}, names=[${fcs.map(functionCall => functionCall.name ?? '').join(',')}]`,
+            )
+            this.finalizeAccumulatedToolChunk(accumulatedToolChunk)
+            yield accumulatedToolChunk
+            accumulatedToolChunk = null
           } else {
             // 🔍 [STOP-DEBUG][adapter] 诊断日志：done 但累加器空
             console.log(
               '[STOP-DEBUG][adapter] reader.done with NO accumulator (no tool calls were accumulated)',
-            );
+            )
           }
-          break;
+          break
         }
 
-        totalBytesRead += value.length;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        totalBytesRead += value.length
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6);
+            const data = line.slice(6)
             if (data === '[DONE]') {
               // 🛡️ 收到 [DONE]：flush 累积的工具调用 chunk
               if (accumulatedToolChunk) {
                 // 🔍 [STOP-DEBUG][adapter] 诊断日志 #3b：[DONE] flush
-                const fcs = getFunctionCalls(accumulatedToolChunk);
+                const fcs = getFunctionCalls(accumulatedToolChunk)
                 console.log(
-                  `[STOP-DEBUG][adapter] FLUSH on [DONE]: functionCallCount=${fcs.length}, names=[${fcs.map((functionCall) => functionCall.name ?? '').join(',')}]`,
-                );
-                this.finalizeAccumulatedToolChunk(accumulatedToolChunk);
-                yield accumulatedToolChunk;
-                accumulatedToolChunk = null;
+                  `[STOP-DEBUG][adapter] FLUSH on [DONE]: functionCallCount=${fcs.length}, names=[${fcs.map(functionCall => functionCall.name ?? '').join(',')}]`,
+                )
+                this.finalizeAccumulatedToolChunk(accumulatedToolChunk)
+                yield accumulatedToolChunk
+                accumulatedToolChunk = null
               } else {
                 // 🔍 [STOP-DEBUG][adapter] 诊断日志：[DONE] 但累加器空
                 console.log(
                   '[STOP-DEBUG][adapter] [DONE] with NO accumulator (no tool calls were accumulated)',
-                );
+                )
               }
-              return; // 流结束
+              return // 流结束
             }
 
             try {
@@ -1693,10 +1693,10 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               if (data.includes('"reasoning"') || data.includes('"thought"')) {
                 console.log(
                   `[REASONING-TRACE][adapter] PRE-PARSE SSE line (${data.length}B contains reasoning/thought): ${data.length > 600 ? data.substring(0, 600) + '…[truncated]' : data}`,
-                );
+                )
               }
 
-              const chunk = JSON.parse(data) as DynamicStreamChunk;
+              const chunk = JSON.parse(data) as DynamicStreamChunk
 
               // 🔍 [STOP-DEBUG][adapter] 诊断日志 #1：原始服务器 chunk
               // 用途：定位 function_call 在哪一层丢失。如果服务器根本没发送
@@ -1706,23 +1706,23 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               // 这条日志可以告诉我们 server 真正在发什么。仅打印前 800 字符
               // 防止巨型 chunk 把日志刷屏。
               try {
-                const dump = JSON.stringify(chunk);
+                const dump = JSON.stringify(chunk)
                 console.log(
                   `[STOP-DEBUG][adapter] RAW chunk (${dump.length}B): ${dump.length > 800 ? dump.substring(0, 800) + '…[truncated]' : dump}`,
-                );
+                )
                 // 🆕 reasoning 专项 trace：判定网关是否真的下发了 reasoning 字段
-                const partsForTrace = chunk?.candidates?.[0]?.content?.parts ?? [];
+                const partsForTrace = chunk?.candidates?.[0]?.content?.parts ?? []
                 for (let i = 0; i < partsForTrace.length; i++) {
-                  const p = partsForTrace[i];
+                  const p = partsForTrace[i]
                   if (p && typeof p === 'object') {
-                    const keys = Object.keys(p);
-                    const hasReasoning = 'reasoning' in p;
-                    const hasText = typeof p.text === 'string';
-                    const hasThought = p.thought === true;
+                    const keys = Object.keys(p)
+                    const hasReasoning = 'reasoning' in p
+                    const hasText = typeof p.text === 'string'
+                    const hasThought = p.thought === true
                     if (hasReasoning || hasThought) {
                       console.log(
                         `[REASONING-TRACE][adapter] chunk part[${i}] keys=[${keys.join(',')}] reasoning=${hasReasoning} thought=${hasThought} text=${hasText}`,
-                      );
+                      )
                     }
                   }
                 }
@@ -1732,7 +1732,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
 
               // 跳过连接确认消息
               if (chunk.type === 'connection_established') {
-                continue;
+                continue
               }
 
               // 处理错误
@@ -1742,28 +1742,28 @@ export class ClawMasterServerAdapter implements ContentGenerator {
                 // catch(parseError) 把它重新抛出而非当成解析错误吞掉，
                 // 让 Turn.run() 能把真实错误浮给用户。
                 const streamError = new Error(String(chunk.error));
-                (streamError as { isStreamError?: boolean }).isStreamError = true;
-                throw streamError;
+                (streamError as { isStreamError?: boolean }).isStreamError = true
+                throw streamError
               }
 
               // 📊 记录最新的使用数据以备客户端取消时记录
               if (chunk.usageMetadata) {
-                lastUsageMetadata = chunk.usageMetadata;
+                lastUsageMetadata = chunk.usageMetadata
               }
 
               // 🚀 立即转换 - 但是否立即 yield 取决于 chunk 是否含 functionCall
-              const genaiResponse = this.convertStreamChunkToGenAI(chunk);
+              const genaiResponse = this.convertStreamChunkToGenAI(chunk)
               if (!genaiResponse) {
                 // 🔍 [STOP-DEBUG][adapter] 诊断日志：转换失败丢弃
                 console.log(
                   '[STOP-DEBUG][adapter] convertStreamChunkToGenAI returned null; chunk skipped',
-                );
+                )
                 continue;
               }
 
               // 🛡️ 区分工具调用 chunk 与纯文本 chunk
-              const parts = genaiResponse.candidates?.[0]?.content?.parts ?? [];
-              const hasFunctionCall = parts.some((part) => part.functionCall);
+              const parts = genaiResponse.candidates?.[0]?.content?.parts ?? []
+              const hasFunctionCall = parts.some(part => part.functionCall)
 
               // 🔍 [STOP-DEBUG][adapter] 诊断日志 #2：累加器决策
               // 用途：判断 chunk 进入了三个分支中的哪一个：
@@ -1773,20 +1773,20 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               // 如果服务器发了 functionCall 但 partsKeys 里看不到 'functionCall'
               // 字段（比如显示 ['toolUse'] / ['name','input']），那就是 schema
               // 不匹配——server 端没把 claude tool_use 翻译成 gemini functionCall。
-              const partsKeys = parts.map((part) =>
+              const partsKeys = parts.map(part =>
                 part && typeof part === 'object' ? Object.keys(part) : typeof part,
-              );
-              const finishReason = genaiResponse.candidates?.[0]?.finishReason;
+              )
+              const finishReason = genaiResponse.candidates?.[0]?.finishReason
               console.log(
                 `[STOP-DEBUG][adapter] chunk decision: hasFunctionCall=${hasFunctionCall}, hasAccumulator=${!!accumulatedToolChunk}, finishReason=${finishReason || 'none'}, partsKeys=${JSON.stringify(partsKeys)}`,
-              );
+              )
 
               if (hasFunctionCall) {
                 // 含 functionCall 的 chunk —— 不立即 yield，先累积合并
                 accumulatedToolChunk = this.mergeStreamContent(
                   accumulatedToolChunk,
                   genaiResponse,
-                );
+                )
               } else if (accumulatedToolChunk) {
                 // 已经在累积工具调用了：把后续 chunk（可能携带 finishReason
                 // 或 usageMetadata）也合并进去，等流结束再统一发出。
@@ -1795,10 +1795,10 @@ export class ClawMasterServerAdapter implements ContentGenerator {
                 accumulatedToolChunk = this.mergeStreamContent(
                   accumulatedToolChunk,
                   genaiResponse,
-                );
+                )
               } else {
                 // 纯文本 / thought / reasoning chunk —— 立即 yield，保留流式
-                yield genaiResponse;
+                yield genaiResponse
               }
 
             } catch (parseError) {
@@ -1807,17 +1807,17 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               // 必须重新抛出，让它传播到 Turn.run() 浮给用户，
               // 不能当成解析失败静默吞掉（否则 turn 会无错误地静默中断）。
               if ((parseError as { isStreamError?: boolean })?.isStreamError) {
-                throw parseError;
+                throw parseError
               }
               // 🆕 SSE chunk 解析失败 — 用 console.error 替代 logger.warn，
               // 让它一定进入 ConsolePatcher → /export-debug。同时打印完整
               // 出错的 data 字节内容（不要截断），便于排查 SSE 边界 / 转义问题。
               console.error(
                 `[REASONING-TRACE][adapter] ⚠ SSE chunk parse FAILED: ${parseError instanceof Error ? parseError.message : parseError}`,
-              );
+              )
               console.error(
                 `[REASONING-TRACE][adapter] failed-data length=${data.length}, full content: ${data}`,
-              );
+              )
               // 忽略真正的解析错误，继续处理
             }
           }
@@ -1826,11 +1826,11 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     } finally {
       // 🧹 清理：移除 abort 监听器
       if (abortListener && abortSignal) {
-        abortSignal.removeEventListener('abort', abortListener);
+        abortSignal.removeEventListener('abort', abortListener)
       }
 
       try {
-        reader.releaseLock();
+        reader.releaseLock()
       } catch {
         // 忽略release可能的错误
       }
@@ -1842,22 +1842,22 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    */
   private convertStreamChunkToGenAI(chunk: DynamicStreamChunk): GenerateContentResponse | null {
     if (!chunk.candidates || !Array.isArray(chunk.candidates) || chunk.candidates.length === 0) {
-      return null;
+      return null
     }
 
     // 确保响应对象有 functionCalls getter（复用现有逻辑）
     const response = {
       candidates: chunk.candidates,
-      usageMetadata: chunk.usageMetadata
-    } as unknown as GenerateContentResponse;
+      usageMetadata: chunk.usageMetadata,
+    } as unknown as GenerateContentResponse
 
     // 🚀 预处理：补全缺失的 ID
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.functionCall && !part.functionCall.id) {
-          const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-          console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Chunk): ${part.functionCall.name} -> ${generatedId}`);
-          part.functionCall.id = generatedId;
+          const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+          console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Chunk): ${part.functionCall.name} -> ${generatedId}`)
+          part.functionCall.id = generatedId
         }
       }
     }
@@ -1866,25 +1866,25 @@ export class ClawMasterServerAdapter implements ContentGenerator {
       Object.defineProperty(response, 'functionCalls', {
         get() {
           if (this.candidates?.[0]?.content?.parts?.length === 0) {
-            return undefined;
+            return undefined
           }
           if (this.candidates && this.candidates.length > 1) {
             console.warn(
               'there are multiple candidates in the response, returning function calls from the first one.',
-            );
+            )
           }
-          const functionCalls = getFunctionCalls(this as GenerateContentResponse);
+          const functionCalls = getFunctionCalls(this as GenerateContentResponse)
           if (functionCalls?.length === 0) {
-            return undefined;
+            return undefined
           }
-          return functionCalls;
+          return functionCalls
         },
         enumerable: false,
-        configurable: true
+        configurable: true,
       });
     }
 
-    return response;
+    return response
   }
 
   /**
@@ -1897,29 +1897,29 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    * 失败容忍：JSON.parse 抛错时保持原字符串不动，让下游能输出更准确的错误。
    */
   private finalizeAccumulatedToolChunk(chunk: GenerateContentResponse): void {
-    const parts = chunk?.candidates?.[0]?.content?.parts;
-    if (!Array.isArray(parts)) return;
+    const parts = chunk?.candidates?.[0]?.content?.parts
+    if (!Array.isArray(parts)) return
     for (const p of parts) {
-      const fc = p?.functionCall as unknown as DynamicFunctionCall | undefined;
-      if (!fc) continue;
+      const fc = p?.functionCall as unknown as DynamicFunctionCall | undefined
+      if (!fc) continue
       if (typeof fc.args === 'string') {
-        const trimmed = fc.args.trim();
+        const trimmed = fc.args.trim()
         if (trimmed.length === 0) {
-          fc.args = {};
+          fc.args = {}
           continue;
         }
         try {
-          const parsed = JSON.parse(trimmed);
+          const parsed = JSON.parse(trimmed)
           if (parsed && typeof parsed === 'object') {
-            fc.args = parsed;
+            fc.args = parsed
           }
         } catch {
           console.warn(
             `[ClawMaster Runtime] Failed to parse accumulated functionCall.args as JSON for tool "${fc.name}". Keeping raw string for downstream error reporting. Raw: ${trimmed.substring(0, 200)}`,
-          );
+          )
         }
       } else if (fc.args === undefined || fc.args === null) {
-        fc.args = {};
+        fc.args = {}
       }
     }
   }
@@ -1953,46 +1953,46 @@ export class ClawMasterServerAdapter implements ContentGenerator {
       const cloned = {
         candidates: newChunk.candidates ? structuredClone(newChunk.candidates) : [],
         usageMetadata: newChunk.usageMetadata,
-      } as GenerateContentResponse;
+      } as GenerateContentResponse
       // 重新挂上 functionCalls getter（structuredClone 会丢掉 defineProperty 注入）
       Object.defineProperty(cloned, 'functionCalls', {
         get () {
-          const parts = this.candidates?.[0]?.content?.parts;
-          if (!parts || parts.length === 0) return undefined;
-          const fcs = getFunctionCalls(this as GenerateContentResponse);
-          return fcs.length === 0 ? undefined : fcs;
+          const parts = this.candidates?.[0]?.content?.parts
+          if (!parts || parts.length === 0) return undefined
+          const fcs = getFunctionCalls(this as GenerateContentResponse)
+          return fcs.length === 0 ? undefined : fcs
         },
         enumerable: false,
         configurable: true,
-      });
+      })
 
       // 🚀 ID 补全：首个 chunk 里若有 functionCall 但缺 id，立即补全
-      const firstParts = cloned.candidates?.[0]?.content?.parts || [];
+      const firstParts = cloned.candidates?.[0]?.content?.parts || []
       for (const p of firstParts) {
         if (p.functionCall && !p.functionCall.id) {
-          const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-          console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Merge init): ${p.functionCall.name} -> ${generatedId}`);
-          p.functionCall.id = generatedId;
+          const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+          console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Merge init): ${p.functionCall.name} -> ${generatedId}`)
+          p.functionCall.id = generatedId
         }
       }
 
-      return cloned as GenerateContentResponse;
+      return cloned as GenerateContentResponse
     }
 
-    const accumulatedParts = accumulated.candidates?.[0]?.content?.parts || [];
-    const newParts = newChunk.candidates?.[0]?.content?.parts || [];
+    const accumulatedParts = accumulated.candidates?.[0]?.content?.parts || []
+    const newParts = newChunk.candidates?.[0]?.content?.parts || []
 
     // 🛡️ 遍历新 chunk 的每一个 part，按 part 类型分别合并
     for (const newPart of newParts) {
       if (newPart.text !== undefined) {
         // 文本累积：粘到 accumulator 末尾同质（纯 text、无 functionCall）part 上
-        const lastAccPart = accumulatedParts[accumulatedParts.length - 1];
+        const lastAccPart = accumulatedParts[accumulatedParts.length - 1]
         if (lastAccPart && lastAccPart.text !== undefined && !lastAccPart.functionCall) {
-          lastAccPart.text = (lastAccPart.text || '') + (newPart.text || '');
+          lastAccPart.text = (lastAccPart.text || '') + (newPart.text || '')
         } else {
-          accumulatedParts.push({ ...newPart });
+          accumulatedParts.push({ ...newPart })
         }
-        continue;
+        continue
       }
 
       if (newPart.functionCall) {
@@ -2001,84 +2001,84 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         //     则 in-place 合并进 accumulator 末尾的 functionCall；
         //   - 若新 chunk 是"另一个并行调用"（两端 id 都存在且不同），
         //     作为新的独立 part 推入，避免静默吞掉并行 tool_call。
-        const lastAccPart = accumulatedParts[accumulatedParts.length - 1];
+        const lastAccPart = accumulatedParts[accumulatedParts.length - 1]
         if (lastAccPart && lastAccPart.functionCall) {
-          const accFc = lastAccPart.functionCall as unknown as DynamicFunctionCall;
-          const newFc = newPart.functionCall as unknown as DynamicFunctionCall;
+          const accFc = lastAccPart.functionCall as unknown as DynamicFunctionCall
+          const newFc = newPart.functionCall as unknown as DynamicFunctionCall
 
           const isContinuation =
-            !newFc.id || !accFc.id || newFc.id === accFc.id;
+            !newFc.id || !accFc.id || newFc.id === accFc.id
 
           if (isContinuation) {
             // 🛡️ name: trim 防止模型返回带空格的工具名
-            if (newFc.name) accFc.name = String(newFc.name).trim();
+            if (newFc.name) accFc.name = String(newFc.name).trim()
             // id 通常在第一个分片就到，但若后到也覆盖
-            if (newFc.id) accFc.id = newFc.id;
+            if (newFc.id) accFc.id = newFc.id
 
             // args 增量合并
             if (newFc.args !== undefined && newFc.args !== null) {
               if (typeof newFc.args === 'string' && typeof accFc.args === 'string') {
-                accFc.args = (accFc.args || '') + newFc.args;
+                accFc.args = (accFc.args || '') + newFc.args
               } else if (typeof newFc.args === 'object') {
                 accFc.args = {
                   ...(typeof accFc.args === 'object' && accFc.args ? accFc.args : {}),
                   ...newFc.args,
-                };
+                }
               } else {
-                accFc.args = newFc.args;
+                accFc.args = newFc.args
               }
             }
           } else {
             // 并行调用：作为新的独立 part 推入
-            const partToPush = { ...newPart, functionCall: { ...newFc } };
+            const partToPush = { ...newPart, functionCall: { ...newFc } }
             if (!partToPush.functionCall.id) {
-              const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-              console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Merge parallel): ${partToPush.functionCall.name} -> ${generatedId}`);
-              partToPush.functionCall.id = generatedId;
+              const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+              console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Merge parallel): ${partToPush.functionCall.name} -> ${generatedId}`)
+              partToPush.functionCall.id = generatedId
             }
-            accumulatedParts.push(partToPush as unknown as (typeof accumulatedParts)[number]);
+            accumulatedParts.push(partToPush as unknown as (typeof accumulatedParts)[number])
           }
         } else {
           // 新的独立 functionCall part
-          const partToPush = { ...newPart, functionCall: { ...newPart.functionCall } };
+          const partToPush = { ...newPart, functionCall: { ...newPart.functionCall } }
           if (!partToPush.functionCall.id) {
-            const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Merge): ${partToPush.functionCall.name} -> ${generatedId}`);
-            partToPush.functionCall.id = generatedId;
+            const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+            console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Merge): ${partToPush.functionCall.name} -> ${generatedId}`)
+            partToPush.functionCall.id = generatedId
           }
-          accumulatedParts.push(partToPush);
+          accumulatedParts.push(partToPush)
         }
-        continue;
+        continue
       }
 
       // 其他类型 part（thought / functionResponse 等）：直接 push（不合并）
-      accumulatedParts.push({ ...newPart });
+      accumulatedParts.push({ ...newPart })
     }
 
     // 确保 candidates[0].content.parts 引用回写（万一 accumulator 没建立 parts）
     if (accumulated.candidates?.[0]?.content) {
-      accumulated.candidates[0].content.parts = accumulatedParts;
+      accumulated.candidates[0].content.parts = accumulatedParts
     }
 
     // 更新使用统计（使用最新的）
     if (newChunk.usageMetadata) {
-      accumulated.usageMetadata = newChunk.usageMetadata;
+      accumulated.usageMetadata = newChunk.usageMetadata
     }
 
     // 更新完成原因（始终以最新 chunk 为准）
-    const newFinishReason = newChunk.candidates?.[0]?.finishReason;
+    const newFinishReason = newChunk.candidates?.[0]?.finishReason
     if (newFinishReason && accumulated.candidates?.[0]) {
-      accumulated.candidates[0].finishReason = newFinishReason;
+      accumulated.candidates[0].finishReason = newFinishReason
     }
 
-    return accumulated;
+    return accumulated
   }
 
   /**
    * 🆕 处理流式错误 - 复用统一错误处理逻辑
    */
   private handleStreamError(error: unknown): AsyncGenerator<GenerateContentResponse> {
-    return this.handleError(error);
+    return this.handleError(error)
   }
 
   /**
@@ -2088,35 +2088,35 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     try {
       // 🔧 自定义模型返回 0 token，不进行估算
       // 这样可以清楚地看到自定义模型不支持 token 计数
-      const modelToUse = request.model || this.config?.getModel() || 'auto';
+      const modelToUse = request.model || this.config?.getModel() || 'auto'
       if (isCustomModel(modelToUse)) {
-        console.log('[ClawMaster Runtime] Custom model detected, token counting not supported');
-        return { totalTokens: 0 };
+        console.log('[ClawMaster Runtime] Custom model detected, token counting not supported')
+        return { totalTokens: 0 }
       }
 
       // 构建统一的GenAI格式请求，包含 systemInstruction 和 tools（如果有）
       const unifiedRequest: {
-        model: string;
-        contents: typeof request.contents;
-        config?: { systemInstruction?: unknown; tools?: unknown };
+        model: string
+        contents: typeof request.contents
+        config?: { systemInstruction?: unknown; tools?: unknown }
       } = {
         model: modelToUse,
-        contents: request.contents
+        contents: request.contents,
       };
 
       // 从 request.config 中提取 systemInstruction 和 tools
       if (request.config?.systemInstruction || request.config?.tools) {
-        unifiedRequest.config = {};
+        unifiedRequest.config = {}
         if (request.config.systemInstruction) {
-          unifiedRequest.config.systemInstruction = request.config.systemInstruction;
+          unifiedRequest.config.systemInstruction = request.config.systemInstruction
         }
         if (request.config.tools) {
-          unifiedRequest.config.tools = request.config.tools;
+          unifiedRequest.config.tools = request.config.tools
         }
       }
 
       // 调用统一Token计数API
-      const response = await this.callUnifiedTokenCountAPI(unifiedRequest);
+      const response = await this.callUnifiedTokenCountAPI(unifiedRequest)
 
       // 发射实时token事件，立即更新UI显示
       realTimeTokenEventManager.emitRealTimeToken({
@@ -2124,21 +2124,21 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         outputTokens: 0, // Token计数不生成输出
         totalTokens: response.totalTokens || 0,
         timestamp: Date.now(),
-      });
+      })
 
-      return response;
+      return response
 
     } catch (error) {
       // 对于自定义模型，token count 失败是预期行为，使用 debug 级别
-      const modelToUse = request.model || this.config?.getModel() || 'auto';
+      const modelToUse = request.model || this.config?.getModel() || 'auto'
       if (isCustomModel(modelToUse)) {
-        console.log('[ClawMaster Runtime] Token count not available for custom model, using fallback');
+        console.log('[ClawMaster Runtime] Token count not available for custom model, using fallback')
       } else {
-        logger.error('[ClawMaster Runtime] Token count failed:', error);
+        logger.error('[ClawMaster Runtime] Token count failed:', error)
       }
 
       // 回退到估算方法
-      return this.estimateTokensAsFailback(request);
+      return this.estimateTokensAsFailback(request)
     }
   }
 
@@ -2146,11 +2146,11 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    * Token计数专用API调用
    */
   private async callUnifiedTokenCountAPI(requestBody: ProxyRequestBody): Promise<CountTokensResponse> {
-    const userHeaders = await proxyAuthManager.getUserHeaders();
+    const userHeaders = await proxyAuthManager.getUserHeaders()
     const proxyUrl = buildProxyRequestUrl(
       proxyAuthManager.getProxyServerUrl(),
       '/v1/chat/count-tokens',
-    );
+    )
 
     try {
       const response = await fetch(proxyUrl, {
@@ -2161,36 +2161,36 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           // 注意：count-tokens 端点不发送 git header（协议 v1.4.2 §DoD）
         },
         body: JSON.stringify(requestBody),
-      });
+      })
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text()
 
         // 401错误特殊处理
         if (response.status === 401 && isOurAuthError(errorText)) {
-          console.error('[ClawMaster Runtime] Token count 401 Unauthorized');
+          console.error('[ClawMaster Runtime] Token count 401 Unauthorized')
           if (this.authHandler) {
-            await this.authHandler();
+            await this.authHandler()
           }
-          throw new UnauthorizedError('Authentication required - please re-authenticate');
+          throw new UnauthorizedError('Authentication required - please re-authenticate')
         }
 
-        throw new Error(`Token count API failed (${response.status}): ${errorText}`);
+        throw new Error(`Token count API failed (${response.status}): ${errorText}`)
       }
 
-      const responseData = await response.json();
+      const responseData = await response.json()
 
       console.log('[ClawMaster Runtime] Token count response', {
-        totalTokens: responseData.totalTokens
+        totalTokens: responseData.totalTokens,
       });
 
       return {
-        totalTokens: responseData.totalTokens || 0
+        totalTokens: responseData.totalTokens || 0,
       };
 
     } catch (error) {
-      logger.error('[ClawMaster Runtime] Token count API call failed:', error);
-      throw error;
+      logger.error('[ClawMaster Runtime] Token count API call failed:', error)
+      throw error
     }
   }
 
@@ -2200,57 +2200,57 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    */
   private estimateTokensAsFailback(request: CountTokensParameters): CountTokensResponse {
     try {
-      const contentsArray = Array.isArray(request.contents) ? request.contents : [{ role: MESSAGE_ROLES.USER, parts: [{ text: request.contents }] }];
-      let totalChars = 0;
+      const contentsArray = Array.isArray(request.contents) ? request.contents : [{ role: MESSAGE_ROLES.USER, parts: [{ text: request.contents }] }]
+      let totalChars = 0
 
       for (const content of contentsArray) {
         if (typeof content === 'object' && content && 'parts' in content && Array.isArray(content.parts)) {
           for (const part of content.parts) {
-            const partRecord = asRecord(part);
+            const partRecord = asRecord(part)
             if (typeof part === 'object' && part && 'text' in part && typeof part.text === 'string') {
-              totalChars += part.text.length;
+              totalChars += part.text.length
             } else if (partRecord && isRecord(partRecord.functionCall)) {
               // 估算工具调用的token数
-              const functionCall = partRecord.functionCall;
+              const functionCall = partRecord.functionCall
               const toolCallText = `[Tool: ${functionCall.name}]` +
-                                  JSON.stringify(functionCall.args || {});
-              totalChars += toolCallText.length;
+                                  JSON.stringify(functionCall.args || {})
+              totalChars += toolCallText.length
            } else if (partRecord && isRecord(partRecord.functionResponse)) {
               // 估算工具响应的token数
-              const functionResponse = partRecord.functionResponse;
-              const response = isRecord(functionResponse.response) ? functionResponse.response : {};
-              const output = response.output || 'result';
-              const toolResultText = `[Tool Result: ${output}]`;
-              totalChars += toolResultText.length + 20; // 额外的结构开销
+              const functionResponse = partRecord.functionResponse
+              const response = isRecord(functionResponse.response) ? functionResponse.response : {}
+              const output = response.output || 'result'
+              const toolResultText = `[Tool Result: ${output}]`
+              totalChars += toolResultText.length + 20 // 额外的结构开销
            }
           }
         } else if (typeof content === 'string') {
-          totalChars += content.length;
+          totalChars += content.length
         }
       }
 
       // 改进的字符到token转换
-      const contentStr = JSON.stringify(contentsArray);
-      const hasChineseChars = /[\u4e00-\u9fff]/.test(contentStr);
-      const hasCodeContent = /```|function|class|import|export|\{|\}|\[|\]/.test(contentStr);
+      const contentStr = JSON.stringify(contentsArray)
+      const hasChineseChars = /[\u4e00-\u9fff]/.test(contentStr)
+      const hasCodeContent = /```|function|class|import|export|\{|\}|\[|\]/.test(contentStr)
 
-      let charsPerToken = 4; // 默认英文比例
+      let charsPerToken = 4 // 默认英文比例
       if (hasChineseChars) {
-        charsPerToken = 2; // 中文密度更高
+        charsPerToken = 2 // 中文密度更高
       } else if (hasCodeContent) {
-        charsPerToken = 3; // 代码token密度介于中间
+        charsPerToken = 3 // 代码token密度介于中间
       }
 
-      const estimatedTokens = Math.ceil(totalChars / charsPerToken);
+      const estimatedTokens = Math.ceil(totalChars / charsPerToken)
 
       return {
         totalTokens: estimatedTokens,
-      };
+      }
     } catch (error) {
-      console.error('[ClawMaster Runtime] Fallback estimation error:', error);
+      console.error('[ClawMaster Runtime] Fallback estimation error:', error)
       return {
         totalTokens: 1000, // Default fallback
-      };
+      }
     }
   }
 
@@ -2260,7 +2260,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    * Embedding: Claude doesn't support this
    */
   async embedContent(_request: EmbedContentParameters): Promise<EmbedContentResponse> {
-    throw new Error('Claude models do not support embedding content');
+    throw new Error('Claude models do not support embedding content')
   }
 
   /**
@@ -2281,20 +2281,20 @@ export class ClawMasterServerAdapter implements ContentGenerator {
    * ⚠️  关键：必须清理超时定时器，否则每次调用都泄漏 300s 的 setTimeout
    */
   private withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
-    let timeoutId: NodeJS.Timeout | null = null;
+    let timeoutId: NodeJS.Timeout | null = null
 
     const timeoutPromise = new Promise<T>((_, reject) => {
       timeoutId = setTimeout(() => {
-        reject(new Error(timeoutMessage));
-      }, timeoutMs);
+        reject(new Error(timeoutMessage))
+      }, timeoutMs)
     });
 
     return Promise.race([promise, timeoutPromise]).finally(() => {
       // 🔑 关键清理：如果 promise 先完成，必须清理 timeoutId
       // 否则会形成幽灵定时器，占用内存 300 秒，高并发下导致严重内存泄漏
       if (timeoutId !== null) {
-        clearTimeout(timeoutId);
+        clearTimeout(timeoutId)
       }
-    });
+    })
   }
 }

@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 import {
   ENTERPRISE_KERNEL_PERFORMANCE_FLOOR,
   validateKernelDistributionManifest,
   type KernelDistributionManifest,
-} from './kernelDistributionManifest.js';
+} from './kernelDistributionManifest.js'
 
 const VALID_MANIFEST: KernelDistributionManifest = {
   manifestVersion: 1,
@@ -35,7 +35,7 @@ const VALID_MANIFEST: KernelDistributionManifest = {
   },
   componentApiVersion: 1,
   generatedAt: '2026-07-22T11:00:00.000Z',
-};
+}
 
 describe('kernelDistributionManifest', () => {
   it('accepts a signed compiled enterprise kernel artifact', () => {
@@ -43,7 +43,7 @@ describe('kernelDistributionManifest', () => {
       ok: true,
       errors: [],
       warnings: [],
-    });
+    })
   });
 
   it('rejects locked enterprise kernels that include source', () => {
@@ -53,10 +53,10 @@ describe('kernelDistributionManifest', () => {
         ...VALID_MANIFEST.artifact,
         sourceIncluded: true,
       },
-    });
+    })
 
-    expect(result.ok).toBe(false);
-    expect(result.errors).toContain('locked enterprise kernels must set artifact.sourceIncluded=false');
+    expect(result.ok).toBe(false)
+    expect(result.errors).toContain('locked enterprise kernels must set artifact.sourceIncluded=false')
   });
 
   it('rejects unsigned or weakly identified artifacts', () => {
@@ -68,12 +68,12 @@ describe('kernelDistributionManifest', () => {
         signature: 'short',
         publicKeyId: 'k',
       },
-    });
+    })
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join('\n')).toContain('artifact.sha256');
-    expect(result.errors.join('\n')).toContain('artifact.signature');
-    expect(result.errors.join('\n')).toContain('artifact.publicKeyId');
+    expect(result.ok).toBe(false)
+    expect(result.errors.join('\n')).toContain('artifact.sha256')
+    expect(result.errors.join('\n')).toContain('artifact.signature')
+    expect(result.errors.join('\n')).toContain('artifact.publicKeyId')
   });
 
   it('rejects native binary manifests pointing to source-like scripts', () => {
@@ -83,10 +83,10 @@ describe('kernelDistributionManifest', () => {
         ...VALID_MANIFEST.artifact,
         path: 'dist/clawmaster-kernel.js',
       },
-    });
+    })
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join('\n')).toContain('native-binary artifacts must not point to source-like script files');
+    expect(result.ok).toBe(false)
+    expect(result.errors.join('\n')).toContain('native-binary artifacts must not point to source-like script files')
   });
 
   it('warns when performance budgets miss the enterprise floor', () => {
@@ -100,10 +100,10 @@ describe('kernelDistributionManifest', () => {
         maxToolSchemaChars: ENTERPRISE_KERNEL_PERFORMANCE_FLOOR.maxToolSchemaChars + 1,
         maxDistributionMb: ENTERPRISE_KERNEL_PERFORMANCE_FLOOR.maxDistributionMb + 1,
       },
-    });
+    })
 
-    expect(result.ok).toBe(true);
-    expect(result.warnings).toHaveLength(6);
-    expect(result.warnings.join('\n')).toContain('maxDistributionMb');
+    expect(result.ok).toBe(true)
+    expect(result.warnings).toHaveLength(6)
+    expect(result.warnings.join('\n')).toContain('maxDistributionMb')
   });
-});
+})

@@ -12,7 +12,7 @@
  * - gemini: Google GenAI 原生格式（POST /v1beta/models/{id}:streamGenerateContent）
  *           与 ClawMaster 自带 Gemini 路径完全对齐，原生支持 thinkingConfig / thoughts
  */
-export type CustomModelProvider = 'openai' | 'openai-responses' | 'anthropic' | 'gemini';
+export type CustomModelProvider = 'openai' | 'openai-responses' | 'anthropic' | 'gemini'
 
 /**
  * 标准化的"思考"配置，跨 provider 统一抽象
@@ -30,14 +30,14 @@ export type CustomModelProvider = 'openai' | 'openai-responses' | 'anthropic' | 
  */
 export interface ThinkingConfig {
   /** 启用模式 */
-  mode: 'on' | 'off' | 'auto';
+  mode: 'on' | 'off' | 'auto'
   /** 思考力度，可选 */
-  effort?: 'low' | 'medium' | 'high' | 'max' | 'xhigh' | 'auto';
+  effort?: 'low' | 'medium' | 'high' | 'max' | 'xhigh' | 'auto'
   /**
    * 直接指定 budget tokens（覆盖 effort）
    * 仅 Anthropic 3.7 / Gemini 2.5 生效
    */
-  budgetTokens?: number;
+  budgetTokens?: number
 }
 
 /**
@@ -46,7 +46,7 @@ export interface ThinkingConfig {
 export const DEFAULT_THINKING_CONFIG: ThinkingConfig = {
   mode: 'auto',
   effort: 'auto',
-};
+}
 
 /**
  * 把 effort 映射为 Anthropic budget_tokens (对于不支持 effort 的老模型/老接口兼容)
@@ -57,16 +57,16 @@ export function effortToAnthropicBudget(
 ): number {
   switch (effort) {
     case 'low':
-      return 4000;
+      return 4000
     case 'medium':
-      return 16000;
+      return 16000
     case 'high':
     case 'max':
     case 'xhigh':
-      return 31999;
+      return 31999
     case 'auto':
     default:
-      return 31999; // 默认采用官方推荐的最大预算
+      return 31999 // 默认采用官方推荐的最大预算
   }
 }
 
@@ -80,9 +80,9 @@ export function effortToAnthropicEffort(
   effort: ThinkingConfig['effort'] | undefined,
 ): 'low' | 'medium' | 'high' | 'max' | 'xhigh' | undefined {
   if (effort === 'low' || effort === 'medium' || effort === 'high' || effort === 'max' || effort === 'xhigh') {
-    return effort;
+    return effort
   }
-  return undefined;
+  return undefined
 }
 
 /**
@@ -97,13 +97,13 @@ export function applyAnthropicAdaptiveThinking(
   requestBody.thinking = {
     type: 'adaptive',
     display: 'summarized',
-  };
+  }
   requestBody.output_config = {
     ...(typeof requestBody.output_config === 'object' && requestBody.output_config !== null
       ? requestBody.output_config as Record<string, unknown>
       : {}),
     effort,
-  };
+  }
 }
 
 /**
@@ -114,13 +114,13 @@ export function effortToOpenAIEffort(
   effort: ThinkingConfig['effort'] | undefined,
 ): 'low' | 'medium' | 'high' | 'xhigh' | undefined {
   if (effort === 'low' || effort === 'medium' || effort === 'high' || effort === 'xhigh') {
-    return effort;
+    return effort
   }
   if (effort === 'max') {
-    return 'xhigh'; // 🌟 max 映射为 OpenAI 的极致性能级别 xhigh (支持 o1/gpt-5.5)
+    return 'xhigh' // 🌟 max 映射为 OpenAI 的极致性能级别 xhigh (支持 o1/gpt-5.5)
   }
   // 'auto' 或 undefined：交给 OpenAI 默认值
-  return undefined;
+  return undefined
 }
 
 /**
@@ -132,16 +132,16 @@ export function effortToGeminiLevel(
 ): 'minimal' | 'low' | 'medium' | 'high' | undefined {
   switch (effort) {
     case 'low':
-      return 'low';
+      return 'low'
     case 'medium':
-      return 'medium';
+      return 'medium'
     case 'high':
     case 'max':
     case 'xhigh':
-      return 'high';
+      return 'high'
     case 'auto':
     default:
-      return undefined; // 让 Gemini 默认决定 (一般 3.5 Flash 默认 medium, 3.1 Pro 默认 high)
+      return undefined // 让 Gemini 默认决定 (一般 3.5 Flash 默认 medium, 3.1 Pro 默认 high)
   }
 }
 
@@ -153,17 +153,17 @@ export function effortToGeminiBudget(
 ): number | undefined {
   switch (effort) {
     case 'low':
-      return 1024;
+      return 1024
     case 'medium':
-      return 4096;
+      return 4096
     case 'high':
     case 'max':
     case 'xhigh':
-      return 16384;
+      return 16384
     case 'auto':
-      return -1; // 🌟 setting thinkingBudget to -1 turns on dynamic thinking (Gemini 2.5 官方推荐默认值)
+      return -1 // 🌟 setting thinkingBudget to -1 turns on dynamic thinking (Gemini 2.5 官方推荐默认值)
     default:
-      return undefined;
+      return undefined
   }
 }
 
@@ -172,29 +172,29 @@ export function effortToGeminiBudget(
  * 这些模型使用 "adaptive" 思考模式，不再接受传统的 "enabled" + "budget_tokens"（会报 400）。
  */
 export function isAdaptiveThinkingClaude(modelId: string): boolean {
-  const lower = modelId.toLowerCase();
+  const lower = modelId.toLowerCase()
 
   // 1. Mythos 系列
-  if (lower.includes('mythos')) return true;
+  if (lower.includes('mythos')) return true
 
   // 2. 正则匹配：Claude 4.6, 4.7 及 5.x 以上版本
   // 支持格式：claude-opus-4.7, claude-opus-4-7, claude-sonnet-4-6 等
   // 只取第一个数字版本对，避免把 claude-sonnet-4-5-20250929 误判为 5.x。
-  const versionMatch = lower.match(/(?:^|[-@])(\d+)[.-](\d+)(?=$|[-@])/);
+  const versionMatch = lower.match(/(?:^|[-@])(\d+)[.-](\d+)(?=$|[-@])/)
   if (versionMatch) {
-    const major = parseInt(versionMatch[1], 10);
-    const minor = parseInt(versionMatch[2], 10);
+    const major = parseInt(versionMatch[1], 10)
+    const minor = parseInt(versionMatch[2], 10)
     if (major > 4 || (major === 4 && minor >= 6)) {
-      return true;
+      return true
     }
   }
 
   // 备选兼容（无点命名）：claude-4-6, claude-4-7, claude-5 等
   if (lower.includes('claude-4-6') || lower.includes('claude-4-7') || lower.includes('claude-4-8') || lower.includes('claude-5-')) {
-    return true;
+    return true
   }
 
-  return false;
+  return false
 }
 
 /**
@@ -208,7 +208,7 @@ export function providerSupportsThinkingControl(
     provider === 'openai-responses' ||
     provider === 'openai' ||
     provider === 'gemini'
-  );
+  )
 }
 
 // ============================================================================
@@ -237,7 +237,7 @@ export type OpenAICompatibleVendor =
   | 'openai'   // OpenAI 官方 / GPT / o-series
   | 'glm'      // 智谱 GLM
   | 'qwen'     // 阿里 Qwen
-  | 'unknown'; // DeepSeek, Kimi, Grok, MiniMax, MiMo, 其他
+  | 'unknown' // DeepSeek, Kimi, Grok, MiniMax, MiMo, 其他
 
 /**
  * 按 modelId 的关键字检测客户端识别的 OpenAI 兼容厂商家族。
@@ -250,14 +250,14 @@ export type OpenAICompatibleVendor =
  * - 否则 'unknown'（DeepSeek / Kimi / Grok / MiniMax / MiMo / 其他）
  */
 export function detectOpenAICompatibleVendor(modelId: string): OpenAICompatibleVendor {
-  const id = (modelId ?? '').toLowerCase();
-  if (!id) return 'unknown';
-  if (id.includes('gpt')) return 'openai';
+  const id = (modelId ?? '').toLowerCase()
+  if (!id) return 'unknown'
+  if (id.includes('gpt')) return 'openai'
   // 'o1' / 'o3' / 'o4' 系列：用 (^|[-/]) 前缀避免 'kimi' 'mimo' 等被误命中
-  if (/(^|[-/])o[1-9](-|$)/.test(id)) return 'openai';
-  if (id.includes('glm')) return 'glm';
-  if (id.includes('qwen')) return 'qwen';
-  return 'unknown';
+  if (/(^|[-/])o[1-9](-|$)/.test(id)) return 'openai'
+  if (id.includes('glm')) return 'glm'
+  if (id.includes('qwen')) return 'qwen'
+  return 'unknown'
 }
 
 /**
@@ -285,31 +285,31 @@ export function applyOpenAIChatThinking(
   modelId: string,
   thinking: ThinkingConfig,
 ): void {
-  const vendor = detectOpenAICompatibleVendor(modelId);
+  const vendor = detectOpenAICompatibleVendor(modelId)
 
   // Helper: write/merge `extra_body` without clobbering caller-supplied keys.
   const writeExtraBody = (patch: Record<string, unknown>) => {
     const existing =
       typeof requestBody['extra_body'] === 'object' && requestBody['extra_body'] !== null
         ? (requestBody['extra_body'] as Record<string, unknown>)
-        : {};
-    requestBody['extra_body'] = { ...existing, ...patch };
+        : {}
+    requestBody['extra_body'] = { ...existing, ...patch }
   };
 
   switch (vendor) {
     case 'openai': {
       if (thinking.mode === 'off') {
         // Officially documented "no thinking" floor for gpt-5.x / o-series.
-        requestBody['reasoning_effort'] = 'none';
+        requestBody['reasoning_effort'] = 'none'
       } else {
-        const effort = effortToOpenAIEffort(thinking.effort);
+        const effort = effortToOpenAIEffort(thinking.effort)
         if (effort) {
-          requestBody['reasoning_effort'] = effort;
+          requestBody['reasoning_effort'] = effort
         }
         // mode === 'auto' && effort === 'auto'  → emit nothing,
         // let the upstream model use its own default.
       }
-      return;
+      return
     }
     case 'glm': {
       writeExtraBody({
@@ -317,20 +317,20 @@ export function applyOpenAIChatThinking(
           thinking.mode === 'off'
             ? { type: 'disabled' }
             : { type: 'enabled', clear_thinking: false }, // Preserved Thinking
-      });
+      })
       return;
     }
     case 'qwen': {
       writeExtraBody({
         enable_thinking: thinking.mode !== 'off',
-      });
+      })
       return;
     }
     case 'unknown':
     default:
       // Intentionally emit no field — DeepSeek / Kimi / Grok / MiniMax / MiMo /
       // unknown vendors reject reasoning_effort with HTTP 400.
-      return;
+      return
   }
 }
 
@@ -340,22 +340,22 @@ export function applyOpenAIChatThinking(
  */
 export interface CustomModelConfig {
   /** 显示名称，在UI中展示，同时作为唯一标识符 */
-  displayName: string;
+  displayName: string
 
   /** 提供商类型 */
-  provider: CustomModelProvider;
+  provider: CustomModelProvider
 
   /** API基础URL */
-  baseUrl: string;
+  baseUrl: string
 
   /** API密钥，支持环境变量替换（如 ${OPENAI_API_KEY}） */
-  apiKey: string;
+  apiKey: string
 
   /** 模型ID（传递给API的实际模型名称） */
-  modelId: string;
+  modelId: string
 
   /** 最大token数（上下文窗口大小） */
-  maxTokens?: number;
+  maxTokens?: number
 
   /**
    * 最大输出 token 数（生成响应的硬上限，对应 Anthropic `max_tokens` /
@@ -378,16 +378,16 @@ export interface CustomModelConfig {
    *
    * undefined 表示"未配置" —— 适配器会回退到 32K 默认值。
    */
-  maxOutputTokens?: number;
+  maxOutputTokens?: number
 
   /** 是否启用此模型 */
-  enabled?: boolean;
+  enabled?: boolean
 
   /** 额外的HTTP headers（可选） */
-  headers?: Record<string, string>;
+  headers?: Record<string, string>
 
   /** 超时时间（毫秒，可选） */
-  timeout?: number;
+  timeout?: number
 
   /**
    * @deprecated 使用 thinking 字段代替。保留此字段仅用于向后兼容旧配置文件。
@@ -402,7 +402,7 @@ export interface CustomModelConfig {
    * Official recommended budget_tokens: 31999
    * @see https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
    */
-  enableThinking?: boolean;
+  enableThinking?: boolean
 
   /**
    * 标准化的思考配置，跨 provider 统一抽象。
@@ -410,7 +410,7 @@ export interface CustomModelConfig {
    *
    * 通过 /thinking 命令可以在运行时覆盖此配置。
    */
-  thinking?: ThinkingConfig;
+  thinking?: ThinkingConfig
 }
 
 /**
@@ -430,19 +430,19 @@ export function resolveThinkingConfig(
   runtimeOverride?: ThinkingConfig,
 ): ThinkingConfig {
   if (runtimeOverride) {
-    return runtimeOverride;
+    return runtimeOverride
   }
   if (modelConfig.thinking) {
-    return modelConfig.thinking;
+    return modelConfig.thinking
   }
   // 向后兼容：旧的 enableThinking 字段
   if (modelConfig.enableThinking === true) {
-    return { mode: 'on', effort: 'auto' };
+    return { mode: 'on', effort: 'auto' }
   }
   if (modelConfig.enableThinking === false) {
-    return { mode: 'off' };
+    return { mode: 'off' }
   }
-  return { ...DEFAULT_THINKING_CONFIG };
+  return { ...DEFAULT_THINKING_CONFIG }
 }
 
 /**
@@ -450,7 +450,7 @@ export function resolveThinkingConfig(
  * 基于 provider + baseUrl + modelId 确定唯一性
  */
 export function generateCustomModelKey(config: CustomModelConfig): string {
-  return `${config.provider}|${config.baseUrl}|${config.modelId}`;
+  return `${config.provider}|${config.baseUrl}|${config.modelId}`
 }
 
 /**
@@ -462,17 +462,17 @@ export function generateCustomModelKey(config: CustomModelConfig): string {
 export function generateCustomModelId(config: CustomModelConfig): string {
   // 简单的字符串哈希函数
   const hashString = (str: string): string => {
-    let hash = 0;
+    let hash = 0
     for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
+      const char = str.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // Convert to 32bit integer
     }
-    return Math.abs(hash).toString(36).substring(0, 6);
+    return Math.abs(hash).toString(36).substring(0, 6)
   };
 
-  const baseUrlHash = hashString(config.baseUrl);
-  return `custom:${config.provider}:${config.modelId}@${baseUrlHash}`;
+  const baseUrlHash = hashString(config.baseUrl)
+  return `custom:${config.provider}:${config.modelId}@${baseUrlHash}`
 }
 
 /**
@@ -481,60 +481,60 @@ export function generateCustomModelId(config: CustomModelConfig): string {
  */
 export function extractProvider(modelId: string): CustomModelProvider | null {
   if (!isCustomModel(modelId)) {
-    return null;
+    return null
   }
-  const withoutPrefix = modelId.replace('custom:', '');
+  const withoutPrefix = modelId.replace('custom:', '')
   if (withoutPrefix.startsWith('openai-responses:')) {
-    return 'openai-responses';
+    return 'openai-responses'
   }
   if (withoutPrefix.startsWith('openai:')) {
-    return 'openai';
+    return 'openai'
   }
   if (withoutPrefix.startsWith('anthropic:')) {
-    return 'anthropic';
+    return 'anthropic'
   }
-  return null;
+  return null
 }
 
 /**
  * 验证自定义模型配置
  */
 export function validateCustomModelConfig(config: CustomModelConfig): string[] {
-  const errors: string[] = [];
+  const errors: string[] = []
 
   if (!config.displayName || typeof config.displayName !== 'string') {
-    errors.push('displayName is required and must be a string');
+    errors.push('displayName is required and must be a string')
   }
 
   if (!['openai', 'openai-responses', 'anthropic', 'gemini'].includes(config.provider)) {
-    errors.push('provider must be one of: openai, openai-responses, anthropic, gemini');
+    errors.push('provider must be one of: openai, openai-responses, anthropic, gemini')
   }
 
   if (!config.baseUrl || typeof config.baseUrl !== 'string') {
-    errors.push('baseUrl is required and must be a string');
+    errors.push('baseUrl is required and must be a string')
   }
 
   if (!config.apiKey || typeof config.apiKey !== 'string') {
-    errors.push('apiKey is required and must be a string');
+    errors.push('apiKey is required and must be a string')
   }
 
   if (!config.modelId || typeof config.modelId !== 'string') {
-    errors.push('modelId is required and must be a string');
+    errors.push('modelId is required and must be a string')
   }
 
   if (config.maxTokens !== undefined && (typeof config.maxTokens !== 'number' || config.maxTokens <= 0)) {
-    errors.push('maxTokens must be a positive number if specified');
+    errors.push('maxTokens must be a positive number if specified')
   }
 
   if (config.maxOutputTokens !== undefined && (typeof config.maxOutputTokens !== 'number' || config.maxOutputTokens <= 0)) {
-    errors.push('maxOutputTokens must be a positive number if specified');
+    errors.push('maxOutputTokens must be a positive number if specified')
   }
 
   if (config.timeout !== undefined && (typeof config.timeout !== 'number' || config.timeout <= 0)) {
-    errors.push('timeout must be a positive number if specified');
+    errors.push('timeout must be a positive number if specified')
   }
 
-  return errors;
+  return errors
 }
 
 /**
@@ -542,7 +542,7 @@ export function validateCustomModelConfig(config: CustomModelConfig): string[] {
  * 格式: custom:{displayName}
  */
 export function isCustomModel(modelName: string): boolean {
-  return modelName.startsWith('custom:');
+  return modelName.startsWith('custom:')
 }
 
 // ============================================================================
@@ -553,7 +553,7 @@ export function isCustomModel(modelName: string): boolean {
  * EasyRouter 的固定 base URL。
  * 所有 EasyRouter 模型都共享同一个 endpoint，用户只需提供 API Key。
  */
-export const EASY_ROUTER_BASE_URL = 'https://llm-endpoint.net/v1';
+export const EASY_ROUTER_BASE_URL = 'https://llm-endpoint.net/v1'
 
 /**
  * EasyRouter 模型的默认上下文窗口（tokens）。
@@ -567,7 +567,7 @@ export const EASY_ROUTER_BASE_URL = 'https://llm-endpoint.net/v1';
  * （GLM-5 / Claude Haiku / Kimi 等都是这个量级），
  * 对未知模型来说既不会过度乐观也不会过度保守。
  */
-export const EASY_ROUTER_DEFAULT_MAX_TOKENS = 200_000;
+export const EASY_ROUTER_DEFAULT_MAX_TOKENS = 200_000
 
 /**
  * 用于过滤 EasyRouter /v1/models 列表的关键字。
@@ -588,17 +588,17 @@ export const EASY_ROUTER_EXCLUDE_KEYWORDS: readonly string[] = [
   'seed',
   'veo',
   'tts',
-];
+]
 
 /**
  * EasyRouter /v1/models 接口返回的单条模型条目（仅声明用到的字段）。
  */
 export interface EasyRouterModelEntry {
-  id: string;
-  object?: string;
-  owned_by?: string;
-  created?: number;
-  supported_endpoint_types?: string[];
+  id: string
+  object?: string
+  owned_by?: string
+  created?: number
+  supported_endpoint_types?: string[]
 }
 
 /**
@@ -608,10 +608,10 @@ export interface EasyRouterModelEntry {
  */
 export function shouldExcludeEasyRouterModel(modelId: string): boolean {
   if (!modelId || typeof modelId !== 'string') {
-    return true;
+    return true
   }
-  const lower = modelId.toLowerCase();
-  return EASY_ROUTER_EXCLUDE_KEYWORDS.some((kw) => lower.includes(kw));
+  const lower = modelId.toLowerCase()
+  return EASY_ROUTER_EXCLUDE_KEYWORDS.some(kw => lower.includes(kw))
 }
 
 /**
@@ -621,19 +621,19 @@ export function shouldExcludeEasyRouterModel(modelId: string): boolean {
 export function filterEasyRouterModels(
   entries: ReadonlyArray<EasyRouterModelEntry | { id?: unknown } | null | undefined>,
 ): EasyRouterModelEntry[] {
-  const seen = new Set<string>();
-  const result: EasyRouterModelEntry[] = [];
+  const seen = new Set<string>()
+  const result: EasyRouterModelEntry[] = []
   for (const entry of entries ?? []) {
-    if (!entry || typeof entry !== 'object') continue;
-    const id = (entry as { id?: unknown }).id;
-    if (typeof id !== 'string' || id.length === 0) continue;
-    if (shouldExcludeEasyRouterModel(id)) continue;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    result.push(entry as EasyRouterModelEntry);
+    if (!entry || typeof entry !== 'object') continue
+    const id = (entry as { id?: unknown }).id
+    if (typeof id !== 'string' || id.length === 0) continue
+    if (shouldExcludeEasyRouterModel(id)) continue
+    if (seen.has(id)) continue
+    seen.add(id)
+    result.push(entry as EasyRouterModelEntry)
   }
-  result.sort((a, b) => a.id.localeCompare(b.id));
-  return result;
+  result.sort((a, b) => a.id.localeCompare(b.id))
+  return result
 }
 
 /**
@@ -648,18 +648,18 @@ export function filterEasyRouterModels(
  * 这样即使上游临时改了 supported_endpoint_types 也不会影响行为。
  */
 export function classifyEasyRouterModel(modelId: string): CustomModelProvider {
-  const id = (modelId ?? '').trim().toLowerCase();
+  const id = (modelId ?? '').trim().toLowerCase()
   if (id.startsWith('gemini')) {
     // Gemini 走原生 GenAI 协议，与 ClawMaster 自带同路，完整支持 thinkingConfig + thoughts
-    return 'gemini';
+    return 'gemini'
   }
   if (id.startsWith('gpt')) {
-    return 'openai-responses';
+    return 'openai-responses'
   }
   if (id.startsWith('claude')) {
-    return 'anthropic';
+    return 'anthropic'
   }
-  return 'openai';
+  return 'openai'
 }
 
 /**
@@ -680,30 +680,30 @@ export function buildEasyRouterModelConfig(
   modelId: string,
   apiKey: string,
   options?: {
-    displayName?: string;
-    maxTokens?: number;
-    maxOutputTokens?: number;
+    displayName?: string
+    maxTokens?: number
+    maxOutputTokens?: number
     /**
      * 命中 EasyClaw `/api/v1/public-model-list` 时拿到的元数据。
      * 用于 maxTokens / maxOutputTokens 的自动填充——displayName 行为保持原样
      * （=modelId），让 ~/.clawmaster/custom-models.json 中已经存在的同名条目
      * 可被原地覆盖。
      */
-    metadata?: EasyClawModelMetadata;
+    metadata?: EasyClawModelMetadata
   },
 ): CustomModelConfig {
-  const provider = classifyEasyRouterModel(modelId);
+  const provider = classifyEasyRouterModel(modelId)
   const explicit =
     typeof options?.maxTokens === 'number' && options.maxTokens > 0
       ? options.maxTokens
-      : undefined;
+      : undefined
   const fromMetadata =
     typeof options?.metadata?.max_context_length === 'number' &&
     options.metadata.max_context_length > 0
       ? options.metadata.max_context_length
-      : undefined;
+      : undefined
   const resolvedMaxTokens =
-    explicit ?? fromMetadata ?? EASY_ROUTER_DEFAULT_MAX_TOKENS;
+    explicit ?? fromMetadata ?? EASY_ROUTER_DEFAULT_MAX_TOKENS
 
   // maxOutputTokens 单独解析，不沿用 EASY_ROUTER_DEFAULT_MAX_TOKENS（200K）
   // —— 因为 200K 对于大多数模型的 output cap 来说严重超标，会被 Anthropic 等
@@ -712,13 +712,13 @@ export function buildEasyRouterModelConfig(
   const explicitOutput =
     typeof options?.maxOutputTokens === 'number' && options.maxOutputTokens > 0
       ? options.maxOutputTokens
-      : undefined;
+      : undefined
   const fromMetadataOutput =
     typeof options?.metadata?.max_output_length === 'number' &&
     options.metadata.max_output_length > 0
       ? options.metadata.max_output_length
-      : undefined;
-  const resolvedMaxOutputTokens = explicitOutput ?? fromMetadataOutput;
+      : undefined
+  const resolvedMaxOutputTokens = explicitOutput ?? fromMetadataOutput
 
   return {
     displayName: options?.displayName?.trim() || modelId,
@@ -729,7 +729,7 @@ export function buildEasyRouterModelConfig(
     maxTokens: resolvedMaxTokens,
     ...(resolvedMaxOutputTokens !== undefined ? { maxOutputTokens: resolvedMaxOutputTokens } : {}),
     enabled: true,
-  };
+  }
 }
 
 // ============================================================================
@@ -746,7 +746,7 @@ export function buildEasyRouterModelConfig(
  * EasyClaw public-model-list base URL.
  */
 export const EASY_CLAW_METADATA_URL =
-  'https://api.easyclaw.work/api/v1/public-model-list';
+  'https://api.easyclaw.work/api/v1/public-model-list'
 
 /**
  * Single model metadata entry as returned by
@@ -754,19 +754,19 @@ export const EASY_CLAW_METADATA_URL =
  * (snake_case) to avoid translation bugs at the boundary.
  */
 export interface EasyClawModelMetadata {
-  model_id: string;
-  display_name?: string;
-  capabilities?: string[];
+  model_id: string
+  display_name?: string
+  capabilities?: string[]
   /** Maximum context window (tokens). */
-  max_context_length?: number;
+  max_context_length?: number
   /** Maximum output length (tokens). */
-  max_output_length?: number;
+  max_output_length?: number
   billing?: {
-    credits_per_usd?: number;
+    credits_per_usd?: number
     /** Price-per-request (USD-equivalent, used as a hint only). */
-    per_request_price?: number;
-  };
-  created_at?: string;
+    per_request_price?: number
+  }
+  created_at?: string
 }
 
 /**
@@ -777,13 +777,13 @@ export interface EasyClawModelMetadata {
 export function indexEasyClawMetadata(
   list: ReadonlyArray<EasyClawModelMetadata | { model_id?: unknown } | null | undefined> | null | undefined,
 ): Map<string, EasyClawModelMetadata> {
-  const map = new Map<string, EasyClawModelMetadata>();
-  if (!list || !Array.isArray(list)) return map;
+  const map = new Map<string, EasyClawModelMetadata>()
+  if (!list || !Array.isArray(list)) return map
   for (const entry of list) {
-    if (!entry || typeof entry !== 'object') continue;
-    const id = (entry as { model_id?: unknown }).model_id;
-    if (typeof id !== 'string' || id.length === 0) continue;
-    map.set(id, entry as EasyClawModelMetadata);
+    if (!entry || typeof entry !== 'object') continue
+    const id = (entry as { model_id?: unknown }).model_id
+    if (typeof id !== 'string' || id.length === 0) continue
+    map.set(id, entry as EasyClawModelMetadata)
   }
-  return map;
+  return map
 }

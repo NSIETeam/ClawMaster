@@ -7,47 +7,47 @@
  * Handles: login, navigate, fill forms, click, scrape tables/text, screenshot.
  */
 
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 import {
   BaseTool, ToolResult, ToolCallConfirmationDetails,
   Icon, ToolLocation,
-} from './tools.js';
-import { Type } from '@google/genai';
-import { SchemaValidator } from '../utils/schemaValidator.js';
-import { Config, ApprovalMode } from '../config/config.js';
-import { ProcessGuard } from '../utils/process-guard.js';
-import { DoctorService } from '../services/doctor.js';
+} from './tools.js'
+import { Type } from '@google/genai'
+import { SchemaValidator } from '../utils/schemaValidator.js'
+import { Config, ApprovalMode } from '../config/config.js'
+import { ProcessGuard } from '../utils/process-guard.js'
+import { DoctorService } from '../services/doctor.js'
 
 export interface WebAutomationToolParams {
-  action: 'navigate' | 'fill' | 'click' | 'scrape' | 'screenshot' | 'run_script' | 'wait' | 'list_tabs' | 'extract_table';
+  action: 'navigate' | 'fill' | 'click' | 'scrape' | 'screenshot' | 'run_script' | 'wait' | 'list_tabs' | 'extract_table'
   /** URL to navigate to */
-  url?: string;
+  url?: string
   /** CSS selector for fill/click/wait/scrape */
-  selector?: string;
+  selector?: string
   /** Text to type into a field */
-  value?: string;
+  value?: string
   /** For scrape: what to extract ('text', 'html', 'href', 'src') */
-  extract?: 'text' | 'html' | 'href' | 'src' | 'all';
+  extract?: 'text' | 'html' | 'href' | 'src' | 'all'
   /** For fill: clear field first (default true) */
-  clear_first?: boolean;
+  clear_first?: boolean
   /** For click: wait for navigation after click */
-  wait_for_navigation?: boolean;
+  wait_for_navigation?: boolean
   /** Screenshot output path */
-  output_path?: string;
+  output_path?: string
   /** Full page screenshot (default false = viewport only) */
-  full_page?: boolean;
+  full_page?: boolean
   /** Wait timeout in ms (default 10000) */
-  timeout_ms?: number;
+  timeout_ms?: number
   /** Custom JS script to execute on the page (for run_script) */
-  script?: string;
+  script?: string
   /** Browser engine: chromium (default), firefox, webkit */
-  browser?: 'chromium' | 'firefox' | 'webkit';
+  browser?: 'chromium' | 'firefox' | 'webkit'
 }
 
 export class WebAutomationTool extends BaseTool<WebAutomationToolParams, ToolResult> {
-  static readonly Name: string = 'web_automation';
+  static readonly Name: string = 'web_automation'
 
   /**
    * DoctorService 只读复用：真正启动浏览器前先确认 playwright 就绪。
@@ -69,7 +69,7 @@ EXAMPLES:
   Wait: {action:"wait", selector:"#dashboard", timeout_ms:15000}
 
 DEPENDENCIES: npx playwright install chromium (one-time setup)
-CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
+CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`
 
     super(WebAutomationTool.Name, 'WebAutomation', desc, Icon.Globe,
       {
@@ -102,33 +102,33 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
         },
         required: ['action'],
       },
-    );
+    )
   }
 
   validateToolParams(p: WebAutomationToolParams): string | null {
-    const e = SchemaValidator.validate(this.schema.parameters!, p, WebAutomationTool.Name);
-    if (e) return e;
-    const a = p.action;
-    if (a === 'navigate' && !p.url) return 'web_automation/navigate: url required';
+    const e = SchemaValidator.validate(this.schema.parameters!, p, WebAutomationTool.Name)
+    if (e) return e
+    const a = p.action
+    if (a === 'navigate' && !p.url) return 'web_automation/navigate: url required'
     if (['fill', 'click', 'wait', 'scrape', 'extract_table'].includes(a) && !p.selector)
-      return 'web_automation/' + a + ': selector required';
-    if (a === 'fill' && p.value === undefined) return 'web_automation/fill: value required';
-    if (a === 'run_script' && !p.script) return 'web_automation/run_script: script required';
-    if (a === 'scrape' && !p.extract) return 'web_automation/scrape: extract required (text/html/href/src/all)';
-    return null;
+      return 'web_automation/' + a + ': selector required'
+    if (a === 'fill' && p.value === undefined) return 'web_automation/fill: value required'
+    if (a === 'run_script' && !p.script) return 'web_automation/run_script: script required'
+    if (a === 'scrape' && !p.extract) return 'web_automation/scrape: extract required (text/html/href/src/all)'
+    return null
   }
 
   toolLocations(p: WebAutomationToolParams): ToolLocation[] {
-    return p.output_path ? [{ path: p.output_path }] : [];
+    return p.output_path ? [{ path: p.output_path }] : []
   }
 
   getDescription(p: WebAutomationToolParams): string {
-    return 'web: ' + p.action + (p.url ? ' ' + p.url.substring(0, 50) : '') + (p.selector ? ' ' + p.selector : '');
+    return 'web: ' + p.action + (p.url ? ' ' + p.url.substring(0, 50) : '') + (p.selector ? ' ' + p.selector : '')
   }
 
   async shouldConfirmExecute(p: WebAutomationToolParams, _s: AbortSignal): Promise<ToolCallConfirmationDetails | false> {
-    if (this.config.getApprovalMode() === ApprovalMode.YOLO) return false;
-    if (this.validateToolParams(p)) return false;
+    if (this.config.getApprovalMode() === ApprovalMode.YOLO) return false
+    if (this.validateToolParams(p)) return false
     // Always confirm web automation - it touches external systems
     return {
       type: 'exec',
@@ -136,76 +136,76 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
       command: 'web_automation(' + p.action + ')',
       rootCommand: 'web_automation',
       onConfirm: async () => {},
-    };
+    }
   }
 
   async execute(p: WebAutomationToolParams, _s: AbortSignal): Promise<ToolResult> {
-    const err = this.validateToolParams(p);
-    if (err) return { llmContent: err, returnDisplay: err };
+    const err = this.validateToolParams(p)
+    if (err) return { llmContent: err, returnDisplay: err }
 
     // 执行前依赖体检（fail-loud）：playwright 走 node 模块解析（DoctorService
     // 内部用 require.resolve，不看 PATH 二进制）。缺就一上来明说，别跑到启动浏览器
     // 才报错。
-    const depErr = await this.preflightPlaywright();
+    const depErr = await this.preflightPlaywright()
     if (depErr) {
-      return { llmContent: depErr, returnDisplay: 'web_automation FAIL: Playwright 未安装' };
+      return { llmContent: depErr, returnDisplay: 'web_automation FAIL: Playwright 未安装' }
     }
 
-    const logLabel = 'web_automation.' + p.action;
-    console.time(logLabel);
+    const logLabel = 'web_automation.' + p.action
+    console.time(logLabel)
 
     try {
       // Write a Node.js script that uses Playwright to perform the action
-      const script = this.buildPlaywrightScript(p);
-      const scriptFile = path.join(os.tmpdir(), 'clawmaster-web-' + Date.now() + '.mjs');
+      const script = this.buildPlaywrightScript(p)
+      const scriptFile = path.join(os.tmpdir(), 'clawmaster-web-' + Date.now() + '.mjs')
 
-      fs.writeFileSync(scriptFile, script);
+      fs.writeFileSync(scriptFile, script)
 
       const result = await ProcessGuard.exec({
         command: 'node "' + scriptFile + '"',
         timeoutMs: (p.timeout_ms || 10000) + 30000,
         maxBuffer: 20 * 1024 * 1024,
-      });
+      })
 
-      try { fs.unlinkSync(scriptFile); } catch {}
+      try { fs.unlinkSync(scriptFile) } catch {}
 
-      const output = result.stdout.trim();
+      const output = result.stdout.trim()
       if (!output) {
         return {
           llmContent: 'web_automation FAIL: No output from browser action',
           returnDisplay: 'web_automation FAIL: No output',
-        };
+        }
       }
 
       // Try to parse as JSON result
       try {
-        const parsed = JSON.parse(output);
+        const parsed = JSON.parse(output)
         if (parsed.error) {
           return {
             llmContent: 'web_automation FAIL: ' + parsed.error,
             returnDisplay: 'web_automation FAIL: ' + parsed.error,
-          };
+          }
         }
-        const summary = parsed.summary || 'completed';
-        const data = parsed.data ? '\n\n' + JSON.stringify(parsed.data, null, 2).substring(0, 2000) : '';
+        const summary = parsed.summary || 'completed'
+        const data = parsed.data ? '\n\n' + JSON.stringify(parsed.data, null, 2).substring(0, 2000) : ''
         return {
           llmContent: 'web_automation OK: ' + summary + data,
           returnDisplay: 'web_automation OK: ' + summary,
-        };
+        }
       } catch {
         // Not JSON, return raw
         return {
           llmContent: 'web_automation OK: ' + output.substring(0, 2000),
           returnDisplay: 'web_automation OK: ' + output.substring(0, 100),
-        };
+        }
       }
     } catch (e: unknown) {
-      console.timeEnd(logLabel);
-      const m = e instanceof Error ? e.message : String(e);
+      console.timeEnd(logLabel)
+      const m = e instanceof Error ? e.message : String(e)
       return {
         llmContent: 'web_automation FAIL: ' + m,
         returnDisplay: 'web_automation FAIL: ' + m,
-      };
+      }
     }
   }
 
@@ -215,39 +215,39 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
    * 模块没装」的情况。缺则返回带安装命令的错误串；就绪返回 null。
    */
   private async preflightPlaywright(): Promise<string | null> {
-    let present = false;
-    let installHint = 'npm install playwright && npx playwright install chromium';
+    let present = false
+    let installHint = 'npm install playwright && npx playwright install chromium'
     try {
-      const report = await this.doctor.check();
-      const pw = report.checks.find((c) => c.name === 'playwright');
+      const report = await this.doctor.check()
+      const pw = report.checks.find(c => c.name === 'playwright')
       if (pw) {
-        present = pw.present;
-        if (pw.installHint) installHint = pw.installHint;
+        present = pw.present
+        if (pw.installHint) installHint = pw.installHint
       }
     } catch {
       // 体检异常时保守判为缺失，给出通用安装命令（fail-loud）。
-      present = false;
+      present = false
     }
-    if (present) return null;
+    if (present) return null
     return (
       'web_automation FAIL: Playwright 未安装（node 模块缺失）。\n' +
       `安装：${installHint}`
-    );
+    )
   }
 
   private buildPlaywrightScript(p: WebAutomationToolParams): string {
-    const timeout = p.timeout_ms || 10000;
-    const stateFile = path.join(os.tmpdir(), 'clawmaster-web-state.json');
+    const timeout = p.timeout_ms || 10000
+    const stateFile = path.join(os.tmpdir(), 'clawmaster-web-state.json')
 
-    const escape = (s: string) => s.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+    const escape = (s: string) => s.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')
 
-    let body = '';
+    let body = ''
 
     switch (p.action) {
       case 'navigate':
         body = `
   await page.goto('${escape(p.url!)}', { waitUntil: 'networkidle', timeout: ${timeout} });
-  result = { summary: 'Navigated to ${escape(p.url!.substring(0, 80))}', data: { url: page.url(), title: await page.title() } };`;
+  result = { summary: 'Navigated to ${escape(p.url!.substring(0, 80))}', data: { url: page.url(), title: await page.title() } };`
         break;
 
       case 'fill':
@@ -255,14 +255,14 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
   const el = await page.waitForSelector('${escape(p.selector!)}', { timeout: ${timeout} });
   ${p.clear_first !== false ? 'await el.fill("");' : ''}
   await el.fill('${escape(p.value!)}');
-  result = { summary: 'Filled "${escape(p.selector!)}" with value', data: { selector: '${escape(p.selector!)}' } };`;
+  result = { summary: 'Filled "${escape(p.selector!)}" with value', data: { selector: '${escape(p.selector!)}' } };`
         break;
 
       case 'click':
         body = `
   const el = await page.waitForSelector('${escape(p.selector!)}', { timeout: ${timeout} });
   ${p.wait_for_navigation ? 'await Promise.all([page.waitForNavigation({ timeout: ' + timeout + ' }), el.click()]);' : 'await el.click();'}
-  result = { summary: 'Clicked "${escape(p.selector!)}"', data: { url: page.url() } };`;
+  result = { summary: 'Clicked "${escape(p.selector!)}"', data: { url: page.url() } };`
         break;
 
       case 'scrape':
@@ -273,21 +273,21 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
   const html = await el.innerHTML();
   const href = await el.getAttribute('href');
   const src = await el.getAttribute('src');
-  result = { summary: 'Scraped all from "${escape(p.selector!)}"', data: { text: text?.trim(), html: html?.substring(0, 5000), href, src } };`;
+  result = { summary: 'Scraped all from "${escape(p.selector!)}"', data: { text: text?.trim(), html: html?.substring(0, 5000), href, src } };`
         } else {
           const extractExpr = {
             text: 'await el.textContent()',
             html: 'await el.innerHTML()',
             href: 'await el.getAttribute("href")',
             src: 'await el.getAttribute("src")',
-          }[p.extract!] || 'await el.textContent()';
+          }[p.extract!] || 'await el.textContent()'
 
           body = `
   const el = await page.waitForSelector('${escape(p.selector!)}', { timeout: ${timeout} });
   const data = ${extractExpr};
-  result = { summary: 'Scraped ${p.extract} from "${escape(p.selector!)}"', data: { ${p.extract}: data } };`;
+  result = { summary: 'Scraped ${p.extract} from "${escape(p.selector!)}"', data: { ${p.extract}: data } };`
         }
-        break;
+        break
 
       case 'extract_table':
         body = `
@@ -297,14 +297,14 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
     const rows = Array.from(table.querySelectorAll('tr'));
     return rows.map(row => Array.from(row.querySelectorAll('td,th')).map(cell => cell.textContent?.trim() || ''));
   }, '${escape(p.selector!)}');
-  result = { summary: 'Extracted table from "${escape(p.selector!)}"', data: tableData };`;
+  result = { summary: 'Extracted table from "${escape(p.selector!)}"', data: tableData };`
         break;
 
       case 'screenshot':
         body = `
   const outPath = '${escape(p.output_path || path.join(os.homedir(), 'Desktop', 'web_screenshot_' + Date.now() + '.png'))}';
   await page.screenshot({ path: outPath, fullPage: ${p.full_page || false} });
-  result = { summary: 'Screenshot saved to ' + outPath, data: { path: outPath } };`;
+  result = { summary: 'Screenshot saved to ' + outPath, data: { path: outPath } };`
         break;
 
       case 'run_script':
@@ -312,24 +312,24 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
   const data = await page.evaluate(() => {
     ${escape(p.script!)}
   });
-  result = { summary: 'Script executed', data };`;
+  result = { summary: 'Script executed', data };`
         break;
 
       case 'wait':
         body = `
   await page.waitForSelector('${escape(p.selector!)}', { timeout: ${timeout} });
-  result = { summary: 'Element "${escape(p.selector!)}" appeared' };`;
+  result = { summary: 'Element "${escape(p.selector!)}" appeared' };`
         break;
 
       case 'list_tabs':
         body = `
   const pages = await browser.contexts()[0].pages();
   const tabs = await Promise.all(pages.map(async (p, i) => ({ index: i, url: p.url(), title: await p.title() })));
-  result = { summary: tabs.length + ' tabs open', data: tabs };`;
+  result = { summary: tabs.length + ' tabs open', data: tabs };`
         break;
 
       default:
-        body = `result = { error: 'Unknown action: ${escape(p.action)}' };`;
+        body = `result = { error: 'Unknown action: ${escape(p.action)}' };`
     }
 
     return `import { chromium } from 'playwright';
@@ -369,6 +369,6 @@ async function main() {
   console.log(JSON.stringify(result));
 }
 
-main().catch(err => { console.log(JSON.stringify({ error: err.message })); process.exit(1); });`;
+main().catch(err => { console.log(JSON.stringify({ error: err.message })); process.exit(1); });`
   }
 }

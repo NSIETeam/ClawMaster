@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
 import {
   addOrMoveModules,
@@ -18,7 +18,7 @@ import {
   validateModuleGroupName,
   type ModuleWorkspaceCapabilities,
   type ModuleWorkspaceLayout,
-} from './moduleWorkspace.js';
+} from './moduleWorkspace.js'
 
 const enterpriseCapabilities: ModuleWorkspaceCapabilities = {
   edition: 'enterprise',
@@ -41,7 +41,7 @@ const enterpriseCapabilities: ModuleWorkspaceCapabilities = {
     'platform-zhiliaohou',
     'platform-zhixin-pigeon',
   ],
-};
+}
 
 const personalCapabilities: ModuleWorkspaceCapabilities = {
   edition: 'personal',
@@ -51,7 +51,7 @@ const personalCapabilities: ModuleWorkspaceCapabilities = {
     'platform-maotouying', 'platform-trace-code', 'platform-zhifang',
     'platform-zhiliaohou', 'platform-zhixin-pigeon',
   ],
-};
+}
 
 const sampleLayout = (): ModuleWorkspaceLayout => ({
   version: 2,
@@ -69,7 +69,7 @@ const sampleLayout = (): ModuleWorkspaceLayout => ({
       moduleIds: ['agent-ppt', 'agent-word'],
     },
   ],
-});
+})
 
 describe('module workspace defaults', () => {
   it('creates the enterprise service, office, and business-platform defaults', () => {
@@ -115,12 +115,12 @@ describe('module workspace defaults', () => {
           ],
         },
       ],
-    });
+    })
   });
 
   it('seeds personal office work and authenticated business-platform control groups', () => {
-    const layout = createDefaultModuleWorkspace(personalCapabilities);
-    const moduleIds = layout.groups.flatMap((group) => group.moduleIds);
+    const layout = createDefaultModuleWorkspace(personalCapabilities)
+    const moduleIds = layout.groups.flatMap(group => group.moduleIds)
 
     expect(layout.groups).toEqual([
       {
@@ -138,25 +138,25 @@ describe('module workspace defaults', () => {
           'platform-zhiliaohou', 'platform-zhixin-pigeon',
         ],
       },
-    ]);
-    expect(moduleIds.some((id) => id.startsWith('park-'))).toBe(false);
-    expect(moduleIds).not.toContain('enterprise-memory');
-    expect(moduleIds).not.toContain('agent-enterprise-work');
+    ])
+    expect(moduleIds.some(id => id.startsWith('park-'))).toBe(false)
+    expect(moduleIds).not.toContain('enterprise-memory')
+    expect(moduleIds).not.toContain('agent-enterprise-work')
   });
 
   it('recomputes restored defaults from the current capability snapshot', () => {
-    const restored = restoreDefaultModuleWorkspace(sampleLayout(), personalCapabilities);
+    const restored = restoreDefaultModuleWorkspace(sampleLayout(), personalCapabilities)
 
-    expect(restored).toEqual(createDefaultModuleWorkspace(personalCapabilities));
+    expect(restored).toEqual(createDefaultModuleWorkspace(personalCapabilities))
   });
-});
+})
 
 describe('module workspace parsing and normalization', () => {
   it('falls back for corrupt or unsupported records', () => {
-    const defaults = createDefaultModuleWorkspace(enterpriseCapabilities);
+    const defaults = createDefaultModuleWorkspace(enterpriseCapabilities)
 
-    expect(parseModuleWorkspace('{bad json', enterpriseCapabilities)).toEqual(defaults);
-    expect(parseModuleWorkspace(JSON.stringify({ version: 99 }), enterpriseCapabilities)).toEqual(defaults);
+    expect(parseModuleWorkspace('{bad json', enterpriseCapabilities)).toEqual(defaults)
+    expect(parseModuleWorkspace(JSON.stringify({ version: 99 }), enterpriseCapabilities)).toEqual(defaults)
   });
 
   it('deduplicates module IDs globally, repairs group IDs, clamps rows, and keeps unknown modules', () => {
@@ -176,19 +176,19 @@ describe('module workspace parsing and normalization', () => {
           moduleIds: ['future-module', 'agent-ppt'],
         },
       ],
-    });
+    })
 
     expect(normalized.groups[0]).toMatchObject({
       id: 'same',
       name: '园区服务',
       rows: 2,
       moduleIds: ['park-announcement', 'future-module'],
-    });
+    })
     expect(normalized.groups[1]).toMatchObject({
       id: 'same-2',
       rows: 3,
       moduleIds: ['agent-ppt'],
-    });
+    })
   });
 
   it('truncates long names and supplies a safe name for blank groups', () => {
@@ -198,90 +198,90 @@ describe('module workspace parsing and normalization', () => {
         { id: 'blank', name: '   ', rows: 2, moduleIds: [] },
         { id: 'long', name: '很'.repeat(80), rows: 2, moduleIds: [] },
       ],
-    });
+    })
 
-    expect(normalized.groups[0].name).toBe('未命名功能组');
-    expect(normalized.groups[1].name).toHaveLength(40);
+    expect(normalized.groups[0].name).toBe('未命名功能组')
+    expect(normalized.groups[1].name).toHaveLength(40)
   });
-});
+})
 
 describe('module workspace layout operations', () => {
   it('resolves two columns only for a genuinely narrow side panel', () => {
-    expect(resolveModuleGridColumns('panel', 240)).toBe(2);
-    expect(resolveModuleGridColumns('panel', 250)).toBe(2);
-    expect(resolveModuleGridColumns('panel', 251)).toBe(2);
-    expect(resolveModuleGridColumns('panel', 0)).toBe(2);
-    expect(resolveModuleGridColumns('page', 220)).toBe(3);
+    expect(resolveModuleGridColumns('panel', 240)).toBe(2)
+    expect(resolveModuleGridColumns('panel', 250)).toBe(2)
+    expect(resolveModuleGridColumns('panel', 251)).toBe(2)
+    expect(resolveModuleGridColumns('panel', 0)).toBe(2)
+    expect(resolveModuleGridColumns('page', 220)).toBe(3)
   });
 
   it('creates groups with stable unique default names and IDs', () => {
-    const first = createModuleGroup(sampleLayout());
-    const second = createModuleGroup(first);
+    const first = createModuleGroup(sampleLayout())
+    const second = createModuleGroup(first)
 
     expect(first.groups.at(-1)).toEqual({
       id: 'custom-group', name: '新功能组', rows: 2, moduleIds: [],
-    });
+    })
     expect(second.groups.at(-1)).toEqual({
       id: 'custom-group-2', name: '新功能组 2', rows: 2, moduleIds: [],
-    });
+    })
   });
 
   it('rejects blank and duplicate group names without mutating layout', () => {
-    expect(validateModuleGroupName(sampleLayout(), 'park-services', '   ')).toBe('功能组名称不能为空');
-    expect(validateModuleGroupName(sampleLayout(), 'park-services', '日常办公')).toBe('功能组名称不能重复');
-    expect(validateModuleGroupName(sampleLayout(), 'park-services', '园区协作')).toBeNull();
+    expect(validateModuleGroupName(sampleLayout(), 'park-services', '   ')).toBe('功能组名称不能为空')
+    expect(validateModuleGroupName(sampleLayout(), 'park-services', '日常办公')).toBe('功能组名称不能重复')
+    expect(validateModuleGroupName(sampleLayout(), 'park-services', '园区协作')).toBeNull()
   });
 
   it('moves modules between groups without duplicates', () => {
-    const next = addOrMoveModules(sampleLayout(), 'park-services', ['agent-ppt', 'agent-excel']);
+    const next = addOrMoveModules(sampleLayout(), 'park-services', ['agent-ppt', 'agent-excel'])
 
     expect(next.groups[0].moduleIds).toEqual([
       'park-announcement',
       'park-satisfaction',
       'agent-ppt',
       'agent-excel',
-    ]);
-    expect(next.groups[1].moduleIds).toEqual(['agent-word']);
+    ])
+    expect(next.groups[1].moduleIds).toEqual(['agent-word'])
   });
 
   it('removes only the requested module from layout', () => {
-    const next = removeModuleFromGroup(sampleLayout(), 'daily-office', 'agent-ppt');
+    const next = removeModuleFromGroup(sampleLayout(), 'daily-office', 'agent-ppt')
 
-    expect(next.groups[1].moduleIds).toEqual(['agent-word']);
+    expect(next.groups[1].moduleIds).toEqual(['agent-word'])
   });
 
   it('protects the last group and migrates deleted group modules to the nearest group', () => {
-    const oneGroup = { version: 2 as const, groups: [sampleLayout().groups[0]] };
-    expect(deleteModuleGroup(oneGroup, 'park-services')).toEqual(oneGroup);
+    const oneGroup = { version: 2 as const, groups: [sampleLayout().groups[0]] }
+    expect(deleteModuleGroup(oneGroup, 'park-services')).toEqual(oneGroup)
 
-    const next = deleteModuleGroup(sampleLayout(), 'park-services');
-    expect(next.groups.map((group) => group.id)).toEqual(['daily-office']);
+    const next = deleteModuleGroup(sampleLayout(), 'park-services')
+    expect(next.groups.map(group => group.id)).toEqual(['daily-office'])
     expect(next.groups[0].moduleIds).toEqual([
       'agent-ppt',
       'agent-word',
       'park-announcement',
       'park-satisfaction',
-    ]);
+    ])
   });
 
   it('renames, updates row count, and reorders groups and modules', () => {
-    const renamed = renameModuleGroup(sampleLayout(), 'daily-office', '  我的办公  ');
-    const resized = updateModuleGroupRows(renamed, 'daily-office', 3);
-    const groupsReordered = reorderModuleGroups(resized, ['daily-office', 'park-services']);
+    const renamed = renameModuleGroup(sampleLayout(), 'daily-office', '  我的办公  ')
+    const resized = updateModuleGroupRows(renamed, 'daily-office', 3)
+    const groupsReordered = reorderModuleGroups(resized, ['daily-office', 'park-services'])
     const modulesReordered = reorderModulesInGroup(
       groupsReordered,
       'daily-office',
       ['agent-word', 'agent-ppt'],
-    );
+    )
 
     expect(modulesReordered.groups[0]).toMatchObject({
       id: 'daily-office',
       name: '我的办公',
       rows: 3,
       moduleIds: ['agent-word', 'agent-ppt'],
-    });
+    })
   });
-});
+})
 
 describe('module workspace storage scope', () => {
   it('normalizes server URL and separates edition, organization, and account', () => {
@@ -290,21 +290,21 @@ describe('module workspace storage scope', () => {
       edition: 'enterprise',
       organizationId: 'org-a',
       accountId: 'user-a',
-    });
+    })
     const same = getModuleWorkspaceStorageKey({
       serverUrl: 'https://example.com',
       edition: 'enterprise',
       organizationId: 'org-a',
       accountId: 'user-a',
-    });
+    })
     const personal = getModuleWorkspaceStorageKey({
       serverUrl: 'https://example.com',
       edition: 'personal',
       accountId: 'user-a',
-    });
+    })
 
-    expect(first).toBe(same);
-    expect(first).not.toBe(personal);
-    expect(first).toContain('https%3A%2F%2Fexample.com');
+    expect(first).toBe(same)
+    expect(first).not.toBe(personal)
+    expect(first).toContain('https%3A%2F%2Fexample.com')
   });
-});
+})

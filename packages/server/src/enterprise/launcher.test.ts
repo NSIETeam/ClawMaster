@@ -5,30 +5,30 @@
  * startEnterpriseServer，而不是仅 require 模块后打印“已启动”。
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
-import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { afterEach, describe, expect, it } from 'vitest'
+import { spawnSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const temporaryDirectories: string[] = [];
-const EXPECTED_BUILD_COMMIT = '0123456789abcdef0123456789abcdef01234567';
+const temporaryDirectories: string[] = []
+const EXPECTED_BUILD_COMMIT = '0123456789abcdef0123456789abcdef01234567'
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
-    fs.rmSync(directory, { recursive: true, force: true });
+    fs.rmSync(directory, { recursive: true, force: true })
   }
-});
+})
 
 describe('start-enterprise.cjs', () => {
   it('调用 dist startEnterpriseServer，并按真实默认 host 输出地址', () => {
     const directory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'clawmaster-enterprise-launcher-'),
-    );
-    temporaryDirectories.push(directory);
-    const capturePath = path.join(directory, 'capture.json');
-    const preloadPath = path.join(directory, 'preload.cjs');
+    )
+    temporaryDirectories.push(directory)
+    const capturePath = path.join(directory, 'capture.json')
+    const preloadPath = path.join(directory, 'preload.cjs')
     fs.writeFileSync(
       preloadPath,
       `
@@ -51,10 +51,10 @@ Module._load = function (request, parent, isMain) {
   return originalLoad.apply(this, arguments);
 };
 `,
-    );
+    )
     const launcherPath = fileURLToPath(
       new URL('../../../../start-enterprise.cjs', import.meta.url),
-    );
+    )
     const result = spawnSync(
       process.execPath,
       [launcherPath, '--port', '8123'],
@@ -71,10 +71,10 @@ Module._load = function (request, parent, isMain) {
           CLAWMASTER_LAUNCHER_TEST_OUTPUT: capturePath,
         },
       },
-    );
+    )
 
-    expect(result.status, result.stderr).toBe(0);
-    expect(fs.existsSync(capturePath)).toBe(true);
+    expect(result.status, result.stderr).toBe(0)
+    expect(fs.existsSync(capturePath)).toBe(true)
     expect(JSON.parse(fs.readFileSync(capturePath, 'utf8'))).toMatchObject({
       host: '127.0.0.1',
       port: '8123',
@@ -84,8 +84,8 @@ Module._load = function (request, parent, isMain) {
         appVersion: expect.stringMatching(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/),
         buildCommit: EXPECTED_BUILD_COMMIT,
       },
-    });
-    expect(result.stdout).toContain('http://127.0.0.1:8123');
-    expect(result.stdout).not.toContain('http://0.0.0.0:8123');
+    })
+    expect(result.stdout).toContain('http://127.0.0.1:8123')
+    expect(result.stdout).not.toContain('http://0.0.0.0:8123')
   });
-});
+})

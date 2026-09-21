@@ -2,22 +2,22 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
-import { Database } from './modules/data_platform/index.js';
+import { describe, expect, it } from 'vitest'
+import { Database } from './modules/data_platform/index.js'
 import {
   createParkTicketFacade,
   normalizeParkServiceFormData,
   type ParkTicketAccount,
   type ParkTicketRepositoryStore,
-} from './modules/park_services/index.js';
+} from './modules/park_services/index.js'
 
 interface TestAccount extends ParkTicketAccount {
-  department: string | null;
-  tags: string[];
+  department: string | null
+  tags: string[]
 }
 
 function createDatabase(): Database {
-  const database = new Database(':memory:');
+  const database = new Database(':memory:')
   database.exec(`
     CREATE TABLE organizations (
       id TEXT PRIMARY KEY,
@@ -169,22 +169,22 @@ function createDatabase(): Database {
       ('park-a', 'parking', 1);
     INSERT INTO park_service_specialists (park_id, service_id, account_id) VALUES
       ('park-a', 'repair', 'park-worker');
-  `);
-  return database;
+  `)
+  return database
 }
 
 function createStore(database: Database): {
-  store: ParkTicketRepositoryStore<TestAccount>;
-  setFeature(organizationId: string, enabled: boolean): void;
-  failAudit(): void;
-  setNow(value: Date): void;
+  store: ParkTicketRepositoryStore<TestAccount>
+  setFeature(organizationId: string, enabled: boolean): void
+  failAudit(): void
+  setNow(value: Date): void
 } {
-  let ticketSequence = 0;
-  let eventSequence = 0;
-  let notificationSequence = 0;
-  let shouldFailAudit = false;
-  let now = new Date('2026-07-28T04:00:00Z');
-  const features = new Map<string, boolean>();
+  let ticketSequence = 0
+  let eventSequence = 0
+  let notificationSequence = 0
+  let shouldFailAudit = false
+  let now = new Date('2026-07-28T04:00:00Z')
+  const features = new Map<string, boolean>()
   const getAccount = (
     accountId: string,
     organizationId?: string,
@@ -195,17 +195,17 @@ function createStore(database: Database): {
          AND deleted_at IS NULL`,
     ).get(accountId, organizationId ?? null, organizationId ?? null) as
       | {
-          id: string;
-          organization_id: string;
-          employee_id: string | null;
-          name: string;
-          username: string;
-          is_admin: number;
-          status: 'active' | 'disabled';
-          department: string | null;
-          tags_json: string;
-        }
-      | undefined;
+        id: string
+        organization_id: string
+        employee_id: string | null
+        name: string
+        username: string
+        is_admin: number
+        status: 'active' | 'disabled'
+        department: string | null
+        tags_json: string
+      }
+      | undefined
     return row ? {
       id: row.id,
       organizationId: row.organization_id,
@@ -216,22 +216,22 @@ function createStore(database: Database): {
       status: row.status,
       department: row.department,
       tags: JSON.parse(row.tags_json) as string[],
-    } : null;
+    } : null
   };
   const listOrganizationAccounts = (organizationId: string): TestAccount[] =>
     (database.prepare(
       `SELECT id FROM accounts
        WHERE organization_id = ? AND deleted_at IS NULL ORDER BY id`,
     ).all(organizationId) as Array<{ id: string }>)
-      .map((row) => getAccount(row.id))
-      .filter((account): account is TestAccount => account !== null);
+      .map(row => getAccount(row.id))
+      .filter((account): account is TestAccount => account !== null)
   const store: ParkTicketRepositoryStore<TestAccount> = {
     db: () => database,
     getAccount,
-    isOrganizationActive: (organizationId) => Boolean(database.prepare(
+    isOrganizationActive: organizationId => Boolean(database.prepare(
       "SELECT 1 FROM organizations WHERE id = ? AND status = 'active'",
     ).get(organizationId)),
-    getOrganizationFeatures: (organizationId) => ({
+    getOrganizationFeatures: organizationId => ({
       park_service: features.get(organizationId) ?? true,
     }),
     getPark: (parkId) => {
@@ -239,61 +239,61 @@ function createStore(database: Database): {
         'SELECT id, admin_organization_id, status FROM parks WHERE id = ?',
       ).get(parkId) as
         | {
-            id: string;
-            admin_organization_id: string;
-            status: 'active' | 'disabled';
-          }
-        | undefined;
+          id: string
+          admin_organization_id: string
+          status: 'active' | 'disabled'
+        }
+        | undefined
       return row ? {
         id: row.id,
         adminOrganizationId: row.admin_organization_id,
         status: row.status,
-      } : null;
+      } : null
     },
     getParkForOrganization: (organizationId) => {
       const row = database.prepare(
         'SELECT park_id FROM organizations WHERE id = ?',
-      ).get(organizationId) as { park_id: string | null } | undefined;
-      return row?.park_id ? store.getPark(row.park_id) : null;
+      ).get(organizationId) as { park_id: string | null } | undefined
+      return row?.park_id ? store.getPark(row.park_id) : null
     },
-    listParkServices: (parkId) => database.prepare(
+    listParkServices: parkId => database.prepare(
       'SELECT id, enabled FROM park_services WHERE park_id = ? ORDER BY id',
     ).all(parkId).map((row) => {
-      const service = row as { id: string; enabled: number };
-      return { id: service.id, enabled: service.enabled === 1 };
+      const service = row as { id: string; enabled: number }
+      return { id: service.id, enabled: service.enabled === 1 }
     }),
-    listParkServiceSpecialists: (parkId) => database.prepare(
+    listParkServiceSpecialists: parkId => database.prepare(
       `SELECT service_id, account_id FROM park_service_specialists
        WHERE park_id = ? ORDER BY account_id`,
     ).all(parkId).map((row) => {
-      const specialist = row as { service_id: string; account_id: string };
+      const specialist = row as { service_id: string; account_id: string }
       return {
         serviceId: specialist.service_id,
         accountId: specialist.account_id,
-      };
+      }
     }),
-    listActiveOrganizationAdmins: (organizationId) =>
+    listActiveOrganizationAdmins: organizationId =>
       listOrganizationAccounts(organizationId).filter(
-        (account) => account.isAdmin && account.status === 'active',
+        account => account.isAdmin && account.status === 'active',
       ),
     listActiveAccountsByDepartment: (
       organizationId,
       department,
       excludeAccountId,
     ) => listOrganizationAccounts(organizationId).filter(
-      (account) => account.status === 'active'
+      account => account.status === 'active'
         && account.department === department
         && account.id !== excludeAccountId,
     ),
     listActiveAccountsByTags: (organizationId, tags) =>
       listOrganizationAccounts(organizationId).filter(
-        (account) => account.status === 'active'
-          && tags.every((tag) => account.tags.includes(tag)),
+        account => account.status === 'active'
+          && tags.every(tag => account.tags.includes(tag)),
       ),
-    normalizeTags: (tags) => [...new Set(
-      (tags ?? []).map((tag) => tag.trim()).filter(Boolean),
+    normalizeTags: tags => [...new Set(
+      (tags ?? []).map(tag => tag.trim()).filter(Boolean),
     )],
-    isParkServiceId: (serviceId) => new Set([
+    isParkServiceId: serviceId => new Set([
       'renovation',
       'parking',
       'network-phone',
@@ -308,21 +308,21 @@ function createStore(database: Database): {
       `ticket-notification-${++notificationSequence}`,
     now: () => new Date(now),
     audit: () => {
-      if (shouldFailAudit) throw new Error('audit unavailable');
+      if (shouldFailAudit) throw new Error('audit unavailable')
     },
-  };
+  }
   return {
     store,
     setFeature: (organizationId, enabled) => {
-      features.set(organizationId, enabled);
+      features.set(organizationId, enabled)
     },
     failAudit: () => {
-      shouldFailAudit = true;
+      shouldFailAudit = true
     },
     setNow: (value) => {
-      now = new Date(value);
+      now = new Date(value)
     },
-  };
+  }
 }
 
 function repairInput() {
@@ -340,16 +340,16 @@ function repairInput() {
       issue: 'Pipe is leaking',
       urgency: '紧急',
     },
-  };
+  }
 }
 
 describe('park ticket module', () => {
   it('allocates a daily park-wide application number across services without duplicates', () => {
-    const database = createDatabase();
-    const { store, setNow } = createStore(database);
-    const tickets = createParkTicketFacade(store);
+    const database = createDatabase()
+    const { store, setNow } = createStore(database)
+    const tickets = createParkTicketFacade(store)
 
-    const first = tickets.createTicket(repairInput());
+    const first = tickets.createTicket(repairInput())
     const second = tickets.createTicket({
       createdByAccountId: 'tenant-user',
       serviceId: 'parking',
@@ -363,128 +363,128 @@ describe('park ticket module', () => {
         applicationType: 'underground-fixed',
         quantity: '1',
       },
-    });
+    })
     const sameDay = Array.from({ length: 20 }, () =>
       tickets.createTicket(repairInput()).applicationNumber,
-    );
+    )
 
-    expect(first.applicationNumber).toBe('20260728001');
-    expect(second.applicationNumber).toBe('20260728002');
-    expect(new Set(sameDay).size).toBe(20);
-    expect(sameDay.at(-1)).toBe('20260728022');
+    expect(first.applicationNumber).toBe('20260728001')
+    expect(second.applicationNumber).toBe('20260728002')
+    expect(new Set(sameDay).size).toBe(20)
+    expect(sameDay.at(-1)).toBe('20260728022')
 
-    setNow(new Date('2026-07-28T16:01:00Z'));
+    setNow(new Date('2026-07-28T16:01:00Z'))
     expect(tickets.createTicket(repairInput()).applicationNumber).toBe(
       '20260729001',
-    );
+    )
   });
 
   it('uses the Asia/Shanghai business day for application numbers at midnight', () => {
-    const database = createDatabase();
-    const { store, setNow } = createStore(database);
-    const tickets = createParkTicketFacade(store);
+    const database = createDatabase()
+    const { store, setNow } = createStore(database)
+    const tickets = createParkTicketFacade(store)
 
-    setNow(new Date('2026-07-28T15:59:59Z'));
+    setNow(new Date('2026-07-28T15:59:59Z'))
     expect(tickets.createTicket(repairInput()).applicationNumber).toBe(
       '20260728001',
-    );
-    setNow(new Date('2026-07-28T16:00:00Z'));
+    )
+    setNow(new Date('2026-07-28T16:00:00Z'))
     expect(tickets.createTicket(repairInput()).applicationNumber).toBe(
       '20260729001',
-    );
+    )
   });
 
   it('routes park tickets to active specialists and falls back to active admins', () => {
-    const database = createDatabase();
-    const { store } = createStore(database);
-    const tickets = createParkTicketFacade(store);
+    const database = createDatabase()
+    const { store } = createStore(database)
+    const tickets = createParkTicketFacade(store)
 
-    const first = tickets.createTicket(repairInput());
-    expect(first.recipients).toEqual([{ id: 'park-worker', name: 'Park Worker' }]);
-    expect(first.history.map((event) => event.action)).toEqual(['created']);
+    const first = tickets.createTicket(repairInput())
+    expect(first.recipients).toEqual([{ id: 'park-worker', name: 'Park Worker' }])
+    expect(first.history.map(event => event.action)).toEqual(['created'])
 
-    database.prepare("UPDATE accounts SET status = 'disabled' WHERE id = 'park-worker'").run();
-    const second = tickets.createTicket(repairInput());
-    expect(second.recipients).toEqual([{ id: 'park-admin', name: 'Park Admin' }]);
+    database.prepare("UPDATE accounts SET status = 'disabled' WHERE id = 'park-worker'").run()
+    const second = tickets.createTicket(repairInput())
+    expect(second.recipients).toEqual([{ id: 'park-admin', name: 'Park Admin' }])
   });
 
   it('rolls back the ticket, initial event and deliveries when audit fails', () => {
-    const database = createDatabase();
-    const { store, failAudit } = createStore(database);
-    const tickets = createParkTicketFacade(store);
-    failAudit();
+    const database = createDatabase()
+    const { store, failAudit } = createStore(database)
+    const tickets = createParkTicketFacade(store)
+    failAudit()
 
-    expect(() => tickets.createTicket(repairInput())).toThrow('audit unavailable');
+    expect(() => tickets.createTicket(repairInput())).toThrow('audit unavailable')
     expect(database.prepare('SELECT COUNT(*) AS count FROM it_tickets').get())
-      .toEqual({ count: 0 });
+      .toEqual({ count: 0 })
     expect(database.prepare('SELECT COUNT(*) AS count FROM ticket_events').get())
-      .toEqual({ count: 0 });
+      .toEqual({ count: 0 })
     expect(database.prepare('SELECT COUNT(*) AS count FROM ticket_deliveries').get())
-      .toEqual({ count: 0 });
+      .toEqual({ count: 0 })
     expect(database.prepare('SELECT COUNT(*) AS count FROM park_application_sequences').get())
-      .toEqual({ count: 0 });
+      .toEqual({ count: 0 })
   });
 
   it('fails closed for unrelated, disabled and feature-revoked accounts', () => {
-    const database = createDatabase();
-    const { store, setFeature } = createStore(database);
-    const tickets = createParkTicketFacade(store);
-    const ticket = tickets.createTicket(repairInput());
+    const database = createDatabase()
+    const { store, setFeature } = createStore(database)
+    const tickets = createParkTicketFacade(store)
+    const ticket = tickets.createTicket(repairInput())
 
-    expect(tickets.getTicketForAccount(ticket.id, 'other-worker')).toBeNull();
-    expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).not.toBeNull();
-    database.prepare("UPDATE accounts SET status = 'disabled' WHERE id = 'park-worker'").run();
-    expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).toBeNull();
-    database.prepare("UPDATE accounts SET status = 'active' WHERE id = 'park-worker'").run();
-    setFeature('tenant-a', false);
-    expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).not.toBeNull();
+    expect(tickets.getTicketForAccount(ticket.id, 'other-worker')).toBeNull()
+    expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).not.toBeNull()
+    database.prepare("UPDATE accounts SET status = 'disabled' WHERE id = 'park-worker'").run()
+    expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).toBeNull()
+    database.prepare("UPDATE accounts SET status = 'active' WHERE id = 'park-worker'").run()
+    setFeature('tenant-a', false)
+    expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).not.toBeNull()
     expect(
       tickets.isTicketFeatureEnabledForAccount(ticket.id, 'park-worker'),
-    ).toBe(false);
+    ).toBe(false)
     expect(() => tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker',
       action: 'accept',
-    })).toThrow('园区服务功能已由管理员关闭');
-    expect(() => tickets.createTicket(repairInput())).toThrow('园区服务功能已由管理员关闭');
-    setFeature('tenant-a', true);
-    database.prepare("UPDATE parks SET status = 'disabled' WHERE id = 'park-a'").run();
-    expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).toBeNull();
-    expect(tickets.getTicketNotificationRecipients(ticket.id)).toEqual([]);
+    })).toThrow('园区服务功能已由管理员关闭')
+    expect(() => tickets.createTicket(repairInput())).toThrow('园区服务功能已由管理员关闭')
+    setFeature('tenant-a', true)
+    database.prepare("UPDATE parks SET status = 'disabled' WHERE id = 'park-a'").run()
+    expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).toBeNull()
+    expect(tickets.getTicketNotificationRecipients(ticket.id)).toEqual([])
   });
 
   it('requires customer service to reply and transfer to engineering atomically without choosing a person', () => {
-    const database = createDatabase();
-    const { store } = createStore(database);
-    const tickets = createParkTicketFacade(store);
-    const ticket = tickets.createTicket(repairInput());
+    const database = createDatabase()
+    const { store } = createStore(database)
+    const tickets = createParkTicketFacade(store)
+    const ticket = tickets.createTicket(repairInput())
 
     database.prepare(
       "UPDATE accounts SET status = 'disabled' WHERE id = 'park-worker-2'",
-    ).run();
+    ).run()
     expect(() => tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker',
       action: 'respond_and_transfer',
       responseType: '已受理',
       responseText: '客服已确认报修内容',
-    })).toThrow(/工程部暂无可接收/);
+    })).toThrow(/工程部暂无可接收/)
     expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).toMatchObject({
       status: '待接单',
       responseType: null,
       responseText: null,
       history: [expect.objectContaining({ action: 'created' })],
-    });
+    })
     database.prepare(
       "UPDATE accounts SET status = 'active' WHERE id = 'park-worker-2'",
-    ).run();
+    ).run()
 
     expect(() => tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker',
       action: 'transfer',
       transferAccountId: 'park-worker-2',
-    } as never)).toThrow(/工单操作不正确/);
+    } as never)).toThrow(/工单操作不正确/)
 
     expect(() => tickets.updateTicket({
       ticketId: ticket.id,
@@ -493,7 +493,7 @@ describe('park ticket module', () => {
       transferAccountId: 'park-worker-2',
       responseType: '已受理',
       responseText: '客服已确认报修内容',
-    })).toThrow(/不能指定个人/);
+    })).toThrow(/不能指定个人/)
 
     const transferred = tickets.updateTicket({
       ticketId: ticket.id,
@@ -503,60 +503,60 @@ describe('park ticket module', () => {
       responseText: '客服已确认报修内容',
       transferDepartment: '工程部',
       transferNote: '请工程部上门检查并记录处理结果',
-    });
-    expect(transferred.status).toBe('已转交');
-    expect(transferred.history.map((event) => event.action)).toEqual([
+    })
+    expect(transferred.status).toBe('已转交')
+    expect(transferred.history.map(event => event.action)).toEqual([
       'created',
       'respond',
       'transfer',
-    ]);
+    ])
     expect(transferred.history.at(-2)).toMatchObject({
       action: 'respond',
       responseType: '已受理',
       responseText: '客服已确认报修内容',
-    });
+    })
     expect(transferred.history.at(-1)).toMatchObject({
       action: 'transfer',
       responseType: '已转交至工程部',
       responseText: '请工程部上门检查并记录处理结果',
-    });
+    })
     expect(() => tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker',
       action: 'respond',
       responseType: '处理中',
       responseText: 'Old worker must no longer update',
-    })).toThrow('Only the currently assigned worker can update');
+    })).toThrow('Only the currently assigned worker can update')
 
     const completed = tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker-2',
       action: 'complete',
-    });
-    expect(completed.status).toBe('已完成');
-    expect(completed.history.map((event) => event.action)).toEqual([
+    })
+    expect(completed.status).toBe('已完成')
+    expect(completed.history.map(event => event.action)).toEqual([
       'created',
       'respond',
       'transfer',
       'complete',
-    ]);
+    ])
     expect(
       tickets.getTicketForAccount(ticket.id, 'park-worker'),
     ).toMatchObject({
       status: '已完成',
       responseType: '现场工作已完成',
       responseText: '工作人员已完成转交事项。',
-    });
+    })
   });
 
   it('keeps creator progress unread across transfer until the creator explicitly reads it', () => {
-    const database = createDatabase();
-    const { store } = createStore(database);
-    const tickets = createParkTicketFacade(store);
-    const ticket = tickets.createTicket(repairInput());
+    const database = createDatabase()
+    const { store } = createStore(database)
+    const tickets = createParkTicketFacade(store)
+    const ticket = tickets.createTicket(repairInput())
 
-    expect(ticket.creatorUpdateAt).toBeNull();
-    expect(ticket.creatorUpdateReadAt).toEqual(expect.any(String));
+    expect(ticket.creatorUpdateAt).toBeNull()
+    expect(ticket.creatorUpdateReadAt).toEqual(expect.any(String))
     const updated = tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker',
@@ -564,50 +564,50 @@ describe('park ticket module', () => {
       responseType: '客服已受理',
       responseText: '已核实并转交工程部。',
       transferNote: '请工程部上门处理。',
-    });
-    expect(updated.creatorUpdateAt).toEqual(expect.any(String));
-    expect(updated.creatorUpdateReadAt).toBeNull();
+    })
+    expect(updated.creatorUpdateAt).toEqual(expect.any(String))
+    expect(updated.creatorUpdateReadAt).toBeNull()
     expect(
       database.prepare(
         'SELECT status, read_at FROM ticket_deliveries WHERE ticket_id = ? AND account_id = ?',
       ).get(ticket.id, 'park-worker'),
-    ).toEqual({ status: 'transferred', read_at: null });
+    ).toEqual({ status: 'transferred', read_at: null })
 
     expect(
       tickets.getTicketForAccount(ticket.id, 'tenant-user')
         ?.creatorUpdateReadAt,
-    ).toBeNull();
+    ).toBeNull()
     expect(
       tickets.markTicketRead(ticket.id, 'tenant-user').creatorUpdateReadAt,
-    ).toEqual(expect.any(String));
+    ).toEqual(expect.any(String))
 
-    tickets.markTicketRead(ticket.id, 'park-worker');
+    tickets.markTicketRead(ticket.id, 'park-worker')
     expect(
       database.prepare(
         'SELECT status, read_at FROM ticket_deliveries WHERE ticket_id = ? AND account_id = ?',
       ).get(ticket.id, 'park-worker'),
-    ).toEqual({ status: 'transferred', read_at: expect.any(String) });
+    ).toEqual({ status: 'transferred', read_at: expect.any(String) })
     const completed = tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker-2',
       action: 'complete',
       responseType: '现场工作已完成',
       responseText: '已完成检修。',
-    });
-    expect(completed.creatorUpdateAt).toEqual(expect.any(String));
-    expect(completed.creatorUpdateReadAt).toBeNull();
+    })
+    expect(completed.creatorUpdateAt).toEqual(expect.any(String))
+    expect(completed.creatorUpdateReadAt).toBeNull()
     expect(
       database.prepare(
         'SELECT status, read_at FROM ticket_deliveries WHERE ticket_id = ? AND account_id = ?',
       ).get(ticket.id, 'park-worker'),
-    ).toEqual({ status: 'transferred', read_at: null });
+    ).toEqual({ status: 'transferred', read_at: null })
   });
 
   it('only records notifications for the creator or assigned recipients', () => {
-    const database = createDatabase();
-    const { store } = createStore(database);
-    const tickets = createParkTicketFacade(store);
-    const ticket = tickets.createTicket(repairInput());
+    const database = createDatabase()
+    const { store } = createStore(database)
+    const tickets = createParkTicketFacade(store)
+    const ticket = tickets.createTicket(repairInput())
 
     tickets.recordTicketNotification({
       ticketId: ticket.id,
@@ -615,21 +615,21 @@ describe('park ticket module', () => {
       channel: 'clawmaster',
       event: 'updated',
       status: 'sent',
-    });
+    })
     tickets.recordTicketNotification({
       ticketId: ticket.id,
       recipientAccountId: 'park-worker',
       channel: 'clawmaster',
       event: 'created',
       status: 'sent',
-    });
+    })
     expect(() => tickets.recordTicketNotification({
       ticketId: ticket.id,
       recipientAccountId: 'other-worker',
       channel: 'clawmaster',
       event: 'created',
       status: 'sent',
-    })).toThrow('Notification recipient is not assigned');
+    })).toThrow('Notification recipient is not assigned')
   });
 
   it('keeps pricing and 30-minute meeting rules in the form-rules layer', () => {
@@ -638,14 +638,14 @@ describe('park ticket module', () => {
       roomNumber: '5-101',
       contact: 'Alice',
       phone: '13800138000',
-    };
+    }
     const parking = normalizeParkServiceFormData('parking', {
       ...common,
       applicationType: 'underground-fixed',
       quantity: '2',
-    });
-    expect(parking.amountCny).toBe('520');
-    expect(parking.recurringMonthlyCny).toBe('520');
+    })
+    expect(parking.amountCny).toBe('520')
+    expect(parking.recurringMonthlyCny).toBe('520')
     expect(normalizeParkServiceFormData('electric-card', {
       ...common,
       chargingKwh: '12.5',
@@ -654,7 +654,7 @@ describe('park ticket module', () => {
       unitPriceCny: '1.2',
       pricing: '1.2元/度',
       amountCny: '15',
-    });
+    })
     expect(normalizeParkServiceFormData('electric-card', {
       ...common,
       amount: '10',
@@ -663,7 +663,7 @@ describe('park ticket module', () => {
       unitPriceCny: '1.2',
       pricing: '1.2元/度',
       amountCny: '10',
-    });
+    })
     const firstMeeting = normalizeParkServiceFormData('meeting-room', {
       ...common,
       attendees: '4',
@@ -673,7 +673,7 @@ describe('park ticket module', () => {
       startTime: '09:00',
       endTime: '09:30',
       priceHalfDay: '400',
-    });
+    })
     const secondMeeting = normalizeParkServiceFormData('meeting-room', {
       ...common,
       attendees: '3',
@@ -683,22 +683,22 @@ describe('park ticket module', () => {
       startTime: '09:30',
       endTime: '10:00',
       priceHalfDay: '400',
-    });
+    })
     expect(firstMeeting).toMatchObject({
       amountCny: '400',
       pricing: '400元/半天，不足半天按半天计',
-    });
+    })
     expect(secondMeeting).toMatchObject({
       amountCny: '400',
       pricing: '400元/半天，不足半天按半天计',
-    });
+    })
     expect(() => normalizeParkServiceFormData('vehicle-visit', {
       ...common,
       visitDate: '2026-07-29',
       reason: '客户来访',
       vehicleCount: '1',
       plate1: '京A12345',
-    })).toThrow('来访时间');
+    })).toThrow('来访时间')
     expect(() => normalizeParkServiceFormData('vehicle-visit', {
       ...common,
       visitDate: '2026-07-29',
@@ -706,7 +706,7 @@ describe('park ticket module', () => {
       reason: '客户来访',
       vehicleCount: '1',
       plate1: '京A12345',
-    })).toThrow('来访时间');
+    })).toThrow('来访时间')
     expect(() => normalizeParkServiceFormData('meeting-room', {
       ...common,
       attendees: '4',
@@ -715,7 +715,7 @@ describe('park ticket module', () => {
       startTime: '09:00',
       endTime: '10:00',
       priceHalfDay: '200',
-    })).toThrow('会议内容');
+    })).toThrow('会议内容')
     expect(() => normalizeParkServiceFormData('meeting-room', {
       ...common,
       attendees: '4',
@@ -725,15 +725,15 @@ describe('park ticket module', () => {
       startTime: '09:05',
       endTime: '10:00',
       priceHalfDay: '200',
-    })).toThrow('并按 30 分钟选择');
+    })).toThrow('并按 30 分钟选择')
   });
 
   it('round-trips a validated vehicle visit time through the ticket view', () => {
-    const database = createDatabase();
+    const database = createDatabase()
     database.exec(
       "INSERT INTO park_services (park_id, id, enabled) VALUES ('park-a', 'vehicle-visit', 1)",
-    );
-    const { store } = createStore(database);
+    )
+    const { store } = createStore(database)
     const ticket = createParkTicketFacade(store).createTicket({
       createdByAccountId: 'tenant-user',
       serviceId: 'vehicle-visit',
@@ -750,86 +750,86 @@ describe('park ticket module', () => {
         vehicleCount: '1',
         plate1: '京A12345',
       },
-    });
+    })
 
-    expect(ticket.formData.visitTime).toBe('09:30');
+    expect(ticket.formData.visitTime).toBe('09:30')
   });
 
   it('routes a ticket to every matching specialist so the pool can race to claim it', () => {
-    const database = createDatabase();
+    const database = createDatabase()
     database.prepare(
       "INSERT INTO park_service_specialists (park_id, service_id, account_id) VALUES ('park-a', 'repair', 'park-worker-2')",
-    ).run();
-    const { store } = createStore(database);
-    const tickets = createParkTicketFacade(store);
-    const ticket = tickets.createTicket(repairInput());
-    expect(ticket.recipients.map((item) => item.id).sort()).toEqual([
+    ).run()
+    const { store } = createStore(database)
+    const tickets = createParkTicketFacade(store)
+    const ticket = tickets.createTicket(repairInput())
+    expect(ticket.recipients.map(item => item.id).sort()).toEqual([
       'park-worker',
       'park-worker-2',
-    ]);
+    ])
   });
 
   it('only one worker wins the claim and everyone else gets a stable already-claimed error', () => {
-    const database = createDatabase();
+    const database = createDatabase()
     database.prepare(
       "INSERT INTO park_service_specialists (park_id, service_id, account_id) VALUES ('park-a', 'repair', 'park-worker-2')",
-    ).run();
-    const { store } = createStore(database);
-    const tickets = createParkTicketFacade(store);
-    const ticket = tickets.createTicket(repairInput());
+    ).run()
+    const { store } = createStore(database)
+    const tickets = createParkTicketFacade(store)
+    const ticket = tickets.createTicket(repairInput())
 
-    let succeeded = 0;
-    const failures: string[] = [];
+    let succeeded = 0
+    const failures: string[] = []
     for (let i = 0; i < 100; i += 1) {
-      const accountId = i % 2 === 0 ? 'park-worker' : 'park-worker-2';
+      const accountId = i % 2 === 0 ? 'park-worker' : 'park-worker-2'
       try {
         const claimed = tickets.updateTicket({
           ticketId: ticket.id,
           accountId,
           action: 'accept',
-        });
-        succeeded += 1;
+        })
+        succeeded += 1
         expect(claimed.acceptedBy).toEqual(
           accountId === 'park-worker'
             ? { id: 'park-worker', name: 'Park Worker' }
             : { id: 'park-worker-2', name: 'Park Worker 2' },
-        );
+        )
       } catch (error) {
-        failures.push(error instanceof Error ? error.message : String(error));
+        failures.push(error instanceof Error ? error.message : String(error))
       }
     }
-    expect(succeeded).toBe(1);
-    expect(failures).toHaveLength(99);
+    expect(succeeded).toBe(1)
+    expect(failures).toHaveLength(99)
     expect(
-      failures.every((message) =>
+      failures.every(message =>
         message === '工单已被他人接单' || message === '工单已由您接单',
       ),
-    ).toBe(true);
+    ).toBe(true)
 
     const stored = database.prepare(
       'SELECT status, accepted_by_account_id FROM it_tickets WHERE id = ?',
-    ).get(ticket.id) as { status: string; accepted_by_account_id: string | null };
-    expect(stored.status).toBe('维修中');
-    expect(stored.accepted_by_account_id).toBeTruthy();
+    ).get(ticket.id) as { status: string; accepted_by_account_id: string | null }
+    expect(stored.status).toBe('维修中')
+    expect(stored.accepted_by_account_id).toBeTruthy()
   });
 
   it('allows the handler to release the ticket back to the pool and another worker to re-claim', () => {
-    const database = createDatabase();
+    const database = createDatabase()
     database.prepare(
       "INSERT INTO park_service_specialists (park_id, service_id, account_id) VALUES ('park-a', 'repair', 'park-worker-2')",
-    ).run();
-    const { store } = createStore(database);
-    const tickets = createParkTicketFacade(store);
-    const ticket = tickets.createTicket(repairInput());
+    ).run()
+    const { store } = createStore(database)
+    const tickets = createParkTicketFacade(store)
+    const ticket = tickets.createTicket(repairInput())
 
     const claimed = tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker',
       action: 'accept',
-    });
-    expect(claimed.status).toBe('维修中');
-    expect(claimed.acceptedBy).toEqual({ id: 'park-worker', name: 'Park Worker' });
-    expect(claimed.history.map((event) => event.action)).toEqual(['created', 'accept']);
+    })
+    expect(claimed.status).toBe('维修中')
+    expect(claimed.acceptedBy).toEqual({ id: 'park-worker', name: 'Park Worker' })
+    expect(claimed.history.map(event => event.action)).toEqual(['created', 'accept'])
 
     // 只有当前处理人可以退回；非处理人拒绝。
     expect(() => tickets.updateTicket({
@@ -837,87 +837,87 @@ describe('park ticket module', () => {
       accountId: 'park-worker-2',
       action: 'release',
       releaseReason: '忙不过来',
-    })).toThrow('只有当前处理人可以退回工单');
+    })).toThrow('只有当前处理人可以退回工单')
 
     const released = tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker',
       action: 'release',
       releaseReason: '暂时没空',
-    });
-    expect(released.status).toBe('待接单');
-    expect(released.acceptedBy).toBeNull();
-    expect(released.releasedAt).toEqual(expect.any(String));
-    expect(released.releaseReason).toBe('暂时没空');
-    expect(released.history.map((event) => event.action)).toEqual([
+    })
+    expect(released.status).toBe('待接单')
+    expect(released.acceptedBy).toBeNull()
+    expect(released.releasedAt).toEqual(expect.any(String))
+    expect(released.releaseReason).toBe('暂时没空')
+    expect(released.history.map(event => event.action)).toEqual([
       'created',
       'accept',
       'release',
-    ]);
+    ])
 
     // 退回后可由其他符合条件的人员重新接单。
     const reClaimed = tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker-2',
       action: 'accept',
-    });
-    expect(reClaimed.status).toBe('维修中');
-    expect(reClaimed.acceptedBy).toEqual({ id: 'park-worker-2', name: 'Park Worker 2' });
-    expect(reClaimed.history.map((event) => event.action)).toEqual([
+    })
+    expect(reClaimed.status).toBe('维修中')
+    expect(reClaimed.acceptedBy).toEqual({ id: 'park-worker-2', name: 'Park Worker 2' })
+    expect(reClaimed.history.map(event => event.action)).toEqual([
       'created',
       'accept',
       'release',
       'accept',
-    ]);
+    ])
   });
 
   it('never allows re-claiming a completed ticket, a non-specialist, or a cross-enterprise account', () => {
-    const database = createDatabase();
+    const database = createDatabase()
     database.prepare(
       "INSERT INTO park_service_specialists (park_id, service_id, account_id) VALUES ('park-a', 'repair', 'park-worker-2')",
-    ).run();
-    const { store } = createStore(database);
-    const tickets = createParkTicketFacade(store);
-    const ticket = tickets.createTicket(repairInput());
+    ).run()
+    const { store } = createStore(database)
+    const tickets = createParkTicketFacade(store)
+    const ticket = tickets.createTicket(repairInput())
 
     const claimed = tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker',
       action: 'accept',
-    });
-    expect(claimed.status).toBe('维修中');
+    })
+    expect(claimed.status).toBe('维修中')
     tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker',
       action: 'complete',
-    });
+    })
     const confirmed = tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'tenant-user',
       action: 'confirm',
-    });
-    expect(confirmed.status).toBe('已完成');
+    })
+    expect(confirmed.status).toBe('已完成')
 
     // 已完成工单不可重抢：同为待办池成员的另一名专员也不能再抢。
     expect(() => tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'park-worker-2',
       action: 'accept',
-    })).toThrow('工单已被他人接单');
+    })).toThrow('工单已被他人接单')
 
     // 非专员（创建者）不可抢单。
     expect(() => tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'tenant-user',
       action: 'accept',
-    })).toThrow('Only the currently assigned worker can update');
+    })).toThrow('Only the currently assigned worker can update')
 
     // 跨企业账号不可见工单，更不可抢单。
-    expect(tickets.getTicketForAccount(ticket.id, 'other-worker')).toBeNull();
+    expect(tickets.getTicketForAccount(ticket.id, 'other-worker')).toBeNull()
     expect(() => tickets.updateTicket({
       ticketId: ticket.id,
       accountId: 'other-worker',
       action: 'accept',
-    })).toThrow('Ticket not found');
+    })).toThrow('Ticket not found')
   });
-});
+})

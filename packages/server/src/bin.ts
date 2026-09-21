@@ -16,120 +16,120 @@
  * Electron 主进程也可不经本入口，直接 `new ClawMasterServer().start()` 内嵌。
  */
 
-import { ClawMasterServer } from './server.js';
+import { ClawMasterServer } from './server.js'
 import {
   clearEndpoint,
   readEndpoint,
   writeEndpoint,
-} from './endpoint.js';
-import { DEFAULT_HOST, DEFAULT_PORT } from './protocol.js';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join as pathJoin } from 'node:path';
+} from './endpoint.js'
+import { DEFAULT_HOST, DEFAULT_PORT } from './protocol.js'
+import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join as pathJoin } from 'node:path'
 
 /** 飞书凭证文件是否存在。与 desktop ServerManager 使用同一检测逻辑。 */
 function feishuCredentialsExist(): boolean {
   try {
-    return existsSync(pathJoin(homedir(), '.clawmaster-user', 'feishu-credentials.json'));
+    return existsSync(pathJoin(homedir(), '.clawmaster-user', 'feishu-credentials.json'))
   } catch {
-    return false;
+    return false
   }
 }
 
 async function cmdStart(): Promise<void> {
-  const port = Number(process.env.CLAWMASTER_SERVER_PORT ?? DEFAULT_PORT);
-  const enableFeishu = feishuCredentialsExist();
-  console.log(`[clawmaster-server] feishu gateway: ${enableFeishu ? 'enabled' : 'disabled (no credentials)'}`);
-  const server = new ClawMasterServer({ host: DEFAULT_HOST, port, enableFeishu });
-  await server.start();
-  const { host, port: boundPort, clientToken } = server.endpoint;
-  writeEndpoint(host, boundPort, clientToken, server.controlToken);
+  const port = Number(process.env.CLAWMASTER_SERVER_PORT ?? DEFAULT_PORT)
+  const enableFeishu = feishuCredentialsExist()
+  console.log(`[clawmaster-server] feishu gateway: ${enableFeishu ? 'enabled' : 'disabled (no credentials)'}`)
+  const server = new ClawMasterServer({ host: DEFAULT_HOST, port, enableFeishu })
+  await server.start()
+  const { host, port: boundPort, clientToken } = server.endpoint
+  writeEndpoint(host, boundPort, clientToken, server.controlToken)
 
   console.log(
     `[clawmaster-server] listening on http://${host}:${boundPort} ` +
       `(ws ${host}:${boundPort}/ws，受 clientToken 保护)`,
-  );
+  )
 
   // 防重入：连续 Ctrl-C / 重复信号只跑一次优雅停机，
   // 保证 server.stop()（含取消所有活跃 runtime）完整跑完后再 exit。
-  let shuttingDown = false;
+  let shuttingDown = false
   const shutdown = async (): Promise<void> => {
-    if (shuttingDown) return;
-    shuttingDown = true;
+    if (shuttingDown) return
+    shuttingDown = true
 
-    console.log('\n[clawmaster-server] shutting down…');
-    await server.stop();
-    clearEndpoint();
-    process.exit(0);
+    console.log('\n[clawmaster-server] shutting down…')
+    await server.stop()
+    clearEndpoint()
+    process.exit(0)
   };
-  process.on('SIGINT', () => void shutdown());
-  process.on('SIGTERM', () => void shutdown());
+  process.on('SIGINT', () => void shutdown())
+  process.on('SIGTERM', () => void shutdown())
 }
 
 function cmdStatus(): void {
-  const ep = readEndpoint();
+  const ep = readEndpoint()
   if (!ep) {
 
-    console.log('[clawmaster-server] 未发现运行中的 server（无端点文件）。');
-    process.exitCode = 1;
+    console.log('[clawmaster-server] 未发现运行中的 server（无端点文件）。')
+    process.exitCode = 1
     return;
   }
-  const alive = isAlive(ep.pid);
+  const alive = isAlive(ep.pid)
 
   console.log(
     alive
       ? `[clawmaster-server] 运行中 PID ${ep.pid} @ http://${ep.host}:${ep.port}（协议 v${ep.protocolVersion}）`
       : `[clawmaster-server] 端点文件存在但进程 ${ep.pid} 已退出（陈旧端点）。`,
-  );
-  if (!alive) process.exitCode = 1;
+  )
+  if (!alive) process.exitCode = 1
 }
 
 function cmdStop(): void {
-  const ep = readEndpoint();
+  const ep = readEndpoint()
   if (!ep || !isAlive(ep.pid)) {
 
-    console.log('[clawmaster-server] 没有运行中的 server 可停止。');
-    clearEndpoint();
+    console.log('[clawmaster-server] 没有运行中的 server 可停止。')
+    clearEndpoint()
     return;
   }
   try {
-    process.kill(ep.pid, 'SIGTERM');
-    clearEndpoint();
+    process.kill(ep.pid, 'SIGTERM')
+    clearEndpoint()
 
-    console.log(`[clawmaster-server] 已向 PID ${ep.pid} 发送 SIGTERM。`);
+    console.log(`[clawmaster-server] 已向 PID ${ep.pid} 发送 SIGTERM。`)
   } catch (e) {
 
-    console.error(`[clawmaster-server] 停止失败: ${(e as Error).message}`);
-    process.exitCode = 1;
+    console.error(`[clawmaster-server] 停止失败: ${(e as Error).message}`)
+    process.exitCode = 1
   }
 }
 
 function isAlive(pid: number): boolean {
   try {
-    process.kill(pid, 0);
-    return true;
+    process.kill(pid, 0)
+    return true
   } catch {
-    return false;
+    return false
   }
 }
 
 async function main(): Promise<void> {
-  const cmd = process.argv[2] ?? 'start';
+  const cmd = process.argv[2] ?? 'start'
   switch (cmd) {
     case 'start':
-      await cmdStart();
+      await cmdStart()
       break;
     case 'status':
-      cmdStatus();
+      cmdStatus()
       break;
     case 'stop':
-      cmdStop();
+      cmdStop()
       break;
     default:
 
-      console.error(`未知命令: ${cmd}（用 start | stop | status）`);
-      process.exitCode = 2;
+      console.error(`未知命令: ${cmd}（用 start | stop | status）`)
+      process.exitCode = 2
   }
 }
 
-void main();
+void main()

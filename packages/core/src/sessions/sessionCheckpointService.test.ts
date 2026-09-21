@@ -4,29 +4,29 @@
  * Tests for SessionCheckpointService
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import * as os from 'os';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import * as os from 'os'
 import {
   SessionCheckpointService,
   resetCheckpointService,
-} from '../sessions/sessionCheckpointService.js';
+} from '../sessions/sessionCheckpointService.js'
 
 describe('SessionCheckpointService', () => {
-  let tempDir: string;
-  let service: SessionCheckpointService;
+  let tempDir: string
+  let service: SessionCheckpointService
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-cp-test-'));
-    process.env.CLAWMASTER_USER_DIR = tempDir;
-    service = new SessionCheckpointService(tempDir);
-    resetCheckpointService();
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-cp-test-'))
+    process.env.CLAWMASTER_USER_DIR = tempDir
+    service = new SessionCheckpointService(tempDir)
+    resetCheckpointService()
   });
 
   afterEach(async () => {
-    delete process.env.CLAWMASTER_USER_DIR;
-    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    delete process.env.CLAWMASTER_USER_DIR
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
   });
 
   describe('save and load', () => {
@@ -41,23 +41,23 @@ describe('SessionCheckpointService', () => {
         wasCompressed: false,
         lastActiveAt: new Date().toISOString(),
         channel: 'cli',
-      });
+      })
 
-      expect(cp.sessionId).toBe('test-session-1');
-      expect(cp.timestamp).toBeDefined();
+      expect(cp.sessionId).toBe('test-session-1')
+      expect(cp.timestamp).toBeDefined()
 
-      const loaded = await service.load('test-session-1');
-      expect(loaded).not.toBeNull();
-      expect(loaded!.title).toBe('Test Session');
-      expect(loaded!.turnCount).toBe(5);
-      expect(loaded!.lastTaskSummary).toContain('auth');
+      const loaded = await service.load('test-session-1')
+      expect(loaded).not.toBeNull()
+      expect(loaded!.title).toBe('Test Session')
+      expect(loaded!.turnCount).toBe(5)
+      expect(loaded!.lastTaskSummary).toContain('auth')
     });
 
     it('should return null for non-existent session', async () => {
-      const loaded = await service.load('nonexistent-session');
-      expect(loaded).toBeNull();
+      const loaded = await service.load('nonexistent-session')
+      expect(loaded).toBeNull()
     });
-  });
+  })
 
   describe('listAll', () => {
     it('should list all checkpoints sorted by time desc', async () => {
@@ -71,7 +71,7 @@ describe('SessionCheckpointService', () => {
         wasCompressed: false,
         lastActiveAt: new Date(Date.now() - 60000).toISOString(),
         channel: 'cli',
-      });
+      })
 
       await service.save({
         sessionId: 'newer',
@@ -83,20 +83,20 @@ describe('SessionCheckpointService', () => {
         wasCompressed: false,
         lastActiveAt: new Date().toISOString(),
         channel: 'cli',
-      });
+      })
 
-      const all = await service.listAll();
-      expect(all.length).toBe(2);
-      expect(all[0].sessionId).toBe('newer'); // 最新的在前
+      const all = await service.listAll()
+      expect(all.length).toBe(2)
+      expect(all[0].sessionId).toBe('newer') // 最新的在前
     });
-  });
+  })
 
   describe('status', () => {
     it('should report empty status when no checkpoints', async () => {
-      const s = await service.status();
-      expect(s.totalCheckpoints).toBe(0);
-      expect(s.latest).toBeNull();
-      expect(s.hasPendingTask).toBe(false);
+      const s = await service.status()
+      expect(s.totalCheckpoints).toBe(0)
+      expect(s.latest).toBeNull()
+      expect(s.hasPendingTask).toBe(false)
     });
 
     it('should detect stalled checkpoint as pending', async () => {
@@ -111,13 +111,13 @@ describe('SessionCheckpointService', () => {
         wasCompressed: false,
         lastActiveAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
         channel: 'cli',
-      });
+      })
 
-      const s = await service.status();
-      expect(s.totalCheckpoints).toBe(1);
-      expect(s.hasPendingTask).toBe(true);
+      const s = await service.status()
+      expect(s.totalCheckpoints).toBe(1)
+      expect(s.hasPendingTask).toBe(true)
     });
-  });
+  })
 
   describe('delete', () => {
     it('should delete a checkpoint', async () => {
@@ -131,15 +131,15 @@ describe('SessionCheckpointService', () => {
         wasCompressed: false,
         lastActiveAt: new Date().toISOString(),
         channel: 'cli',
-      });
+      })
 
-      const deleted = await service.delete('to-delete');
-      expect(deleted).toBe(true);
+      const deleted = await service.delete('to-delete')
+      expect(deleted).toBe(true)
 
-      const loaded = await service.load('to-delete');
-      expect(loaded).toBeNull();
+      const loaded = await service.load('to-delete')
+      expect(loaded).toBeNull()
     });
-  });
+  })
 
   describe('formatStatus', () => {
     it('should output readable status text', async () => {
@@ -153,12 +153,12 @@ describe('SessionCheckpointService', () => {
         wasCompressed: false,
         lastActiveAt: new Date().toISOString(),
         channel: 'desktop',
-      });
+      })
 
-      const formatted = await service.formatStatus();
-      expect(typeof formatted).toBe('string');
-      expect(formatted).toContain('Checkpoint Status');
-      expect(formatted).toContain('Format Test Session');
+      const formatted = await service.formatStatus()
+      expect(typeof formatted).toBe('string')
+      expect(formatted).toContain('Checkpoint Status')
+      expect(formatted).toContain('Format Test Session')
     });
-  });
+  })
 });

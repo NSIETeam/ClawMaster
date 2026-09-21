@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash } from 'node:crypto'
 
 const ALLOWED_HOST_IMPORTS = new Set([
   'read_input',
@@ -12,49 +12,49 @@ const ALLOWED_HOST_IMPORTS = new Set([
   'model_invoke',
   'is_cancelled',
   'read_response',
-]);
+])
 const ALLOWED_WASI_IMPORTS = new Set([
   'args_get', 'args_sizes_get', 'environ_get', 'environ_sizes_get',
   'fd_write', 'fd_fdstat_get', 'random_get', 'proc_exit',
-]);
+])
 
 export interface CustomerModuleWasmScan {
-  imports: string[];
-  exports: string[];
+  imports: string[]
+  exports: string[]
 }
 
-const MAX_WASM_MEMORY_PAGES = 1_024;
+const MAX_WASM_MEMORY_PAGES = 1_024
 
 function readUleb(bytes: Uint8Array, cursor: { value: number }, end = bytes.length): number {
-  let result = 0; let shift = 0;
+  let result = 0; let shift = 0
   while (cursor.value < end && shift < 35) {
-    const byte = bytes[cursor.value++]!;
-    result |= (byte & 0x7f) << shift;
-    if ((byte & 0x80) === 0) return result >>> 0;
-    shift += 7;
+    const byte = bytes[cursor.value++]!
+    result |= (byte & 0x7f) << shift
+    if ((byte & 0x80) === 0) return result >>> 0
+    shift += 7
   }
-  throw new Error('customer module has malformed WASM limits');
+  throw new Error('customer module has malformed WASM limits')
 }
 
 function validateMemoryLimits(bytes: Uint8Array): void {
-  const cursor = { value: 8 };
+  const cursor = { value: 8 }
   while (cursor.value < bytes.length) {
-    const sectionId = bytes[cursor.value++]!;
-    const size = readUleb(bytes, cursor);
-    const end = cursor.value + size;
-    if (end > bytes.length) throw new Error('customer module has malformed WASM section');
+    const sectionId = bytes[cursor.value++]!
+    const size = readUleb(bytes, cursor)
+    const end = cursor.value + size
+    if (end > bytes.length) throw new Error('customer module has malformed WASM section')
     if (sectionId === 5) {
-      const count = readUleb(bytes, cursor, end);
-      if (count > 1) throw new Error('customer module may declare at most one linear memory');
+      const count = readUleb(bytes, cursor, end)
+      if (count > 1) throw new Error('customer module may declare at most one linear memory')
       for (let index = 0; index < count; index += 1) {
-        const flags = readUleb(bytes, cursor, end);
-        const minimum = readUleb(bytes, cursor, end);
-        if ((flags & 1) === 0) throw new Error('customer module linear memory must declare a maximum');
-        const maximum = readUleb(bytes, cursor, end);
-        if (minimum > maximum || maximum > MAX_WASM_MEMORY_PAGES) throw new Error('customer module linear memory exceeds the 64 MiB limit');
+        const flags = readUleb(bytes, cursor, end)
+        const minimum = readUleb(bytes, cursor, end)
+        if ((flags & 1) === 0) throw new Error('customer module linear memory must declare a maximum')
+        const maximum = readUleb(bytes, cursor, end)
+        if (minimum > maximum || maximum > MAX_WASM_MEMORY_PAGES) throw new Error('customer module linear memory exceeds the 64 MiB limit')
       }
     }
-    cursor.value = end;
+    cursor.value = end
   }
 }
 
@@ -63,46 +63,46 @@ export async function verifyCustomerModuleFileHashes(
   files: ReadonlyMap<string, Uint8Array>,
 ): Promise<void> {
   for (const path of files.keys()) {
-    if (!(path in declared)) throw new Error(`customer module contains undeclared file: ${path}`);
+    if (!(path in declared)) throw new Error(`customer module contains undeclared file: ${path}`)
   }
   for (const [path, digest] of Object.entries(declared)) {
-    const body = files.get(path);
-    if (!body) throw new Error(`customer module is missing file: ${path}`);
-    const actual = createHash('sha256').update(body).digest('hex');
-    if (actual !== digest) throw new Error(`customer module file hash mismatch: ${path}`);
+    const body = files.get(path)
+    if (!body) throw new Error(`customer module is missing file: ${path}`)
+    const actual = createHash('sha256').update(body).digest('hex')
+    if (actual !== digest) throw new Error(`customer module file hash mismatch: ${path}`)
   }
 }
 
 export async function scanCustomerModuleWasm(bytes: Uint8Array): Promise<CustomerModuleWasmScan> {
-  let module: WebAssembly.Module;
+  let module: WebAssembly.Module
   try {
-    module = await WebAssembly.compile(Uint8Array.from(bytes).buffer);
+    module = await WebAssembly.compile(Uint8Array.from(bytes).buffer)
   } catch {
-    throw new Error('customer module entrypoint is not valid WASM');
+    throw new Error('customer module entrypoint is not valid WASM')
   }
-  validateMemoryLimits(bytes);
-  const imports = WebAssembly.Module.imports(module);
+  validateMemoryLimits(bytes)
+  const imports = WebAssembly.Module.imports(module)
   for (const item of imports) {
-    const allowedClawMaster = item.module === 'clawmaster' && item.kind === 'function' && ALLOWED_HOST_IMPORTS.has(item.name);
-    const allowedWasi = item.module === 'wasi_snapshot_preview1' && item.kind === 'function' && ALLOWED_WASI_IMPORTS.has(item.name);
+    const allowedClawMaster = item.module === 'clawmaster' && item.kind === 'function' && ALLOWED_HOST_IMPORTS.has(item.name)
+    const allowedWasi = item.module === 'wasi_snapshot_preview1' && item.kind === 'function' && ALLOWED_WASI_IMPORTS.has(item.name)
     if (!allowedClawMaster && !allowedWasi) {
-      throw new Error(`customer module uses forbidden WASM import: ${item.module}.${item.name}`);
+      throw new Error(`customer module uses forbidden WASM import: ${item.module}.${item.name}`)
     }
   }
-  const exports = WebAssembly.Module.exports(module);
-  if (!exports.some((item) => item.kind === 'function' && item.name === 'clawmaster_run')) {
-    throw new Error('customer module must export clawmaster_run');
+  const exports = WebAssembly.Module.exports(module)
+  if (!exports.some(item => item.kind === 'function' && item.name === 'clawmaster_run')) {
+    throw new Error('customer module must export clawmaster_run')
   }
-  if (imports.length > 0 && !exports.some((item) => item.kind === 'memory' && item.name === 'memory')) {
-    throw new Error('customer module using Host ABI must export memory');
+  if (imports.length > 0 && !exports.some(item => item.kind === 'memory' && item.name === 'memory')) {
+    throw new Error('customer module using Host ABI must export memory')
   }
   for (const item of exports) {
     if (item.kind === 'memory' && item.name !== 'memory') {
-      throw new Error(`customer module exports unexpected memory: ${item.name}`);
+      throw new Error(`customer module exports unexpected memory: ${item.name}`)
     }
   }
   return {
-    imports: imports.map((item) => `${item.module}.${item.name}`),
-    exports: exports.map((item) => item.name),
-  };
+    imports: imports.map(item => `${item.module}.${item.name}`),
+    exports: exports.map(item => item.name),
+  }
 }

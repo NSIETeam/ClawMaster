@@ -258,5 +258,5 @@ $('accountForm').addEventListener('submit',async event=>{event.preventDefault();
 document.addEventListener('keydown',event=>{if(event.key==='Tab'){trapFocus(event);return}if(event.key!=='Escape')return;if(activeOverlay===$('inviteModal'))closeInviteConfirm(false);else if(activeOverlay===$('logoutModal'))closeLogout(false);else if(activeOverlay===$('drawerWrap'))closeEditor(true,false)});
 async function restoreSession(){if(!token){showLogin('');focusSoon($('username'));return}const requestToken=token;const epoch=beginAuth();try{const data=await api('/enterprise/auth/me');if(epoch!==authEpoch||requestToken!==token)return;if(!data.account.isAdmin){const error=new Error('该账号没有管理员权限');error.status=403;throw error}currentAdmin=data.account;resetWorkspace();showAdmin();await loadWorkspaceWithFeedback(epoch,currentAdmin.organizationId)}catch(error){if(epoch!==authEpoch||requestToken!==token)return;expireAdminSession('登录已失效，请重新登录',requestToken)}}
 restoreSession();
-</script></body></html>`;
+</script></body></html>`
 }

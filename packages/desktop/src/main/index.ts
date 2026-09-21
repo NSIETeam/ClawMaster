@@ -45,19 +45,19 @@ import {
   shell,
   Tray,
   type NativeImage,
-} from 'electron';
-import { fileURLToPath } from 'node:url';
-import * as fs from 'node:fs';
-import * as http from 'node:http';
-import { generateKeyPairSync } from 'node:crypto';
-import * as os from 'node:os';
-import * as path from 'node:path';
+} from 'electron'
+import { fileURLToPath } from 'node:url'
+import * as fs from 'node:fs'
+import * as http from 'node:http'
+import { generateKeyPairSync } from 'node:crypto'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import type {
   ChannelPairingPublic,
   ChannelProvider,
   HealthInfo,
   ServerEndpoint,
-} from 'clawmaster-server';
+} from 'clawmaster-server'
 import {
   CustomerModuleHostBroker,
   CustomerModuleRunner,
@@ -66,49 +66,49 @@ import {
   scanCustomerModuleWasm,
   validateCustomerModuleArchiveEntries,
   verifyCustomerModuleFileHashes,
-} from 'clawmaster-core';
-import { WorkspaceDirectoryStore } from './workspace-directory-store.js';
-import { MainWindowPresentationController } from './main-window-presentation.js';
-import { askWindowCloseChoice } from './window-close-policy.js';
-import { installCommunitySkill } from './community-skill-installer.js';
-import { registerSelfModificationIpc } from './self-modification-ipc.js';
-import { createSelfModificationRuntime } from './self-modification-runtime.js';
+} from 'clawmaster-core'
+import { WorkspaceDirectoryStore } from './workspace-directory-store.js'
+import { MainWindowPresentationController } from './main-window-presentation.js'
+import { askWindowCloseChoice } from './window-close-policy.js'
+import { installCommunitySkill } from './community-skill-installer.js'
+import { registerSelfModificationIpc } from './self-modification-ipc.js'
+import { createSelfModificationRuntime } from './self-modification-runtime.js'
 
 function ignoreBrokenPipe(stream: NodeJS.WriteStream): void {
   stream.on('error', (error: NodeJS.ErrnoException) => {
-    if (error.code === 'EPIPE') return;
-    throw error;
+    if (error.code === 'EPIPE') return
+    throw error
   });
 }
 
-ignoreBrokenPipe(process.stdout);
-ignoreBrokenPipe(process.stderr);
+ignoreBrokenPipe(process.stdout)
+ignoreBrokenPipe(process.stderr)
 
 /** 脱敏后的飞书配置视图（不含 secret）。 */
 interface FeishuConfigPublic {
-  appId: string;
-  appSecret: string;
-  verificationToken: string | null;
-  encryptKey: string | null;
+  appId: string
+  appSecret: string
+  verificationToken: string | null
+  encryptKey: string | null
 }
 
 /** 客户端保存飞书配置的请求体。 */
 interface FeishuConfigSaveRequest {
-  appId: string;
-  appSecret: string;
-  verificationToken?: string | null;
-  encryptKey?: string | null;
+  appId: string
+  appSecret: string
+  verificationToken?: string | null
+  encryptKey?: string | null
 }
 
 interface ChannelPairingResult {
-  ok: boolean;
-  pairing: ChannelPairingPublic | null;
-  error: string | null;
+  ok: boolean
+  pairing: ChannelPairingPublic | null
+  error: string | null
 }
 
 /** 根据文件扩展名返回 MIME 类型（用于 readFilePath IPC）。 */
 function getMimeType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
+  const ext = path.extname(filePath).toLowerCase()
   const map: Record<string, string> = {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
@@ -133,35 +133,35 @@ function getMimeType(filePath: string): string {
     '.md': 'text/markdown',
     '.zip': 'application/zip',
     '.log': 'text/plain',
-  };
-  return map[ext] ?? 'application/octet-stream';
+  }
+  return map[ext] ?? 'application/octet-stream'
 }
 
-import { ServerManager } from './server-manager.js';
-import { resolveKernelUpdateRoot } from './incremental-kernel-store.js';
-import { installAppMenu } from './menu.js';
-import { UpdateService } from './update-service.js';
-import { IncrementalUpdateService } from './incremental-update-service.js';
+import { ServerManager } from './server-manager.js'
+import { resolveKernelUpdateRoot } from './incremental-kernel-store.js'
+import { installAppMenu } from './menu.js'
+import { UpdateService } from './update-service.js'
+import { IncrementalUpdateService } from './incremental-update-service.js'
 import {
   checkForUpdateUsingPolicy,
   resolveDesktopDistribution,
-} from './update-policy-adapter.js';
+} from './update-policy-adapter.js'
 import {
   EnterpriseNotificationIdentityBoundary,
   NotificationService,
   type NotificationPayload,
-} from './notification-service.js';
-import { FileAccessGrantStore } from './file-access-grants.js';
+} from './notification-service.js'
+import { FileAccessGrantStore } from './file-access-grants.js'
 import {
   loadVoiceConfig,
   saveVoiceConfig,
   type VoiceConfigInput,
-} from './voiceConfig.js';
-import { transcribeAudio } from './voiceService.js';
+} from './voiceConfig.js'
+import { transcribeAudio } from './voiceService.js'
 import {
   EnterpriseSkillLibrary,
   type EnterpriseSkillScope,
-} from './enterpriseSkillLibrary.js';
+} from './enterpriseSkillLibrary.js'
 import {
   EnterpriseClient,
   EnterpriseJoinStateUncertainError,
@@ -177,7 +177,7 @@ import {
   type EnterpriseOrganizationFeatures,
   type EnterprisePositionRoleMapping,
   type PersonalTokenUsageProfile,
-} from './enterprise-client.js';
+} from './enterprise-client.js'
 import {
   clearCustomerModuleData,
   exportCustomerModuleData,
@@ -189,23 +189,23 @@ import {
   setCustomerModuleEnabled,
   setCustomerModuleBackgroundEnabled,
   uninstallCustomerModule,
-} from './customerModuleInstaller.js';
-import { createDesktopCustomerModuleHost } from './customerModuleHostAdapter.js';
-import { createCustomerModuleModelInvoke } from './customerModuleModelAdapter.js';
+} from './customerModuleInstaller.js'
+import { createDesktopCustomerModuleHost } from './customerModuleHostAdapter.js'
+import { createCustomerModuleModelInvoke } from './customerModuleModelAdapter.js'
 import {
   EnterpriseE2eeCrypto,
   EnterpriseE2eeKeyVault,
-} from './enterprise-e2ee.js';
+} from './enterprise-e2ee.js'
 import {
   EnterpriseMlsInboundPollScheduler,
   EnterpriseMlsOutboxRetryScheduler,
   EnterpriseMlsSessionCoordinator,
   EnterpriseMlsSessionManager,
-} from './enterprise-mls.js';
+} from './enterprise-mls.js'
 import {
   EnterpriseMlsPrivateMessageService,
   FileEnterpriseMlsMessageHistory,
-} from './enterprise-mls-private-messages.js';
+} from './enterprise-mls-private-messages.js'
 import {
   ENTERPRISE_TRAY_POPOVER_WIDTH,
   enterpriseTrayPopoverHeight,
@@ -213,45 +213,45 @@ import {
   renderEnterpriseTrayPopoverHtml,
   summarizeEnterpriseTrayContacts,
   type EnterpriseTrayContact,
-} from './enterprise-tray-popover.js';
+} from './enterprise-tray-popover.js'
 
-const ENTERPRISE_MESSAGE_ATTACHMENT_MAX_COUNT = 6;
-const ENTERPRISE_MESSAGE_ATTACHMENT_MAX_FILE_BYTES = 10 * 1024 * 1024;
-const ENTERPRISE_MESSAGE_ATTACHMENT_MAX_TOTAL_BYTES = 20 * 1024 * 1024;
+const ENTERPRISE_MESSAGE_ATTACHMENT_MAX_COUNT = 6
+const ENTERPRISE_MESSAGE_ATTACHMENT_MAX_FILE_BYTES = 10 * 1024 * 1024
+const ENTERPRISE_MESSAGE_ATTACHMENT_MAX_TOTAL_BYTES = 20 * 1024 * 1024
 
 function normalizeEnterpriseMessageAttachments(
   value: unknown,
   limits: {
-    maxFileBytes?: number;
-    maxTotalBytes?: number;
+    maxFileBytes?: number
+    maxTotalBytes?: number
   } = {},
 ): EnterpriseDirectMessageAttachmentUpload[] {
   const maxFileBytes = limits.maxFileBytes ??
-    ENTERPRISE_MESSAGE_ATTACHMENT_MAX_FILE_BYTES;
+    ENTERPRISE_MESSAGE_ATTACHMENT_MAX_FILE_BYTES
   const maxTotalBytes = limits.maxTotalBytes ??
-    ENTERPRISE_MESSAGE_ATTACHMENT_MAX_TOTAL_BYTES;
-  if (value == null) return [];
+    ENTERPRISE_MESSAGE_ATTACHMENT_MAX_TOTAL_BYTES
+  if (value == null) return []
   if (
     !Array.isArray(value) ||
     value.length > ENTERPRISE_MESSAGE_ATTACHMENT_MAX_COUNT
   ) {
-    throw new Error('附件数量不正确');
+    throw new Error('附件数量不正确')
   }
-  let totalBytes = 0;
+  let totalBytes = 0
   return value.map((item) => {
-    if (!item || typeof item !== 'object') throw new Error('附件信息不正确');
-    const candidate = item as Record<string, unknown>;
+    if (!item || typeof item !== 'object') throw new Error('附件信息不正确')
+    const candidate = item as Record<string, unknown>
     const fileName =
-      typeof candidate.fileName === 'string' ? candidate.fileName.trim() : '';
+      typeof candidate.fileName === 'string' ? candidate.fileName.trim() : ''
     const mimeType =
-      typeof candidate.mimeType === 'string' ? candidate.mimeType.trim() : '';
-    const size = Number(candidate.size);
+      typeof candidate.mimeType === 'string' ? candidate.mimeType.trim() : ''
+    const size = Number(candidate.size)
     const data =
-      typeof candidate.data === 'string' ? candidate.data.trim() : '';
+      typeof candidate.data === 'string' ? candidate.data.trim() : ''
     const sourcePath =
       typeof candidate.sourcePath === 'string'
         ? candidate.sourcePath.trim()
-        : '';
+        : ''
     if (
       !fileName ||
       fileName.length > 260 ||
@@ -264,31 +264,31 @@ function normalizeEnterpriseMessageAttachments(
     ) {
       throw new Error(
         `附件信息不正确或单个附件超过 ${Math.round(maxFileBytes / 1024 / 1024)} MB`,
-      );
+      )
     }
     if (sourcePath) {
       const granted = fileAccessGrants.resolve(
         sourcePath,
         maxFileBytes,
-      );
+      )
       if (granted.size !== size) {
-        throw new Error('附件在选择后发生变化，请重新选择');
+        throw new Error('附件在选择后发生变化，请重新选择')
       }
     } else {
-      const buffer = Buffer.from(data, 'base64');
+      const buffer = Buffer.from(data, 'base64')
       if (buffer.length !== size || buffer.toString('base64') !== data) {
-        throw new Error('附件内容不完整');
+        throw new Error('附件内容不完整')
       }
     }
-    totalBytes += size;
+    totalBytes += size
     if (totalBytes > maxTotalBytes) {
       throw new Error(
         `每条消息的附件总大小不能超过 ${Math.round(maxTotalBytes / 1024 / 1024)} MB`,
-      );
+      )
     }
     return sourcePath
       ? { fileName, mimeType, size, sourcePath }
-      : { fileName, mimeType, size, data };
+      : { fileName, mimeType, size, data }
   });
 }
 
@@ -296,23 +296,23 @@ function normalizeEnterpriseAtoaSources(value: unknown): Array<
   'current_chat' | 'enterprise_knowledge' | 'work_logs' | 'schedules'
 > {
   if (!Array.isArray(value) || value.length > 4) {
-    throw new Error('A2A 授权范围无效');
+    throw new Error('A2A 授权范围无效')
   }
   const allowed = [
     'current_chat',
     'enterprise_knowledge',
     'work_logs',
     'schedules',
-  ] as const;
-  const selected = new Set(value);
-  if ([...selected].some((item) => typeof item !== 'string')) {
-    throw new Error('A2A 授权范围无效');
+  ] as const
+  const selected = new Set(value)
+  if ([...selected].some(item => typeof item !== 'string')) {
+    throw new Error('A2A 授权范围无效')
   }
-  return allowed.filter((source) => selected.has(source));
+  return allowed.filter(source => selected.has(source))
 }
 
-import { AccountDataSyncService } from './account-data-sync.js';
-import { EnterpriseSkillUsageReporter } from './enterprise-skill-usage-reporter.js';
+import { AccountDataSyncService } from './account-data-sync.js'
+import { EnterpriseSkillUsageReporter } from './enterprise-skill-usage-reporter.js'
 import {
   authenticateAndSyncEnterpriseAccount,
   clearInvalidatedEnterpriseIdentity,
@@ -323,72 +323,72 @@ import {
   restoreAndSyncEnterpriseSession,
   syncJoinedEnterpriseAccount,
   syncVerifiedEnterpriseAccount,
-} from './enterprise-auth-sync.js';
+} from './enterprise-auth-sync.js'
 import {
   defaultEnterpriseServerUrl,
   restoreEnterpriseServerTarget,
-} from './enterprise-server-url.js';
+} from './enterprise-server-url.js'
 import {
   decodeEnterpriseSession,
   encodeEnterpriseSession,
-} from './enterprise-session-store.js';
-import { EnterpriseRegistrationIntentStore } from './enterprise-registration-intent.js';
+} from './enterprise-session-store.js'
+import { EnterpriseRegistrationIntentStore } from './enterprise-registration-intent.js'
 import {
   createEnterpriseNetworkFetch,
   internalTestEnterpriseSession,
-} from './enterprise-network-policy.js';
-import { INTERNAL_TEST_ACCESS_ENABLED } from './internal-test-access.js';
-import { resolveVideoEditorIndex } from './video-editor-resource.js';
-import { buildRendererCsp } from './renderer-csp.js';
+} from './enterprise-network-policy.js'
+import { INTERNAL_TEST_ACCESS_ENABLED } from './internal-test-access.js'
+import { resolveVideoEditorIndex } from './video-editor-resource.js'
+import { buildRendererCsp } from './renderer-csp.js'
 
 /** 与 packages/server/src/protocol.ts 的 DEFAULT_HOST/DEFAULT_PORT 保持一致的字面量
  * （仅用作 CSP 的兜底默认值；真实值在 ensureEndpoint() 拿到后覆盖）。 */
-const CSP_FALLBACK_HOST = '127.0.0.1';
-const CSP_FALLBACK_PORT = 7637;
+const CSP_FALLBACK_HOST = '127.0.0.1'
+const CSP_FALLBACK_PORT = 7637
 
 /**
  * renderer 静态资源目录。与 createWindow 的 loadFile 用同一推导
  * （dist/main → dist/renderer），开发模式与 asar 打包内路径均成立；
  * 也是 isLocalAppUrl 白名单的锚点。
  */
-const RENDERER_DIR = path.join(__dirname, '../renderer');
+const RENDERER_DIR = path.join(__dirname, '../renderer')
 
 function worklogRootDir(): string {
-  const explicit = process.env['CLAWMASTER_WORKLOG_DIR']?.trim();
-  if (explicit) return explicit;
-  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
-  if (userDir) return path.join(userDir, 'memory', 'worklog');
-  return path.join(os.homedir(), '.clawmaster-user', 'memory', 'worklog');
+  const explicit = process.env['CLAWMASTER_WORKLOG_DIR']?.trim()
+  if (explicit) return explicit
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim()
+  if (userDir) return path.join(userDir, 'memory', 'worklog')
+  return path.join(os.homedir(), '.clawmaster-user', 'memory', 'worklog')
 }
 
-let workLogServicePromise: Promise<import('clawmaster-server').WorkLogService> | undefined;
+let workLogServicePromise: Promise<import('clawmaster-server').WorkLogService> | undefined
 function workLogService(): Promise<import('clawmaster-server').WorkLogService> {
   workLogServicePromise ??= import('clawmaster-server').then(
     ({ WorkLogService }) => new WorkLogService(worklogRootDir()),
-  );
-  return workLogServicePromise;
+  )
+  return workLogServicePromise
 }
 
 function userSkillsRootDir(): string {
-  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
-  return path.join(userDir || path.join(os.homedir(), '.clawmaster-user'), 'skills');
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim()
+  return path.join(userDir || path.join(os.homedir(), '.clawmaster-user'), 'skills')
 }
 
 function localSkillDescription(content: string): string {
   const frontmatter = content.match(
     /^---\s*[\r\n]+[\s\S]*?^description:\s*["']?([^\r\n"']+)/mu,
-  );
-  if (frontmatter?.[1]?.trim()) return frontmatter[1].trim().slice(0, 1_000);
+  )
+  if (frontmatter?.[1]?.trim()) return frontmatter[1].trim().slice(0, 1_000)
   const paragraph = content
     .split(/\r?\n/u)
-    .map((line) => line.replace(/^\s*[#>*-]+\s*/u, '').trim())
-    .find((line) => line && !line.startsWith('---') && !/^name:/iu.test(line));
-  return (paragraph || '本地 Skill').slice(0, 1_000);
+    .map(line => line.replace(/^\s*[#>*-]+\s*/u, '').trim())
+    .find(line => line && !line.startsWith('---') && !/^name:/iu.test(line))
+  return (paragraph || '本地 Skill').slice(0, 1_000)
 }
 
 function safeLocalSkillName(value: unknown): string {
-  if (typeof value !== 'string') throw new Error('Skill 名称格式不正确');
-  const name = value.trim();
+  if (typeof value !== 'string') throw new Error('Skill 名称格式不正确')
+  const name = value.trim()
   if (
     !name ||
     name.length > 160 ||
@@ -396,27 +396,27 @@ function safeLocalSkillName(value: unknown): string {
     name === '..' ||
     /[/\\\0]/u.test(name)
   ) {
-    throw new Error('Skill 名称格式不正确');
+    throw new Error('Skill 名称格式不正确')
   }
-  return name;
+  return name
 }
 
 async function localSkillFilePath(name: string): Promise<string> {
-  const directory = path.join(userSkillsRootDir(), name);
-  const filePath = path.join(directory, 'SKILL.md');
+  const directory = path.join(userSkillsRootDir(), name)
+  const filePath = path.join(directory, 'SKILL.md')
   const [directoryStat, fileStat] = await Promise.all([
     fs.promises.lstat(directory).catch(() => null),
     fs.promises.lstat(filePath).catch(() => null),
-  ]);
+  ])
   if (
     !directoryStat?.isDirectory() ||
     directoryStat.isSymbolicLink() ||
     !fileStat?.isFile() ||
     fileStat.isSymbolicLink()
   ) {
-    throw new Error('本地 Skill 不存在或路径不安全，请刷新后重试');
+    throw new Error('本地 Skill 不存在或路径不安全，请刷新后重试')
   }
-  return filePath;
+  return filePath
 }
 
 async function replaceFileFromTemp(
@@ -424,110 +424,110 @@ async function replaceFileFromTemp(
   targetPath: string,
 ): Promise<void> {
   try {
-    await fs.promises.rename(tempPath, targetPath);
+    await fs.promises.rename(tempPath, targetPath)
   } catch (error) {
     const code =
       error && typeof error === 'object' && 'code' in error
         ? String((error as { code?: unknown }).code)
-        : '';
-    if (code !== 'EEXIST' && code !== 'EPERM') throw error;
-    await fs.promises.rm(targetPath, { force: true });
-    await fs.promises.rename(tempPath, targetPath);
+        : ''
+    if (code !== 'EEXIST' && code !== 'EPERM') throw error
+    await fs.promises.rm(targetPath, { force: true })
+    await fs.promises.rename(tempPath, targetPath)
   }
 }
 
 async function localMarketplaceInstallVersions(): Promise<Map<string, number>> {
-  const versions = new Map<string, number>();
+  const versions = new Map<string, number>()
   const entries = await fs.promises
     .readdir(userSkillsRootDir(), { withFileTypes: true })
-    .catch(() => []);
+    .catch(() => [])
   for (const entry of entries) {
-    if (!entry.isDirectory() || !entry.name.startsWith('market-')) continue;
+    if (!entry.isDirectory() || !entry.name.startsWith('market-')) continue
     try {
       const metadataPath = path.join(
         userSkillsRootDir(),
         entry.name,
         '.clawmaster-market.json',
-      );
+      )
       const metadata = JSON.parse(
         await fs.promises.readFile(metadataPath, 'utf8'),
-      ) as Record<string, unknown>;
+      ) as Record<string, unknown>
       if (
         typeof metadata.skillId === 'string' &&
         typeof metadata.version === 'number' &&
         Number.isInteger(metadata.version) &&
         metadata.version > 0
       ) {
-        versions.set(metadata.skillId, metadata.version);
+        versions.set(metadata.skillId, metadata.version)
       }
     } catch {
       // Invalid local provenance is treated as not installed on this device.
     }
   }
-  return versions;
+  return versions
 }
 
 /** 渲染进程崩溃自动重载的退避：窗口期内超过上限就不再 reload，防白屏无限闪烁。 */
-const CRASH_RELOAD_WINDOW_MS = 60_000;
-const CRASH_RELOAD_MAX = 3;
+const CRASH_RELOAD_WINDOW_MS = 60_000
+const CRASH_RELOAD_MAX = 3
 
 /** 企业身份服务真实入口；公网默认由中心部署负责，本机仅显式 loopback 时内嵌。 */
 const DEFAULT_ENTERPRISE_SERVER_URL = defaultEnterpriseServerUrl(
   process.env.CLAWMASTER_ENTERPRISE_SERVER_URL,
-);
+)
 /** server 生命周期管理器（发现/拉起/探活/退出清理）。 */
 const serverManager = new ServerManager({
   enterpriseServerUrl: DEFAULT_ENTERPRISE_SERVER_URL,
   kernelUpdateRoot: resolveKernelUpdateRoot(app.getPath('userData')),
   onHealthChange: (status) => {
-    tracer.updateStatus(status);
+    tracer.updateStatus(status)
   },
-});
+})
 /** 桌面通知服务：OS 原生 toast + 未读闪烁点管理。 */
-const notificationService = new NotificationService();
+const notificationService = new NotificationService()
 /** 原生文件选择授权账本：允许任意磁盘，但拒绝 renderer 凭空传入的路径。 */
-const fileAccessGrants = new FileAccessGrantStore();
+const fileAccessGrants = new FileAccessGrantStore()
 /** 用户明确选择过的真实工作目录；跨重启保留最近列表。 */
 const workspaceDirectories = new WorkspaceDirectoryStore(
   path.join(app.getPath('userData'), 'workspace-directories.json'),
   os.homedir(),
-);
+)
 /** 身份提交统一边界：跨账号、跨组织和失效退出时先清旧账号通知与文件授权。 */
 const enterpriseNotificationIdentityBoundary =
   new EnterpriseNotificationIdentityBoundary(
     () => notificationService.clearAll(),
     () => fileAccessGrants.clear(),
-  );
+  )
 /** 当前 server 端点（发现的或拉起的）。renderer 经 IPC 取它建 WS。 */
-let endpoint: (ServerEndpoint & { controlToken?: string }) | undefined;
-let endpointEnsurePromise: Promise<void> | undefined;
-let endpointRetryTimer: ReturnType<typeof setTimeout> | undefined;
-let endpointRetryAttempt = 0;
+let endpoint: (ServerEndpoint & { controlToken?: string }) | undefined
+let endpointEnsurePromise: Promise<void> | undefined
+let endpointRetryTimer: ReturnType<typeof setTimeout> | undefined
+let endpointRetryAttempt = 0
 /** 主窗口单例引用。 */
-let mainWindow: BrowserWindow | undefined;
+let mainWindow: BrowserWindow | undefined
 /** 每个主窗口的展示时序；避免 renderer 就绪前被第二实例强制显示。 */
 const mainWindowPresentations = new WeakMap<
   BrowserWindow,
   MainWindowPresentationController
->();
+>()
 /** 应用尚未 ready 时到达的第二实例聚焦请求。 */
-let pendingMainWindowFocusRequest = false;
+let pendingMainWindowFocusRequest = false
 /** IPC、菜单和托盘初始化完成后，才允许外部事件创建主窗口。 */
-let mainWindowCreationReady = false;
+let mainWindowCreationReady = false
 /** macOS 后台提醒句柄；窗口重新聚焦时主动取消。 */
-let dockBounceId: number | undefined;
+let dockBounceId: number | undefined
 /** 系统托盘：保持引用，避免被 GC 后托盘图标消失。 */
-let tray: Tray | undefined;
-let trayRestarting = false;
-let enterpriseTrayPopoverWindow: BrowserWindow | undefined;
-let enterpriseTrayContacts: EnterpriseTrayContact[] = [];
+let tray: Tray | undefined
+let trayRestarting = false
+let enterpriseTrayPopoverWindow: BrowserWindow | undefined
+let enterpriseTrayContacts: EnterpriseTrayContact[] = []
 /** 用户主动退出标记；关闭窗口时不退出，只有菜单/托盘退出才真正结束进程。 */
-let isQuitting = false;
-let taskRuntimeBlockerId: number | undefined;
+let isQuitting = false
+let taskRuntimeBlockerId: number | undefined
 /** Ephemeral private keys for in-progress provider pairings; never exposed to renderer. */
-const channelPairingPrivateKeys = new Map<string, string>();
+const channelPairingPrivateKeys = new Map<string, string>()
 /** 视频编辑器窗口（OpenReel）。 */
-let videoEditorWindow: BrowserWindow | undefined;
+let videoEditorWindow: BrowserWindow | undefined
 
 // ── IPC channel 名（与 preload 对齐）──
 const IPC = {
@@ -719,58 +719,58 @@ const IPC = {
   notificationUnreadChanged: 'clawmaster:notification-unread-changed',
   notificationCheckPermission: 'clawmaster:notification-check-permission',
   notificationSessionOpen: 'clawmaster:notification-session-open',
-} as const;
+} as const
 
-const customerModuleRunControllers = new Map<string, AbortController>();
-const customerModuleModelInvoke = createCustomerModuleModelInvoke();
+const customerModuleRunControllers = new Map<string, AbortController>()
+const customerModuleModelInvoke = createCustomerModuleModelInvoke()
 
 const enterpriseFetch = createEnterpriseNetworkFetch(
   fetch,
   INTERNAL_TEST_ACCESS_ENABLED,
-);
-const enterpriseAuthOperations = new EnterpriseAuthOperationQueue();
+)
+const enterpriseAuthOperations = new EnterpriseAuthOperationQueue()
 const accountDataSyncService = new AccountDataSyncService({
   protectMirror(plaintext) {
-    if (!safeStorage.isEncryptionAvailable()) return null;
-    return safeStorage.encryptString(plaintext).toString('base64');
+    if (!safeStorage.isEncryptionAvailable()) return null
+    return safeStorage.encryptString(plaintext).toString('base64')
   },
   unprotectMirror(protectedValue) {
     if (!safeStorage.isEncryptionAvailable()) {
-      throw new Error('system secure storage is unavailable');
+      throw new Error('system secure storage is unavailable')
     }
-    return safeStorage.decryptString(Buffer.from(protectedValue, 'base64'));
+    return safeStorage.decryptString(Buffer.from(protectedValue, 'base64'))
   },
-});
+})
 
 type AuthenticatedEnterpriseAccount =
-  import('./enterprise-identity.js').AuthenticatedEnterpriseAccountInput;
+  import('./enterprise-identity.js').AuthenticatedEnterpriseAccountInput
 
 function accountDataSyncIdentity(account: {
-  id: string;
+  id: string
 }): { serverUrl: string; accountId: string } | null {
-  if (process.env['CLAWMASTER_ACCOUNT_SYNC_DISABLED'] === '1') return null;
-  const snapshot = enterpriseClient.snapshot();
-  if (!snapshot.token || !snapshot.serverUrl) return null;
-  return { serverUrl: snapshot.serverUrl, accountId: account.id };
+  if (process.env['CLAWMASTER_ACCOUNT_SYNC_DISABLED'] === '1') return null
+  const snapshot = enterpriseClient.snapshot()
+  if (!snapshot.token || !snapshot.serverUrl) return null
+  return { serverUrl: snapshot.serverUrl, accountId: account.id }
 }
 
 function logAccountDataSyncFailure(error: unknown): void {
   console.warn(
     '[clawmaster-desktop] Account memory/worklog/auto-skill sync failed:',
     error,
-  );
+  )
 }
 
 async function flushEnterpriseAccountDataSync(
   timeoutMs: number,
 ): Promise<void> {
-  const account = enterpriseClient.authenticatedAccountSnapshot();
-  const identity = account ? accountDataSyncIdentity(account) : null;
-  if (!identity) return;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  const account = enterpriseClient.authenticatedAccountSnapshot()
+  const identity = account ? accountDataSyncIdentity(account) : null
+  if (!identity) return
+  let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, timeoutMs);
-    timer.unref?.();
+    timer = setTimeout(resolve, timeoutMs)
+    timer.unref?.()
   });
   await Promise.race([
     accountDataSyncService
@@ -778,37 +778,37 @@ async function flushEnterpriseAccountDataSync(
       .then(() => undefined)
       .catch(logAccountDataSyncFailure),
     timeout,
-  ]);
-  if (timer) clearTimeout(timer);
+  ])
+  if (timer) clearTimeout(timer)
 }
 
 async function synchronizeAuthenticatedEnterpriseAccount(
   account: AuthenticatedEnterpriseAccount | null,
 ): Promise<void> {
-  await enterpriseNotificationIdentityBoundary.synchronize(account, (next) =>
+  await enterpriseNotificationIdentityBoundary.synchronize(account, next =>
     serverManager.setAuthenticatedEnterpriseAccount(next),
-  );
+  )
   if (!account) {
-    await enterpriseMlsOutboxRetry.stop();
-    await enterpriseMlsInboundPoll.stop();
-    await enterpriseMls.close();
+    await enterpriseMlsOutboxRetry.stop()
+    await enterpriseMlsInboundPoll.stop()
+    await enterpriseMls.close()
     return;
   }
   let e2eeDevice: Awaited<
     ReturnType<EnterpriseClient['ensureE2eeDeviceReady']>
-  > | null = null;
+  > | null = null
   try {
-    e2eeDevice = await enterpriseClient.ensureE2eeDeviceReady();
+    e2eeDevice = await enterpriseClient.ensureE2eeDeviceReady()
   } catch (error) {
-    await enterpriseMlsOutboxRetry.stop();
-    await enterpriseMlsInboundPoll.stop();
-    await enterpriseMls.close();
-    console.warn('[clawmaster-desktop] E2EE device registration failed:', error);
+    await enterpriseMlsOutboxRetry.stop()
+    await enterpriseMlsInboundPoll.stop()
+    await enterpriseMls.close()
+    console.warn('[clawmaster-desktop] E2EE device registration failed:', error)
   }
   if (e2eeDevice) {
     if (enterpriseClient.supportsMlsTransportFoundation()) {
-      await enterpriseMlsOutboxRetry.stop();
-      await enterpriseMlsInboundPoll.stop();
+      await enterpriseMlsOutboxRetry.stop()
+      await enterpriseMlsInboundPoll.stop()
       try {
         await enterpriseMls.activate({
           serverUrl: enterpriseClient.snapshot().serverUrl,
@@ -816,59 +816,59 @@ async function synchronizeAuthenticatedEnterpriseAccount(
           accountId: account.id,
           deviceId: e2eeDevice.deviceId,
           approvalState: e2eeDevice.approvalState,
-        });
-        enterpriseMlsOutboxRetry.start();
-        enterpriseMlsInboundPoll.start();
+        })
+        enterpriseMlsOutboxRetry.start()
+        enterpriseMlsInboundPoll.start()
         try {
-          await enterpriseMlsCoordinator.ensurePublishedKeyPackageInventory();
+          await enterpriseMlsCoordinator.ensurePublishedKeyPackageInventory()
         } catch (error) {
           console.warn(
             '[clawmaster-desktop] MLS KeyPackage inventory maintenance failed:',
             error,
-          );
+          )
         }
       } catch (error) {
-        await enterpriseMlsOutboxRetry.stop();
-        await enterpriseMlsInboundPoll.stop();
-        console.warn('[clawmaster-desktop] MLS desktop session is blocked:', error);
+        await enterpriseMlsOutboxRetry.stop()
+        await enterpriseMlsInboundPoll.stop()
+        console.warn('[clawmaster-desktop] MLS desktop session is blocked:', error)
       }
     } else {
-      await enterpriseMlsOutboxRetry.stop();
-      await enterpriseMlsInboundPoll.stop();
-      await enterpriseMls.close();
+      await enterpriseMlsOutboxRetry.stop()
+      await enterpriseMlsInboundPoll.stop()
+      await enterpriseMls.close()
     }
   } else {
-    await enterpriseMlsOutboxRetry.stop();
-    await enterpriseMlsInboundPoll.stop();
-    await enterpriseMls.close();
+    await enterpriseMlsOutboxRetry.stop()
+    await enterpriseMlsInboundPoll.stop()
+    await enterpriseMls.close()
   }
-  const identity = accountDataSyncIdentity(account);
-  if (!identity) return;
+  const identity = accountDataSyncIdentity(account)
+  if (!identity) return
   try {
-    await accountDataSyncService.activate(identity);
+    await accountDataSyncService.activate(identity)
   } catch (error) {
-    logAccountDataSyncFailure(error);
+    logAccountDataSyncFailure(error)
     return;
   }
   try {
     const summary = await accountDataSyncService.sync(
       enterpriseClient,
       identity,
-    );
+    )
     if (summary.restoredFiles > 0 || summary.uploadedScopes.length > 0) {
       console.info(
         `[clawmaster-desktop] Account data synchronized: restored ${summary.restoredFiles} file(s), uploaded ${summary.uploadedScopes.length} scope(s).`,
-      );
+      )
     }
   } catch (error) {
     // Authentication stays available; the periodic identity refresh retries sync.
-    logAccountDataSyncFailure(error);
+    logAccountDataSyncFailure(error)
   }
-  void enterpriseSkillUsageReporter.poll();
+  void enterpriseSkillUsageReporter.poll()
 }
 function assertEnterpriseE2eeSecureStorage(): void {
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('系统安全存储不可用，端到端加密私聊已安全停用');
+    throw new Error('系统安全存储不可用，端到端加密私聊已安全停用')
   }
   if (
     process.platform === 'linux' &&
@@ -876,7 +876,7 @@ function assertEnterpriseE2eeSecureStorage(): void {
   ) {
     throw new Error(
       'Linux 系统密钥库未解锁，不能使用不安全的 basic_text 保存私聊密钥',
-    );
+    )
   }
 }
 
@@ -884,18 +884,18 @@ const enterpriseE2eeVault = new EnterpriseE2eeKeyVault({
   directory: path.join(app.getPath('userData'), 'enterprise-e2ee'),
   deviceName: () => `${os.hostname()} (${process.platform})`,
   protect(plaintext) {
-    assertEnterpriseE2eeSecureStorage();
-    return safeStorage.encryptString(plaintext).toString('base64');
+    assertEnterpriseE2eeSecureStorage()
+    return safeStorage.encryptString(plaintext).toString('base64')
   },
   unprotect(protectedValue) {
-    assertEnterpriseE2eeSecureStorage();
-    return safeStorage.decryptString(Buffer.from(protectedValue, 'base64'));
+    assertEnterpriseE2eeSecureStorage()
+    return safeStorage.decryptString(Buffer.from(protectedValue, 'base64'))
   },
-});
-const enterpriseE2ee = new EnterpriseE2eeCrypto(enterpriseE2eeVault);
+})
+const enterpriseE2ee = new EnterpriseE2eeCrypto(enterpriseE2eeVault)
 
 function packagedOpenMlsBinaryPath(): string | undefined {
-  if (!app.isPackaged) return undefined;
+  if (!app.isPackaged) return undefined
   return path.join(
     process.resourcesPath,
     'app.asar.unpacked',
@@ -904,7 +904,7 @@ function packagedOpenMlsBinaryPath(): string | undefined {
     'native',
     'bin',
     process.platform === 'win32' ? 'clawmaster-native.exe' : 'clawmaster-native',
-  );
+  )
 }
 
 const enterpriseMls = new EnterpriseMlsSessionManager({
@@ -913,20 +913,20 @@ const enterpriseMls = new EnterpriseMlsSessionManager({
   secureStorage: {
     assertAvailable: assertEnterpriseE2eeSecureStorage,
     protect(plaintext) {
-      assertEnterpriseE2eeSecureStorage();
-      return safeStorage.encryptString(plaintext).toString('base64');
+      assertEnterpriseE2eeSecureStorage()
+      return safeStorage.encryptString(plaintext).toString('base64')
     },
     unprotect(protectedValue) {
-      assertEnterpriseE2eeSecureStorage();
-      return safeStorage.decryptString(Buffer.from(protectedValue, 'base64'));
+      assertEnterpriseE2eeSecureStorage()
+      return safeStorage.decryptString(Buffer.from(protectedValue, 'base64'))
     },
   },
-});
+})
 
 const enterpriseClient = new EnterpriseClient(
   enterpriseFetch,
   () => {
-    resetEnterpriseModuleUpdateState();
+    resetEnterpriseModuleUpdateState()
     // 任一受保护接口返回 401 都会走这里：立即持久化清 token，并通知 renderer
     // 退出过期管理员界面。错误登录时 token 本来为空，不会触发此回调。
     if (enterpriseSessionLoaded) {
@@ -938,33 +938,33 @@ const enterpriseClient = new EnterpriseClient(
           ),
         )
         .catch((error) => {
-          console.warn('[clawmaster-desktop] 清理失效企业会话或本机身份失败:', error);
+          console.warn('[clawmaster-desktop] 清理失效企业会话或本机身份失败:', error)
         });
     }
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(IPC.enterpriseSessionInvalidated);
+      mainWindow.webContents.send(IPC.enterpriseSessionInvalidated)
     }
   },
   enterpriseE2ee,
-);
+)
 const enterpriseMlsCoordinator = new EnterpriseMlsSessionCoordinator(
   enterpriseMls,
   enterpriseClient,
-);
+)
 const enterpriseMlsMessageHistory = new FileEnterpriseMlsMessageHistory({
   directory: path.join(app.getPath('userData'), 'enterprise-mls-messages'),
   secureStorage: {
     assertAvailable: assertEnterpriseE2eeSecureStorage,
     protect(plaintext) {
-      assertEnterpriseE2eeSecureStorage();
-      return safeStorage.encryptString(plaintext).toString('base64');
+      assertEnterpriseE2eeSecureStorage()
+      return safeStorage.encryptString(plaintext).toString('base64')
     },
     unprotect(protectedValue) {
-      assertEnterpriseE2eeSecureStorage();
-      return safeStorage.decryptString(Buffer.from(protectedValue, 'base64'));
+      assertEnterpriseE2eeSecureStorage()
+      return safeStorage.decryptString(Buffer.from(protectedValue, 'base64'))
     },
   },
-});
+})
 const enterpriseMlsPrivateMessages = new EnterpriseMlsPrivateMessageService(
   enterpriseMlsCoordinator,
   enterpriseMlsMessageHistory,
@@ -974,11 +974,11 @@ const enterpriseMlsPrivateMessages = new EnterpriseMlsPrivateMessageService(
       'enterprise-mls-attachment-outbox',
     ),
     attachmentTransport: {
-      upload: (input) => enterpriseClient.uploadMlsAttachmentObject(input),
-      download: (input) => enterpriseClient.downloadMlsAttachmentObject(input),
+      upload: input => enterpriseClient.uploadMlsAttachmentObject(input),
+      download: input => enterpriseClient.downloadMlsAttachmentObject(input),
     },
   },
-);
+)
 const enterpriseMlsOutboxRetry = new EnterpriseMlsOutboxRetryScheduler(
   enterpriseMlsCoordinator,
   {
@@ -986,10 +986,10 @@ const enterpriseMlsOutboxRetry = new EnterpriseMlsOutboxRetryScheduler(
       console.warn(
         '[clawmaster-desktop] MLS ciphertext outbox retry failed:',
         error instanceof Error ? error.message : 'unknown failure',
-      );
+      )
     },
   },
-);
+)
 const enterpriseMlsInboundPoll = new EnterpriseMlsInboundPollScheduler(
   enterpriseMlsCoordinator,
   {
@@ -997,76 +997,76 @@ const enterpriseMlsInboundPoll = new EnterpriseMlsInboundPollScheduler(
       console.warn(
         '[clawmaster-desktop] MLS inbound polling failed:',
         error instanceof Error ? error.message : 'unknown failure',
-      );
+      )
     },
   },
-);
+)
 const enterpriseSkillUsageReporter = new EnterpriseSkillUsageReporter({
   skillsRoot: userSkillsRootDir,
   usageFile: enterpriseSkillUsageFile,
   stateFile: () =>
     path.join(app.getPath('userData'), 'enterprise-skill-usage-state.json'),
   identity: () => {
-    const account = enterpriseClient.authenticatedAccountSnapshot();
-    const session = enterpriseClient.snapshot();
+    const account = enterpriseClient.authenticatedAccountSnapshot()
+    const session = enterpriseClient.snapshot()
     return account && session.token
       ? { serverUrl: session.serverUrl, accountId: account.id }
-      : null;
+      : null
   },
   report: async (skillId, success, eventId) => {
     await enterpriseClient.recordEnterpriseSkillUsage(
       skillId,
       success,
       eventId,
-    );
+    )
   },
-});
-const enterpriseRegistrationIntents = new EnterpriseRegistrationIntentStore();
-let enterpriseSessionLoaded = false;
-let enterpriseIntentRendererReady = false;
+})
+const enterpriseRegistrationIntents = new EnterpriseRegistrationIntentStore()
+let enterpriseSessionLoaded = false
+let enterpriseIntentRendererReady = false
 const desktopRecurringTasks = new RecurringTaskRegistry({
   onError: (taskName, error) => {
     console.warn(
       `[clawmaster-desktop] recurring task failed: ${taskName}`,
       error instanceof Error ? error.message : error,
-    );
+    )
   },
-});
-let stopEnterpriseIdentityRefreshTask: (() => void) | undefined;
-const ENTERPRISE_IDENTITY_REFRESH_INTERVAL_MS = 2 * 60_000;
-let stopEnterpriseModuleUpdateTask: (() => void) | undefined;
-let enterpriseModuleUpdateFingerprint = '';
-let enterpriseModuleUpdatePolling = false;
-const ENTERPRISE_MODULE_UPDATE_POLL_INTERVAL_MS = 2 * 60_000;
-let stopEnterpriseSkillUsageTask: (() => void) | undefined;
-const ENTERPRISE_SKILL_USAGE_POLL_INTERVAL_MS = 30_000;
+})
+let stopEnterpriseIdentityRefreshTask: (() => void) | undefined
+const ENTERPRISE_IDENTITY_REFRESH_INTERVAL_MS = 2 * 60_000
+let stopEnterpriseModuleUpdateTask: (() => void) | undefined
+let enterpriseModuleUpdateFingerprint = ''
+let enterpriseModuleUpdatePolling = false
+const ENTERPRISE_MODULE_UPDATE_POLL_INTERVAL_MS = 2 * 60_000
+let stopEnterpriseSkillUsageTask: (() => void) | undefined
+const ENTERPRISE_SKILL_USAGE_POLL_INTERVAL_MS = 30_000
 
 function enterpriseSkillUsageFile(): string {
-  return path.join(worklogRootDir(), 'skill_usage.jsonl');
+  return path.join(worklogRootDir(), 'skill_usage.jsonl')
 }
 
 function recurringTimeBucket(intervalMs: number): string {
-  return String(Math.floor(Date.now() / intervalMs));
+  return String(Math.floor(Date.now() / intervalMs))
 }
 
 function enterpriseRecurringInputVersion(intervalMs: number): string | undefined {
-  const session = enterpriseClient.snapshot();
-  if (!session.token) return undefined;
-  const accountId = enterpriseClient.authenticatedAccountSnapshot()?.id ?? 'unknown';
-  return `${session.serverUrl}:${accountId}:${recurringTimeBucket(intervalMs)}`;
+  const session = enterpriseClient.snapshot()
+  if (!session.token) return undefined
+  const accountId = enterpriseClient.authenticatedAccountSnapshot()?.id ?? 'unknown'
+  return `${session.serverUrl}:${accountId}:${recurringTimeBucket(intervalMs)}`
 }
 
 function enterpriseSkillUsageInputVersion(): string | undefined {
   try {
-    const stat = fs.statSync(enterpriseSkillUsageFile());
-    return `${stat.size}:${stat.mtimeMs}`;
+    const stat = fs.statSync(enterpriseSkillUsageFile())
+    return `${stat.size}:${stat.mtimeMs}`
   } catch {
-    return undefined;
+    return undefined
   }
 }
 
 function startEnterpriseSkillUsageReporting(): void {
-  if (stopEnterpriseSkillUsageTask) return;
+  if (stopEnterpriseSkillUsageTask) return
   stopEnterpriseSkillUsageTask = desktopRecurringTasks.register({
     name: 'desktop.enterprise-skill-usage',
     source: 'packages/desktop/src/main/index.ts',
@@ -1075,108 +1075,108 @@ function startEnterpriseSkillUsageReporting(): void {
     estimatedCostUsdPerRun: 0,
     getInputVersion: enterpriseSkillUsageInputVersion,
     run: async () => {
-      if (!isQuitting) await enterpriseSkillUsageReporter.poll();
+      if (!isQuitting) await enterpriseSkillUsageReporter.poll()
     },
-  });
+  })
 }
 
 function acceptEnterpriseRegistrationUrl(input: string): boolean {
-  if (!enterpriseRegistrationIntents.acceptUrl(input)) return false;
+  if (!enterpriseRegistrationIntents.acceptUrl(input)) return false
   if (mainWindow && !mainWindow.isDestroyed()) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
     if (enterpriseIntentRendererReady) {
-      const intent = enterpriseRegistrationIntents.take();
+      const intent = enterpriseRegistrationIntents.take()
       if (intent)
         mainWindow.webContents.send(
           IPC.enterpriseRegistrationIntentOpened,
           intent,
-        );
+        )
     }
   }
-  return true;
+  return true
 }
 
 function enterpriseSessionPath(): string {
-  return path.join(app.getPath('userData'), 'enterprise-auth.json');
+  return path.join(app.getPath('userData'), 'enterprise-auth.json')
 }
 
 function canRestoreEncryptedEnterpriseSession(): boolean {
-  if (process.env.CLAWMASTER_ENTERPRISE_RESTORE_KEYCHAIN_SESSION === '1') return true;
-  return !(process.platform === 'darwin' && app.isPackaged);
+  if (process.env.CLAWMASTER_ENTERPRISE_RESTORE_KEYCHAIN_SESSION === '1') return true
+  return !(process.platform === 'darwin' && app.isPackaged)
 }
 
 function loadEnterpriseSession(): void {
-  if (enterpriseSessionLoaded) return;
-  enterpriseSessionLoaded = true;
+  if (enterpriseSessionLoaded) return
+  enterpriseSessionLoaded = true
   const internalTestSession = internalTestEnterpriseSession(
     DEFAULT_ENTERPRISE_SERVER_URL,
     INTERNAL_TEST_ACCESS_ENABLED,
-  );
+  )
   if (internalTestSession) {
-    enterpriseClient.restore(internalTestSession);
+    enterpriseClient.restore(internalTestSession)
     return;
   }
   let restored = {
     serverUrl: DEFAULT_ENTERPRISE_SERVER_URL,
     token: null as string | null,
-  };
+  }
   try {
     restored = decodeEnterpriseSession(
       fs.readFileSync(enterpriseSessionPath(), 'utf8'),
       DEFAULT_ENTERPRISE_SERVER_URL,
       (encryptedToken) => {
-        if (!canRestoreEncryptedEnterpriseSession()) return '';
+        if (!canRestoreEncryptedEnterpriseSession()) return ''
         if (!safeStorage.isEncryptionAvailable())
-          throw new Error('系统安全存储不可用');
-        return safeStorage.decryptString(Buffer.from(encryptedToken, 'base64'));
+          throw new Error('系统安全存储不可用')
+        return safeStorage.decryptString(Buffer.from(encryptedToken, 'base64'))
       },
-      (serverUrl) => serverUrl,
-    );
+      serverUrl => serverUrl,
+    )
     const target = restoreEnterpriseServerTarget(
       restored.serverUrl,
       DEFAULT_ENTERPRISE_SERVER_URL,
       Boolean(process.env.CLAWMASTER_ENTERPRISE_SERVER_URL?.trim()),
-    );
+    )
     restored = {
       serverUrl: target.serverUrl,
       token: target.endpointChanged ? null : restored.token,
-    };
+    }
   } catch {
     // 首次启动、存储损坏或系统密钥链不可用时安全地保持未登录。
   }
   try {
-    enterpriseClient.restore(restored);
+    enterpriseClient.restore(restored)
   } catch {
     // v1.7.x 可能保存过公网 HTTP 地址。v1.8 起拒绝明文认证并清掉旧会话，
     // 回落到内置 HTTPS 入口，避免升级后启动失败或继续发送明文口令。
     enterpriseClient.restore({
       serverUrl: DEFAULT_ENTERPRISE_SERVER_URL,
       token: null,
-    });
+    })
   }
 }
 
 function saveEnterpriseSession(): void {
-  const snapshot = enterpriseClient.snapshot();
+  const snapshot = enterpriseClient.snapshot()
   const safeSnapshot =
     canRestoreEncryptedEnterpriseSession() &&
     safeStorage.isEncryptionAvailable()
       ? snapshot
-      : { ...snapshot, token: null };
-  fs.mkdirSync(path.dirname(enterpriseSessionPath()), { recursive: true });
+      : { ...snapshot, token: null }
+  fs.mkdirSync(path.dirname(enterpriseSessionPath()), { recursive: true })
   fs.writeFileSync(
     enterpriseSessionPath(),
-    encodeEnterpriseSession(safeSnapshot, (token) =>
+    encodeEnterpriseSession(safeSnapshot, token =>
       safeStorage.encryptString(token).toString('base64'),
     ),
     { encoding: 'utf8', mode: 0o600 },
-  );
+  )
 }
 
 function startEnterpriseIdentityRefresh(): void {
-  if (stopEnterpriseIdentityRefreshTask) return;
+  if (stopEnterpriseIdentityRefreshTask) return
   stopEnterpriseIdentityRefreshTask = desktopRecurringTasks.register({
     name: 'desktop.enterprise-identity-refresh',
     source: 'packages/desktop/src/main/index.ts',
@@ -1186,32 +1186,32 @@ function startEnterpriseIdentityRefresh(): void {
       ENTERPRISE_IDENTITY_REFRESH_INTERVAL_MS,
     ),
     run: async () => {
-      if (isQuitting) return;
-      loadEnterpriseSession();
-      if (!enterpriseClient.snapshot().token) return;
+      if (isQuitting) return
+      loadEnterpriseSession()
+      if (!enterpriseClient.snapshot().token) return
       await enterpriseAuthOperations.run(async () => {
-        if (!enterpriseClient.snapshot().token) return;
-        const session = await enterpriseClient.getSession();
+        if (!enterpriseClient.snapshot().token) return
+        const session = await enterpriseClient.getSession()
         const outcome = await refreshEnterpriseIdentityLease(
           session,
           enterpriseClient,
           synchronizeAuthenticatedEnterpriseAccount,
           saveEnterpriseSession,
-        );
+        )
         if (outcome === 'refreshed' && session.account) {
-          notifyEnterpriseAccountUpdated(session.account);
-          enterpriseMlsOutboxRetry.wake();
-          enterpriseMlsInboundPoll.wake();
+          notifyEnterpriseAccountUpdated(session.account)
+          enterpriseMlsOutboxRetry.wake()
+          enterpriseMlsInboundPoll.wake()
         }
-      });
+      })
     },
-  });
+  })
 }
 
 function notifyEnterpriseAccountUpdated(account: EnterpriseAccount): void {
-  void checkEnterpriseModuleUpdates('identity');
+  void checkEnterpriseModuleUpdates('identity')
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(IPC.enterpriseAccountUpdated, account);
+    mainWindow.webContents.send(IPC.enterpriseAccountUpdated, account)
   }
 }
 
@@ -1222,16 +1222,16 @@ function notifyEnterpriseAccountUpdated(account: EnterpriseAccount): void {
 const updateService = new UpdateService(
   () => mainWindow?.webContents,
   IPC.updateProgress,
-);
+)
 const incrementalUpdateService = new IncrementalUpdateService(
   () => mainWindow?.webContents,
-);
+)
 const desktopDistributionId = resolveDesktopDistribution(
   process.env.CLAWMASTER_DISTRIBUTION_ID,
-);
+)
 
 async function checkDesktopUpdate() {
-  const session = enterpriseClient.snapshot();
+  const session = enterpriseClient.snapshot()
   return checkForUpdateUsingPolicy({
     distributionId: desktopDistributionId,
     currentVersion: app.getVersion(),
@@ -1242,23 +1242,23 @@ async function checkDesktopUpdate() {
         currentVersion: app.getVersion(),
       }),
     checkLegacy: () => updateService.checkForUpdate(),
-    checkManagedFull: (reference) =>
+    checkManagedFull: reference =>
       updateService.checkForUpdate({
         manifestUrl: reference.url,
         manifestSha256: reference.sha256,
         releasePageUrl: reference.url,
       }),
-    checkIncremental: (reference) =>
+    checkIncremental: reference =>
       incrementalUpdateService.checkForUpdates(reference.url, reference.sha256),
-  });
+  })
 }
 
 function moduleUpdateFingerprint(
   updates: EnterpriseModuleUpdateDescriptor[],
 ): string {
   return updates
-    .filter((update) => update.rollout !== 'off' && Boolean(update.manifestUrl))
-    .map((update) =>
+    .filter(update => update.rollout !== 'off' && Boolean(update.manifestUrl))
+    .map(update =>
       [
         update.module,
         update.version,
@@ -1269,57 +1269,57 @@ function moduleUpdateFingerprint(
       ].join('\u0000'),
     )
     .sort()
-    .join('\u0001');
+    .join('\u0001')
 }
 
 function chooseEnterpriseModuleUpdate(
   updates: EnterpriseModuleUpdateDescriptor[],
 ): EnterpriseModuleUpdateDescriptor | null {
   const active = updates.filter(
-    (update) => update.rollout !== 'off' && Boolean(update.manifestUrl),
-  );
+    update => update.rollout !== 'off' && Boolean(update.manifestUrl),
+  )
   return (
-    active.find((update) => update.rollout === 'required') ??
-    active.find((update) => update.rollout === 'stable') ??
-    active.find((update) => update.rollout === 'canary') ??
+    active.find(update => update.rollout === 'required') ??
+    active.find(update => update.rollout === 'stable') ??
+    active.find(update => update.rollout === 'canary') ??
     null
-  );
+  )
 }
 
 async function checkEnterpriseModuleUpdates(
   reason: 'startup' | 'interval' | 'identity',
 ): Promise<void> {
-  if (enterpriseModuleUpdatePolling) return;
-  loadEnterpriseSession();
-  if (!enterpriseClient.snapshot().token) return;
-  enterpriseModuleUpdatePolling = true;
+  if (enterpriseModuleUpdatePolling) return
+  loadEnterpriseSession()
+  if (!enterpriseClient.snapshot().token) return
+  enterpriseModuleUpdatePolling = true
   try {
-    const manifest = await enterpriseClient.getModuleUpdates();
-    const fingerprint = moduleUpdateFingerprint(manifest.modules);
+    const manifest = await enterpriseClient.getModuleUpdates()
+    const fingerprint = moduleUpdateFingerprint(manifest.modules)
     if (!fingerprint || fingerprint === enterpriseModuleUpdateFingerprint)
-      return;
-    enterpriseModuleUpdateFingerprint = fingerprint;
-    const target = chooseEnterpriseModuleUpdate(manifest.modules);
-    if (!target?.manifestUrl) return;
+      return
+    enterpriseModuleUpdateFingerprint = fingerprint
+    const target = chooseEnterpriseModuleUpdate(manifest.modules)
+    if (!target?.manifestUrl) return
     const result = await incrementalUpdateService.checkForUpdates(
       target.manifestUrl,
-    );
+    )
     console.info('[clawmaster-desktop] enterprise module update check', {
       reason,
       module: target.module,
       version: target.version,
       rollout: target.rollout,
       status: result.status,
-    });
+    })
   } catch (error) {
-    console.warn('[clawmaster-desktop] 企业模块化更新检查失败:', error);
+    console.warn('[clawmaster-desktop] 企业模块化更新检查失败:', error)
   } finally {
-    enterpriseModuleUpdatePolling = false;
+    enterpriseModuleUpdatePolling = false
   }
 }
 
 function startEnterpriseModuleUpdatePolling(): void {
-  if (stopEnterpriseModuleUpdateTask) return;
+  if (stopEnterpriseModuleUpdateTask) return
   stopEnterpriseModuleUpdateTask = desktopRecurringTasks.register({
     name: 'desktop.enterprise-module-update',
     source: 'packages/desktop/src/main/index.ts',
@@ -1330,13 +1330,13 @@ function startEnterpriseModuleUpdatePolling(): void {
       ENTERPRISE_MODULE_UPDATE_POLL_INTERVAL_MS,
     ),
     run: async () => {
-      if (!isQuitting) await checkEnterpriseModuleUpdates('interval');
+      if (!isQuitting) await checkEnterpriseModuleUpdates('interval')
     },
-  });
+  })
 }
 
 function resetEnterpriseModuleUpdateState(): void {
-  enterpriseModuleUpdateFingerprint = '';
+  enterpriseModuleUpdateFingerprint = ''
 }
 
 /**
@@ -1357,9 +1357,9 @@ function resetEnterpriseModuleUpdateState(): void {
  */
 
 /** /health 单次查询超时（ms）。 */
-const FEISHU_HEALTH_TIMEOUT_MS = 1500;
+const FEISHU_HEALTH_TIMEOUT_MS = 1500
 /** 启停端点超时（ms）：start 含 registerFeishu（不阻塞等建连），给宽一点。 */
-const FEISHU_OP_TIMEOUT_MS = 5000;
+const FEISHU_OP_TIMEOUT_MS = 5000
 
 /**
  * POST 一个 server 端点（无 body），解析 ApiResponse 信封。
@@ -1368,8 +1368,8 @@ const FEISHU_OP_TIMEOUT_MS = 5000;
 function postServerEndpoint(
   routePath: string,
 ): Promise<{ ok: boolean; data: unknown; error: string | null } | null> {
-  const ep = endpoint;
-  if (!ep) return Promise.resolve(null);
+  const ep = endpoint
+  if (!ep) return Promise.resolve(null)
   return new Promise((resolve) => {
     const req = http.request(
       {
@@ -1380,33 +1380,33 @@ function postServerEndpoint(
         timeout: FEISHU_OP_TIMEOUT_MS,
       },
       (res) => {
-        let body = '';
-        res.setEncoding('utf8');
+        let body = ''
+        res.setEncoding('utf8')
         res.on('data', (chunk: string) => {
-          body += chunk;
+          body += chunk
         });
         res.on('end', () => {
           try {
             resolve(
               JSON.parse(body) as {
-                ok: boolean;
-                data: unknown;
-                error: string | null;
+                ok: boolean
+                data: unknown
+                error: string | null
               },
-            );
+            )
           } catch {
-            resolve(null);
+            resolve(null)
           }
-        });
-        res.on('error', () => resolve(null));
+        })
+        res.on('error', () => resolve(null))
       },
-    );
+    )
     req.on('timeout', () => {
-      req.destroy();
-      resolve(null);
+      req.destroy()
+      resolve(null)
     });
-    req.on('error', () => resolve(null));
-    req.end();
+    req.on('error', () => resolve(null))
+    req.end()
   });
 }
 
@@ -1419,13 +1419,13 @@ function requestFeishuConfig(
   method: 'GET' | 'POST' | 'DELETE',
   body?: FeishuConfigSaveRequest,
 ): Promise<{
-  ok: boolean;
-  data: FeishuConfigPublic | null;
-  error: string | null;
+  ok: boolean
+  data: FeishuConfigPublic | null
+  error: string | null
 } | null> {
-  const ep = endpoint;
-  if (!ep) return Promise.resolve(null);
-  const payload = body !== undefined ? JSON.stringify(body) : undefined;
+  const ep = endpoint
+  if (!ep) return Promise.resolve(null)
+  const payload = body !== undefined ? JSON.stringify(body) : undefined
   return new Promise((resolve) => {
     const req = http.request(
       {
@@ -1436,41 +1436,41 @@ function requestFeishuConfig(
         timeout: FEISHU_OP_TIMEOUT_MS,
         ...(payload !== undefined
           ? {
-              headers: {
-                'content-type': 'application/json',
-                'content-length': Buffer.byteLength(payload),
-              },
-            }
+            headers: {
+              'content-type': 'application/json',
+              'content-length': Buffer.byteLength(payload),
+            },
+          }
           : {}),
       },
       (res) => {
-        let text = '';
-        res.setEncoding('utf8');
+        let text = ''
+        res.setEncoding('utf8')
         res.on('data', (chunk: string) => {
-          text += chunk;
+          text += chunk
         });
         res.on('end', () => {
           try {
             resolve(
               JSON.parse(text) as {
-                ok: boolean;
-                data: FeishuConfigPublic | null;
-                error: string | null;
+                ok: boolean
+                data: FeishuConfigPublic | null
+                error: string | null
               },
-            );
+            )
           } catch {
-            resolve(null);
+            resolve(null)
           }
-        });
-        res.on('error', () => resolve(null));
+        })
+        res.on('error', () => resolve(null))
       },
-    );
+    )
     req.on('timeout', () => {
-      req.destroy();
-      resolve(null);
+      req.destroy()
+      resolve(null)
     });
-    req.on('error', () => resolve(null));
-    req.end(payload);
+    req.on('error', () => resolve(null))
+    req.end(payload)
   });
 }
 
@@ -1479,9 +1479,9 @@ function requestChannelPairing(
   requestPath: string,
   body?: unknown,
 ): Promise<{ ok: boolean; data: unknown; error: string | null } | null> {
-  const ep = endpoint;
-  if (!ep?.controlToken) return Promise.resolve(null);
-  const payload = body === undefined ? undefined : JSON.stringify(body);
+  const ep = endpoint
+  if (!ep?.controlToken) return Promise.resolve(null)
+  const payload = body === undefined ? undefined : JSON.stringify(body)
   return new Promise((resolve) => {
     const req = http.request(
       {
@@ -1495,38 +1495,38 @@ function requestChannelPairing(
           ...(payload === undefined
             ? {}
             : {
-                'content-type': 'application/json',
-                'content-length': Buffer.byteLength(payload),
-              }),
+              'content-type': 'application/json',
+              'content-length': Buffer.byteLength(payload),
+            }),
         },
       },
       (res) => {
-        let text = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk: string) => { text += chunk; });
+        let text = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk: string) => { text += chunk });
         res.on('end', () => {
           try {
-            resolve(JSON.parse(text) as { ok: boolean; data: unknown; error: string | null });
+            resolve(JSON.parse(text) as { ok: boolean; data: unknown; error: string | null })
           } catch {
-            resolve(null);
+            resolve(null)
           }
-        });
-        res.on('error', () => resolve(null));
+        })
+        res.on('error', () => resolve(null))
       },
-    );
+    )
     req.on('timeout', () => {
-      req.destroy();
-      resolve(null);
+      req.destroy()
+      resolve(null)
     });
-    req.on('error', () => resolve(null));
-    req.end(payload);
+    req.on('error', () => resolve(null))
+    req.end(payload)
   });
 }
 
 /** 查询当前 server 的 /health（信封 {ok,data,error}），失败/未就绪返回 null。 */
 function fetchServerHealth(): Promise<HealthInfo | null> {
-  const ep = endpoint;
-  if (!ep) return Promise.resolve(null);
+  const ep = endpoint
+  if (!ep) return Promise.resolve(null)
   return new Promise((resolve) => {
     const req = http.get(
       {
@@ -1536,67 +1536,67 @@ function fetchServerHealth(): Promise<HealthInfo | null> {
         timeout: FEISHU_HEALTH_TIMEOUT_MS,
       },
       (res) => {
-        let body = '';
-        res.setEncoding('utf8');
+        let body = ''
+        res.setEncoding('utf8')
         res.on('data', (chunk: string) => {
-          body += chunk;
+          body += chunk
         });
         res.on('end', () => {
           try {
             const parsed = JSON.parse(body) as {
-              ok?: boolean;
-              data?: HealthInfo | null;
-            };
-            resolve(parsed.ok && parsed.data ? parsed.data : null);
+              ok?: boolean
+              data?: HealthInfo | null
+            }
+            resolve(parsed.ok && parsed.data ? parsed.data : null)
           } catch {
-            resolve(null);
+            resolve(null)
           }
-        });
-        res.on('error', () => resolve(null));
+        })
+        res.on('error', () => resolve(null))
       },
-    );
+    )
     req.on('timeout', () => {
-      req.destroy();
-      resolve(null);
+      req.destroy()
+      resolve(null)
     });
-    req.on('error', () => resolve(null));
+    req.on('error', () => resolve(null))
   });
 }
 
 /** 把 /health 的飞书守护状态渲染成给用户看的一句人话（状态必须诚实）。 */
 function renderFeishuStatusText(feishu: HealthInfo['feishu']): string {
-  const st = feishu.status;
+  const st = feishu.status
   if (!feishu.enabled || !st) {
     return (
       '本地 server 未启用飞书网关（未检测到飞书凭证）。\n' +
       '到「设置与诊断 → 飞书接入」填写 App ID / App Secret 即可启用。'
-    );
+    )
   }
   if (!st.configured) {
-    return '飞书凭证缺失或损坏（~/.clawmaster-user/feishu-credentials.json），网关未启动。';
+    return '飞书凭证缺失或损坏（~/.clawmaster-user/feishu-credentials.json），网关未启动。'
   }
   if (st.connected) {
-    return '飞书已连接（WS 长连接就绪，断线自动重连守护中）。';
+    return '飞书已连接（WS 长连接就绪，断线自动重连守护中）。'
   }
   if (st.lockHeldByOtherPid != null) {
     return (
       `飞书连接被另一进程持有（pid ${st.lockHeldByOtherPid}，可能是旧版 CLI 守护进程）。\n` +
       '本进程未连接（避免同一消息被处理两遍），对方退出后将自动接管。'
-    );
+    )
   }
   if (st.reconnecting) {
     const eta = st.nextRetryAt
       ? Math.max(0, Math.round((st.nextRetryAt - Date.now()) / 1000))
-      : null;
+      : null
     return (
       `飞书重连中（第 ${st.reconnectAttempts} 次${eta !== null ? `，约 ${eta}s 后重试` : ''}）` +
       `${st.lastDisconnectReason ? `：${st.lastDisconnectReason}` : ''}。`
-    );
+    )
   }
   if (!st.running) {
-    return '飞书守护未在运行。';
+    return '飞书守护未在运行。'
   }
-  return `飞书离线${st.lastDisconnectReason ? `：${st.lastDisconnectReason}` : ''}。`;
+  return `飞书离线${st.lastDisconnectReason ? `：${st.lastDisconnectReason}` : ''}。`
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -1609,21 +1609,21 @@ function renderFeishuStatusText(feishu: HealthInfo['feishu']): string {
  */
 /** 主题选择的持久化文件（userData/theme.json）。 */
 function themeFilePath(): string {
-  return path.join(app.getPath('userData'), 'theme.json');
+  return path.join(app.getPath('userData'), 'theme.json')
 }
 
 /** 读上次保存的主题选择；无文件/内容非法 → 'system'。 */
 function loadSavedThemeSource(): 'system' | 'light' | 'dark' {
   try {
     const raw = JSON.parse(fs.readFileSync(themeFilePath(), 'utf8')) as {
-      themeSource?: unknown;
-    };
+      themeSource?: unknown
+    }
     if (raw.themeSource === 'light' || raw.themeSource === 'dark')
-      return raw.themeSource;
+      return raw.themeSource
   } catch {
     /* 首次启动无文件，走默认 */
   }
-  return 'system';
+  return 'system'
 }
 
 function loadIcon(): NativeImage {
@@ -1633,62 +1633,62 @@ function loadIcon(): NativeImage {
     path.join(RENDERER_DIR, 'icon.png'),
     path.join(__dirname, '..', '..', 'build', 'icon.png'),
     path.join(process.resourcesPath, 'build', 'icon.png'),
-  ];
+  ]
   for (const iconPath of iconPaths) {
     if (fs.existsSync(iconPath)) {
-      const image = nativeImage.createFromPath(iconPath);
-      if (!image.isEmpty()) return image;
+      const image = nativeImage.createFromPath(iconPath)
+      if (!image.isEmpty()) return image
     }
   }
   // 内嵌后备图标（32x32 PNG）
   return nativeImage.createFromDataURL(
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAPklEQVR42mNg+M8ABUwgauf/ZJEYASZQRLMAs6IRYAKRKIYB5iYwI+gYIkDUQs1DEBtBbqRhgAMDAAMEATRlPZEIvE5AAAAABJRU5ErkJggg==',
-  );
+  )
 }
 
 function loadTrayIcon(): NativeImage {
   if (process.platform === 'darwin') {
-    const template = loadIcon().resize({ width: 18, height: 18 });
-    template.setTemplateImage(true);
-    return template;
+    const template = loadIcon().resize({ width: 18, height: 18 })
+    template.setTemplateImage(true)
+    return template
   }
-  return loadIcon().resize({ width: 16, height: 16 });
+  return loadIcon().resize({ width: 16, height: 16 })
 }
 
 function trayTooltip(unreadCount: number): string {
-  if (unreadCount <= 0) return 'ClawMaster';
-  const lines: string[] = [`ClawMaster · ${unreadCount} 条未读消息`];
+  if (unreadCount <= 0) return 'ClawMaster'
+  const lines: string[] = [`ClawMaster · ${unreadCount} 条未读消息`]
   if (enterpriseTrayContacts.length > 0) {
-    const contacts = enterpriseTrayContacts.slice(0, 4).map((item) => (
+    const contacts = enterpriseTrayContacts.slice(0, 4).map(item => (
       `${item.name} ${item.count} 条：${item.preview}`
-    ));
-    lines.push(...contacts);
+    ))
+    lines.push(...contacts)
     if (enterpriseTrayContacts.length > contacts.length) {
-      lines.push(`还有 ${enterpriseTrayContacts.length - contacts.length} 位联系人`);
+      lines.push(`还有 ${enterpriseTrayContacts.length - contacts.length} 位联系人`)
     }
   }
   // 提示用户 hover 或点击可以查看详情
-  lines.push('单击托盘图标查看未读详情');
-  return lines.join('\n');
+  lines.push('单击托盘图标查看未读详情')
+  return lines.join('\n')
 }
 
 async function refreshEnterpriseTrayContacts(): Promise<void> {
   if (!enterpriseClient.snapshot().token) {
-    enterpriseTrayContacts = [];
-    updateUnreadIndicators(notificationService.getUnreadSessions());
-    syncEnterpriseTrayPopover();
+    enterpriseTrayContacts = []
+    updateUnreadIndicators(notificationService.getUnreadSessions())
+    syncEnterpriseTrayPopover()
     return;
   }
   try {
     enterpriseTrayContacts = summarizeEnterpriseTrayContacts(
       await listEnterpriseUnreadMessageNotifications({ includeFederation: true }),
-    );
+    )
   } catch {
-    updateUnreadIndicators(notificationService.getUnreadSessions());
+    updateUnreadIndicators(notificationService.getUnreadSessions())
     return;
   }
-  updateUnreadIndicators(notificationService.getUnreadSessions());
-  syncEnterpriseTrayPopover();
+  updateUnreadIndicators(notificationService.getUnreadSessions())
+  syncEnterpriseTrayPopover()
 }
 
 async function listEnterpriseUnreadMessageNotifications(
@@ -1699,29 +1699,29 @@ async function listEnterpriseUnreadMessageNotifications(
   const localMessages = !enterpriseClient.supportsMlsPrivateMessages()
     ? await enterpriseClient.listUnreadDirectMessageNotifications()
     : await Promise.all([
-        enterpriseMlsPrivateMessages.listUnread(),
-        enterpriseClient.getOrganizationView(),
-      ]).then(([messages, organization]) => {
-        const names = new Map(
-          organization.members.map((member) => [member.id, member.name]),
-        );
-        return messages.map((message) => ({
-          id: message.id,
-          source: 'enterprise' as const,
-          title: '端到端加密私聊',
-          senderAccountId: message.senderAccountId,
-          senderName: names.get(message.senderAccountId) ?? message.senderAccountId,
-          preview: message.content.slice(0, 160),
-          createdAt: message.createdAt,
-        }));
+      enterpriseMlsPrivateMessages.listUnread(),
+      enterpriseClient.getOrganizationView(),
+    ]).then(([messages, organization]) => {
+      const names = new Map(
+        organization.members.map(member => [member.id, member.name]),
+      );
+      return messages.map(message => ({
+        id: message.id,
+        source: 'enterprise' as const,
+        title: '端到端加密私聊',
+        senderAccountId: message.senderAccountId,
+        senderName: names.get(message.senderAccountId) ?? message.senderAccountId,
+        preview: message.content.slice(0, 160),
+        createdAt: message.createdAt,
+      }))
       });
-  if (!options.includeFederation) return localMessages;
+  if (!options.includeFederation) return localMessages
   const federationContacts = await enterpriseClient
     .listFederationContacts()
-    .catch(() => []);
+    .catch(() => [])
   const federated = federationContacts
-    .filter((contact) => contact.unreadCount > 0)
-    .map((contact) => ({
+    .filter(contact => contact.unreadCount > 0)
+    .map(contact => ({
       id: `federation:${contact.id}:${contact.lastMessageAt ?? ''}`,
       source: 'enterprise' as const,
       title: '端到端加密跨服务器私聊',
@@ -1730,44 +1730,44 @@ async function listEnterpriseUnreadMessageNotifications(
       preview: '收到一条端到端加密的跨服务器消息',
       createdAt: contact.lastMessageAt ?? new Date().toISOString(),
       count: contact.unreadCount,
-    }));
-  return [...localMessages, ...federated];
+    }))
+  return [...localMessages, ...federated]
 }
 
 function totalTrayUnreadCount(unread: readonly string[]): number {
   const enterpriseSessionIds = new Set(
     enterpriseTrayContacts.map(
-      (contact) => contact.accountId.startsWith('federation:')
+      contact => contact.accountId.startsWith('federation:')
         ? `enterprise:federation:${contact.accountId.slice('federation:'.length)}`
         : `enterprise:message:${contact.accountId}`,
     ),
-  );
+  )
   const otherUnread = unread.filter(
-    (sessionId) => !enterpriseSessionIds.has(sessionId),
-  ).length;
+    sessionId => !enterpriseSessionIds.has(sessionId),
+  ).length
   return (
     otherUnread +
     enterpriseTrayContacts.reduce((total, contact) => total + contact.count, 0)
-  );
+  )
 }
 
 /** 同步系统级未读提示：macOS Dock/菜单栏、Windows 任务栏覆盖图标与托盘说明。 */
 function updateUnreadIndicators(unread: readonly string[]): void {
-  const count = totalTrayUnreadCount(unread);
+  const count = totalTrayUnreadCount(unread)
   if (tray && !tray.isDestroyed()) {
-    tray.setToolTip(trayTooltip(count));
+    tray.setToolTip(trayTooltip(count))
     if (process.platform === 'darwin') {
-      tray.setTitle(count > 0 || enterpriseTrayContacts.length > 0 ? ' •' : '');
+      tray.setTitle(count > 0 || enterpriseTrayContacts.length > 0 ? ' •' : '')
     }
   }
   if (process.platform === 'darwin' && app.dock) {
-    app.dock.setBadge(count > 0 ? String(count) : '');
+    app.dock.setBadge(count > 0 ? String(count) : '')
   }
   if (process.platform === 'win32' && mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setOverlayIcon(
       count > 0 ? loadIcon().resize({ width: 16, height: 16 }) : null,
       count > 0 ? `${count} 条未读消息` : '',
-    );
+    )
   }
 }
 
@@ -1779,20 +1779,20 @@ function shouldPresentSystemNotification(): boolean {
     !mainWindow.isVisible() ||
     mainWindow.isMinimized() ||
     !mainWindow.isFocused()
-  );
+  )
 }
 
 /** 后台来消息时提供不依赖通知中心权限的任务栏/Dock 提醒。 */
 function requestBackgroundAttention(): void {
-  if (!shouldPresentSystemNotification()) return;
+  if (!shouldPresentSystemNotification()) return
   if (process.platform === 'darwin' && app.dock) {
-    if (dockBounceId !== undefined) app.dock.cancelBounce(dockBounceId);
-    dockBounceId = app.dock.bounce('informational');
+    if (dockBounceId !== undefined) app.dock.cancelBounce(dockBounceId)
+    dockBounceId = app.dock.bounce('informational')
     return;
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
-      mainWindow.flashFrame(true);
+      mainWindow.flashFrame(true)
     } catch {
       /* platform may not support flashing */
     }
@@ -1801,7 +1801,7 @@ function requestBackgroundAttention(): void {
 
 /** 系统通知 API 不可用或发送失败时，Windows 再退化为托盘气泡。 */
 function showFallbackNotification(payload: NotificationPayload): void {
-  if (process.platform !== 'win32' || !tray || tray.isDestroyed()) return;
+  if (process.platform !== 'win32' || !tray || tray.isDestroyed()) return
   try {
     tray.displayBalloon({
       title: payload.title || 'ClawMaster 新消息',
@@ -1810,7 +1810,7 @@ function showFallbackNotification(payload: NotificationPayload): void {
       iconType: 'custom',
       noSound: true,
       respectQuietTime: false,
-    });
+    })
   } catch {
     // 仍有任务栏闪烁、托盘未读说明和声音作为最终兜底。
   }
@@ -1818,12 +1818,12 @@ function showFallbackNotification(payload: NotificationPayload): void {
 
 function clearBackgroundAttention(): void {
   if (dockBounceId !== undefined && process.platform === 'darwin' && app.dock) {
-    app.dock.cancelBounce(dockBounceId);
-    dockBounceId = undefined;
+    app.dock.cancelBounce(dockBounceId)
+    dockBounceId = undefined
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
-      mainWindow.flashFrame(false);
+      mainWindow.flashFrame(false)
     } catch {
       /* ignore */
     }
@@ -1835,49 +1835,49 @@ function hideEnterpriseTrayPopover(): void {
     enterpriseTrayPopoverWindow &&
     !enterpriseTrayPopoverWindow.isDestroyed()
   ) {
-    enterpriseTrayPopoverWindow.hide();
+    enterpriseTrayPopoverWindow.hide()
   }
 }
 
 function openNotificationSession(sessionId: string): void {
-  showMainWindow();
-  const targetWindow = mainWindow;
-  if (!targetWindow || targetWindow.isDestroyed()) return;
+  showMainWindow()
+  const targetWindow = mainWindow
+  if (!targetWindow || targetWindow.isDestroyed()) return
   const send = (): void => {
     if (!targetWindow.isDestroyed()) {
-      targetWindow.webContents.send(IPC.notificationSessionOpen, sessionId);
+      targetWindow.webContents.send(IPC.notificationSessionOpen, sessionId)
     }
-  };
+  }
   if (targetWindow.webContents.isLoading()) {
-    targetWindow.webContents.once('did-finish-load', send);
+    targetWindow.webContents.once('did-finish-load', send)
   } else {
-    send();
+    send()
   }
 }
 
 function handleEnterpriseTrayNavigation(targetUrl: string): void {
   try {
-    const target = new URL(targetUrl);
-    if (target.protocol !== 'clawmaster-tray:') return;
+    const target = new URL(targetUrl)
+    if (target.protocol !== 'clawmaster-tray:') return
     if (target.hostname === 'open') {
-      showMainWindow();
+      showMainWindow()
       return;
     }
     if (target.hostname === 'park') {
-      openNotificationSession('park:service');
+      openNotificationSession('park:service')
       return;
     }
-    if (target.hostname !== 'message') return;
-    const accountId = decodeURIComponent(target.pathname.replace(/^\/+/, ''));
-    if (!accountId || accountId.length > 256) return;
+    if (target.hostname !== 'message') return
+    const accountId = decodeURIComponent(target.pathname.replace(/^\/+/, ''))
+    if (!accountId || accountId.length > 256) return
     if (accountId.startsWith('federation:')) {
-      const contactId = accountId.slice('federation:'.length);
-      if (contactId) openNotificationSession(`enterprise:federation:${contactId}`);
+      const contactId = accountId.slice('federation:'.length)
+      if (contactId) openNotificationSession(`enterprise:federation:${contactId}`)
       return;
     }
-    openNotificationSession(`enterprise:message:${accountId}`);
+    openNotificationSession(`enterprise:message:${accountId}`)
   } catch (error) {
-    void error;
+    void error
   }
 }
 
@@ -1886,7 +1886,7 @@ function ensureEnterpriseTrayPopoverWindow(): BrowserWindow {
     enterpriseTrayPopoverWindow &&
     !enterpriseTrayPopoverWindow.isDestroyed()
   ) {
-    return enterpriseTrayPopoverWindow;
+    return enterpriseTrayPopoverWindow
   }
   const window = new BrowserWindow({
     width: ENTERPRISE_TRAY_POPOVER_WIDTH,
@@ -1911,158 +1911,158 @@ function ensureEnterpriseTrayPopoverWindow(): BrowserWindow {
       devTools: false,
       spellcheck: false,
     },
-  });
-  enterpriseTrayPopoverWindow = window;
-  window.setAlwaysOnTop(true, 'pop-up-menu');
-  window.setMenuBarVisibility(false);
-  window.on('blur', () => window.hide());
+  })
+  enterpriseTrayPopoverWindow = window
+  window.setAlwaysOnTop(true, 'pop-up-menu')
+  window.setMenuBarVisibility(false)
+  window.on('blur', () => window.hide())
   window.on('closed', () => {
     if (enterpriseTrayPopoverWindow === window)
-      enterpriseTrayPopoverWindow = undefined;
+      enterpriseTrayPopoverWindow = undefined
   });
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event, targetUrl) => {
-    event.preventDefault();
-    handleEnterpriseTrayNavigation(targetUrl);
+    event.preventDefault()
+    handleEnterpriseTrayNavigation(targetUrl)
   });
   window.webContents.on('before-input-event', (event, input) => {
-    if (input.key !== 'Escape') return;
-    event.preventDefault();
-    window.hide();
+    if (input.key !== 'Escape') return
+    event.preventDefault()
+    window.hide()
   });
-  return window;
+  return window
 }
 
 function positionEnterpriseTrayPopoverWindow(window: BrowserWindow): void {
-  if (!tray || tray.isDestroyed()) return;
-  const trayBounds = tray.getBounds();
+  if (!tray || tray.isDestroyed()) return
+  const trayBounds = tray.getBounds()
   const anchorPoint =
     trayBounds.width > 0 || trayBounds.height > 0
       ? {
-          x: Math.round(trayBounds.x + trayBounds.width / 2),
-          y: Math.round(trayBounds.y + trayBounds.height / 2),
-        }
-      : screen.getCursorScreenPoint();
-  const workArea = screen.getDisplayNearestPoint(anchorPoint).workArea;
+        x: Math.round(trayBounds.x + trayBounds.width / 2),
+        y: Math.round(trayBounds.y + trayBounds.height / 2),
+      }
+      : screen.getCursorScreenPoint()
+  const workArea = screen.getDisplayNearestPoint(anchorPoint).workArea
   const effectiveTrayBounds =
     trayBounds.width > 0 || trayBounds.height > 0
       ? trayBounds
       : {
-          x: workArea.x + workArea.width - 24,
-          y: workArea.y + workArea.height,
-          width: 24,
-          height: 0,
-        };
+        x: workArea.x + workArea.width - 24,
+        y: workArea.y + workArea.height,
+        width: 24,
+        height: 0,
+      };
   const position = positionEnterpriseTrayPopover(
     effectiveTrayBounds,
     workArea,
     window.getBounds(),
-  );
-  window.setPosition(position.x, position.y, false);
+  )
+  window.setPosition(position.x, position.y, false)
 }
 
 async function renderEnterpriseTrayPopover(show: boolean): Promise<void> {
-  const window = ensureEnterpriseTrayPopoverWindow();
+  const window = ensureEnterpriseTrayPopoverWindow()
   window.setSize(
     ENTERPRISE_TRAY_POPOVER_WIDTH,
     enterpriseTrayPopoverHeight(enterpriseTrayContacts.length),
     false,
-  );
-  const html = renderEnterpriseTrayPopoverHtml(enterpriseTrayContacts);
+  )
+  const html = renderEnterpriseTrayPopoverHtml(enterpriseTrayContacts)
   try {
     await window.loadURL(
       `data:text/html;charset=UTF-8,${encodeURIComponent(html)}`,
-    );
+    )
   } catch (error) {
-    void error;
+    void error
     return;
   }
-  if (window.isDestroyed()) return;
-  positionEnterpriseTrayPopoverWindow(window);
+  if (window.isDestroyed()) return
+  positionEnterpriseTrayPopoverWindow(window)
   if (show) {
-    window.show();
-    window.focus();
+    window.show()
+    window.focus()
   }
 }
 
 function syncEnterpriseTrayPopover(): void {
   if (!enterpriseTrayPopoverWindow || enterpriseTrayPopoverWindow.isDestroyed())
-    return;
-  if (!enterpriseTrayPopoverWindow.isVisible()) return;
+    return
+  if (!enterpriseTrayPopoverWindow.isVisible()) return
   if (enterpriseTrayContacts.length === 0) {
-    enterpriseTrayPopoverWindow.hide();
+    enterpriseTrayPopoverWindow.hide()
     return;
   }
-  void renderEnterpriseTrayPopover(false);
+  void renderEnterpriseTrayPopover(false)
 }
 
 async function showEnterpriseTrayPopover(): Promise<void> {
   if (enterpriseTrayContacts.length === 0)
-    await refreshEnterpriseTrayContacts();
+    await refreshEnterpriseTrayContacts()
   if (enterpriseTrayContacts.length === 0) {
-    showMainWindow();
+    showMainWindow()
     return;
   }
-  await renderEnterpriseTrayPopover(true);
+  await renderEnterpriseTrayPopover(true)
 }
 
 async function toggleEnterpriseTrayPopover(): Promise<void> {
   if (enterpriseTrayPopoverWindow?.isVisible()) {
-    enterpriseTrayPopoverWindow.hide();
+    enterpriseTrayPopoverWindow.hide()
     return;
   }
-  await showEnterpriseTrayPopover();
+  await showEnterpriseTrayPopover()
 }
 function showMainWindow(): void {
-  hideEnterpriseTrayPopover();
-  clearBackgroundAttention();
+  hideEnterpriseTrayPopover()
+  clearBackgroundAttention()
   if (!app.isReady() || !mainWindowCreationReady) {
-    pendingMainWindowFocusRequest = true;
+    pendingMainWindowFocusRequest = true
     return;
   }
   if (!mainWindow || mainWindow.isDestroyed()) {
-    mainWindow = createWindow();
-    mainWindow.webContents.once('did-finish-load', pushEndpointToRenderer);
+    mainWindow = createWindow()
+    mainWindow.webContents.once('did-finish-load', pushEndpointToRenderer)
   }
-  const presentation = mainWindowPresentations.get(mainWindow);
+  const presentation = mainWindowPresentations.get(mainWindow)
   if (presentation) {
-    presentation.requestShow({ focus: true });
+    presentation.requestShow({ focus: true })
   } else {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
   }
 }
 
 function createTray(): void {
-  if (tray) return;
+  if (tray) return
 
-  tracer.state.status = '正在启动…';
+  tracer.state.status = '正在启动…'
 
-  tray = new Tray(loadTrayIcon());
-  tray.setToolTip('ClawMaster');
-  updateUnreadIndicators(notificationService.getUnreadSessions());
+  tray = new Tray(loadTrayIcon())
+  tray.setToolTip('ClawMaster')
+  updateUnreadIndicators(notificationService.getUnreadSessions())
 
   const updateMenu = (): void => {
-    const status = tracer.getSummary();
-    const restarting = trayRestarting;
+    const status = tracer.getSummary()
+    const restarting = trayRestarting
 
     const enterpriseUnreadTotal = enterpriseTrayContacts.reduce(
       (total, contact) => total + contact.count,
       0,
-    );
+    )
     const enterpriseContactItems: Electron.MenuItemConstructorOptions[] =
       enterpriseTrayContacts.length
         ? [
-            { type: 'separator' },
-            {
-              label: `查看 ${enterpriseUnreadTotal} 条未读企业消息`,
-              click: () => {
-                void showEnterpriseTrayPopover();
+          { type: 'separator' },
+          {
+            label: `查看 ${enterpriseUnreadTotal} 条未读企业消息`,
+            click: () => {
+              void showEnterpriseTrayPopover()
               },
-            },
-          ]
-        : [];
+          },
+        ]
+        : []
 
     const template: Electron.MenuItemConstructorOptions[] = [
       {
@@ -2079,21 +2079,21 @@ function createTray(): void {
         label: restarting ? '正在重启…' : '重启 ClawMaster 本地引擎',
         enabled: !restarting,
         click: async () => {
-          trayRestarting = true;
-          updateMenu();
-          tracer.updateStatus('正在重启…');
+          trayRestarting = true
+          updateMenu()
+          tracer.updateStatus('正在重启…')
           try {
             if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send(IPC.endpointChanged, null);
+              mainWindow.webContents.send(IPC.endpointChanged, null)
             }
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            endpoint = undefined;
-            await ensureEndpoint();
+            await new Promise(resolve => setTimeout(resolve, 500))
+            endpoint = undefined
+            await ensureEndpoint()
           } catch {
-            tracer.updateStatus('重启失败');
+            tracer.updateStatus('重启失败')
           } finally {
-            trayRestarting = false;
-            updateMenu();
+            trayRestarting = false
+            updateMenu()
           }
         },
       },
@@ -2101,15 +2101,15 @@ function createTray(): void {
       {
         label: '退出 ClawMaster',
         click: () => {
-          isQuitting = true;
-          app.quit();
+          isQuitting = true
+          app.quit()
         },
       },
-    ];
-    tray!.setContextMenu(Menu.buildFromTemplate(template));
+    ]
+    tray!.setContextMenu(Menu.buildFromTemplate(template))
   };
 
-  updateMenu();
+  updateMenu()
   desktopRecurringTasks.register({
     name: 'desktop.tray-menu-refresh',
     source: 'packages/desktop/src/main/index.ts',
@@ -2118,15 +2118,15 @@ function createTray(): void {
     getInputVersion: () => [
       tracer.getSummary(),
       trayRestarting ? 'restarting' : 'ready',
-      ...enterpriseTrayContacts.map((contact) => (
+      ...enterpriseTrayContacts.map(contact => (
         `${contact.accountId}:${contact.count}:${contact.preview}`
       )),
     ].join('|'),
     run: () => {
-      if (tray && !tray.isDestroyed()) updateMenu();
+      if (tray && !tray.isDestroyed()) updateMenu()
     },
-  });
-  void refreshEnterpriseTrayContacts();
+  })
+  void refreshEnterpriseTrayContacts()
   desktopRecurringTasks.register({
     name: 'desktop.tray-contact-refresh',
     source: 'packages/desktop/src/main/index.ts',
@@ -2134,40 +2134,40 @@ function createTray(): void {
     estimatedCostUsdPerRun: 0,
     getInputVersion: () => enterpriseRecurringInputVersion(8_000),
     run: refreshEnterpriseTrayContacts,
-  });
+  })
 
   tray.on('click', () => {
-    void toggleEnterpriseTrayPopover();
+    void toggleEnterpriseTrayPopover()
   });
-  tray.on('double-click', showMainWindow);
-  tray.on('balloon-click', showMainWindow);
+  tray.on('double-click', showMainWindow)
+  tray.on('balloon-click', showMainWindow)
 }
 
 function stopDesktopRecurringTasks(): void {
-  desktopRecurringTasks.stopAll();
-  stopEnterpriseIdentityRefreshTask = undefined;
-  stopEnterpriseModuleUpdateTask = undefined;
-  stopEnterpriseSkillUsageTask = undefined;
+  desktopRecurringTasks.stopAll()
+  stopEnterpriseIdentityRefreshTask = undefined
+  stopEnterpriseModuleUpdateTask = undefined
+  stopEnterpriseSkillUsageTask = undefined
 }
 
 // ── 托盘状态追踪器 ──
 const tracer: {
-  state: { status: string };
-  updateStatus(status: string): void;
-  getSummary(): string;
+  state: { status: string }
+  updateStatus(status: string): void
+  getSummary(): string
 } = {
   state: { status: '正在启动…' },
   updateStatus(status: string) {
-    this.state.status = status;
+    this.state.status = status
   },
   getSummary() {
-    return this.state.status;
+    return this.state.status
   },
-};
+}
 
 function createWindow(): BrowserWindow {
-  enterpriseIntentRendererReady = false;
-  let closePromptPending = false;
+  enterpriseIntentRendererReady = false
+  let closePromptPending = false
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -2194,75 +2194,75 @@ function createWindow(): BrowserWindow {
       // 禁用 renderer 直接走 Node 的 experimental features。
       preload: path.join(__dirname, '../preload/index.js'),
     },
-  });
+  })
 
-  const presentation = new MainWindowPresentationController(win);
-  mainWindowPresentations.set(win, presentation);
-  let initialIndicatorsUpdated = false;
+  const presentation = new MainWindowPresentationController(win)
+  mainWindowPresentations.set(win, presentation)
+  let initialIndicatorsUpdated = false
   const markWindowReady = (): void => {
-    presentation.markReady();
-    if (initialIndicatorsUpdated) return;
-    initialIndicatorsUpdated = true;
-    updateUnreadIndicators(notificationService.getUnreadSessions());
+    presentation.markReady()
+    if (initialIndicatorsUpdated) return
+    initialIndicatorsUpdated = true
+    updateUnreadIndicators(notificationService.getUnreadSessions())
   };
 
-  win.once('ready-to-show', markWindowReady);
-  win.on('focus', clearBackgroundAttention);
+  win.once('ready-to-show', markWindowReady)
+  win.on('focus', clearBackgroundAttention)
   win.on('close', (event) => {
-    if (isQuitting) return;
-    event.preventDefault();
-    if (closePromptPending) return;
-    closePromptPending = true;
+    if (isQuitting) return
+    event.preventDefault()
+    if (closePromptPending) return
+    closePromptPending = true
     void askWindowCloseChoice({
-      showMessageBox: (options) => dialog.showMessageBox(options),
+      showMessageBox: options => dialog.showMessageBox(options),
     }).then((choice) => {
       if (choice === 'continue-background') {
-        win.hide();
+        win.hide()
       } else if (choice === 'stop-and-quit') {
-        isQuitting = true;
-        app.quit();
+        isQuitting = true
+        app.quit()
       }
     }).catch((error) => {
-      console.error('[clawmaster-desktop] close choice dialog failed:', error);
+      console.error('[clawmaster-desktop] close choice dialog failed:', error)
     }).finally(() => {
-      closePromptPending = false;
+      closePromptPending = false
     });
-  });
+  })
 
-  hardenWebContents(win);
+  hardenWebContents(win)
   win.webContents.once('did-finish-load', () => {
     // ready-to-show 在后台/遮挡启动时不保证及时触发。renderer 完成加载后作为
     // 安全兜底展示；控制器会合并两个信号，避免重复 show 或抢焦点。
-    markWindowReady();
+    markWindowReady()
     void incrementalUpdateService
       .applyActiveRendererPatches()
       .catch((error) => {
-        console.warn('[clawmaster-desktop] apply renderer css patch failed:', error);
+        console.warn('[clawmaster-desktop] apply renderer css patch failed:', error)
       });
-  });
+  })
 
-  void win.loadFile(path.join(RENDERER_DIR, 'index.html'));
-  return win;
+  void win.loadFile(path.join(RENDERER_DIR, 'index.html'))
+  return win
 }
 
 /** 创建内置视频编辑器窗口（OpenReel）。 */
 function createVideoEditorWindow(): { ok: boolean; error?: string } {
   if (videoEditorWindow && !videoEditorWindow.isDestroyed()) {
-    videoEditorWindow.show();
-    videoEditorWindow.focus();
-    return { ok: true };
+    videoEditorWindow.show()
+    videoEditorWindow.focus()
+    return { ok: true }
   }
 
   const editorPath = resolveVideoEditorIndex({
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
     moduleDir: __dirname,
-  });
+  })
   if (app.isPackaged && !fs.existsSync(editorPath)) {
     return {
       ok: false,
       error: `Video editor is an optional external component and is not bundled in this build: ${editorPath}`,
-    };
+    }
   }
 
   const win = new BrowserWindow({
@@ -2279,65 +2279,65 @@ function createVideoEditorWindow(): { ok: boolean; error?: string } {
       contextIsolation: true,
       sandbox: true,
     },
-  });
-  videoEditorWindow = win;
+  })
+  videoEditorWindow = win
 
   if (fs.existsSync(editorPath)) {
-    void win.loadFile(editorPath);
+    void win.loadFile(editorPath)
   } else {
-    void win.loadURL('http://localhost:5174');
+    void win.loadURL('http://localhost:5174')
   }
 
   win.on('closed', () => {
-    videoEditorWindow = undefined;
+    videoEditorWindow = undefined
   });
 
   // External links open in system browser
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (isExternalUrl(url)) void shell.openExternal(url);
-    return { action: 'deny' };
+    if (isExternalUrl(url)) void shell.openExternal(url)
+    return { action: 'deny' }
   });
-  return { ok: true };
+  return { ok: true }
 }
 
 /** 收紧单个窗口 webContents 的导航 / 新窗口行为。 */
 function hardenWebContents(win: BrowserWindow): void {
   // 外链统一走系统浏览器，不在 app 内开新窗口。
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (isExternalUrl(url)) void shell.openExternal(url);
-    return { action: 'deny' };
+    if (isExternalUrl(url)) void shell.openExternal(url)
+    return { action: 'deny' }
   });
 
   // 阻止 renderer 导航离开本地 app（防被劫持加载远程页）。
   win.webContents.on('will-navigate', (event, url) => {
     if (!isLocalAppUrl(url)) {
-      event.preventDefault();
-      if (isExternalUrl(url)) void shell.openExternal(url);
+      event.preventDefault()
+      if (isExternalUrl(url)) void shell.openExternal(url)
     }
-  });
+  })
 
   // 渲染进程崩溃 / 卡死：记录并尝试恢复（重载）。带退避：60s 内最多重载
   // CRASH_RELOAD_MAX 次，超限视为必现崩溃，改为展示错误页，防白屏无限闪烁。
-  let crashReloadTimes: number[] = [];
+  let crashReloadTimes: number[] = []
   win.webContents.on('render-process-gone', (_e, details) => {
-    console.error('[clawmaster-desktop] renderer 进程退出:', details.reason);
-    if (details.reason === 'clean-exit' || win.isDestroyed()) return;
-    const now = Date.now();
+    console.error('[clawmaster-desktop] renderer 进程退出:', details.reason)
+    if (details.reason === 'clean-exit' || win.isDestroyed()) return
+    const now = Date.now()
     crashReloadTimes = crashReloadTimes.filter(
-      (t) => now - t < CRASH_RELOAD_WINDOW_MS,
-    );
+      t => now - t < CRASH_RELOAD_WINDOW_MS,
+    )
     if (crashReloadTimes.length < CRASH_RELOAD_MAX) {
-      crashReloadTimes = [...crashReloadTimes, now];
-      win.webContents.reload();
+      crashReloadTimes = [...crashReloadTimes, now]
+      win.webContents.reload()
     } else {
       console.error(
         '[clawmaster-desktop] renderer 短时间内反复崩溃，停止自动重载，改为展示错误页',
-      );
-      void win.webContents.loadURL(crashPageDataUrl());
+      )
+      void win.webContents.loadURL(crashPageDataUrl())
     }
-  });
+  })
   win.webContents.on('unresponsive', () => {
-    console.warn('[clawmaster-desktop] renderer 无响应');
+    console.warn('[clawmaster-desktop] renderer 无响应')
   });
 }
 
@@ -2346,15 +2346,15 @@ function hardenWebContents(win: BrowserWindow): void {
  * 只判 file:// 前缀会放行任意本地文件，被劫持时可导航到磁盘上任何页面。
  */
 function isLocalAppUrl(url: string): boolean {
-  if (!url.startsWith('file://')) return false;
+  if (!url.startsWith('file://')) return false
   try {
-    const target = path.resolve(fileURLToPath(url));
+    const target = path.resolve(fileURLToPath(url))
     return (
       target === RENDERER_DIR || target.startsWith(RENDERER_DIR + path.sep)
-    );
+    )
   } catch {
     // 非法 file URL（如带 host 段）→ 拒绝。
-    return false;
+    return false
   }
 }
 
@@ -2370,13 +2370,13 @@ function crashPageDataUrl(): string {
     '<h1 style="font-size:1.3em;color:#fff">ClawMaster 界面多次崩溃</h1>' +
     '<p>渲染进程在短时间内反复异常退出，已停止自动恢复以避免闪烁。</p>' +
     '<p>请退出并重新启动 ClawMaster；若问题持续出现，请附终端日志反馈。</p>' +
-    '</div></body></html>';
-  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+    '</div></body></html>'
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
 }
 
 /** 是否可放行到系统浏览器的外链（仅 http/https）。 */
 function isExternalUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url);
+  return /^https?:\/\//i.test(url)
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -2386,38 +2386,38 @@ function isExternalUrl(url: string): boolean {
 /** 本地 CSP：只允许自身资源 + 连本地 server WS/HTTP。 */
 function applyCsp(): void {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const host = endpoint?.host ?? CSP_FALLBACK_HOST;
+    const host = endpoint?.host ?? CSP_FALLBACK_HOST
     // 首个 renderer 响应头通常早于 ensureEndpoint() 完成；若用户通过环境变量指定
     // 内嵌 server 端口，CSP 也必须从第一帧就放行同一端口，否则 WS 会被浏览器拦截、
     // UI 永久显示“正在重连”，即使 server 实际已健康监听。
-    const configuredPort = Number(process.env.CLAWMASTER_SERVER_PORT);
+    const configuredPort = Number(process.env.CLAWMASTER_SERVER_PORT)
     const configuredStartPort =
       Number.isFinite(configuredPort) && configuredPort > 0
         ? configuredPort
-        : CSP_FALLBACK_PORT;
+        : CSP_FALLBACK_PORT
     const ports = endpoint
       ? [endpoint.port]
-      : Array.from({ length: 11 }, (_, index) => configuredStartPort + index);
+      : Array.from({ length: 11 }, (_, index) => configuredStartPort + index)
     // HTTPS 只用于员工头像图片；脚本和网络请求仍严格限制在自身与本地 server。
-    const csp = buildRendererCsp(host, ports);
+    const csp = buildRendererCsp(host, ports)
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [csp],
       },
-    });
+    })
   });
 
   // 仅放行本地 renderer 的音频录制；摄像头/地理位置等继续拒绝。
   session.defaultSession.setPermissionRequestHandler(
     (wc, perm, cb, details) => {
-      const trusted = wc === mainWindow?.webContents;
-      const mediaTypes = 'mediaTypes' in details ? details.mediaTypes : [];
-      const wantsAudio = perm === 'media' && mediaTypes?.includes('audio');
-      const wantsVideo = perm === 'media' && mediaTypes?.includes('video');
-      cb(Boolean(trusted && wantsAudio && !wantsVideo));
+      const trusted = wc === mainWindow?.webContents
+      const mediaTypes = 'mediaTypes' in details ? details.mediaTypes : []
+      const wantsAudio = perm === 'media' && mediaTypes?.includes('audio')
+      const wantsVideo = perm === 'media' && mediaTypes?.includes('video')
+      cb(Boolean(trusted && wantsAudio && !wantsVideo))
     },
-  );
+  )
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -2426,56 +2426,56 @@ function applyCsp(): void {
 
 /** 确保 server 可用并把端点缓存下来；失败不抛（renderer 显示「未连接」）。 */
 function scheduleEndpointRetry(): void {
-  if (isQuitting || endpointRetryTimer) return;
+  if (isQuitting || endpointRetryTimer) return
   const waitMs = Math.min(
     30_000,
     1_000 * 2 ** Math.min(endpointRetryAttempt, 5),
-  );
-  endpointRetryAttempt += 1;
+  )
+  endpointRetryAttempt += 1
   endpointRetryTimer = setTimeout(() => {
-    endpointRetryTimer = undefined;
-    void ensureEndpoint();
-  }, waitMs);
-  endpointRetryTimer.unref();
+    endpointRetryTimer = undefined
+    void ensureEndpoint()
+  }, waitMs)
+  endpointRetryTimer.unref()
 }
 
 async function ensureEndpoint(): Promise<void> {
-  if (endpointEnsurePromise) return endpointEnsurePromise;
+  if (endpointEnsurePromise) return endpointEnsurePromise
   const operation = (async () => {
     try {
-      tracer.updateStatus('正在连接服务…');
-      const ensured = await serverManager.ensure();
-      endpoint = ensured.endpoint;
-      endpointRetryAttempt = 0;
+      tracer.updateStatus('正在连接服务…')
+      const ensured = await serverManager.ensure()
+      endpoint = ensured.endpoint
+      endpointRetryAttempt = 0
       if (endpointRetryTimer) {
-        clearTimeout(endpointRetryTimer);
-        endpointRetryTimer = undefined;
+        clearTimeout(endpointRetryTimer)
+        endpointRetryTimer = undefined
       }
-      tracer.updateStatus('服务运行中');
+      tracer.updateStatus('服务运行中')
       console.log(
         `[clawmaster-desktop] server ${ensured.ownership} @ http://${endpoint.host}:${endpoint.port}`,
-      );
-      pushEndpointToRenderer();
+      )
+      pushEndpointToRenderer()
     } catch (e) {
-      endpoint = undefined;
-      tracer.updateStatus('服务启动失败，正在重试');
-      pushEndpointToRenderer();
-      scheduleEndpointRetry();
-      console.error('[clawmaster-desktop] server 启动失败:', e);
+      endpoint = undefined
+      tracer.updateStatus('服务启动失败，正在重试')
+      pushEndpointToRenderer()
+      scheduleEndpointRetry()
+      console.error('[clawmaster-desktop] server 启动失败:', e)
     }
-  })();
-  endpointEnsurePromise = operation;
+  })()
+  endpointEnsurePromise = operation
   try {
-    await operation;
+    await operation
   } finally {
-    if (endpointEnsurePromise === operation) endpointEnsurePromise = undefined;
+    if (endpointEnsurePromise === operation) endpointEnsurePromise = undefined
   }
 }
 
 /** 主动把最新端点推给 renderer（preload 据此触发 connect）。 */
 function pushEndpointToRenderer(): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(IPC.endpointChanged, endpoint ?? null);
+    mainWindow.webContents.send(IPC.endpointChanged, endpoint ?? null)
   }
 }
 
@@ -2487,14 +2487,14 @@ function parseLegalDocumentReferences(
   value: unknown,
 ): EnterpriseLegalDocumentReference[] {
   if (!Array.isArray(value) || value.length !== 2) {
-    throw new Error('请重新打开并阅读当前用户协议和隐私规则');
+    throw new Error('请重新打开并阅读当前用户协议和隐私规则')
   }
-  const seen = new Set<string>();
+  const seen = new Set<string>()
   const references = value.map((entry) => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      throw new Error('协议版本信息格式不正确');
+      throw new Error('协议版本信息格式不正确')
     }
-    const record = entry as Record<string, unknown>;
+    const record = entry as Record<string, unknown>
     if (
       (record.id !== 'terms' && record.id !== 'privacy') ||
       typeof record.version !== 'string' ||
@@ -2502,118 +2502,118 @@ function parseLegalDocumentReferences(
       !/^[0-9a-f]{64}$/u.test(record.hash) ||
       seen.has(record.id)
     ) {
-      throw new Error('协议版本信息格式不正确');
+      throw new Error('协议版本信息格式不正确')
     }
-    const id = record.id as EnterpriseLegalDocumentReference['id'];
-    seen.add(id);
+    const id = record.id as EnterpriseLegalDocumentReference['id']
+    seen.add(id)
     return {
       id,
       version: record.version as string,
       hash: record.hash as string,
-    };
+    }
   });
-  return references;
+  return references
 }
 
 async function authenticatedSkillScope(): Promise<EnterpriseSkillScope | null> {
-  loadEnterpriseSession();
-  let account = enterpriseClient.authenticatedAccountSnapshot();
+  loadEnterpriseSession()
+  let account = enterpriseClient.authenticatedAccountSnapshot()
   if (!account && enterpriseClient.snapshot().token) {
-    account = (await enterpriseClient.getSession()).account;
+    account = (await enterpriseClient.getSession()).account
   }
-  const teamId = account?.departmentId?.trim();
-  return teamId ? { teamId } : null;
+  const teamId = account?.departmentId?.trim()
+  return teamId ? { teamId } : null
 }
 
 function registerIpc(): void {
   const enterpriseSkillLibrary = new EnterpriseSkillLibrary(
     path.join(process.cwd(), '.clawmaster', 'org', 'skill-shares.json'),
-  );
+  )
   registerSelfModificationIpc(ipcMain, createSelfModificationRuntime({
     repositoryRoot: process.env.CLAWMASTER_REPOSITORY_ROOT ?? app.getAppPath(),
     userDataRoot: app.getPath('userData'),
     productionRoot: process.resourcesPath ?? app.getAppPath(),
     ownerId: `${os.hostname()}:${process.pid}`,
-  }));
+  }))
   ipcMain.handle(IPC.communitySkillInstall, async (_event, input: unknown) => {
-    if (!input || typeof input !== 'object') throw new Error('社区插件导入参数不完整');
-    const value = input as Record<string, unknown>;
+    if (!input || typeof input !== 'object') throw new Error('社区插件导入参数不完整')
+    const value = input as Record<string, unknown>
     if (typeof value.id !== 'string' || typeof value.source !== 'string' || typeof value.slug !== 'string') {
-      throw new Error('社区插件导入参数不完整');
+      throw new Error('社区插件导入参数不完整')
     }
-    return installCommunitySkill({ id: value.id, source: value.source, slug: value.slug });
+    return installCommunitySkill({ id: value.id, source: value.source, slug: value.slug })
   });
   ipcMain.handle(IPC.communitySkillList, async () => {
-    const root = path.join(os.homedir(), '.clawmaster-user', 'skills');
-    let entries: fs.Dirent[];
-    try { entries = await fs.promises.readdir(root, { withFileTypes: true }); } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-      throw error;
+    const root = path.join(os.homedir(), '.clawmaster-user', 'skills')
+    let entries: fs.Dirent[]
+    try { entries = await fs.promises.readdir(root, { withFileTypes: true }) } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+      throw error
     }
     const installed = await Promise.all(entries
-      .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
+      .filter(entry => entry.isDirectory() && !entry.isSymbolicLink())
       .map(async (entry) => {
-        const installPath = path.join(root, entry.name);
+        const installPath = path.join(root, entry.name)
         try {
           return (await fs.promises.stat(path.join(installPath, 'SKILL.md'))).isFile()
             ? { name: entry.name, installPath }
-            : null;
-        } catch { return null; }
-      }));
+            : null
+        } catch { return null }
+      }))
     return installed.filter((item): item is { name: string; installPath: string } => item !== null)
-      .sort((left, right) => left.name.localeCompare(right.name));
+      .sort((left, right) => left.name.localeCompare(right.name))
   });
 
   ipcMain.handle(IPC.writeClipboard, (_e, text: unknown) => {
-    if (typeof text !== 'string') return false;
-    clipboard.writeText(text);
-    return true;
+    if (typeof text !== 'string') return false
+    clipboard.writeText(text)
+    return true
   });
-  ipcMain.handle(IPC.readClipboardText, () => clipboard.readText());
+  ipcMain.handle(IPC.readClipboardText, () => clipboard.readText())
   ipcMain.handle(IPC.autoGeneratedAgentProfiles, async () => {
     try {
-      const { loadAutoGeneratedProfiles } = await import('clawmaster-core');
-      return loadAutoGeneratedProfiles();
+      const { loadAutoGeneratedProfiles } = await import('clawmaster-core')
+      return loadAutoGeneratedProfiles()
     } catch (error) {
-      console.warn('[clawmaster-desktop] 自动 Skill 专家读取失败：', error);
-      return [];
+      console.warn('[clawmaster-desktop] 自动 Skill 专家读取失败：', error)
+      return []
     }
-  });
+  })
   ipcMain.handle(IPC.enterpriseRegistrationIntent, () => {
-    enterpriseIntentRendererReady = true;
-    return enterpriseRegistrationIntents.take();
+    enterpriseIntentRendererReady = true
+    return enterpriseRegistrationIntents.take()
   });
   ipcMain.handle(IPC.enterpriseSession, () =>
     enterpriseAuthOperations.run(async () => {
-      loadEnterpriseSession();
-      const before = enterpriseClient.snapshot().token;
+      loadEnterpriseSession()
+      const before = enterpriseClient.snapshot().token
       const result = await restoreAndSyncEnterpriseSession(
         await enterpriseClient.getSession(),
         enterpriseClient,
         synchronizeAuthenticatedEnterpriseAccount,
         saveEnterpriseSession,
-      );
-      if (before && !enterpriseClient.snapshot().token) saveEnterpriseSession();
-      return result;
+      )
+      if (before && !enterpriseClient.snapshot().token) saveEnterpriseSession()
+      return result
     }),
-  );
+  )
   ipcMain.handle(IPC.enterprisePasswordLogin, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('登录信息格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('登录信息格式不正确')
+    const body = input as Record<string, unknown>
     const identifier =
       typeof body.identifier === 'string'
         ? body.identifier
         : typeof body.username === 'string'
           ? body.username
-          : null;
+          : null
     if (
       typeof body.serverUrl !== 'string' ||
       identifier === null ||
       typeof body.password !== 'string'
     ) {
-      throw new Error('服务器地址、账号或手机号和密码均为必填项');
+      throw new Error('服务器地址、账号或手机号和密码均为必填项')
     }
     return enterpriseAuthOperations.run(async () => {
       const result = await authenticateAndSyncEnterpriseAccount(
@@ -2626,34 +2626,34 @@ function registerIpc(): void {
         enterpriseClient,
         synchronizeAuthenticatedEnterpriseAccount,
         saveEnterpriseSession,
-      );
-      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl };
+      )
+      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
     });
-  });
+  })
   ipcMain.handle(IPC.enterpriseSmsLoginRequest, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('登录信息格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('登录信息格式不正确')
+    const body = input as Record<string, unknown>
     if (typeof body.serverUrl !== 'string' || typeof body.phone !== 'string') {
-      throw new Error('服务器地址和手机号均为必填项');
+      throw new Error('服务器地址和手机号均为必填项')
     }
     return enterpriseAuthOperations.run(async () => {
       const result = await enterpriseClient.requestLoginCode(
         body.serverUrl as string,
         body.phone as string,
-      );
-      saveEnterpriseSession();
-      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl };
+      )
+      saveEnterpriseSession()
+      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
     });
-  });
+  })
   ipcMain.handle(IPC.enterpriseSmsLoginVerify, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('登录信息格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('登录信息格式不正确')
+    const body = input as Record<string, unknown>
     if (typeof body.challengeId !== 'string' || typeof body.code !== 'string') {
-      throw new Error('验证码信息不完整');
+      throw new Error('验证码信息不完整')
     }
     return enterpriseAuthOperations.run(async () => {
       const result = await authenticateAndSyncEnterpriseAccount(
@@ -2665,40 +2665,40 @@ function registerIpc(): void {
         enterpriseClient,
         synchronizeAuthenticatedEnterpriseAccount,
         saveEnterpriseSession,
-      );
-      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl };
+      )
+      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
     });
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseRegistrationRequest,
     async (_e, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (!input || typeof input !== 'object')
-        throw new Error('注册信息格式不正确');
-      const body = input as Record<string, unknown>;
+        throw new Error('注册信息格式不正确')
+      const body = input as Record<string, unknown>
       if (
         typeof body.serverUrl !== 'string' ||
         typeof body.phone !== 'string' ||
         (body.inviteCode !== undefined && typeof body.inviteCode !== 'string')
       ) {
-        throw new Error('服务器地址和手机号均为必填项');
+        throw new Error('服务器地址和手机号均为必填项')
       }
       return enterpriseAuthOperations.run(async () => {
         const result = await enterpriseClient.requestRegistrationCode(
           body.serverUrl as string,
           body.phone as string,
           typeof body.inviteCode === 'string' ? body.inviteCode : '',
-        );
-        saveEnterpriseSession();
-        return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl };
+        )
+        saveEnterpriseSession()
+        return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
       });
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseRegister, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('注册信息格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('注册信息格式不正确')
+    const body = input as Record<string, unknown>
     if (
       typeof body.challengeId !== 'string' ||
       typeof body.code !== 'string' ||
@@ -2706,9 +2706,9 @@ function registerIpc(): void {
       typeof body.password !== 'string' ||
       body.legalConsent !== true
     ) {
-      throw new Error('姓名、密码和验证码均为必填项');
+      throw new Error('姓名、密码和验证码均为必填项')
     }
-    const legalDocuments = parseLegalDocumentReferences(body.legalDocuments);
+    const legalDocuments = parseLegalDocumentReferences(body.legalDocuments)
     return enterpriseAuthOperations.run(async () => {
       const result = await authenticateAndSyncEnterpriseAccount(
         () =>
@@ -2723,23 +2723,23 @@ function registerIpc(): void {
         enterpriseClient,
         synchronizeAuthenticatedEnterpriseAccount,
         saveEnterpriseSession,
-      );
-      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl };
+      )
+      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
     });
-  });
+  })
   ipcMain.handle(IPC.enterpriseJoinOrganization, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('企业邀请码格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('企业邀请码格式不正确')
+    const body = input as Record<string, unknown>
     if (typeof body.inviteCode !== 'string')
-      throw new Error('企业邀请码为必填项');
+      throw new Error('企业邀请码为必填项')
     return enterpriseAuthOperations.run(async () => {
-      let result;
+      let result
       try {
         result = await enterpriseClient.joinOrganization(
           body.inviteCode as string,
-        );
+        )
       } catch (error) {
         if (error instanceof EnterpriseJoinStateUncertainError) {
           return failClosedUncertainEnterpriseJoin(
@@ -2747,42 +2747,42 @@ function registerIpc(): void {
             enterpriseClient,
             synchronizeAuthenticatedEnterpriseAccount,
             saveEnterpriseSession,
-          );
+          )
         }
-        throw error;
+        throw error
       }
       await syncJoinedEnterpriseAccount(
         result.account,
         enterpriseClient,
         synchronizeAuthenticatedEnterpriseAccount,
         saveEnterpriseSession,
-      );
-      saveEnterpriseSession();
-      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl };
+      )
+      saveEnterpriseSession()
+      return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
     });
-  });
+  })
   ipcMain.handle(IPC.enterpriseLogout, async () => {
     await enterpriseAuthOperations.run(async () => {
-      loadEnterpriseSession();
-      await flushEnterpriseAccountDataSync(5_000);
+      loadEnterpriseSession()
+      await flushEnterpriseAccountDataSync(5_000)
       await logoutAndClearEnterpriseIdentity(
         enterpriseClient,
         synchronizeAuthenticatedEnterpriseAccount,
         saveEnterpriseSession,
-      );
-      fileAccessGrants.clear();
-      notificationService.clearAll();
-      resetEnterpriseModuleUpdateState();
+      )
+      fileAccessGrants.clear()
+      notificationService.clearAll()
+      resetEnterpriseModuleUpdateState()
     });
-  });
+  })
   ipcMain.handle(IPC.enterprisePair, async (_e, token: unknown) => {
     if (typeof token !== 'string' || token.trim().length === 0) {
-      return { ok: false, message: '令牌格式不正确' };
+      return { ok: false, message: '令牌格式不正确' }
     }
-    const trimmed = token.trim().toUpperCase();
+    const trimmed = token.trim().toUpperCase()
     try {
       const serverUrl =
-        enterpriseClient.snapshot().serverUrl || DEFAULT_ENTERPRISE_SERVER_URL;
+        enterpriseClient.snapshot().serverUrl || DEFAULT_ENTERPRISE_SERVER_URL
       const res = await fetch(
         `${serverUrl}/enterprise/local-agent/pair/verify`,
         {
@@ -2790,52 +2790,52 @@ function registerIpc(): void {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: trimmed }),
         },
-      );
+      )
       if (!res.ok) {
         const errBody = await res
           .json()
-          .catch(() => ({ error: 'server error' }));
+          .catch(() => ({ error: 'server error' }))
         return {
           ok: false,
           message: (errBody as { error?: string }).error ?? '令牌无效或已过期',
-        };
+        }
       }
       const data = (await res.json()) as {
-        ok: boolean;
-        data?: { instanceId?: string };
-      };
+        ok: boolean
+        data?: { instanceId?: string }
+      }
       return {
         ok: true,
         message: '企业服务器接入成功！',
         enterpriseUrl: serverUrl,
         instanceId: data.data?.instanceId ?? '',
-      };
+      }
     } catch (e) {
       return {
         ok: false,
         message: `无法连接企业服务器：${e instanceof Error ? e.message : String(e)}`,
-      };
+      }
     }
-  });
+  })
   ipcMain.handle(IPC.enterpriseAccounts, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listAccounts();
+    loadEnterpriseSession()
+    return enterpriseClient.listAccounts()
   });
   ipcMain.handle(
     IPC.enterpriseAccountCreate,
     async (_e, input: AccountCreateInput) => {
-      loadEnterpriseSession();
-      return enterpriseClient.createAccount(input);
+      loadEnterpriseSession()
+      return enterpriseClient.createAccount(input)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseAccountUpdate,
     (_e, id: unknown, input: AccountUpdateInput) =>
       enterpriseAuthOperations.run(async () => {
-        loadEnterpriseSession();
-        if (typeof id !== 'string' || !id) throw new Error('账号 ID 不正确');
-        const currentBefore = enterpriseClient.authenticatedAccountSnapshot();
-        const updated = await enterpriseClient.updateAccount(id, input);
+        loadEnterpriseSession()
+        if (typeof id !== 'string' || !id) throw new Error('账号 ID 不正确')
+        const currentBefore = enterpriseClient.authenticatedAccountSnapshot()
+        const updated = await enterpriseClient.updateAccount(id, input)
         if (currentBefore?.id === id) {
           // 自改管理员权限/密码/状态会让中心服务撤销当前 session，此时快照为 null；
           // 不能把 PATCH 响应当作仍有效身份继续授权，必须 fail closed 清本机身份。
@@ -2844,91 +2844,91 @@ function registerIpc(): void {
             enterpriseClient,
             synchronizeAuthenticatedEnterpriseAccount,
             saveEnterpriseSession,
-          );
-          const current = enterpriseClient.authenticatedAccountSnapshot();
-          if (current) notifyEnterpriseAccountUpdated(current);
+          )
+          const current = enterpriseClient.authenticatedAccountSnapshot()
+          if (current) notifyEnterpriseAccountUpdated(current)
         }
-        return updated;
+        return updated
       }),
-  );
+  )
   ipcMain.handle(IPC.enterpriseAccountDelete, async (_e, id: unknown) => {
-    loadEnterpriseSession();
-    if (typeof id !== 'string' || !id) throw new Error('账号 ID 不正确');
-    return enterpriseClient.deleteAccount(id);
+    loadEnterpriseSession()
+    if (typeof id !== 'string' || !id) throw new Error('账号 ID 不正确')
+    return enterpriseClient.deleteAccount(id)
   });
   ipcMain.handle(IPC.enterpriseDataGovernanceGet, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.getDataGovernanceProfile();
+    loadEnterpriseSession()
+    return enterpriseClient.getDataGovernanceProfile()
   });
   ipcMain.handle(IPC.enterpriseLegalAccept, async (_event, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     return enterpriseClient.acceptCurrentLegalDocuments(
       parseLegalDocumentReferences(input),
-    );
+    )
   });
   ipcMain.handle(IPC.enterprisePrivacyExport, async () => {
-    loadEnterpriseSession();
-    const payload = await enterpriseClient.exportMyAccountData();
-    const account = enterpriseClient.authenticatedAccountSnapshot();
-    const suggested = `clawmaster-personal-data-${account?.id ?? 'account'}-${new Date().toISOString().slice(0, 10)}.json`;
-    const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    loadEnterpriseSession()
+    const payload = await enterpriseClient.exportMyAccountData()
+    const account = enterpriseClient.authenticatedAccountSnapshot()
+    const suggested = `clawmaster-personal-data-${account?.id ?? 'account'}-${new Date().toISOString().slice(0, 10)}.json`
+    const win = BrowserWindow.getFocusedWindow() ?? mainWindow
     const result = win
       ? await dialog.showSaveDialog(win, {
-          title: '导出我的 ClawMaster 数据',
-          defaultPath: path.join(app.getPath('documents'), suggested),
-          filters: [{ name: 'JSON 数据文件', extensions: ['json'] }],
-        })
+        title: '导出我的 ClawMaster 数据',
+        defaultPath: path.join(app.getPath('documents'), suggested),
+        filters: [{ name: 'JSON 数据文件', extensions: ['json'] }],
+      })
       : await dialog.showSaveDialog({
-          title: '导出我的 ClawMaster 数据',
-          defaultPath: path.join(app.getPath('documents'), suggested),
-          filters: [{ name: 'JSON 数据文件', extensions: ['json'] }],
-        });
-    if (result.canceled || !result.filePath) return null;
+        title: '导出我的 ClawMaster 数据',
+        defaultPath: path.join(app.getPath('documents'), suggested),
+        filters: [{ name: 'JSON 数据文件', extensions: ['json'] }],
+      })
+    if (result.canceled || !result.filePath) return null
     await fs.promises.writeFile(
       result.filePath,
       `${JSON.stringify(payload, null, 2)}\n`,
       { encoding: 'utf8', mode: 0o600 },
-    );
-    return { ok: true as const, path: result.filePath };
+    )
+    return { ok: true as const, path: result.filePath }
   });
   ipcMain.handle(
     IPC.enterprisePrivacyDelete,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (!input || typeof input !== 'object')
-        throw new Error('注销信息格式不正确');
-      const body = input as Record<string, unknown>;
+        throw new Error('注销信息格式不正确')
+      const body = input as Record<string, unknown>
       if (
         typeof body.password !== 'string' ||
         typeof body.confirmation !== 'string'
       ) {
-        throw new Error('请输入登录密码和注销确认文字');
+        throw new Error('请输入登录密码和注销确认文字')
       }
       return enterpriseAuthOperations.run(
         async (): Promise<EnterprisePrivacyDeletionReceipt> => {
-          const account = enterpriseClient.authenticatedAccountSnapshot();
-          if (!account) throw new Error('登录已失效，请重新登录');
-          const identity = accountDataSyncIdentity(account);
+          const account = enterpriseClient.authenticatedAccountSnapshot()
+          if (!account) throw new Error('登录已失效，请重新登录')
+          const identity = accountDataSyncIdentity(account)
           const receipt = await enterpriseClient.deleteMyAccount({
             password: body.password as string,
             confirmation: body.confirmation as string,
-          });
-          if (identity) await accountDataSyncService.erase(identity);
-          await synchronizeAuthenticatedEnterpriseAccount(null);
-          saveEnterpriseSession();
-          fileAccessGrants.clear();
-          notificationService.clearAll();
-          resetEnterpriseModuleUpdateState();
-          return receipt;
+          })
+          if (identity) await accountDataSyncService.erase(identity)
+          await synchronizeAuthenticatedEnterpriseAccount(null)
+          saveEnterpriseSession()
+          fileAccessGrants.clear()
+          notificationService.clearAll()
+          resetEnterpriseModuleUpdateState()
+          return receipt
         },
-      );
+      )
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseUsageRecord, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('Token 用量格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('Token 用量格式不正确')
+    const body = input as Record<string, unknown>
     if (
       typeof body.sessionId !== 'string' ||
       typeof body.messageId !== 'string' ||
@@ -2936,7 +2936,7 @@ function registerIpc(): void {
       typeof body.outputTokens !== 'number' ||
       typeof body.totalTokens !== 'number'
     ) {
-      throw new Error('Token 用量字段不完整');
+      throw new Error('Token 用量字段不完整')
     }
     return enterpriseClient.recordTokenUsage({
       sessionId: body.sessionId,
@@ -2945,29 +2945,29 @@ function registerIpc(): void {
       inputTokens: body.inputTokens,
       outputTokens: body.outputTokens,
       totalTokens: body.totalTokens,
-    });
+    })
   });
   ipcMain.handle(
     IPC.enterpriseUsageProfile,
     async (_event, periodDays: unknown): Promise<PersonalTokenUsageProfile> => {
-      loadEnterpriseSession();
-      const period = periodDays === undefined ? 30 : periodDays;
+      loadEnterpriseSession()
+      const period = periodDays === undefined ? 30 : periodDays
       if (
         typeof period !== 'number' ||
         !Number.isInteger(period) ||
         period < 1 ||
         period > 365
       ) {
-        throw new Error('Token 统计周期必须是 1 到 365 天的整数');
+        throw new Error('Token 统计周期必须是 1 到 365 天的整数')
       }
-      return enterpriseClient.getPersonalTokenUsageProfile(period);
+      return enterpriseClient.getPersonalTokenUsageProfile(period)
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseKnowledgeRecord, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('知识条目格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('知识条目格式不正确')
+    const body = input as Record<string, unknown>
     if (
       typeof body.sourceId !== 'string' ||
       !body.sourceId ||
@@ -2976,12 +2976,12 @@ function registerIpc(): void {
       typeof body.content !== 'string' ||
       !body.content
     ) {
-      throw new Error('知识条目字段不完整');
+      throw new Error('知识条目字段不完整')
     }
     const confidence =
       typeof body.confidence === 'number' && Number.isFinite(body.confidence)
         ? Math.min(1, Math.max(0, body.confidence))
-        : 0.5;
+        : 0.5
     const record: EnterpriseKnowledgeRecordInput = {
       sourceId: body.sourceId,
       title: typeof body.title === 'string' ? body.title : undefined,
@@ -3009,8 +3009,8 @@ function registerIpc(): void {
           : undefined,
       tags: Array.isArray(body.tags)
         ? body.tags
-            .filter((tag): tag is string => typeof tag === 'string')
-            .slice(0, 8)
+          .filter((tag): tag is string => typeof tag === 'string')
+          .slice(0, 8)
         : undefined,
       verified: body.verified === true,
       impactScore:
@@ -3020,20 +3020,20 @@ function registerIpc(): void {
           : undefined,
       significanceSignals: Array.isArray(body.significanceSignals)
         ? body.significanceSignals
-            .filter((signal): signal is string => typeof signal === 'string')
-            .slice(0, 8)
+          .filter((signal): signal is string => typeof signal === 'string')
+          .slice(0, 8)
         : undefined,
       observedAt:
         typeof body.observedAt === 'string' ? body.observedAt : undefined,
-    };
-    return enterpriseClient.recordKnowledge(record);
+    }
+    return enterpriseClient.recordKnowledge(record)
   });
   ipcMain.handle(IPC.enterpriseKnowledgeList, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     const body =
       input && typeof input === 'object'
         ? (input as Record<string, unknown>)
-        : {};
+        : {}
     return enterpriseClient.listKnowledge({
       query: typeof body.query === 'string' ? body.query : undefined,
       department:
@@ -3045,35 +3045,35 @@ function registerIpc(): void {
         body.status === 'archived'
           ? body.status
           : undefined,
-    });
+    })
   });
   ipcMain.handle(IPC.enterpriseKnowledgeReview, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('知识审核格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('知识审核格式不正确')
+    const body = input as Record<string, unknown>
     if (
       typeof body.id !== 'string' ||
       !/^\d+$/u.test(body.id) ||
       (body.action !== 'approve' && body.action !== 'archive')
     ) {
-      throw new Error('知识审核字段不完整');
+      throw new Error('知识审核字段不完整')
     }
     return enterpriseClient.reviewKnowledge(
       body.id,
       body.action,
       typeof body.note === 'string' ? body.note : undefined,
-    );
+    )
   });
   ipcMain.handle(IPC.enterpriseKnowledgeRevise, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('知识修订格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('知识修订格式不正确')
+    const body = input as Record<string, unknown>
     const revision =
       body.input && typeof body.input === 'object'
         ? (body.input as Record<string, unknown>)
-        : {};
+        : {}
     if (
       typeof body.id !== 'string' ||
       !/^\d+$/u.test(body.id) ||
@@ -3084,7 +3084,7 @@ function registerIpc(): void {
       typeof revision.content !== 'string' ||
       !revision.content.trim()
     ) {
-      throw new Error('知识修订字段不完整');
+      throw new Error('知识修订字段不完整')
     }
     return enterpriseClient.reviseKnowledge(body.id, {
       title: revision.title,
@@ -3098,45 +3098,45 @@ function registerIpc(): void {
         typeof revision.changeNote === 'string'
           ? revision.changeNote
           : undefined,
-    });
+    })
   });
   ipcMain.handle(
     IPC.enterpriseKnowledgeRevisions,
     async (_e, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       const body =
         input && typeof input === 'object'
           ? (input as Record<string, unknown>)
-          : {};
+          : {}
       if (typeof body.id !== 'string' || !/^\d+$/u.test(body.id)) {
-        throw new Error('知识版本参数不正确');
+        throw new Error('知识版本参数不正确')
       }
-      return enterpriseClient.listKnowledgeRevisions(body.id);
+      return enterpriseClient.listKnowledgeRevisions(body.id)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseOrganizationView,
     async (_event, organizationId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       return enterpriseClient.getOrganizationView(
         typeof organizationId === 'string' ? organizationId : undefined,
-      );
+      )
     },
-  );
+  )
   ipcMain.handle(IPC.enterprisePresenceHeartbeat, async () => {
-    loadEnterpriseSession();
-    await enterpriseClient.heartbeatPresence('desktop');
+    loadEnterpriseSession()
+    await enterpriseClient.heartbeatPresence('desktop')
   });
   ipcMain.handle(IPC.enterpriseOrganizationFeaturesGet, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.getOrganizationFeatures();
+    loadEnterpriseSession()
+    return enterpriseClient.getOrganizationFeatures()
   });
   ipcMain.handle(
     IPC.enterpriseOrganizationFeaturesUpdate,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (!input || typeof input !== 'object' || Array.isArray(input)) {
-        throw new Error('功能开关格式不正确');
+        throw new Error('功能开关格式不正确')
       }
       const allowed = new Set([
         'enterprise_tree',
@@ -3146,61 +3146,61 @@ function registerIpc(): void {
         'atoa',
         'knowledge',
         'skill_market',
-      ]);
+      ])
       const patch = Object.fromEntries(
         Object.entries(input).filter(
           (entry): entry is [keyof EnterpriseOrganizationFeatures, boolean] =>
             allowed.has(entry[0]) && typeof entry[1] === 'boolean',
         ),
-      );
-      return enterpriseClient.updateOrganizationFeatures(patch);
+      )
+      return enterpriseClient.updateOrganizationFeatures(patch)
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseOrganizationDepartments, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listOrganizationDepartments();
+    loadEnterpriseSession()
+    return enterpriseClient.listOrganizationDepartments()
   });
   ipcMain.handle(
     IPC.enterpriseOrganizationDepartmentCreate,
     async (_event, name: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof name !== 'string' || !name.trim())
-        throw new Error('部门名称不能为空');
-      return enterpriseClient.createOrganizationDepartment(name);
+        throw new Error('部门名称不能为空')
+      return enterpriseClient.createOrganizationDepartment(name)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseOrganizationDepartmentUpdate,
     async (_event, id: unknown, name: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof id !== 'string' ||
         !id ||
         typeof name !== 'string' ||
         !name.trim()
       ) {
-        throw new Error('部门信息不正确');
+        throw new Error('部门信息不正确')
       }
-      return enterpriseClient.updateOrganizationDepartment(id, name);
+      return enterpriseClient.updateOrganizationDepartment(id, name)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseOrganizationDepartmentDelete,
     async (_event, id: unknown) => {
-      loadEnterpriseSession();
-      if (typeof id !== 'string' || !id) throw new Error('部门信息不正确');
-      await enterpriseClient.deleteOrganizationDepartment(id);
-      return true;
+      loadEnterpriseSession()
+      if (typeof id !== 'string' || !id) throw new Error('部门信息不正确')
+      await enterpriseClient.deleteOrganizationDepartment(id)
+      return true
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseOrganizationPositionCreate,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       const body =
         input && typeof input === 'object'
           ? (input as Record<string, unknown>)
-          : {};
+          : {}
       if (
         typeof body.departmentId !== 'string' ||
         typeof body.title !== 'string' ||
@@ -3208,23 +3208,23 @@ function registerIpc(): void {
           String(body.roleMapping),
         )
       ) {
-        throw new Error('职位信息不正确');
+        throw new Error('职位信息不正确')
       }
       return enterpriseClient.createOrganizationPosition({
         departmentId: body.departmentId,
         title: body.title,
         roleMapping: body.roleMapping as EnterprisePositionRoleMapping,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseOrganizationPositionUpdate,
     async (_event, id: unknown, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       const body =
         input && typeof input === 'object'
           ? (input as Record<string, unknown>)
-          : {};
+          : {}
       if (
         typeof id !== 'string' ||
         !id ||
@@ -3233,39 +3233,39 @@ function registerIpc(): void {
             String(body.roleMapping),
           ))
       ) {
-        throw new Error('职位信息不正确');
+        throw new Error('职位信息不正确')
       }
       return enterpriseClient.updateOrganizationPosition(id, {
         title: typeof body.title === 'string' ? body.title : undefined,
         roleMapping: body.roleMapping as
           EnterprisePositionRoleMapping | undefined,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseOrganizationPositionDelete,
     async (_event, id: unknown) => {
-      loadEnterpriseSession();
-      if (typeof id !== 'string' || !id) throw new Error('职位信息不正确');
-      await enterpriseClient.deleteOrganizationPosition(id);
-      return true;
+      loadEnterpriseSession()
+      if (typeof id !== 'string' || !id) throw new Error('职位信息不正确')
+      await enterpriseClient.deleteOrganizationPosition(id)
+      return true
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseMessagesList,
     async (_event, peerAccountId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof peerAccountId !== 'string' || !peerAccountId)
-        throw new Error('成员信息不正确');
+        throw new Error('成员信息不正确')
       if (enterpriseClient.supportsMlsPrivateMessages()) {
-        return enterpriseMlsPrivateMessages.list(peerAccountId);
+        return enterpriseMlsPrivateMessages.list(peerAccountId)
       }
-      return enterpriseClient.listDirectMessages(peerAccountId);
+      return enterpriseClient.listDirectMessages(peerAccountId)
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseMessagesUnread, async () => {
-    loadEnterpriseSession();
-    return listEnterpriseUnreadMessageNotifications();
+    loadEnterpriseSession()
+    return listEnterpriseUnreadMessageNotifications()
   });
   ipcMain.handle(
     IPC.enterpriseMessageSend,
@@ -3275,104 +3275,104 @@ function registerIpc(): void {
       content: unknown,
       attachments: unknown,
     ) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof peerAccountId !== 'string' ||
         !peerAccountId ||
         typeof content !== 'string'
       ) {
-        throw new Error('消息信息不正确');
+        throw new Error('消息信息不正确')
       }
       const normalizedAttachments =
-        normalizeEnterpriseMessageAttachments(attachments);
+        normalizeEnterpriseMessageAttachments(attachments)
       if (!content.trim() && normalizedAttachments.length === 0) {
-        throw new Error('请输入消息或添加附件');
+        throw new Error('请输入消息或添加附件')
       }
       if (enterpriseClient.supportsMlsPrivateMessages()) {
         return enterpriseMlsPrivateMessages.send(
           peerAccountId,
           content,
           normalizedAttachments,
-        );
+        )
       }
       return enterpriseClient.sendDirectMessage(
         peerAccountId,
         content,
         normalizedAttachments,
-      );
+      )
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseMessageAttachmentRead,
     async (_event, attachmentId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof attachmentId !== 'string' ||
         !attachmentId ||
         attachmentId.length > 160
       ) {
-        throw new Error('附件信息不正确');
+        throw new Error('附件信息不正确')
       }
       if (enterpriseClient.supportsMlsPrivateMessages()) {
-        return enterpriseMlsPrivateMessages.readAttachment(attachmentId);
+        return enterpriseMlsPrivateMessages.readAttachment(attachmentId)
       }
-      return enterpriseClient.getDirectMessageAttachment(attachmentId);
+      return enterpriseClient.getDirectMessageAttachment(attachmentId)
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseFederationContactCode, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.exportFederationContactCode();
+    loadEnterpriseSession()
+    return enterpriseClient.exportFederationContactCode()
   });
   ipcMain.handle(
     IPC.enterpriseFederationContactImport,
     async (_event, code: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof code !== 'string' || !code.trim() || code.length > 64_000) {
-        throw new Error('联邦联系码无效');
+        throw new Error('联邦联系码无效')
       }
-      return enterpriseClient.saveFederationContactCode(code);
+      return enterpriseClient.saveFederationContactCode(code)
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseFederationContacts, async () => {
-    loadEnterpriseSession();
-    if (!enterpriseClient.supportsFederationGateway()) return [];
-    return enterpriseClient.listFederationContacts();
+    loadEnterpriseSession()
+    if (!enterpriseClient.supportsFederationGateway()) return []
+    return enterpriseClient.listFederationContacts()
   });
   ipcMain.handle(
     IPC.enterpriseFederationContactRemove,
     async (_event, contactId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof contactId !== 'string' || !contactId) {
-        throw new Error('联邦联系人无效');
+        throw new Error('联邦联系人无效')
       }
-      await enterpriseClient.removeFederationContact(contactId);
-      return true;
+      await enterpriseClient.removeFederationContact(contactId)
+      return true
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseFederationMessagesList,
     async (_event, contactId: unknown, options: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof contactId !== 'string' || !contactId) {
-        throw new Error('联邦联系人无效');
+        throw new Error('联邦联系人无效')
       }
       const markRead = !(
         options && typeof options === 'object' &&
         'markRead' in options && options.markRead === false
-      );
-      return enterpriseClient.listFederationMessages(contactId, { markRead });
+      )
+      return enterpriseClient.listFederationMessages(contactId, { markRead })
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseFederationMessageSend,
     async (_event, contactId: unknown, content: unknown, attachments: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof contactId !== 'string' ||
         !contactId ||
         typeof content !== 'string'
       ) {
-        throw new Error('联邦消息无效');
+        throw new Error('联邦消息无效')
       }
       const normalizedAttachments = normalizeEnterpriseMessageAttachments(
         attachments,
@@ -3380,17 +3380,17 @@ function registerIpc(): void {
           maxFileBytes: 1024 * 1024 * 1024,
           maxTotalBytes: 1024 * 1024 * 1024,
         },
-      );
+      )
       if (!content.trim() && normalizedAttachments.length === 0) {
-        throw new Error('请输入消息或添加附件');
+        throw new Error('请输入消息或添加附件')
       }
       return enterpriseClient.sendFederationMessage(
         contactId,
         content,
         normalizedAttachments,
-      );
+      )
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseFederationAttachmentSave,
     async (
@@ -3400,436 +3400,436 @@ function registerIpc(): void {
       attachmentId: unknown,
       suggestedFileName: unknown,
     ) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof contactId !== 'string' || !contactId ||
         typeof messageId !== 'string' || !messageId ||
         typeof attachmentId !== 'string' || !attachmentId ||
         typeof suggestedFileName !== 'string' || !suggestedFileName
       ) {
-        throw new Error('联邦附件信息无效');
+        throw new Error('联邦附件信息无效')
       }
-      const safeName = path.basename(suggestedFileName).slice(0, 255);
+      const safeName = path.basename(suggestedFileName).slice(0, 255)
       const result = mainWindow
         ? await dialog.showSaveDialog(mainWindow, {
-            defaultPath: path.join(app.getPath('downloads'), safeName),
-          })
+          defaultPath: path.join(app.getPath('downloads'), safeName),
+        })
         : await dialog.showSaveDialog({
-            defaultPath: path.join(app.getPath('downloads'), safeName),
-          });
-      if (result.canceled || !result.filePath) return null;
+          defaultPath: path.join(app.getPath('downloads'), safeName),
+        })
+      if (result.canceled || !result.filePath) return null
       return enterpriseClient.saveFederationMessageAttachment({
         contactId,
         messageId,
         attachmentId,
         destinationPath: result.filePath,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseFederationAtoaTasks, async () => {
-    loadEnterpriseSession();
-    if (!enterpriseClient.supportsFederationGateway()) return [];
-    return enterpriseClient.listFederationAtoaTasks();
+    loadEnterpriseSession()
+    if (!enterpriseClient.supportsFederationGateway()) return []
+    return enterpriseClient.listFederationAtoaTasks()
   });
   ipcMain.handle(
     IPC.enterpriseFederationAtoaApprove,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (!input || typeof input !== 'object') {
-        throw new Error('A2A 授权请求无效');
+        throw new Error('A2A 授权请求无效')
       }
-      const candidate = input as Record<string, unknown>;
+      const candidate = input as Record<string, unknown>
       if (
         typeof candidate.contactId !== 'string' || !candidate.contactId ||
         typeof candidate.messageId !== 'string' || !candidate.messageId
       ) {
-        throw new Error('A2A 授权请求无效');
+        throw new Error('A2A 授权请求无效')
       }
       return enterpriseClient.approveFederationAtoaProposal({
         contactId: candidate.contactId,
         messageId: candidate.messageId,
         grantedSources: normalizeEnterpriseAtoaSources(candidate.grantedSources),
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseFederationAtoaDeny,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (!input || typeof input !== 'object') {
-        throw new Error('A2A 拒绝请求无效');
+        throw new Error('A2A 拒绝请求无效')
       }
-      const candidate = input as Record<string, unknown>;
+      const candidate = input as Record<string, unknown>
       if (
         typeof candidate.contactId !== 'string' || !candidate.contactId ||
         typeof candidate.messageId !== 'string' || !candidate.messageId
       ) {
-        throw new Error('A2A 拒绝请求无效');
+        throw new Error('A2A 拒绝请求无效')
       }
       return enterpriseClient.denyFederationAtoaProposal({
         contactId: candidate.contactId,
         messageId: candidate.messageId,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseFederationAtoaDispatch,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (!input || typeof input !== 'object') {
-        throw new Error('A2A 派发请求无效');
+        throw new Error('A2A 派发请求无效')
       }
-      const candidate = input as Record<string, unknown>;
+      const candidate = input as Record<string, unknown>
       if (
         typeof candidate.contactId !== 'string' || !candidate.contactId ||
         typeof candidate.decisionMessageId !== 'string' ||
         !candidate.decisionMessageId
       ) {
-        throw new Error('A2A 派发请求无效');
+        throw new Error('A2A 派发请求无效')
       }
       return enterpriseClient.dispatchFederationAtoaGrant({
         contactId: candidate.contactId,
         decisionMessageId: candidate.decisionMessageId,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseFederationAtoaRespond,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (!input || typeof input !== 'object') {
-        throw new Error('A2A 回复请求无效');
+        throw new Error('A2A 回复请求无效')
       }
-      const candidate = input as Record<string, unknown>;
+      const candidate = input as Record<string, unknown>
       if (
         typeof candidate.contactId !== 'string' || !candidate.contactId ||
         typeof candidate.requestMessageId !== 'string' ||
         !candidate.requestMessageId ||
         typeof candidate.answer !== 'string' || !candidate.answer.trim()
       ) {
-        throw new Error('A2A 回复请求无效');
+        throw new Error('A2A 回复请求无效')
       }
       return enterpriseClient.respondFederationAtoaRequest({
         contactId: candidate.contactId,
         requestMessageId: candidate.requestMessageId,
         answer: candidate.answer.trim().slice(0, 2400),
         grantedSources: normalizeEnterpriseAtoaSources(candidate.grantedSources),
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseFederationContactVerification,
     async (_event, contactId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof contactId !== 'string' || !contactId) {
-        throw new Error('联邦联系人无效');
+        throw new Error('联邦联系人无效')
       }
-      return enterpriseClient.federationContactVerification(contactId);
+      return enterpriseClient.federationContactVerification(contactId)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseFederationContactVerify,
     async (_event, contactId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof contactId !== 'string' || !contactId) {
-        throw new Error('联邦联系人无效');
+        throw new Error('联邦联系人无效')
       }
-      return enterpriseClient.verifyFederationContact(contactId);
+      return enterpriseClient.verifyFederationContact(contactId)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseMessageSecurityReset,
     async (_event, peerAccountId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof peerAccountId !== 'string' ||
         !peerAccountId ||
         peerAccountId.length > 200
       ) {
-        throw new Error('E2EE reset peer account id is invalid');
+        throw new Error('E2EE reset peer account id is invalid')
       }
       if (!enterpriseClient.supportsMlsPrivateMessages()) {
-        throw new Error('MLS private-message protocol is not active');
+        throw new Error('MLS private-message protocol is not active')
       }
-      await enterpriseMlsPrivateMessages.reset(peerAccountId);
+      await enterpriseMlsPrivateMessages.reset(peerAccountId)
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseE2eeDevicesList, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listOwnE2eeDevices(true);
+    loadEnterpriseSession()
+    return enterpriseClient.listOwnE2eeDevices(true)
   });
   ipcMain.handle(IPC.enterpriseE2eeKeyTransparency, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.getOwnE2eeKeyTransparency();
+    loadEnterpriseSession()
+    return enterpriseClient.getOwnE2eeKeyTransparency()
   });
   ipcMain.handle(
     IPC.enterpriseE2eeDeviceApprove,
     async (_event, deviceId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof deviceId !== 'string' || !deviceId || deviceId.length > 200) {
-        throw new Error('invalid E2EE device id');
+        throw new Error('invalid E2EE device id')
       }
-      return enterpriseClient.approveOwnE2eeDevice(deviceId);
+      return enterpriseClient.approveOwnE2eeDevice(deviceId)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseE2eeDeviceVerification,
     async (_event, deviceId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof deviceId !== 'string' || !deviceId || deviceId.length > 200) {
-        throw new Error('invalid E2EE device id');
+        throw new Error('invalid E2EE device id')
       }
-      return enterpriseClient.getOwnE2eeDeviceVerification(deviceId);
+      return enterpriseClient.getOwnE2eeDeviceVerification(deviceId)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseE2eeDeviceRevoke,
     async (_event, deviceId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof deviceId !== 'string' || !deviceId || deviceId.length > 200) {
-        throw new Error('E2EE device id is invalid');
+        throw new Error('E2EE device id is invalid')
       }
-      await enterpriseClient.revokeOwnE2eeDevice(deviceId);
+      await enterpriseClient.revokeOwnE2eeDevice(deviceId)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseE2eeRecoveryExport,
     async (_event, passphrase: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (typeof passphrase !== 'string' || passphrase.length > 1024) {
-        throw new Error('E2EE recovery passphrase is invalid');
+        throw new Error('E2EE recovery passphrase is invalid')
       }
-      const account = enterpriseClient.authenticatedAccountSnapshot();
-      const session = enterpriseClient.snapshot();
+      const account = enterpriseClient.authenticatedAccountSnapshot()
+      const session = enterpriseClient.snapshot()
       if (!account || !session.serverUrl)
-        throw new Error('enterprise session has expired');
+        throw new Error('enterprise session has expired')
       return enterpriseE2eeVault.exportRecoveryBundle(
         session.serverUrl,
         account.id,
         passphrase,
-      );
+      )
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseE2eeRecoveryImport,
     async (_event, bundle: unknown, passphrase: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof bundle !== 'string' ||
         bundle.length > 10 * 1024 * 1024 ||
         typeof passphrase !== 'string' ||
         passphrase.length > 1024
       ) {
-        throw new Error('E2EE recovery input is invalid');
+        throw new Error('E2EE recovery input is invalid')
       }
-      const account = enterpriseClient.authenticatedAccountSnapshot();
-      const session = enterpriseClient.snapshot();
+      const account = enterpriseClient.authenticatedAccountSnapshot()
+      const session = enterpriseClient.snapshot()
       if (!account || !session.serverUrl)
-        throw new Error('enterprise session has expired');
+        throw new Error('enterprise session has expired')
       enterpriseE2eeVault.importRecoveryBundle(
         session.serverUrl,
         account.id,
         bundle,
         passphrase,
-      );
+      )
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseAtoaInbox, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listAtoaInbox();
+    loadEnterpriseSession()
+    return enterpriseClient.listAtoaInbox()
   });
   ipcMain.handle(
     IPC.enterpriseParkServicePush,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       const body =
         input && typeof input === 'object'
           ? (input as Record<string, unknown>)
-          : {};
+          : {}
       if (
         typeof body.recipientAccountId !== 'string' ||
         typeof body.serviceId !== 'string'
       ) {
-        throw new Error('园区服务推送信息不正确');
+        throw new Error('园区服务推送信息不正确')
       }
       return enterpriseClient.pushParkService({
         recipientAccountId: body.recipientAccountId,
         serviceId: body.serviceId,
         note: typeof body.note === 'string' ? body.note : null,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseParkView, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.getParkView();
+    loadEnterpriseSession()
+    return enterpriseClient.getParkView()
   });
   ipcMain.handle(IPC.enterpriseParkRegister, async (_event, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     const body =
       input && typeof input === 'object'
         ? (input as Record<string, unknown>)
-        : {};
+        : {}
     if (typeof body.name !== 'string' || !body.name.trim())
-      throw new Error('产业园名称不能为空');
+      throw new Error('产业园名称不能为空')
     return enterpriseClient.registerPark({
       name: body.name,
       slug: typeof body.slug === 'string' ? body.slug : undefined,
       brandName:
         typeof body.brandName === 'string' ? body.brandName : undefined,
-    });
+    })
   });
   ipcMain.handle(IPC.enterpriseParkJoin, async (_event, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     const body =
       input && typeof input === 'object'
         ? (input as Record<string, unknown>)
-        : {};
+        : {}
     if (typeof body.inviteCode !== 'string' || !body.inviteCode.trim())
-      throw new Error('产业园邀请码不能为空');
+      throw new Error('产业园邀请码不能为空')
     if (typeof body.address !== 'string' || !body.address.trim())
-      throw new Error('企业地址不能为空');
+      throw new Error('企业地址不能为空')
     if (typeof body.roomNumber !== 'string' || !body.roomNumber.trim())
-      throw new Error('门牌号不能为空');
+      throw new Error('门牌号不能为空')
     return enterpriseClient.joinPark({
       inviteCode: body.inviteCode,
       address: body.address,
       roomNumber: body.roomNumber,
-    });
+    })
   });
   ipcMain.handle(
     IPC.enterpriseParkProfileUpdate,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       const body =
         input && typeof input === 'object'
           ? (input as Record<string, unknown>)
-          : {};
+          : {}
       if (typeof body.address !== 'string' || !body.address.trim())
-        throw new Error('企业地址不能为空');
+        throw new Error('企业地址不能为空')
       if (typeof body.roomNumber !== 'string' || !body.roomNumber.trim())
-        throw new Error('门牌号不能为空');
+        throw new Error('门牌号不能为空')
       return enterpriseClient.updateParkTenantProfile({
         address: body.address,
         roomNumber: body.roomNumber,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseParkInviteIssue,
     async (_event, maxUses: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         maxUses !== null &&
         maxUses !== undefined &&
         typeof maxUses !== 'number'
       ) {
-        throw new Error('邀请码使用次数不正确');
+        throw new Error('邀请码使用次数不正确')
       }
       return enterpriseClient.issueParkInvite(
         maxUses as number | null | undefined,
-      );
+      )
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseParkTenants, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listParkTenantOrganizations();
+    loadEnterpriseSession()
+    return enterpriseClient.listParkTenantOrganizations()
   });
   ipcMain.handle(IPC.enterpriseParkStatistics, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.getParkStatistics();
+    loadEnterpriseSession()
+    return enterpriseClient.getParkStatistics()
   });
   ipcMain.handle(IPC.enterpriseParkSpecialists, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listParkSpecialists();
+    loadEnterpriseSession()
+    return enterpriseClient.listParkSpecialists()
   });
   ipcMain.handle(
     IPC.enterpriseParkSpecialistSet,
     async (_event, serviceId: unknown, accountId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof serviceId !== 'string' ||
         !serviceId ||
         typeof accountId !== 'string' ||
         !accountId
       ) {
-        throw new Error('园区服务专员信息不正确');
+        throw new Error('园区服务专员信息不正确')
       }
-      return enterpriseClient.setParkSpecialist(serviceId, accountId);
+      return enterpriseClient.setParkSpecialist(serviceId, accountId)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseParkSpecialistRemove,
     async (_event, serviceId: unknown, accountId: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof serviceId !== 'string' ||
         !serviceId ||
         typeof accountId !== 'string' ||
         !accountId
       ) {
-        throw new Error('园区服务专员信息不正确');
+        throw new Error('园区服务专员信息不正确')
       }
-      await enterpriseClient.removeParkSpecialist(serviceId, accountId);
-      return true;
+      await enterpriseClient.removeParkSpecialist(serviceId, accountId)
+      return true
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseParkServices, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listParkServices();
+    loadEnterpriseSession()
+    return enterpriseClient.listParkServices()
   });
   ipcMain.handle(
     IPC.enterpriseParkServiceUpdate,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       const body =
         input && typeof input === 'object'
           ? (input as Record<string, unknown>)
-          : {};
+          : {}
       if (typeof body.serviceId !== 'string' || !body.serviceId)
-        throw new Error('园区服务信息不正确');
+        throw new Error('园区服务信息不正确')
       const config =
         body.config &&
         typeof body.config === 'object' &&
         !Array.isArray(body.config)
           ? Object.fromEntries(
-              Object.entries(body.config).filter(
-                (entry): entry is [string, string] =>
-                  typeof entry[1] === 'string',
-              ),
-            )
-          : undefined;
+            Object.entries(body.config).filter(
+              (entry): entry is [string, string] =>
+                typeof entry[1] === 'string',
+            ),
+          )
+          : undefined
       return enterpriseClient.updateParkService({
         serviceId: body.serviceId,
         name: typeof body.name === 'string' ? body.name : undefined,
         enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
         config,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseParkPublications, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listParkPublications();
+    loadEnterpriseSession()
+    return enterpriseClient.listParkPublications()
   });
   ipcMain.handle(IPC.enterpriseParkAnnouncementResults, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listParkAnnouncementResults();
+    loadEnterpriseSession()
+    return enterpriseClient.listParkAnnouncementResults()
   });
   ipcMain.handle(IPC.enterpriseParkSurveyResults, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listParkSurveyResults();
+    loadEnterpriseSession()
+    return enterpriseClient.listParkSurveyResults()
   });
   ipcMain.handle(
     IPC.enterpriseParkPublicationRead,
     async (_event, id: unknown) => {
-      loadEnterpriseSession();
-      if (typeof id !== 'string' || !id) throw new Error('园区内容编号不正确');
-      return enterpriseClient.readParkPublication(id);
+      loadEnterpriseSession()
+      if (typeof id !== 'string' || !id) throw new Error('园区内容编号不正确')
+      return enterpriseClient.readParkPublication(id)
     },
-  );
+  )
   ipcMain.handle(
     IPC.enterpriseParkSurveySubmit,
     async (_event, id: unknown, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof id !== 'string' ||
         !id ||
@@ -3837,32 +3837,32 @@ function registerIpc(): void {
         typeof input !== 'object' ||
         Array.isArray(input)
       ) {
-        throw new Error('问卷提交内容不正确');
+        throw new Error('问卷提交内容不正确')
       }
       const responseData = Object.fromEntries(
         Object.entries(input).filter(
           (entry): entry is [string, string] => typeof entry[1] === 'string',
         ),
-      );
-      return enterpriseClient.submitParkSurvey(id, responseData);
+      )
+      return enterpriseClient.submitParkSurvey(id, responseData)
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseParkResources, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.getParkResources();
+    loadEnterpriseSession()
+    return enterpriseClient.getParkResources()
   });
   ipcMain.handle(IPC.enterpriseOrganizationInviteGet, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.getOrganizationInvite();
+    loadEnterpriseSession()
+    return enterpriseClient.getOrganizationInvite()
   });
   ipcMain.handle(
     IPC.enterpriseOrganizationInviteIssue,
     async (_event, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       const body =
         input && typeof input === 'object'
           ? (input as Record<string, unknown>)
-          : {};
+          : {}
       return enterpriseClient.issueOrganizationInvite({
         defaultDepartment:
           typeof body.defaultDepartment === 'string'
@@ -3877,27 +3877,27 @@ function registerIpc(): void {
         defaultRole:
           typeof body.defaultRole === 'string' ? body.defaultRole : null,
         maxUses: typeof body.maxUses === 'number' ? body.maxUses : null,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(IPC.enterpriseTicketInbox, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.ticketInbox();
+    loadEnterpriseSession()
+    return enterpriseClient.ticketInbox()
   });
   ipcMain.handle(IPC.enterpriseTicketList, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listTickets();
+    loadEnterpriseSession()
+    return enterpriseClient.listTickets()
   });
   ipcMain.handle(IPC.enterpriseTicketSubmit, async (_e, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('工单信息格式不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('工单信息格式不正确')
+    const body = input as Record<string, unknown>
     if (
       typeof body.title !== 'string' ||
       typeof body.description !== 'string'
     ) {
-      throw new Error('工单标题和描述均为必填项');
+      throw new Error('工单标题和描述均为必填项')
     }
     return enterpriseClient.submitTicket({
       serviceId:
@@ -3906,19 +3906,19 @@ function registerIpc(): void {
       description: body.description,
       targetTags: Array.isArray(body.targetTags)
         ? body.targetTags.filter(
-            (tag): tag is string => typeof tag === 'string',
-          )
+          (tag): tag is string => typeof tag === 'string',
+        )
         : undefined,
       formData:
         body.formData &&
         typeof body.formData === 'object' &&
         !Array.isArray(body.formData)
           ? Object.fromEntries(
-              Object.entries(body.formData).filter(
-                (entry): entry is [string, string] =>
-                  typeof entry[1] === 'string',
-              ),
-            )
+            Object.entries(body.formData).filter(
+              (entry): entry is [string, string] =>
+                typeof entry[1] === 'string',
+            ),
+          )
           : undefined,
       category: typeof body.category === 'string' ? body.category : undefined,
       location: typeof body.location === 'string' ? body.location : undefined,
@@ -3926,26 +3926,26 @@ function registerIpc(): void {
       contact: typeof body.contact === 'string' ? body.contact : undefined,
       contactPhone:
         typeof body.contactPhone === 'string' ? body.contactPhone : undefined,
-    });
+    })
   });
   ipcMain.handle(IPC.enterpriseTicketRead, async (_e, id: unknown) => {
-    loadEnterpriseSession();
-    if (typeof id !== 'string' || !id) throw new Error('工单编号不正确');
-    return enterpriseClient.readTicket(id);
+    loadEnterpriseSession()
+    if (typeof id !== 'string' || !id) throw new Error('工单编号不正确')
+    return enterpriseClient.readTicket(id)
   });
   ipcMain.handle(
     IPC.enterpriseTicketAction,
     async (_e, id: unknown, input: unknown) => {
-      loadEnterpriseSession();
+      loadEnterpriseSession()
       if (
         typeof id !== 'string' ||
         !id ||
         !input ||
         typeof input !== 'object'
       ) {
-        throw new Error('工单操作格式不正确');
+        throw new Error('工单操作格式不正确')
       }
-      const body = input as Record<string, unknown>;
+      const body = input as Record<string, unknown>
       if (
         ![
           'respond',
@@ -3955,7 +3955,7 @@ function registerIpc(): void {
           'respond_and_transfer',
         ].includes(String(body.action))
       ) {
-        throw new Error('工单操作不正确');
+        throw new Error('工单操作不正确')
       }
       return enterpriseClient.updateTicket(id, {
         action: body.action as
@@ -3974,50 +3974,50 @@ function registerIpc(): void {
             : undefined,
         transferNote:
           typeof body.transferNote === 'string' ? body.transferNote : undefined,
-      });
+      })
     },
-  );
+  )
   ipcMain.handle(IPC.parkNativeNotify, (_e, title: unknown, body: unknown) => {
     if (typeof title !== 'string' || typeof body !== 'string') {
-      return false;
+      return false
     }
     notificationService.show({
       sessionId: 'park:service',
       source: 'park',
       title,
       preview: body.slice(0, 240),
-    });
-    return notificationService.checkPermission();
+    })
+    return notificationService.checkPermission()
   });
   // ── 通知系统 IPC 代理 ──
   ipcMain.handle(IPC.notificationShow, (_e, payload: unknown) => {
-    const p = payload as NotificationPayload;
+    const p = payload as NotificationPayload
     if (!p || typeof p.sessionId !== 'string' || typeof p.preview !== 'string')
-      return;
-    notificationService.show(p);
+      return
+    notificationService.show(p)
   });
   ipcMain.handle(IPC.notificationMarkRead, (_e, sessionId: unknown) => {
-    if (typeof sessionId !== 'string') return;
-    notificationService.markRead(sessionId);
+    if (typeof sessionId !== 'string') return
+    notificationService.markRead(sessionId)
   });
   ipcMain.handle(IPC.notificationGetUnread, () =>
     notificationService.getUnreadSessions(),
-  );
+  )
   ipcMain.handle(IPC.notificationCheckPermission, () =>
     notificationService.checkPermission(),
-  );
+  )
   // 通知点击跳转回调：push 给 renderer
   notificationService.registerCallbacks({
     onUnreadChange: (unread) => {
-      updateUnreadIndicators(unread);
+      updateUnreadIndicators(unread)
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(IPC.notificationUnreadChanged, unread);
+        mainWindow.webContents.send(IPC.notificationUnreadChanged, unread)
       }
     },
     onNotificationClick: (sessionId) => {
-      showMainWindow();
+      showMainWindow()
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(IPC.notificationSessionOpen, sessionId);
+        mainWindow.webContents.send(IPC.notificationSessionOpen, sessionId)
       }
     },
     shouldPresentSystemNotification,
@@ -4025,48 +4025,48 @@ function registerIpc(): void {
     onSystemNotificationUnavailable: (payload, reason) => {
       console.warn(
         `[clawmaster-desktop] system notification ${reason}; using fallback alert`,
-      );
-      showFallbackNotification(payload);
+      )
+      showFallbackNotification(payload)
     },
-  });
-  ipcMain.handle(IPC.voiceGetConfig, () => loadVoiceConfig().public);
+  })
+  ipcMain.handle(IPC.voiceGetConfig, () => loadVoiceConfig().public)
   ipcMain.handle(IPC.voiceSaveConfig, (_e, body: VoiceConfigInput) =>
     saveVoiceConfig(body),
-  );
+  )
   ipcMain.handle(
     IPC.voiceTranscribe,
     async (_e, bytes: unknown, mimeType: unknown) => {
       if (!(bytes instanceof Uint8Array) || typeof mimeType !== 'string') {
-        throw new Error('语音数据格式不合法');
+        throw new Error('语音数据格式不合法')
       }
-      return transcribeAudio(bytes, mimeType, loadVoiceConfig());
+      return transcribeAudio(bytes, mimeType, loadVoiceConfig())
     },
-  );
+  )
   // renderer 经 preload 拉当前端点（连接前 / 重连时）。
   ipcMain.handle(IPC.getEndpoint, () => {
-    if (!endpoint) void ensureEndpoint();
-    return endpoint ?? null;
+    if (!endpoint) void ensureEndpoint()
+    return endpoint ?? null
   });
   ipcMain.handle(IPC.runtimeDiagnostic, () =>
     serverManager.getDesktopRuntimeDiagnostic(),
-  );
+  )
 
   // host-only 命令（替代 webview 的 vscode host 命令；交付文档 [WEBVIEW] §5）。
   ipcMain.handle(IPC.openExternal, (_e, url: unknown) => {
     if (typeof url === 'string' && isExternalUrl(url)) {
-      return shell.openExternal(url);
+      return shell.openExternal(url)
     }
-    return Promise.resolve();
+    return Promise.resolve()
   });
   // 飞书状态：真查当前 server 的 /health 并透传守护详情（见文件上方说明）。
   // 状态诚实：server 未就绪 / 查询失败一律如实报告，绝不假报「已连接/运行中」。
   ipcMain.handle(IPC.feishuStatus, async () => {
-    const health = await fetchServerHealth();
+    const health = await fetchServerHealth()
     if (!health) {
       return {
         text: '本地 server 未就绪，暂时无法查询飞书状态。',
         running: false,
-      };
+      }
     }
     return {
       text: renderFeishuStatusText(health.feishu),
@@ -4074,93 +4074,93 @@ function registerIpc(): void {
       running:
         health.feishu.enabled && (health.feishu.status?.running ?? false),
       feishu: health.feishu,
-    };
+    }
   });
   // 启停：真调 server 运行期端点 POST /feishu/start | /feishu/stop，
   // 透传真实结果（失败原样报错，不谎报动作已执行），并附最新守护状态。
   ipcMain.handle(IPC.feishuStart, async () => {
-    const r = await postServerEndpoint('/feishu/start');
+    const r = await postServerEndpoint('/feishu/start')
     if (!r) {
-      return { text: '本地 server 未就绪，无法启动飞书守护，请稍后重试。' };
+      return { text: '本地 server 未就绪，无法启动飞书守护，请稍后重试。' }
     }
     if (!r.ok) {
       // server 诚实报错（典型：凭证未配置），原样透传。
-      return { text: `飞书守护启动失败：${r.error ?? '未知原因'}` };
+      return { text: `飞书守护启动失败：${r.error ?? '未知原因'}` }
     }
-    const health = await fetchServerHealth();
+    const health = await fetchServerHealth()
     return {
       text:
         '飞书守护已启动（断线自动重连，连上一次后绝不永久断开）。\n' +
         (health ? renderFeishuStatusText(health.feishu) : ''),
-    };
+    }
   });
   ipcMain.handle(IPC.feishuStop, async () => {
-    const r = await postServerEndpoint('/feishu/stop');
+    const r = await postServerEndpoint('/feishu/stop')
     if (!r) {
-      return { text: '本地 server 未就绪，无法执行停止操作。' };
+      return { text: '本地 server 未就绪，无法执行停止操作。' }
     }
     if (!r.ok) {
-      return { text: `飞书守护停止失败：${r.error ?? '未知原因'}` };
+      return { text: `飞书守护停止失败：${r.error ?? '未知原因'}` }
     }
     return {
       text:
         '飞书守护已停止（有意停止：不会自动重连，再次启动即恢复守护）。\n' +
         '注：若另有旧版 CLI 守护进程在跑，请在终端单独停止。',
-    };
+    }
   });
   // 飞书凭证配置（「飞书接入」面板）：转发 server /feishu/config。
   // GET 返回的本来就是脱敏视图（appSecret 只进不出，见 server 端约定）。
   ipcMain.handle(IPC.feishuGetConfig, async () => {
-    const r = await requestFeishuConfig('GET');
-    if (!r) return { ok: false, config: null, error: '本地 server 未就绪。' };
-    return { ok: r.ok, config: r.data, error: r.error };
+    const r = await requestFeishuConfig('GET')
+    if (!r) return { ok: false, config: null, error: '本地 server 未就绪。' }
+    return { ok: r.ok, config: r.data, error: r.error }
   });
   ipcMain.handle(IPC.feishuSaveConfig, async (_e, body: unknown) => {
     // 形状粗校验后转发；细校验（appId/domain/secret 规则）由 server 端负责。
     if (typeof body !== 'object' || body === null) {
-      return { ok: false, config: null, error: '配置格式不合法。' };
+      return { ok: false, config: null, error: '配置格式不合法。' }
     }
     const r = await requestFeishuConfig(
       'POST',
       body as FeishuConfigSaveRequest,
-    );
+    )
     if (!r)
       return {
         ok: false,
         config: null,
         error: '本地 server 未就绪，凭证未保存。',
-      };
-    return { ok: r.ok, config: r.data, error: r.error };
+      }
+    return { ok: r.ok, config: r.data, error: r.error }
   });
   ipcMain.handle(IPC.feishuClearConfig, async () => {
-    const r = await requestFeishuConfig('DELETE');
-    if (!r) return { ok: false, config: null, error: '本地 server 未就绪。' };
-    return { ok: r.ok, config: r.data, error: r.error };
+    const r = await requestFeishuConfig('DELETE')
+    if (!r) return { ok: false, config: null, error: '本地 server 未就绪。' }
+    return { ok: r.ok, config: r.data, error: r.error }
   });
   const channelScopes: Record<ChannelProvider, readonly string[]> = {
     feishu: ['im:message', 'contact:user.base:readonly'],
     lark: ['im:message', 'contact:user.base:readonly'],
     wecom: ['message.send', 'contacts.read.basic'],
-  };
+  }
   ipcMain.handle(IPC.channelPairingBegin, async (_event, provider: unknown): Promise<ChannelPairingResult> => {
     if (provider !== 'feishu' && provider !== 'lark' && provider !== 'wecom') {
-      return { ok: false, pairing: null, error: '不支持的连接类型。' };
+      return { ok: false, pairing: null, error: '不支持的连接类型。' }
     }
-    const keys = generateKeyPairSync('x25519');
-    const installationPublicKey = keys.publicKey.export({ type: 'spki', format: 'pem' }).toString();
-    const privateKey = keys.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+    const keys = generateKeyPairSync('x25519')
+    const installationPublicKey = keys.publicKey.export({ type: 'spki', format: 'pem' }).toString()
+    const privateKey = keys.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
     const response = await requestChannelPairing('POST', '/channels/pairings', {
       provider,
       installationPublicKey,
       requestedScopes: channelScopes[provider],
-    });
-    const pairing = response?.ok ? response.data as ChannelPairingPublic : null;
-    if (pairing) channelPairingPrivateKeys.set(pairing.pairingId, privateKey);
+    })
+    const pairing = response?.ok ? response.data as ChannelPairingPublic : null
+    if (pairing) channelPairingPrivateKeys.set(pairing.pairingId, privateKey)
     return {
       ok: response?.ok === true,
       pairing,
       error: response?.error ?? (response ? null : '本地 server 未就绪。'),
-    };
+    }
   });
   const pairingAction = async (
     pairingId: unknown,
@@ -4168,34 +4168,34 @@ function registerIpc(): void {
     suffix = '',
   ): Promise<{ ok: boolean; data: unknown; error: string | null }> => {
     if (typeof pairingId !== 'string' || !/^pair_[a-f0-9]{24}$/.test(pairingId)) {
-      return { ok: false, data: null, error: '配对编号不合法。' };
+      return { ok: false, data: null, error: '配对编号不合法。' }
     }
     const response = await requestChannelPairing(
       method,
       `/channels/pairings/${pairingId}${suffix}`,
-    );
+    )
     const status = response?.ok && response.data && typeof response.data === 'object'
       && 'status' in response.data
       ? String((response.data as { status: unknown }).status)
-      : undefined;
+      : undefined
     if (
       method === 'DELETE'
       || suffix === '/install'
       || (status !== undefined && ['connected', 'expired', 'denied', 'failed', 'revoked'].includes(status))
     ) {
-      channelPairingPrivateKeys.delete(pairingId);
+      channelPairingPrivateKeys.delete(pairingId)
     }
-    return response ?? { ok: false, data: null, error: '本地 server 未就绪。' };
+    return response ?? { ok: false, data: null, error: '本地 server 未就绪。' }
   };
   ipcMain.handle(IPC.channelPairingStatus, (_event, pairingId: unknown) =>
-    pairingAction(pairingId, 'GET'));
+    pairingAction(pairingId, 'GET'))
   ipcMain.handle(IPC.channelPairingInstall, (_event, pairingId: unknown) =>
-    pairingAction(pairingId, 'POST', '/install'));
+    pairingAction(pairingId, 'POST', '/install'))
   ipcMain.handle(IPC.channelPairingCancel, (_event, pairingId: unknown) =>
-    pairingAction(pairingId, 'DELETE'));
+    pairingAction(pairingId, 'DELETE'))
   ipcMain.handle(IPC.channelInstallations, async () => {
-    const response = await requestChannelPairing('GET', '/channels/installations');
-    return response ?? { ok: false, data: null, error: '本地引擎未就绪。' };
+    const response = await requestChannelPairing('GET', '/channels/installations')
+    return response ?? { ok: false, data: null, error: '本地引擎未就绪。' }
   });
   ipcMain.handle(
     IPC.channelInstallationAction,
@@ -4204,101 +4204,101 @@ function registerIpc(): void {
         typeof installationId !== 'string' ||
         !/^channel_(feishu|lark|wecom)_[a-f0-9]{24}$/.test(installationId)
       ) {
-        return { ok: false, data: null, error: '安装编号不合法。' };
+        return { ok: false, data: null, error: '安装编号不合法。' }
       }
       if (!['health', 'start', 'stop', 'revoke'].includes(String(action))) {
-        return { ok: false, data: null, error: '安装操作不合法。' };
+        return { ok: false, data: null, error: '安装操作不合法。' }
       }
       const response = await requestChannelPairing(
         action === 'revoke' ? 'DELETE' : action === 'health' ? 'GET' : 'POST',
         `/channels/installations/${installationId}${action === 'revoke' ? '' : `/${String(action)}`}`,
-      );
-      return response ?? { ok: false, data: null, error: '本地引擎未就绪。' };
+      )
+      return response ?? { ok: false, data: null, error: '本地引擎未就绪。' }
     },
-  );
+  )
   // ── 内置视频编辑器 ──────────────────────────────────────────
   ipcMain.handle(IPC.openVideoEditor, () =>
     Promise.resolve(createVideoEditorWindow()),
-  );
+  )
   // ── 外观主题（跟随系统/浅色/深色）：nativeTheme.themeSource + userData 持久化 ──
-  ipcMain.handle(IPC.themeGet, () => nativeTheme.themeSource);
+  ipcMain.handle(IPC.themeGet, () => nativeTheme.themeSource)
   ipcMain.handle(IPC.themeSet, (_e, v: unknown) => {
     if (v !== 'system' && v !== 'light' && v !== 'dark')
-      return nativeTheme.themeSource;
-    nativeTheme.themeSource = v;
+      return nativeTheme.themeSource
+    nativeTheme.themeSource = v
     try {
       fs.writeFileSync(
         themeFilePath(),
         JSON.stringify({ themeSource: v }),
         'utf8',
-      );
+      )
     } catch {
       /* 写盘失败只影响下次启动的记忆，本次已生效 */
     }
-    return nativeTheme.themeSource;
+    return nativeTheme.themeSource
   });
   ipcMain.handle(IPC.taskRuntimeSetActive, (_event, active: unknown) => {
     if (active === true && taskRuntimeBlockerId === undefined) {
-      taskRuntimeBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+      taskRuntimeBlockerId = powerSaveBlocker.start('prevent-app-suspension')
     } else if (active !== true && taskRuntimeBlockerId !== undefined) {
       if (powerSaveBlocker.isStarted(taskRuntimeBlockerId)) {
-        powerSaveBlocker.stop(taskRuntimeBlockerId);
+        powerSaveBlocker.stop(taskRuntimeBlockerId)
       }
-      taskRuntimeBlockerId = undefined;
+      taskRuntimeBlockerId = undefined
     }
-    return taskRuntimeBlockerId !== undefined;
+    return taskRuntimeBlockerId !== undefined
   });
 
   ipcMain.handle(
     IPC.skillLeaderboard,
     async () =>
       enterpriseSkillLibrary.leaderboard(await authenticatedSkillScope()),
-  );
+  )
 
   // 工作日志：读取本地日历的今天，展示业务成果 + 支撑操作。
   ipcMain.handle(IPC.workLogToday, async () =>
-    (await workLogService()).today());
+    (await workLogService()).today())
 
   // 工作日志·近 N 天逐日明细（日历视图数据源：hover 某天列出当天条目）。
   ipcMain.handle(IPC.workLogRecent, async (_e, days?: number) =>
-    (await workLogService()).recent(days));
+    (await workLogService()).recent(days))
 
   // 一键生成真正的 Markdown 工作报告并保存到 summaries，返回完整路径供界面打开。
   ipcMain.handle(IPC.workLogReport, async () =>
-    (await workLogService()).report());
+    (await workLogService()).report())
 
   ipcMain.handle(IPC.createDiagnosticBundle, async () => {
-    const core = await import('clawmaster-core');
-    const result = await core.createDiagnosticBundle();
+    const core = await import('clawmaster-core')
+    const result = await core.createDiagnosticBundle()
     if (result.ok) {
       try {
-        await shell.showItemInFolder(result.path);
+        await shell.showItemInFolder(result.path)
       } catch {
         // 打开文件夹失败不影响诊断包生成结果。
       }
     }
-    return result;
+    return result
   });
 
   ipcMain.handle(
     IPC.skillShareList,
     async () =>
       enterpriseSkillLibrary.listDepartment(await authenticatedSkillScope()),
-  );
+  )
   ipcMain.handle(IPC.skillMarketplace, () =>
     enterpriseSkillLibrary.listMarketplace(),
-  );
+  )
 
   ipcMain.handle(IPC.enterpriseSkillLocalList, async () => {
-    const root = userSkillsRootDir();
+    const root = userSkillsRootDir()
     const entries = await fs.promises
       .readdir(root, { withFileTypes: true })
-      .catch(() => []);
+      .catch(() => [])
     const result: Array<{
-      name: string;
-      description: string;
-      kind: 'auto' | 'personal';
-    }> = [];
+      name: string
+      description: string
+      kind: 'auto' | 'personal'
+    }> = []
     for (const entry of entries) {
       if (
         !entry.isDirectory() ||
@@ -4306,45 +4306,45 @@ function registerIpc(): void {
         entry.name === 'backups' ||
         entry.name.startsWith('market-')
       )
-        continue;
-      const filePath = path.join(root, entry.name, 'SKILL.md');
+        continue
+      const filePath = path.join(root, entry.name, 'SKILL.md')
       try {
-        const stat = await fs.promises.stat(filePath);
-        if (!stat.isFile() || stat.size > 200_000) continue;
-        const content = await fs.promises.readFile(filePath, 'utf8');
+        const stat = await fs.promises.stat(filePath)
+        if (!stat.isFile() || stat.size > 200_000) continue
+        const content = await fs.promises.readFile(filePath, 'utf8')
         result.push({
           name: entry.name,
           description: localSkillDescription(content),
           kind: entry.name.startsWith('auto-') ? 'auto' : 'personal',
-        });
+        })
       } catch {
         // A partially written or removed Skill is skipped and can be retried on refresh.
       }
     }
     return result.sort((left, right) =>
       left.name.localeCompare(right.name, 'zh-CN'),
-    );
+    )
   });
 
   ipcMain.handle(IPC.enterpriseSkillList, async (_event, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     const body =
       input && typeof input === 'object'
         ? (input as Record<string, unknown>)
-        : {};
+        : {}
     const scope =
       body.scope === 'company' ||
       body.scope === 'mine' ||
       body.scope === 'review'
         ? body.scope
-        : 'department';
+        : 'department'
     const sort =
       body.sort === 'rating' ||
       body.sort === 'installs' ||
       body.sort === 'usage' ||
       body.sort === 'newest'
         ? body.sort
-        : 'recommended';
+        : 'recommended'
     const [skills, localVersions] = await Promise.all([
       enterpriseClient.listEnterpriseSkills({
         scope,
@@ -4352,105 +4352,105 @@ function registerIpc(): void {
         query: typeof body.query === 'string' ? body.query : undefined,
       }),
       localMarketplaceInstallVersions(),
-    ]);
-    return skills.map((skill) => ({
+    ])
+    return skills.map(skill => ({
       ...skill,
       installedVersion: localVersions.get(skill.id) ?? null,
-    }));
+    }))
   });
 
   ipcMain.handle(IPC.enterpriseSkillSubmit, async (_event, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('Skill 投稿参数不正确');
-    const body = input as Record<string, unknown>;
-    const localSkillName = safeLocalSkillName(body.localSkillName);
-    const skillPath = await localSkillFilePath(localSkillName);
-    const stat = await fs.promises.stat(skillPath);
+      throw new Error('Skill 投稿参数不正确')
+    const body = input as Record<string, unknown>
+    const localSkillName = safeLocalSkillName(body.localSkillName)
+    const skillPath = await localSkillFilePath(localSkillName)
+    const stat = await fs.promises.stat(skillPath)
     if (stat.size > 200_000)
-      throw new Error('Skill 内容不能超过 200000 个字符');
-    const content = await fs.promises.readFile(skillPath, 'utf8');
+      throw new Error('Skill 内容不能超过 200000 个字符')
+    const content = await fs.promises.readFile(skillPath, 'utf8')
     return enterpriseClient.submitEnterpriseSkill({
       name: localSkillName,
       description: localSkillDescription(content),
       content,
       visibility: body.visibility === 'company' ? 'company' : 'department',
-    });
+    })
   });
 
   ipcMain.handle(IPC.customerModuleList, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.listCustomerModules();
+    loadEnterpriseSession()
+    return enterpriseClient.listCustomerModules()
   });
 
   ipcMain.handle(IPC.customerModuleSubmit, async (_event, input: unknown) => {
-    loadEnterpriseSession();
-    if (!input || typeof input !== 'object') throw new Error('客户模块投稿参数不正确');
-    const body = input as Record<string, unknown>;
+    loadEnterpriseSession()
+    if (!input || typeof input !== 'object') throw new Error('客户模块投稿参数不正确')
+    const body = input as Record<string, unknown>
     if (!body.manifest || typeof body.manifest !== 'object' || !body.files || typeof body.files !== 'object') {
-      throw new Error('客户模块清单和文件不能为空');
+      throw new Error('客户模块清单和文件不能为空')
     }
-    const files = body.files as Record<string, unknown>;
-    let encodedSize = 0;
-    const normalizedFiles: Record<string, string> = {};
+    const files = body.files as Record<string, unknown>
+    let encodedSize = 0
+    const normalizedFiles: Record<string, string> = {}
     for (const [path, encoded] of Object.entries(files)) {
-      if (typeof encoded !== 'string') throw new Error(`客户模块文件格式不正确：${path}`);
-      encodedSize += encoded.length;
-      if (encodedSize > 24_000_000) throw new Error('客户模块包超过上传限制');
-      normalizedFiles[path] = encoded;
+      if (typeof encoded !== 'string') throw new Error(`客户模块文件格式不正确：${path}`)
+      encodedSize += encoded.length
+      if (encodedSize > 24_000_000) throw new Error('客户模块包超过上传限制')
+      normalizedFiles[path] = encoded
     }
     return enterpriseClient.submitCustomerModule({
       manifest: body.manifest as Record<string, unknown>,
       files: normalizedFiles,
-    });
+    })
   });
 
   ipcMain.handle(IPC.customerModuleTest, async (_event, input: unknown) => {
-    if (!input || typeof input !== 'object') throw new Error('客户模块测试参数不正确');
-    const body = input as Record<string, unknown>;
-    const manifest = parseCustomerModuleManifest(body.manifest, { requireSignature: false });
-    if (!body.files || typeof body.files !== 'object' || Array.isArray(body.files)) throw new Error('客户模块测试文件不能为空');
+    if (!input || typeof input !== 'object') throw new Error('客户模块测试参数不正确')
+    const body = input as Record<string, unknown>
+    const manifest = parseCustomerModuleManifest(body.manifest, { requireSignature: false })
+    if (!body.files || typeof body.files !== 'object' || Array.isArray(body.files)) throw new Error('客户模块测试文件不能为空')
     const files = new Map(Object.entries(body.files as Record<string, unknown>).map(([name, encoded]) => {
-      if (typeof encoded !== 'string' || !/^[A-Za-z0-9+/]*={0,2}$/u.test(encoded)) throw new Error(`客户模块文件不是有效 base64：${name}`);
-      return [name, Uint8Array.from(Buffer.from(encoded, 'base64'))];
-    }));
-    validateCustomerModuleArchiveEntries(manifest, [...files].map(([filePath, bytes]) => ({ path: filePath, kind: 'file' as const, size: bytes.byteLength })), { requireSignature: false });
-    await verifyCustomerModuleFileHashes(manifest.files, files);
-    await scanCustomerModuleWasm(files.get(manifest.entrypoint) ?? new Uint8Array());
-    const hostAudit: Array<Record<string, unknown>> = [];
+      if (typeof encoded !== 'string' || !/^[A-Za-z0-9+/]*={0,2}$/u.test(encoded)) throw new Error(`客户模块文件不是有效 base64：${name}`)
+      return [name, Uint8Array.from(Buffer.from(encoded, 'base64'))]
+    }))
+    validateCustomerModuleArchiveEntries(manifest, [...files].map(([filePath, bytes]) => ({ path: filePath, kind: 'file' as const, size: bytes.byteLength })), { requireSignature: false })
+    await verifyCustomerModuleFileHashes(manifest.files, files)
+    await scanCustomerModuleWasm(files.get(manifest.entrypoint) ?? new Uint8Array())
+    const hostAudit: Array<Record<string, unknown>> = []
     const host = new CustomerModuleHostBroker({
-      invoke: async () => { throw new Error('本地沙箱测试禁止真实外部调用'); },
-      onAudit: (event) => hostAudit.push(event as unknown as Record<string, unknown>),
-    });
-    const audit: Array<Record<string, unknown>> = [];
-    const result = await new CustomerModuleRunner({ host, onAudit: (event) => audit.push(event as unknown as Record<string, unknown>) }).run({
+      invoke: async () => { throw new Error('本地沙箱测试禁止真实外部调用') },
+      onAudit: event => hostAudit.push(event as unknown as Record<string, unknown>),
+    })
+    const audit: Array<Record<string, unknown>> = []
+    const result = await new CustomerModuleRunner({ host, onAudit: event => audit.push(event as unknown as Record<string, unknown>) }).run({
       moduleId: manifest.id, version: manifest.version,
       wasm: files.get(manifest.entrypoint) ?? new Uint8Array(), input: {},
-      approvedCapabilities: manifest.permissions.map((permission) => permission.kind),
+      approvedCapabilities: manifest.permissions.map(permission => permission.kind),
       limits: { timeoutMs: 2_000, maxOutputBytes: 256 * 1024 },
-    });
-    return { result, audit, hostAudit };
+    })
+    return { result, audit, hostAudit }
   });
 
   ipcMain.handle(IPC.customerModuleInstalledList, async () => {
-    loadEnterpriseSession();
-    const root = path.join(app.getPath('userData'), 'customer-modules');
+    loadEnterpriseSession()
+    const root = path.join(app.getPath('userData'), 'customer-modules')
     try {
-      await recoverCustomerModuleInstallReceipts(root, enterpriseClient);
-      const records = await refreshCustomerModuleMarketStatus(root, enterpriseClient);
-      return records.map(({ artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...record }) => ({ ...record, inputSchema: manifest.inputSchema }));
+      await recoverCustomerModuleInstallReceipts(root, enterpriseClient)
+      const records = await refreshCustomerModuleMarketStatus(root, enterpriseClient)
+      return records.map(({ artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...record }) => ({ ...record, inputSchema: manifest.inputSchema }))
     } catch {
-      const records = await listInstalledCustomerModules(root);
-      return records.map(({ artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...record }) => ({ ...record, inputSchema: manifest.inputSchema }));
+      const records = await listInstalledCustomerModules(root)
+      return records.map(({ artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...record }) => ({ ...record, inputSchema: manifest.inputSchema }))
     }
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleInstall, async (_event, input: unknown) => {
-    loadEnterpriseSession();
-    if (!input || typeof input !== 'object') throw new Error('客户模块安装参数不正确');
-    const body = input as Record<string, unknown>;
+    loadEnterpriseSession()
+    if (!input || typeof input !== 'object') throw new Error('客户模块安装参数不正确')
+    const body = input as Record<string, unknown>
     if (typeof body.moduleId !== 'string' || typeof body.version !== 'string' || !Array.isArray(body.approvedPermissions)) {
-      throw new Error('客户模块安装参数不正确');
+      throw new Error('客户模块安装参数不正确')
     }
     const installed = await installCustomerModule({
       root: path.join(app.getPath('userData'), 'customer-modules'),
@@ -4459,82 +4459,82 @@ function registerIpc(): void {
       version: body.version,
       clawmasterVersion: app.getVersion(),
       approvedPermissions: body.approvedPermissions as never,
-    });
-    const { artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...record } = installed;
-    return { ...record, inputSchema: manifest.inputSchema };
+    })
+    const { artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...record } = installed
+    return { ...record, inputSchema: manifest.inputSchema }
   });
 
   ipcMain.handle(IPC.customerModuleSetEnabled, async (_event, input: unknown) => {
-    if (!input || typeof input !== 'object') throw new Error('客户模块启停参数不正确');
-    const body = input as Record<string, unknown>;
-    if (typeof body.moduleId !== 'string' || typeof body.enabled !== 'boolean') throw new Error('客户模块启停参数不正确');
-    const root = path.join(app.getPath('userData'), 'customer-modules');
-    const record = await setCustomerModuleEnabled(root, body.moduleId, body.enabled);
-    const { artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...safe } = record;
-    return { ...safe, inputSchema: manifest.inputSchema };
+    if (!input || typeof input !== 'object') throw new Error('客户模块启停参数不正确')
+    const body = input as Record<string, unknown>
+    if (typeof body.moduleId !== 'string' || typeof body.enabled !== 'boolean') throw new Error('客户模块启停参数不正确')
+    const root = path.join(app.getPath('userData'), 'customer-modules')
+    const record = await setCustomerModuleEnabled(root, body.moduleId, body.enabled)
+    const { artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...safe } = record
+    return { ...safe, inputSchema: manifest.inputSchema }
   });
 
   ipcMain.handle(IPC.customerModuleSetBackgroundEnabled, async (_event, input: unknown) => {
-    if (!input || typeof input !== 'object') throw new Error('客户模块后台授权参数不正确');
-    const body = input as Record<string, unknown>;
-    if (typeof body.moduleId !== 'string' || typeof body.enabled !== 'boolean') throw new Error('客户模块后台授权参数不正确');
-    const root = path.join(app.getPath('userData'), 'customer-modules');
-    const record = await setCustomerModuleBackgroundEnabled(root, body.moduleId, body.enabled);
-    const { artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...safe } = record;
-    return { ...safe, inputSchema: manifest.inputSchema };
+    if (!input || typeof input !== 'object') throw new Error('客户模块后台授权参数不正确')
+    const body = input as Record<string, unknown>
+    if (typeof body.moduleId !== 'string' || typeof body.enabled !== 'boolean') throw new Error('客户模块后台授权参数不正确')
+    const root = path.join(app.getPath('userData'), 'customer-modules')
+    const record = await setCustomerModuleBackgroundEnabled(root, body.moduleId, body.enabled)
+    const { artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...safe } = record
+    return { ...safe, inputSchema: manifest.inputSchema }
   });
 
   ipcMain.handle(IPC.customerModuleUninstall, async (_event, moduleId: unknown) => {
-    if (typeof moduleId !== 'string') throw new Error('客户模块卸载参数不正确');
-    await uninstallCustomerModule(path.join(app.getPath('userData'), 'customer-modules'), moduleId);
+    if (typeof moduleId !== 'string') throw new Error('客户模块卸载参数不正确')
+    await uninstallCustomerModule(path.join(app.getPath('userData'), 'customer-modules'), moduleId)
   });
 
   ipcMain.handle(IPC.customerModuleClearData, async (_event, moduleId: unknown) => {
-    if (typeof moduleId !== 'string') throw new Error('客户模块数据清理参数不正确');
-    await clearCustomerModuleData(path.join(app.getPath('userData'), 'customer-modules'), moduleId);
+    if (typeof moduleId !== 'string') throw new Error('客户模块数据清理参数不正确')
+    await clearCustomerModuleData(path.join(app.getPath('userData'), 'customer-modules'), moduleId)
   });
 
   ipcMain.handle(IPC.customerModuleExportData, async (_event, moduleId: unknown) => {
-    if (typeof moduleId !== 'string') throw new Error('客户模块数据导出参数不正确');
-    const root = path.join(app.getPath('userData'), 'customer-modules');
-    const exported = await exportCustomerModuleData(root, moduleId);
-    const selected = await dialog.showSaveDialog({ defaultPath: `${moduleId}-data.json` });
-    if (selected.canceled || !selected.filePath) return null;
-    await fs.promises.writeFile(selected.filePath, `${JSON.stringify(exported, null, 2)}\n`, { mode: 0o600 });
-    return selected.filePath;
+    if (typeof moduleId !== 'string') throw new Error('客户模块数据导出参数不正确')
+    const root = path.join(app.getPath('userData'), 'customer-modules')
+    const exported = await exportCustomerModuleData(root, moduleId)
+    const selected = await dialog.showSaveDialog({ defaultPath: `${moduleId}-data.json` })
+    if (selected.canceled || !selected.filePath) return null
+    await fs.promises.writeFile(selected.filePath, `${JSON.stringify(exported, null, 2)}\n`, { mode: 0o600 })
+    return selected.filePath
   });
 
   ipcMain.handle(IPC.customerModuleRun, async (_event, input: unknown) => {
-    loadEnterpriseSession();
-    if (!input || typeof input !== 'object') throw new Error('客户模块运行参数不正确');
-    const body = input as Record<string, unknown>;
+    loadEnterpriseSession()
+    if (!input || typeof input !== 'object') throw new Error('客户模块运行参数不正确')
+    const body = input as Record<string, unknown>
     if (typeof body.runId !== 'string' || typeof body.moduleId !== 'string' || typeof body.version !== 'string' || !body.formInput || typeof body.formInput !== 'object' || Array.isArray(body.formInput)) {
-      throw new Error('客户模块运行参数不正确');
+      throw new Error('客户模块运行参数不正确')
     }
-    if (customerModuleRunControllers.has(body.runId)) throw new Error('客户模块运行 ID 已被占用');
-    const controller = new AbortController();
-    customerModuleRunControllers.set(body.runId, controller);
-    const root = path.join(app.getPath('userData'), 'customer-modules');
-    const record = (await listInstalledCustomerModules(root)).find((item) => item.id === body.moduleId && item.version === body.version);
-    if (!record) throw new Error('客户模块未安装');
-    const hostAudit: Array<Record<string, unknown>> = [];
+    if (customerModuleRunControllers.has(body.runId)) throw new Error('客户模块运行 ID 已被占用')
+    const controller = new AbortController()
+    customerModuleRunControllers.set(body.runId, controller)
+    const root = path.join(app.getPath('userData'), 'customer-modules')
+    const record = (await listInstalledCustomerModules(root)).find(item => item.id === body.moduleId && item.version === body.version)
+    if (!record) throw new Error('客户模块未安装')
+    const hostAudit: Array<Record<string, unknown>> = []
     const host = createDesktopCustomerModuleHost({
       record,
       storageRoot: path.join(root, 'data'),
       modelInvoke: customerModuleModelInvoke,
       selectReadFile: async () => {
-        const selected = await dialog.showOpenDialog({ properties: ['openFile'] });
-        return selected.canceled ? null : selected.filePaths[0] ?? null;
+        const selected = await dialog.showOpenDialog({ properties: ['openFile'] })
+        return selected.canceled ? null : selected.filePaths[0] ?? null
       },
       selectWriteFile: async (suggestedName) => {
-        const selected = await dialog.showSaveDialog({ defaultPath: suggestedName });
-        return selected.canceled ? null : selected.filePath ?? null;
+        const selected = await dialog.showSaveDialog({ defaultPath: suggestedName })
+        return selected.canceled ? null : selected.filePath ?? null
       },
       onAudit: (event) => {
-        hostAudit.push(event as unknown as Record<string, unknown>);
-        console.info('[customer-module-audit]', event);
+        hostAudit.push(event as unknown as Record<string, unknown>)
+        console.info('[customer-module-audit]', event)
       },
-    });
+    })
     try {
       const execution = await runInstalledCustomerModule({
         root,
@@ -4543,32 +4543,32 @@ function registerIpc(): void {
         formInput: body.formInput as Record<string, unknown>,
         host,
         signal: controller.signal,
-      });
-      return { ...execution, hostAudit };
+      })
+      return { ...execution, hostAudit }
     } finally {
-      customerModuleRunControllers.delete(body.runId);
+      customerModuleRunControllers.delete(body.runId)
     }
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleCancel, (_event, runId: unknown) => {
-    if (typeof runId !== 'string') throw new Error('客户模块取消参数不正确');
-    const controller = customerModuleRunControllers.get(runId);
-    if (!controller) return false;
-    controller.abort();
-    return true;
+    if (typeof runId !== 'string') throw new Error('客户模块取消参数不正确')
+    const controller = customerModuleRunControllers.get(runId)
+    if (!controller) return false
+    controller.abort()
+    return true
   });
 
   ipcMain.handle(IPC.enterpriseSkillReview, async (_event, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     if (!input || typeof input !== 'object')
-      throw new Error('Skill 审核参数不正确');
-    const body = input as Record<string, unknown>;
+      throw new Error('Skill 审核参数不正确')
+    const body = input as Record<string, unknown>
     if (
       typeof body.id !== 'string' ||
       !/^[A-Za-z0-9_-]{1,120}$/u.test(body.id) ||
       (body.action !== 'approve' && body.action !== 'archive')
     ) {
-      throw new Error('Skill 审核参数不正确');
+      throw new Error('Skill 审核参数不正确')
     }
     return enterpriseClient.reviewEnterpriseSkill(
       body.id,
@@ -4576,43 +4576,43 @@ function registerIpc(): void {
       body.visibility === 'company' || body.visibility === 'department'
         ? body.visibility
         : undefined,
-    );
+    )
   });
 
   ipcMain.handle(IPC.enterpriseSkillInstall, async (_event, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     const body =
       input && typeof input === 'object'
         ? (input as Record<string, unknown>)
-        : {};
+        : {}
     if (
       typeof body.id !== 'string' ||
       !/^[A-Za-z0-9_-]{1,120}$/u.test(body.id)
     ) {
-      throw new Error('Skill 安装参数不正确');
+      throw new Error('Skill 安装参数不正确')
     }
-    const skill = await enterpriseClient.installEnterpriseSkill(body.id);
-    const targetDir = path.join(userSkillsRootDir(), `market-${body.id}`);
-    const targetPath = path.join(targetDir, 'SKILL.md');
-    const tempPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
-    const metadataPath = path.join(targetDir, '.clawmaster-market.json');
-    const metadataTempPath = `${metadataPath}.${process.pid}.${Date.now()}.tmp`;
+    const skill = await enterpriseClient.installEnterpriseSkill(body.id)
+    const targetDir = path.join(userSkillsRootDir(), `market-${body.id}`)
+    const targetPath = path.join(targetDir, 'SKILL.md')
+    const tempPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`
+    const metadataPath = path.join(targetDir, '.clawmaster-market.json')
+    const metadataTempPath = `${metadataPath}.${process.pid}.${Date.now()}.tmp`
     const targetDirectoryStat = await fs.promises
       .lstat(targetDir)
-      .catch(() => null);
+      .catch(() => null)
     if (
       targetDirectoryStat?.isSymbolicLink() ||
       (targetDirectoryStat && !targetDirectoryStat.isDirectory())
     ) {
-      throw new Error('Skill 安装目录不安全，请移除对应目录后重试');
+      throw new Error('Skill 安装目录不安全，请移除对应目录后重试')
     }
-    await fs.promises.mkdir(targetDir, { recursive: true, mode: 0o700 });
+    await fs.promises.mkdir(targetDir, { recursive: true, mode: 0o700 })
     try {
       await fs.promises.writeFile(tempPath, skill.content, {
         encoding: 'utf8',
         mode: 0o600,
-      });
-      await replaceFileFromTemp(tempPath, targetPath);
+      })
+      await replaceFileFromTemp(tempPath, targetPath)
       await fs.promises.writeFile(
         metadataTempPath,
         `${JSON.stringify(
@@ -4627,24 +4627,24 @@ function registerIpc(): void {
           2,
         )}\n`,
         { encoding: 'utf8', mode: 0o600 },
-      );
-      await replaceFileFromTemp(metadataTempPath, metadataPath);
+      )
+      await replaceFileFromTemp(metadataTempPath, metadataPath)
     } finally {
-      await fs.promises.rm(tempPath, { force: true }).catch(() => undefined);
+      await fs.promises.rm(tempPath, { force: true }).catch(() => undefined)
       await fs.promises
         .rm(metadataTempPath, { force: true })
-        .catch(() => undefined);
+        .catch(() => undefined)
     }
-    const { content: _content, ...view } = skill;
-    return { skill: view, installedPath: targetPath };
+    const { content: _content, ...view } = skill
+    return { skill: view, installedPath: targetPath }
   });
 
   ipcMain.handle(IPC.enterpriseSkillRate, async (_event, input: unknown) => {
-    loadEnterpriseSession();
+    loadEnterpriseSession()
     const body =
       input && typeof input === 'object'
         ? (input as Record<string, unknown>)
-        : {};
+        : {}
     if (
       typeof body.id !== 'string' ||
       !/^[A-Za-z0-9_-]{1,120}$/u.test(body.id) ||
@@ -4652,14 +4652,14 @@ function registerIpc(): void {
       Number(body.score) < 1 ||
       Number(body.score) > 5
     ) {
-      throw new Error('Skill 评分参数不正确');
+      throw new Error('Skill 评分参数不正确')
     }
-    return enterpriseClient.rateEnterpriseSkill(body.id, Number(body.score));
+    return enterpriseClient.rateEnterpriseSkill(body.id, Number(body.score))
   });
 
   ipcMain.handle(IPC.enterpriseSkillLeaderboard, async () => {
-    loadEnterpriseSession();
-    return enterpriseClient.getEnterpriseSkillLeaderboard();
+    loadEnterpriseSession()
+    return enterpriseClient.getEnterpriseSkillLeaderboard()
   });
 
   // 本地测试模式：应用/清除 customProxyServerUrl。
@@ -4667,59 +4667,59 @@ function registerIpc(): void {
   // 实现方式：将 CLAWMASTER_SERVER_URL env 设为指定地址，待下次会话创建时 proxyConfig
   // 会读到该改变的环境变量，从而路由请求到本地。
   ipcMain.handle(IPC.setLocalTestUrl, (_e, url: unknown) => {
-    if (typeof url !== 'string') return Promise.resolve();
-    const trimmed = url.trim();
+    if (typeof url !== 'string') return Promise.resolve()
+    const trimmed = url.trim()
     if (trimmed) {
       // 应用本地测试地址（真实状态只存 env，不留影子变量）
-      process.env.CLAWMASTER_SERVER_URL = trimmed;
+      process.env.CLAWMASTER_SERVER_URL = trimmed
       console.log(
         `[clawmaster-desktop] 本地测试模式已应用： CLAWMASTER_SERVER_URL=${trimmed}`,
-      );
+      )
     } else {
       // 清除本地测试
-      delete process.env.CLAWMASTER_SERVER_URL;
+      delete process.env.CLAWMASTER_SERVER_URL
       console.log(
         '[clawmaster-desktop] 本地测试模式已清除， CLAWMASTER_SERVER_URL 已移除。',
-      );
+      )
     }
-    return Promise.resolve();
+    return Promise.resolve()
   });
 
   // ── 软件更新：检查 / 下载 / 取消 / 安装 + 版本查询（逻辑在 update-service.ts）──
   // 结果全部结构化透传，不在这里加工：「检查失败」与「已是最新」是 UpdateService
   // 返回的两种不同 status，任何一层都不许把失败粉饰成最新。
-  ipcMain.handle(IPC.appVersion, () => app.getVersion());
-  ipcMain.handle(IPC.updateCheck, () => checkDesktopUpdate());
-  ipcMain.handle(IPC.updateDownload, () => updateService.downloadUpdate());
+  ipcMain.handle(IPC.appVersion, () => app.getVersion())
+  ipcMain.handle(IPC.updateCheck, () => checkDesktopUpdate())
+  ipcMain.handle(IPC.updateDownload, () => updateService.downloadUpdate())
   ipcMain.handle(IPC.updateCancel, () => {
-    updateService.cancelDownload();
+    updateService.cancelDownload()
   });
-  ipcMain.handle(IPC.updateInstall, () => updateService.installUpdate());
+  ipcMain.handle(IPC.updateInstall, () => updateService.installUpdate())
   ipcMain.handle(IPC.incrementalUpdateCheck, (_event, payload?: unknown) => {
     const manifestUrl =
       payload &&
       typeof payload === 'object' &&
       typeof (payload as { manifestUrl?: unknown }).manifestUrl === 'string'
         ? (payload as { manifestUrl: string }).manifestUrl
-        : undefined;
-    return incrementalUpdateService.checkForUpdates(manifestUrl);
+        : undefined
+    return incrementalUpdateService.checkForUpdates(manifestUrl)
   });
   ipcMain.handle(IPC.incrementalUpdateApply, (_event, payload: unknown) => {
     if (!payload || typeof payload !== 'object') {
-      return Promise.resolve({ ok: false, error: '增量更新参数必须是对象' });
+      return Promise.resolve({ ok: false, error: '增量更新参数必须是对象' })
     }
-    const input = payload as { kind?: unknown; id?: unknown };
+    const input = payload as { kind?: unknown; id?: unknown }
     if (
       input.kind !== 'patch' &&
       input.kind !== 'kernel' &&
       input.kind !== 'component'
     ) {
-      return Promise.resolve({ ok: false, error: '增量更新 kind 无效' });
+      return Promise.resolve({ ok: false, error: '增量更新 kind 无效' })
     }
     if (typeof input.id !== 'string' || input.id.trim().length === 0) {
-      return Promise.resolve({ ok: false, error: '增量更新 id 不能为空' });
+      return Promise.resolve({ ok: false, error: '增量更新 id 不能为空' })
     }
-    return incrementalUpdateService.applyUpdate(input.kind, input.id);
+    return incrementalUpdateService.applyUpdate(input.kind, input.id)
   });
 
   const resolveUserLocalPath = (candidate: unknown): string | null => {
@@ -4729,18 +4729,18 @@ function registerIpc(): void {
       candidate.length === 0 ||
       !path.isAbsolute(candidate)
     ) {
-      return null;
+      return null
     }
     try {
-      const home = fs.realpathSync(app.getPath('home'));
-      const resolved = fs.realpathSync(path.resolve(candidate));
+      const home = fs.realpathSync(app.getPath('home'))
+      const resolved = fs.realpathSync(path.resolve(candidate))
       return resolved === home || resolved.startsWith(home + path.sep)
         ? resolved
-        : null;
+        : null
     } catch {
-      return null;
+      return null
     }
-  };
+  }
   const unsafeOutputExtensions = new Set([
     '.app',
     '.bat',
@@ -4766,67 +4766,67 @@ function registerIpc(): void {
     '.vbs',
     '.wsf',
     '.wsh',
-  ]);
+  ])
   const inspectUserLocalPath = (
     candidate: unknown,
   ): {
-    resolved: string | null;
-    exists: boolean;
-    kind: 'file' | 'directory' | 'missing';
-    canOpen: boolean;
+    resolved: string | null
+    exists: boolean
+    kind: 'file' | 'directory' | 'missing'
+    canOpen: boolean
   } => {
-    const resolved = resolveUserLocalPath(candidate);
+    const resolved = resolveUserLocalPath(candidate)
     if (!resolved) {
-      return { resolved: null, exists: false, kind: 'missing', canOpen: false };
+      return { resolved: null, exists: false, kind: 'missing', canOpen: false }
     }
     try {
-      const stat = fs.statSync(resolved);
+      const stat = fs.statSync(resolved)
       const kind = stat.isDirectory()
         ? 'directory'
         : stat.isFile()
           ? 'file'
-          : 'missing';
-      const exists = kind !== 'missing';
-      const extension = path.extname(resolved).toLowerCase();
+          : 'missing'
+      const exists = kind !== 'missing'
+      const extension = path.extname(resolved).toLowerCase()
       const canOpen =
         exists &&
-        (kind === 'directory' || !unsafeOutputExtensions.has(extension));
-      return { resolved, exists, kind, canOpen };
+        (kind === 'directory' || !unsafeOutputExtensions.has(extension))
+      return { resolved, exists, kind, canOpen }
     } catch {
-      return { resolved: null, exists: false, kind: 'missing', canOpen: false };
+      return { resolved: null, exists: false, kind: 'missing', canOpen: false }
     }
-  };
+  }
 
   ipcMain.handle(IPC.openPath, (_e, p: unknown) => {
-    const resolved = resolveUserLocalPath(p);
-    return resolved ? shell.openPath(resolved) : Promise.resolve('');
+    const resolved = resolveUserLocalPath(p)
+    return resolved ? shell.openPath(resolved) : Promise.resolve('')
   });
   ipcMain.handle(IPC.inspectLocalPath, (_e, p: unknown) => {
-    const { exists, kind, canOpen } = inspectUserLocalPath(p);
-    return { exists, kind, canOpen };
+    const { exists, kind, canOpen } = inspectUserLocalPath(p)
+    return { exists, kind, canOpen }
   });
   ipcMain.handle(
     IPC.activateLocalPath,
     async (_e, p: unknown, action: unknown) => {
-      const inspected = inspectUserLocalPath(p);
+      const inspected = inspectUserLocalPath(p)
       if (!inspected.resolved || !inspected.exists) {
-        return { ok: false, error: '文件不存在，或不在当前用户目录内。' };
+        return { ok: false, error: '文件不存在，或不在当前用户目录内。' }
       }
       if (action === 'reveal') {
-        shell.showItemInFolder(inspected.resolved);
-        return { ok: true };
+        shell.showItemInFolder(inspected.resolved)
+        return { ok: true }
       }
-      if (action !== 'open') return { ok: false, error: '不支持的文件操作。' };
+      if (action !== 'open') return { ok: false, error: '不支持的文件操作。' }
       if (!inspected.canOpen) {
         return {
           ok: false,
           error: '为安全起见，可执行文件只能在文件夹中定位。',
-        };
+        }
       }
-      const error = await shell.openPath(inspected.resolved);
-      return error ? { ok: false, error } : { ok: true };
+      const error = await shell.openPath(inspected.resolved)
+      return error ? { ok: false, error } : { ok: true }
     },
-  );
+  )
 
   // 导出会话（对齐 CLI /export）：原生保存对话框 + 写文件。取消返回 null，
   // 写入失败抛错由 renderer 侧捕获展示；内容/文件名均来自 server 的 export_result 帧。
@@ -4837,10 +4837,10 @@ function registerIpc(): void {
         typeof suggestedFileName !== 'string' ||
         typeof content !== 'string'
       ) {
-        return null;
+        return null
       }
-      const win = mainWindow;
-      const ext = path.extname(suggestedFileName).slice(1).toLowerCase();
+      const win = mainWindow
+      const ext = path.extname(suggestedFileName).slice(1).toLowerCase()
       const textExtensions = [
         'md',
         'markdown',
@@ -4857,148 +4857,148 @@ function registerIpc(): void {
         'log',
         'yaml',
         'yml',
-      ];
+      ]
       const filters = textExtensions.includes(ext)
         ? [
-            { name: `${ext.toUpperCase()} 文本`, extensions: [ext] },
-            { name: '所有文件', extensions: ['*'] },
-          ]
+          { name: `${ext.toUpperCase()} 文本`, extensions: [ext] },
+          { name: '所有文件', extensions: ['*'] },
+        ]
         : [
-            { name: 'Markdown', extensions: ['md'] },
-            { name: '所有文件', extensions: ['*'] },
-          ];
+          { name: 'Markdown', extensions: ['md'] },
+          { name: '所有文件', extensions: ['*'] },
+        ];
       const result = win
         ? await dialog.showSaveDialog(win, {
-            defaultPath: path.join(app.getPath('documents'), suggestedFileName),
-            filters,
-          })
+          defaultPath: path.join(app.getPath('documents'), suggestedFileName),
+          filters,
+        })
         : await dialog.showSaveDialog({
-            defaultPath: path.join(app.getPath('documents'), suggestedFileName),
-            filters,
-          });
-      if (result.canceled || !result.filePath) return null;
-      await fs.promises.writeFile(result.filePath, content, 'utf-8');
-      return result.filePath;
+          defaultPath: path.join(app.getPath('documents'), suggestedFileName),
+          filters,
+        })
+      if (result.canceled || !result.filePath) return null
+      await fs.promises.writeFile(result.filePath, content, 'utf-8')
+      return result.filePath
     },
-  );
+  )
 
   // 原生文件选择器：返回完整路径数组（用户授权选择，不在沙箱内）
   ipcMain.handle(IPC.selectFiles, async () => {
-    const win = mainWindow;
+    const win = mainWindow
     const result = await (win
       ? dialog.showOpenDialog(win, {
-          properties: ['openFile', 'multiSelections'],
-          filters: [
-            {
-              name: '所有支持的文件',
-              extensions: [
-                'png',
-                'jpg',
-                'jpeg',
-                'gif',
-                'webp',
-                'bmp',
-                'pdf',
-                'doc',
-                'docx',
-                'xls',
-                'xlsx',
-                'ppt',
-                'pptx',
-                'txt',
-                'csv',
-                'json',
-                'xml',
-                'md',
-                'zip',
-                'log',
-              ],
-            },
-          ],
-        })
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          {
+            name: '所有支持的文件',
+            extensions: [
+              'png',
+              'jpg',
+              'jpeg',
+              'gif',
+              'webp',
+              'bmp',
+              'pdf',
+              'doc',
+              'docx',
+              'xls',
+              'xlsx',
+              'ppt',
+              'pptx',
+              'txt',
+              'csv',
+              'json',
+              'xml',
+              'md',
+              'zip',
+              'log',
+            ],
+          },
+        ],
+      })
       : dialog.showOpenDialog({
-          properties: ['openFile', 'multiSelections'],
-          filters: [
-            {
-              name: '所有支持的文件',
-              extensions: [
-                'png',
-                'jpg',
-                'jpeg',
-                'gif',
-                'webp',
-                'bmp',
-                'pdf',
-                'doc',
-                'docx',
-                'xls',
-                'xlsx',
-                'ppt',
-                'pptx',
-                'txt',
-                'csv',
-                'json',
-                'xml',
-                'md',
-                'zip',
-                'log',
-              ],
-            },
-          ],
-        }));
-    if (result.canceled || result.filePaths.length === 0) return [];
-    return fileAccessGrants.grant(result.filePaths);
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          {
+            name: '所有支持的文件',
+            extensions: [
+              'png',
+              'jpg',
+              'jpeg',
+              'gif',
+              'webp',
+              'bmp',
+              'pdf',
+              'doc',
+              'docx',
+              'xls',
+              'xlsx',
+              'ppt',
+              'pptx',
+              'txt',
+              'csv',
+              'json',
+              'xml',
+              'md',
+              'zip',
+              'log',
+            ],
+          },
+        ],
+      }))
+    if (result.canceled || result.filePaths.length === 0) return []
+    return fileAccessGrants.grant(result.filePaths)
   });
 
   // Windows 不支持在同一个对话框中可靠混用 openFile/openDirectory；目录单独显式选择，
   // renderer 不能提交裸路径扩大授权范围。
   ipcMain.handle(IPC.selectFolders, async () => {
-    const win = mainWindow;
+    const win = mainWindow
     const result = await (win
       ? dialog.showOpenDialog(win, {
-          properties: ['openDirectory', 'multiSelections'],
-        })
+        properties: ['openDirectory', 'multiSelections'],
+      })
       : dialog.showOpenDialog({
-          properties: ['openDirectory', 'multiSelections'],
-        }));
-    if (result.canceled || result.filePaths.length === 0) return [];
-    return fileAccessGrants.grantDirectories(result.filePaths);
+        properties: ['openDirectory', 'multiSelections'],
+      }))
+    if (result.canceled || result.filePaths.length === 0) return []
+    return fileAccessGrants.grantDirectories(result.filePaths)
   });
 
   ipcMain.handle(IPC.getWorkspaceDirectories, () => ({
     defaultPath: workspaceDirectories.defaultPath(),
     recentPaths: workspaceDirectories.list(),
-  }));
+  }))
 
   ipcMain.handle(IPC.selectWorkspaceDirectory, async () => {
-    const win = mainWindow;
+    const win = mainWindow
     const result = await (win
       ? dialog.showOpenDialog(win, {
-          defaultPath: workspaceDirectories.defaultPath(),
-          properties: ['openDirectory', 'createDirectory'],
-        })
+        defaultPath: workspaceDirectories.defaultPath(),
+        properties: ['openDirectory', 'createDirectory'],
+      })
       : dialog.showOpenDialog({
-          defaultPath: workspaceDirectories.defaultPath(),
-          properties: ['openDirectory', 'createDirectory'],
-        }));
-    if (result.canceled || !result.filePaths[0]) return null;
-    return workspaceDirectories.grant(result.filePaths[0]);
+        defaultPath: workspaceDirectories.defaultPath(),
+        properties: ['openDirectory', 'createDirectory'],
+      }))
+    if (result.canceled || !result.filePaths[0]) return null
+    return workspaceDirectories.grant(result.filePaths[0])
   });
 
   ipcMain.handle(IPC.authorizeWorkspaceDirectory, (_event, directory: unknown) => {
-    if (typeof directory !== 'string') throw new Error('工作目录格式无效');
-    return workspaceDirectories.authorize(directory);
+    if (typeof directory !== 'string') throw new Error('工作目录格式无效')
+    return workspaceDirectories.authorize(directory)
   });
 
   // 拖拽/隐藏 input 的 File 路径由可信 preload 通过 webUtils 提取后送到这里。
   // renderer 只能传 File 对象给 contextBridge，没有任意字符串 grant API。
   ipcMain.handle(IPC.grantBrowserFile, (_e, filePath: unknown) => {
     if (typeof filePath !== 'string' || filePath.length === 0) {
-      throw new Error('无法获取所选文件的真实路径');
+      throw new Error('无法获取所选文件的真实路径')
     }
-    const [granted] = fileAccessGrants.grant([filePath]);
-    if (!granted) throw new Error('文件未获得授权');
-    return granted;
+    const [granted] = fileAccessGrants.grant([filePath])
+    if (!granted) throw new Error('文件未获得授权')
+    return granted
   });
 
   // preload 在 send_user_message 真正写入 WS 前调用。renderer 无 ipcRenderer，
@@ -5009,7 +5009,7 @@ function registerIpc(): void {
       references.length === 0 ||
       references.length > 6 ||
       references.some(
-        (value) =>
+        value =>
           !value ||
           typeof value !== 'object' ||
           typeof (value as { path?: unknown }).path !== 'string' ||
@@ -5019,12 +5019,12 @@ function registerIpc(): void {
           ),
       )
     ) {
-      throw new Error('附件路径格式无效');
+      throw new Error('附件路径格式无效')
     }
     return fileAccessGrants.resolveReferences(
       references as Array<{ path: string; kind: 'file' | 'directory' }>,
       50 * 1024 * 1024,
-    );
+    )
   });
 
   // 读取用户本进程中通过原生选择器明确授权的文件，返回 Base64 + 元数据。
@@ -5032,13 +5032,13 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC.extractEditableDocument, async (_e, filePath: unknown) => {
     if (typeof filePath !== 'string' || filePath.length === 0) {
-      throw new Error('文件路径无效');
+      throw new Error('文件路径无效')
     }
-    const granted = fileAccessGrants.resolve(filePath, 50 * 1024 * 1024);
+    const granted = fileAccessGrants.resolve(filePath, 50 * 1024 * 1024)
     const core = (await import('clawmaster-core')) as unknown as {
-      extractEditableDocument(filePath: string): Promise<unknown>;
-    };
-    return core.extractEditableDocument(granted.filePath);
+      extractEditableDocument(filePath: string): Promise<unknown>
+    }
+    return core.extractEditableDocument(granted.filePath)
   });
 
   ipcMain.handle(
@@ -5054,56 +5054,56 @@ function registerIpc(): void {
         typeof suggestedFileName !== 'string' ||
         typeof content !== 'string'
       ) {
-        return null;
+        return null
       }
-      const granted = fileAccessGrants.resolve(sourcePath, 50 * 1024 * 1024);
-      const ext = path.extname(suggestedFileName).slice(1).toLowerCase();
+      const granted = fileAccessGrants.resolve(sourcePath, 50 * 1024 * 1024)
+      const ext = path.extname(suggestedFileName).slice(1).toLowerCase()
       const filters = ext
         ? [
-            { name: ext.toUpperCase() + ' 文件', extensions: [ext] },
-            { name: '所有文件', extensions: ['*'] },
-          ]
-        : [{ name: '所有文件', extensions: ['*'] }];
-      const win = mainWindow;
+          { name: ext.toUpperCase() + ' 文件', extensions: [ext] },
+          { name: '所有文件', extensions: ['*'] },
+        ]
+        : [{ name: '所有文件', extensions: ['*'] }]
+      const win = mainWindow
       const result = win
         ? await dialog.showSaveDialog(win, {
-            defaultPath: path.join(app.getPath('documents'), suggestedFileName),
-            filters,
-          })
+          defaultPath: path.join(app.getPath('documents'), suggestedFileName),
+          filters,
+        })
         : await dialog.showSaveDialog({
-            defaultPath: path.join(app.getPath('documents'), suggestedFileName),
-            filters,
-          });
-      if (result.canceled || !result.filePath) return null;
+          defaultPath: path.join(app.getPath('documents'), suggestedFileName),
+          filters,
+        })
+      if (result.canceled || !result.filePath) return null
       const core = (await import('clawmaster-core')) as unknown as {
         exportEditedDocument(
           sourcePath: string,
           content: string,
           outPath: string,
-        ): Promise<unknown>;
-      };
+        ): Promise<unknown>
+      }
       return core.exportEditedDocument(
         granted.filePath,
         content,
         result.filePath,
-      );
+      )
     },
-  );
+  )
 
   ipcMain.handle(IPC.readFilePath, async (_e, filePath: unknown) => {
     if (typeof filePath !== 'string' || filePath.length === 0) {
-      throw new Error('文件路径无效');
+      throw new Error('文件路径无效')
     }
-    const granted = fileAccessGrants.resolve(filePath, 50 * 1024 * 1024);
-    const buffer = await fs.promises.readFile(granted.filePath);
-    const base64 = buffer.toString('base64');
+    const granted = fileAccessGrants.resolve(filePath, 50 * 1024 * 1024)
+    const buffer = await fs.promises.readFile(granted.filePath)
+    const base64 = buffer.toString('base64')
     return {
       filePath: granted.filePath,
       fileName: path.basename(granted.filePath),
       size: granted.size,
       mimeType: getMimeType(granted.filePath),
       data: base64,
-    };
+    }
   });
 }
 
@@ -5112,125 +5112,125 @@ function registerIpc(): void {
 // ────────────────────────────────────────────────────────────────────────
 
 // 自动化验收与受管部署可使用隔离配置目录，避免与用户正在运行的 ClawMaster 实例争抢单实例锁。
-const isolatedUserDataDir = process.env.CLAWMASTER_USER_DATA_DIR?.trim();
-if (isolatedUserDataDir) app.setPath('userData', isolatedUserDataDir);
+const isolatedUserDataDir = process.env.CLAWMASTER_USER_DATA_DIR?.trim()
+if (isolatedUserDataDir) app.setPath('userData', isolatedUserDataDir)
 
 // Windows/Linux cold start 会把协议 URL 放进 argv；macOS 则通过 open-url 事件送达。
 // 解析器只接受中心企业邀请码链接，旧 token+key 链接不会改变登录状态。
-enterpriseRegistrationIntents.acceptArgv(process.argv);
+enterpriseRegistrationIntents.acceptArgv(process.argv)
 app.on('open-url', (event, url) => {
-  event.preventDefault();
-  acceptEnterpriseRegistrationUrl(url);
+  event.preventDefault()
+  acceptEnterpriseRegistrationUrl(url)
 });
 
 // 在窗口、托盘和 Notification 创建前注册稳定 AUMID。部分 Windows 机器若注册过晚，
 // 通知中心无法把 toast 与安装器创建的 ClawMaster 开始菜单快捷方式关联。
-if (process.platform === 'win32') app.setAppUserModelId('team.nsi.clawmaster.desktop');
+if (process.platform === 'win32') app.setAppUserModelId('team.nsi.clawmaster.desktop')
 
 // 单实例锁：第二次启动直接聚焦已开窗口，避免多开多个 server 抢端口。
-const gotLock = app.requestSingleInstanceLock();
+const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
-  app.quit();
+  app.quit()
 } else {
-  let quitCleanupStarted = false;
-  let quitCleanupFinished = false;
+  let quitCleanupStarted = false
+  let quitCleanupFinished = false
   app.on('second-instance', (_event, commandLine) => {
-    const accepted = enterpriseRegistrationIntents.acceptArgv(commandLine);
+    const accepted = enterpriseRegistrationIntents.acceptArgv(commandLine)
     if (
       accepted &&
       enterpriseIntentRendererReady &&
       mainWindow &&
       !mainWindow.isDestroyed()
     ) {
-      const intent = enterpriseRegistrationIntents.take();
+      const intent = enterpriseRegistrationIntents.take()
       if (intent)
         mainWindow.webContents.send(
           IPC.enterpriseRegistrationIntentOpened,
           intent,
-        );
+        )
     }
-    showMainWindow();
+    showMainWindow()
   });
 
   app.whenReady().then(async () => {
     if (process.defaultApp && process.argv[1]) {
       app.setAsDefaultProtocolClient('clawmaster', process.execPath, [
         path.resolve(process.argv[1]),
-      ]);
+      ])
       app.setAsDefaultProtocolClient('clawmaster', process.execPath, [
         path.resolve(process.argv[1]),
-      ]);
+      ])
     } else {
-      app.setAsDefaultProtocolClient('clawmaster');
-      app.setAsDefaultProtocolClient('clawmaster');
+      app.setAsDefaultProtocolClient('clawmaster')
+      app.setAsDefaultProtocolClient('clawmaster')
     }
     // 外观主题：默认跟随系统（'system' 让 renderer 的 prefers-color-scheme 生效）；
     // 用户在偏好里手动选过浅色/深色则恢复上次选择（userData/theme.json）。
-    nativeTheme.themeSource = loadSavedThemeSource();
+    nativeTheme.themeSource = loadSavedThemeSource()
 
-    registerIpc();
-    installAppMenu(() => mainWindow);
-    createTray();
-    mainWindowCreationReady = true;
+    registerIpc()
+    installAppMenu(() => mainWindow)
+    createTray()
+    mainWindowCreationReady = true
 
     // 先建窗（show:false，ready-to-show 再显），同时并发确保 server。
-    mainWindow = createWindow();
+    mainWindow = createWindow()
     if (pendingMainWindowFocusRequest) {
-      pendingMainWindowFocusRequest = false;
-      mainWindowPresentations.get(mainWindow)?.requestShow({ focus: true });
+      pendingMainWindowFocusRequest = false
+      mainWindowPresentations.get(mainWindow)?.requestShow({ focus: true })
     }
-    applyCsp();
-    await ensureEndpoint();
-    startEnterpriseIdentityRefresh();
-    startEnterpriseModuleUpdatePolling();
-    startEnterpriseSkillUsageReporting();
+    applyCsp()
+    await ensureEndpoint()
+    startEnterpriseIdentityRefresh()
+    startEnterpriseModuleUpdatePolling()
+    startEnterpriseSkillUsageReporting()
     powerMonitor.on('resume', () => {
-      if (!isQuitting) enterpriseMlsOutboxRetry.wake();
-      if (!isQuitting) enterpriseMlsInboundPoll.wake();
+      if (!isQuitting) enterpriseMlsOutboxRetry.wake()
+      if (!isQuitting) enterpriseMlsInboundPoll.wake()
     });
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        mainWindow = createWindow();
+        mainWindow = createWindow()
         // 窗口重建后把已知端点补推一次。
-        mainWindow.webContents.once('did-finish-load', pushEndpointToRenderer);
+        mainWindow.webContents.once('did-finish-load', pushEndpointToRenderer)
       } else {
-        showMainWindow();
+        showMainWindow()
       }
-    });
+    })
   });
 
   app.on('window-all-closed', () => {
     // Windows/Linux 关闭主窗口后常驻系统托盘，避免 ClawMaster 服务随窗口关闭而退出。
     // 真正退出走应用菜单或托盘「退出 ClawMaster」。
     // detached server 故意留活：飞书守护不受窗口关闭影响。
-    if (process.platform === 'darwin') return;
+    if (process.platform === 'darwin') return
   });
 
   app.on('before-quit', (event) => {
-    isQuitting = true;
+    isQuitting = true
     if (taskRuntimeBlockerId !== undefined) {
       if (powerSaveBlocker.isStarted(taskRuntimeBlockerId)) {
-        powerSaveBlocker.stop(taskRuntimeBlockerId);
+        powerSaveBlocker.stop(taskRuntimeBlockerId)
       }
-      taskRuntimeBlockerId = undefined;
+      taskRuntimeBlockerId = undefined
     }
     if (endpointRetryTimer) {
-      clearTimeout(endpointRetryTimer);
-      endpointRetryTimer = undefined;
+      clearTimeout(endpointRetryTimer)
+      endpointRetryTimer = undefined
     }
-    stopDesktopRecurringTasks();
-    if (quitCleanupFinished) return;
-    event.preventDefault();
-    if (quitCleanupStarted) return;
-    quitCleanupStarted = true;
+    stopDesktopRecurringTasks()
+    if (quitCleanupFinished) return
+    event.preventDefault()
+    if (quitCleanupStarted) return
+    quitCleanupStarted = true
     // 退出前中止未完成的更新下载（审查 M2）：abort 触发下载循环的 AbortError
     // 清理路径，best-effort 删掉 Downloads 里的 .part 临时文件。幂等，无任务时空操作。
     // 即使进程赶在异步清理完成前退出，下次下载同一资产会截断重写同名 .part，
     // 且 sha256 校验兜底完整性，残留无危害。
-    updateService.cancelDownload();
-    fileAccessGrants.clear();
-    notificationService.clearAll();
+    updateService.cancelDownload()
+    fileAccessGrants.clear()
+    notificationService.clearAll()
     // detached server 仅用户主动退出托盘时才杀。
     // 关窗不杀：server + 飞书守护继续运行。
     void flushEnterpriseAccountDataSync(3_000)
@@ -5240,11 +5240,11 @@ if (!gotLock) {
       .then(() => enterpriseMls.close())
       .then(() => serverManager.shutdown(isQuitting))
       .catch((error) => {
-        console.warn('[clawmaster-desktop] 退出清理 server 失败:', error);
+        console.warn('[clawmaster-desktop] 退出清理 server 失败:', error)
       })
       .finally(() => {
-        quitCleanupFinished = true;
-        app.quit();
+        quitCleanupFinished = true
+        app.quit()
       });
-  });
+  })
 }

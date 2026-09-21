@@ -3,62 +3,62 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
+import fs from 'node:fs'
+import path from 'node:path'
 
 import {
   restoreDataProtectionBackup,
   rollbackDataProtectionRestore,
   verifyDataProtectionBackup,
-} from './dataProtectionRestore.js';
-import { loadExistingDataProtectionEncryptionKey } from './dataProtectionService.js';
+} from './dataProtectionRestore.js'
+import { loadExistingDataProtectionEncryptionKey } from './dataProtectionService.js'
 import {
   createSqlCipherFileRuntime,
   parseSqlCipherRuntimeMode,
-} from './sqlCipherRuntime.js';
+} from './sqlCipherRuntime.js'
 
 function argument(name: string): string | null {
-  const index = process.argv.indexOf(name);
-  return index >= 0 ? (process.argv[index + 1] ?? null) : null;
+  const index = process.argv.indexOf(name)
+  return index >= 0 ? (process.argv[index + 1] ?? null) : null
 }
 
 function requiredArgument(name: string): string {
-  const value = argument(name)?.trim();
-  if (!value) throw new Error(`${name} is required`);
-  return value;
+  const value = argument(name)?.trim()
+  if (!value) throw new Error(`${name} is required`)
+  return value
 }
 
 async function main(): Promise<void> {
-  const command = process.argv[2];
+  const command = process.argv[2]
   const dataDirectory = path.resolve(
     argument('--data-dir') ||
       process.env.CLAWMASTER_ENTERPRISE_DIR ||
       path.join(process.env.HOME || process.cwd(), '.clawmaster-enterprise'),
-  );
+  )
   if (command === 'rollback') {
     rollbackDataProtectionRestore({
       dataDirectory,
       rollbackDirectory: requiredArgument('--rollback-dir'),
-    });
+    })
     process.stdout.write(
       `${JSON.stringify({ rolledBack: true, dataDirectory })}\n`,
-    );
+    )
     return;
   }
-  const maximumSchemaVersion = Number(requiredArgument('--max-schema'));
+  const maximumSchemaVersion = Number(requiredArgument('--max-schema'))
   if (!Number.isInteger(maximumSchemaVersion) || maximumSchemaVersion <= 0) {
-    throw new Error('--max-schema must be a positive integer');
+    throw new Error('--max-schema must be a positive integer')
   }
-  const archivePath = path.resolve(requiredArgument('--archive'));
+  const archivePath = path.resolve(requiredArgument('--archive'))
   const sqlCipherRuntime =
     parseSqlCipherRuntimeMode() === 'required'
       ? createSqlCipherFileRuntime({ dataDirectory })
-      : null;
+      : null
   const key = loadExistingDataProtectionEncryptionKey({
     dataDirectory,
     encryptionKey: process.env.CLAWMASTER_BACKUP_ENCRYPTION_KEY,
     encryptionKeyPath: process.env.CLAWMASTER_BACKUP_ENCRYPTION_KEY_FILE,
-  });
+  })
   if (command === 'verify') {
     const result = await verifyDataProtectionBackup({
       archivePath,
@@ -68,14 +68,14 @@ async function main(): Promise<void> {
       ...(sqlCipherRuntime
         ? { openDatabase: sqlCipherRuntime.openProtectedDatabase }
         : {}),
-    });
+    })
     process.stdout.write(
       `${JSON.stringify({ verified: true, archivePath, ...result })}\n`,
-    );
+    )
     return;
   }
   if (command !== 'restore') {
-    throw new Error('command must be verify, restore or rollback');
+    throw new Error('command must be verify, restore or rollback')
   }
   const receipt = await restoreDataProtectionBackup({
     archivePath,
@@ -90,12 +90,12 @@ async function main(): Promise<void> {
       process.env.CLAWMASTER_FIELD_ENCRYPTION_KEY_FILE?.trim() || undefined,
     ...(sqlCipherRuntime
       ? {
-          databaseKeyPath: sqlCipherRuntime.keyPath,
-          openDatabase: sqlCipherRuntime.openProtectedDatabase,
-        }
+        databaseKeyPath: sqlCipherRuntime.keyPath,
+        openDatabase: sqlCipherRuntime.openProtectedDatabase,
+      }
       : {}),
-  });
-  const receiptPath = argument('--receipt');
+  })
+  const receiptPath = argument('--receipt')
   if (receiptPath) {
     fs.writeFileSync(
       path.resolve(receiptPath),
@@ -103,14 +103,14 @@ async function main(): Promise<void> {
       {
         mode: 0o600,
       },
-    );
+    )
   }
-  process.stdout.write(`${JSON.stringify(receipt)}\n`);
+  process.stdout.write(`${JSON.stringify(receipt)}\n`)
 }
 
 main().catch((error) => {
   process.stderr.write(
     `${error instanceof Error ? error.message : String(error)}\n`,
-  );
-  process.exitCode = 1;
+  )
+  process.exitCode = 1
 });

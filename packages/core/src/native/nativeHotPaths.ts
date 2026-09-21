@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type NativeHotPathId = 'agent_pool' | 'session_store' | 'tokenizer';
+export type NativeHotPathId = 'agent_pool' | 'session_store' | 'tokenizer'
 
 export interface NativeHotPathContract {
-  id: NativeHotPathId;
-  purpose: string;
-  rustModule: string;
-  methods: readonly string[];
-  legacyOwner: string;
+  id: NativeHotPathId
+  purpose: string
+  rustModule: string
+  methods: readonly string[]
+  legacyOwner: string
 }
 
 export const NATIVE_HOT_PATH_CONTRACTS: readonly NativeHotPathContract[] = [
@@ -53,13 +53,13 @@ export const NATIVE_HOT_PATH_CONTRACTS: readonly NativeHotPathContract[] = [
       'tokenizer.supported_models',
     ],
   },
-];
+]
 
 export const REQUIRED_NATIVE_HOT_PATH_METHODS = Object.freeze(
-  NATIVE_HOT_PATH_CONTRACTS.flatMap((contract) => contract.methods),
-);
+  NATIVE_HOT_PATH_CONTRACTS.flatMap(contract => contract.methods),
+)
 
 export function validateNativeHotPathCoverage(methods: readonly string[]): string[] {
-  const available = new Set(methods);
-  return REQUIRED_NATIVE_HOT_PATH_METHODS.filter((method) => !available.has(method));
+  const available = new Set(methods)
+  return REQUIRED_NATIVE_HOT_PATH_METHODS.filter(method => !available.has(method))
 }

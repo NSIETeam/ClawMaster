@@ -12,79 +12,79 @@
  * 完全禁用记忆子系统（disabled → 所有操作 no-op）。
  */
 
-import { AutoMemoryEngine, getAutoMemoryEngine } from './autoMerge.js';
+import { AutoMemoryEngine, getAutoMemoryEngine } from './autoMerge.js'
 import {
   KnowledgeCapturePipeline,
   getKnowledgeCapturePipeline,
-} from '../knowledge/knowledgeCapturePipeline.js';
-import { LocalKnowledgeStore } from '../knowledge/localKnowledgeStore.js';
+} from '../knowledge/knowledgeCapturePipeline.js'
+import { LocalKnowledgeStore } from '../knowledge/localKnowledgeStore.js'
 
 // ── Public types ────────────────────────────────────────────────────────
 
 /** 一条记忆事件：kernel 调用 capture() 时传入。 */
 export interface MemoryEvent {
   /** 来源事件 ID（如 turn/worklog entry id），用于溯源 */
-  sourceEvent: string;
+  sourceEvent: string
   /** ISO 8601 时间戳 */
-  timestamp: string;
+  timestamp: string
   /** 要记忆的文本内容，不能为空 */
-  content: string;
+  content: string
   /** 自动/人工标签（技术栈、概念等） */
-  tags: string[];
+  tags: string[]
   /** 置信度 0-1（≤0 表示不记录，≥0.8 高置信自动写入） */
-  confidence: number;
+  confidence: number
 }
 
 /** 搜索结果。 */
 export interface MemorySearchResult {
-  entry: MemoryEvent;
+  entry: MemoryEvent
   /** 相关度分数（越大越相关），子串匹配为命中次数加权 */
-  score: number;
+  score: number
   /** 数据来源（如 "autoMerge" | "knowledgeStore"），用于审计 */
-  provenance: string;
+  provenance: string
 }
 
 /** 搜索选项。 */
 export interface SearchOptions {
   /** 返回条数上限，默认 10 */
-  limit?: number;
+  limit?: number
   /** 最低置信度过滤（含），默认 0 */
-  minConfidence?: number;
+  minConfidence?: number
   /** 必须同时匹配这些标签的条目（AND 逻辑） */
-  tags?: string[];
+  tags?: string[]
   /** 是否限定项目级记忆（true → 只查 project scope） */
-  projectScope?: boolean;
+  projectScope?: boolean
 }
 
 /** 记忆子系统统计。 */
 export interface MemoryStats {
   /** 总条目数 */
-  totalEntries: number;
+  totalEntries: number
   /** 来自 autoMerge 的条目数 */
-  autoMergeEntries: number;
+  autoMergeEntries: number
   /** 来自 knowledge store 的条目数 */
-  knowledgeEntries: number;
+  knowledgeEntries: number
   /** 最后更新时间（ISO 8601），无条目时为 null */
-  lastUpdated: string | null;
+  lastUpdated: string | null
 }
 
 // ── MemorySubsystem interface ───────────────────────────────────────────
 
 export interface MemorySubsystem {
   /** 记录一条记忆事件（写入自动合并引擎 + 知识库）。 */
-  capture(event: MemoryEvent): Promise<void>;
+  capture(event: MemoryEvent): Promise<void>
 
   /** 搜索记忆（子串匹配，零外部依赖）。 */
-  search(query: string, opts?: SearchOptions): Promise<MemorySearchResult[]>;
+  search(query: string, opts?: SearchOptions): Promise<MemorySearchResult[]>
 
   /** 获取子系统统计。 */
-  getStats(): Promise<MemoryStats>;
+  getStats(): Promise<MemoryStats>
 
   /** 从原始事件重建索引（扫描 global.md + entries.jsonl）。 */
-  rebuild(): Promise<void>;
+  rebuild(): Promise<void>
 
   /** 清空所有记忆（删除事件记录，不删源文件）。 */
-  clear(): Promise<void>;
+  clear(): Promise<void>
 }
 
 // ── Internal types ──────────────────────────────────────────────────────
@@ -92,13 +92,13 @@ export interface MemorySubsystem {
 /** createMemorySubsystem 的构造选项。 */
 export interface MemorySubsystemOptions {
   /** 是否禁用（kernel 标志传递）。禁用后所有操作 no-op。 */
-  disabled?: boolean;
+  disabled?: boolean
   /** autoMerge 引擎覆盖（测试注入用）。 */
-  autoMerge?: AutoMemoryEngine;
+  autoMerge?: AutoMemoryEngine
   /** 知识捕获管道覆盖（测试注入用）。 */
-  pipeline?: KnowledgeCapturePipeline;
+  pipeline?: KnowledgeCapturePipeline
   /** 知识存储覆盖（账号隔离与测试注入用）。 */
-  knowledgeStore?: LocalKnowledgeStore;
+  knowledgeStore?: LocalKnowledgeStore
 }
 
 // ── Simple substring search implementation ──────────────────────────────
@@ -112,28 +112,28 @@ export interface MemorySubsystemOptions {
  *  - 匹配到标签的条目额外 +1（提高标签匹配权重）
  */
 function computeSearchScore(content: string, tags: string[], query: string): number {
-  const q = query.trim().toLowerCase();
-  const c = content.toLowerCase();
+  const q = query.trim().toLowerCase()
+  const c = content.toLowerCase()
 
-  let score = 0;
-  if (c.includes(q)) score += 5;
+  let score = 0
+  if (c.includes(q)) score += 5
 
   // 分词累加（跳过与整句相同的单 token）
-  const tokens = q.split(/[\s,，、;；]+/).filter(s => s.length > 0 && s !== q);
+  const tokens = q.split(/[\s,，、;；]+/).filter(s => s.length > 0 && s !== q)
   for (const token of tokens) {
-    const t = token.toLowerCase();
-    if (c.includes(t)) score += 1;
+    const t = token.toLowerCase()
+    if (c.includes(t)) score += 1
     for (const tag of tags) {
-      if (tag.toLowerCase().includes(t)) score += 2;
+      if (tag.toLowerCase().includes(t)) score += 2
     }
   }
 
   // 标签直查加分
   for (const tag of tags) {
-    if (tag.toLowerCase().includes(q)) score += 2;
+    if (tag.toLowerCase().includes(q)) score += 2
   }
 
-  return score;
+  return score
 }
 
 // ── Implementation ──────────────────────────────────────────────────────
@@ -143,23 +143,23 @@ export function createMemorySubsystem(
   opts: MemorySubsystemOptions = {},
 ): MemorySubsystem {
   if (opts.disabled) {
-    return createNoopMemorySubsystem();
+    return createNoopMemorySubsystem()
   }
 
-  const engine = opts.autoMerge ?? getAutoMemoryEngine();
-  const knowledgeStore = opts.knowledgeStore ?? new LocalKnowledgeStore();
+  const engine = opts.autoMerge ?? getAutoMemoryEngine()
+  const knowledgeStore = opts.knowledgeStore ?? new LocalKnowledgeStore()
   const pipeline = opts.pipeline
     ?? (opts.knowledgeStore
       ? new KnowledgeCapturePipeline(knowledgeStore)
-      : getKnowledgeCapturePipeline());
+      : getKnowledgeCapturePipeline())
 
   // 记录内存中的事件列表（供 rebuild / clear 用）
-  const capturedEvents: MemoryEvent[] = [];
+  const capturedEvents: MemoryEvent[] = []
 
   return {
     async capture(event: MemoryEvent): Promise<void> {
-      const content = (event.content ?? '').trim();
-      if (!content || event.confidence <= 0) return;
+      const content = (event.content ?? '').trim()
+      if (!content || event.confidence <= 0) return
 
       // 写入 autoMerge 引擎（触发自动合并/去重）
       try {
@@ -168,7 +168,7 @@ export function createMemorySubsystem(
           topics: event.tags ?? [],
           scope: 'global',
           sourceSessionId: event.sourceEvent,
-        });
+        })
       } catch {
         // 不阻断
       }
@@ -179,47 +179,47 @@ export function createMemorySubsystem(
           await pipeline.runExplicitMemory(
             `[source:${event.sourceEvent}] ${content}`,
             event.sourceEvent,
-          );
+          )
         } catch {
           // 不阻断
         }
       }
 
-      capturedEvents.push(event);
+      capturedEvents.push(event)
     },
 
     async search(query: string, opts?: SearchOptions): Promise<MemorySearchResult[]> {
-      const q = (query ?? '').trim();
-      if (!q) return [];
+      const q = (query ?? '').trim()
+      if (!q) return []
 
-      const limit = opts?.limit ?? 10;
-      const minConf = opts?.minConfidence ?? 0;
-      const tagFilter = opts?.tags ?? [];
+      const limit = opts?.limit ?? 10
+      const minConf = opts?.minConfidence ?? 0
+      const tagFilter = opts?.tags ?? []
 
-      const results: MemorySearchResult[] = [];
+      const results: MemorySearchResult[] = []
 
       // 1. 搜索 autoMerge 引擎中的条目
       try {
         const autoEntries = engine.queryEntries({
           scope: opts?.projectScope ? 'project' : undefined,
           limit: 200,
-        });
+        })
 
         for (const entry of autoEntries) {
-          if (entry.compressed) continue;
-          const score = computeSearchScore(entry.text, entry.topics, q);
-          if (score <= 0) continue;
+          if (entry.compressed) continue
+          const score = computeSearchScore(entry.text, entry.topics, q)
+          if (score <= 0) continue
 
           // 置信度过滤（autoMerge 条目默认置信度 0.7）
-          const conf = 0.7;
-          if (conf < minConf) continue;
+          const conf = 0.7
+          if (conf < minConf) continue
 
           // 标签过滤
           if (tagFilter.length > 0) {
             const hasAllTags = tagFilter.every(t =>
               entry.topics.some(et => et.toLowerCase().includes(t.toLowerCase())),
-            );
-            if (!hasAllTags) continue;
+            )
+            if (!hasAllTags) continue
           }
 
           results.push({
@@ -232,7 +232,7 @@ export function createMemorySubsystem(
             },
             score,
             provenance: 'autoMerge',
-          });
+          })
         }
       } catch {
         // 搜索失败忽略
@@ -240,23 +240,23 @@ export function createMemorySubsystem(
 
       // 2. 搜索 localKnowledgeStore
       try {
-        const entries = await knowledgeStore.loadAll();
+        const entries = await knowledgeStore.loadAll()
         for (const entry of entries) {
-          const tags = entry.tags ?? [];
-          const content = entry.content ?? '';
-          if (!content) continue;
+          const tags = entry.tags ?? []
+          const content = entry.content ?? ''
+          if (!content) continue
 
-          const score = computeSearchScore(content, tags, q);
-          if (score <= 0) continue;
+          const score = computeSearchScore(content, tags, q)
+          if (score <= 0) continue
 
-          const conf = 0.8; // 知识库条目默认高置信
-          if (conf < minConf) continue;
+          const conf = 0.8 // 知识库条目默认高置信
+          if (conf < minConf) continue
 
           if (tagFilter.length > 0) {
             const hasAllTags = tagFilter.every(t =>
               tags.some(et => et.toLowerCase().includes(t.toLowerCase())),
-            );
-            if (!hasAllTags) continue;
+            )
+            if (!hasAllTags) continue
           }
 
           results.push({
@@ -269,7 +269,7 @@ export function createMemorySubsystem(
             },
             score,
             provenance: 'knowledgeStore',
-          });
+          })
         }
       } catch {
         // 搜索失败忽略
@@ -280,24 +280,24 @@ export function createMemorySubsystem(
         (a, b) =>
           b.score - a.score ||
           b.entry.timestamp.localeCompare(a.entry.timestamp),
-      );
+      )
 
-      const selected = results.slice(0, Math.max(1, limit));
+      const selected = results.slice(0, Math.max(1, limit))
       await knowledgeStore.markUsed(
         selected
-          .filter((result) => result.provenance === 'knowledgeStore')
-          .map((result) => result.entry.sourceEvent),
-      ).catch(() => undefined);
-      return selected;
+          .filter(result => result.provenance === 'knowledgeStore')
+          .map(result => result.entry.sourceEvent),
+      ).catch(() => undefined)
+      return selected
     },
 
     async getStats(): Promise<MemoryStats> {
-      const engineStats = engine.getStats();
+      const engineStats = engine.getStats()
 
-      let knowledgeEntries = 0;
+      let knowledgeEntries = 0
       try {
-        const entries = await knowledgeStore.loadAll();
-        knowledgeEntries = entries.length;
+        const entries = await knowledgeStore.loadAll()
+        knowledgeEntries = entries.length
       } catch {
         // 读取失败视为 0
       }
@@ -307,20 +307,20 @@ export function createMemorySubsystem(
         autoMergeEntries: engineStats.totalEntries,
         knowledgeEntries,
         lastUpdated: engineStats.newestEntry ?? null,
-      };
+      }
     },
 
     async rebuild(): Promise<void> {
       // Rebuild the configured engine in place so account-scoped and test
       // storage never falls back to the process-global ~/.clawmaster-user paths.
-      await engine.runMaintenanceCycle();
+      await engine.runMaintenanceCycle()
     },
 
     async clear(): Promise<void> {
       // 清空内存事件列表
-      capturedEvents.length = 0;
+      capturedEvents.length = 0
     },
-  };
+  }
 }
 
 // ── No-op implementation (disabled memory) ──────────────────────────────
@@ -331,7 +331,7 @@ function createNoopMemorySubsystem(): MemorySubsystem {
       // no-op
     },
     async search(_query: string, _opts?: SearchOptions): Promise<MemorySearchResult[]> {
-      return [];
+      return []
     },
     async getStats(): Promise<MemoryStats> {
       return {
@@ -339,7 +339,7 @@ function createNoopMemorySubsystem(): MemorySubsystem {
         autoMergeEntries: 0,
         knowledgeEntries: 0,
         lastUpdated: null,
-      };
+      }
     },
     async rebuild(): Promise<void> {
       // no-op
@@ -347,5 +347,5 @@ function createNoopMemorySubsystem(): MemorySubsystem {
     async clear(): Promise<void> {
       // no-op
     },
-  };
+  }
 }

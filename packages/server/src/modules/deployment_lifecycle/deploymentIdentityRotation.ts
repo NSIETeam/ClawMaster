@@ -15,25 +15,25 @@
  * 纯函数核心，便于离线测试。
  */
 
-import { createHash } from 'node:crypto';
+import { createHash } from 'node:crypto'
 
 export interface DeploymentKeyIdentity {
   /** 部署唯一 id（轮换不改变）。 */
-  deploymentId: string;
+  deploymentId: string
   /** 当前验证公钥（hex DER）。 */
-  publicKeyHex: string;
+  publicKeyHex: string
   /** 派生指纹（含 lineage epoch）。 */
-  fingerprint: string;
+  fingerprint: string
   /** 指纹派生 epoch（轮换 +1）。 */
-  epoch: number;
+  epoch: number
   /** 上一 epoch 的公钥指纹（根 epoch 为前置印记 null）。 */
-  previousFingerprint: string | null;
+  previousFingerprint: string | null
 }
 
 /** 根身份：epoch=0，无前置。 */
 export function rootIdentity(input: {
-  deploymentId: string;
-  publicKeyHex: string;
+  deploymentId: string
+  publicKeyHex: string
 }): DeploymentKeyIdentity {
   return {
     deploymentId: input.deploymentId,
@@ -41,16 +41,16 @@ export function rootIdentity(input: {
     fingerprint: lineageFingerprint(input.deploymentId, 'none', input.publicKeyHex, 0),
     epoch: 0,
     previousFingerprint: null,
-  };
+  }
 }
 
 /** 轮换：保留 deploymentId 连续身份，派生新指纹链接到旧指纹（lineage）。 */
 export function rotateIdentity(input: {
-  deploymentId: string;
-  current: DeploymentKeyIdentity;
-  newPublicKeyHex: string;
+  deploymentId: string
+  current: DeploymentKeyIdentity
+  newPublicKeyHex: string
 }): DeploymentKeyIdentity {
-  const nextEpoch = input.current.epoch + 1;
+  const nextEpoch = input.current.epoch + 1
   return {
     deploymentId: input.deploymentId,
     publicKeyHex: input.newPublicKeyHex,
@@ -62,7 +62,7 @@ export function rotateIdentity(input: {
     ),
     epoch: nextEpoch,
     previousFingerprint: input.current.fingerprint,
-  };
+  }
 }
 
 /** 指纹派生：绑定 deploymentId + 前置指纹 + 公钥 + epoch，保证连续且篡改不可预测。 */
@@ -76,7 +76,7 @@ export function lineageFingerprint(
     .update(
       `clawmaster:deploy-lineage:v1:${deploymentId}:${epoch}:${previousFingerprint}:${publicKeyHex.toLowerCase()}`,
     )
-    .digest('hex');
+    .digest('hex')
 }
 
 /** 校验身份链：given 是否可由 expectedAncestor 沿 lineage 延续（前向一致性）。 */
@@ -84,31 +84,31 @@ export function isDescendantOf(
   given: DeploymentKeyIdentity,
   expectedAncestor: DeploymentKeyIdentity,
 ): boolean {
-  if (given.deploymentId !== expectedAncestor.deploymentId) return false;
-  if (given.epoch < expectedAncestor.epoch) return false;
-  return given.previousFingerprint === expectedAncestor.fingerprint && given.epoch === expectedAncestor.epoch + 1;
+  if (given.deploymentId !== expectedAncestor.deploymentId) return false
+  if (given.epoch < expectedAncestor.epoch) return false
+  return given.previousFingerprint === expectedAncestor.fingerprint && given.epoch === expectedAncestor.epoch + 1
 }
 
 /** 一次轮换的审计记录（无密钥材料）。 */
 export interface RotationAuditRecord {
-  deploymentId: string;
-  fromEpoch: number;
-  toEpoch: number;
-  fromFingerprint: string;
-  toFingerprint: string;
-  reason: string;
-  atMs: number;
-  auditEvent: 'deployment.key_rotated';
+  deploymentId: string
+  fromEpoch: number
+  toEpoch: number
+  fromFingerprint: string
+  toFingerprint: string
+  reason: string
+  atMs: number
+  auditEvent: 'deployment.key_rotated'
 }
 
 /** 构建轮换审计记录。 */
 export function buildRotationAudit(
   input: {
-    deploymentId: string;
-    from: DeploymentKeyIdentity;
-    to: DeploymentKeyIdentity;
-    reason: string;
-    atMs: number;
+    deploymentId: string
+    from: DeploymentKeyIdentity
+    to: DeploymentKeyIdentity
+    reason: string
+    atMs: number
   },
 ): RotationAuditRecord {
   return {
@@ -120,7 +120,7 @@ export function buildRotationAudit(
     reason: input.reason,
     atMs: input.atMs,
     auditEvent: 'deployment.key_rotated',
-  };
+  }
 }
 
 /** 断言一条调用方声明的 identity 与其「预期指纹」一致（防伪造/防克隆）。 */
@@ -128,5 +128,5 @@ export function assertFingerprintMatches(
   identity: DeploymentKeyIdentity,
   expectedFingerprint: string,
 ): boolean {
-  return identity.fingerprint === expectedFingerprint;
+  return identity.fingerprint === expectedFingerprint
 }

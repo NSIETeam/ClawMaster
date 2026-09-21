@@ -5,7 +5,7 @@
  * 经企业服务器托管，在用户浏览器中探测其本地 clawmaster 是否运行。
  */
 
-import type { ServerResponse } from 'node:http';
+import type { ServerResponse } from 'node:http'
 
 function renderLocalAgentPage(): string {
   return `<!doctype html>
@@ -193,7 +193,7 @@ function renderLocalAgentPage(): string {
     ClawMasterDiscovery.detect(handleResult);
   </script>
 </body>
-</html>`;
+</html>`
 }
 
 export function sendLocalAgentPage(res: ServerResponse): void {
@@ -206,6 +206,6 @@ export function sendLocalAgentPage(res: ServerResponse): void {
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
     'Cross-Origin-Opener-Policy': 'same-origin',
-  });
-  res.end(renderLocalAgentPage());
+  })
+  res.end(renderLocalAgentPage())
 }

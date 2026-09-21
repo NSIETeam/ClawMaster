@@ -1,18 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
-import { loadVoiceConfig, saveVoiceConfig } from './voiceConfig.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { loadVoiceConfig, saveVoiceConfig } from './voiceConfig.js'
 
-let home: string;
+let home: string
 beforeEach(() => {
-  home = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-voice-'));
-  vi.stubEnv('HOME', home);
-  vi.stubEnv('USERPROFILE', home);
+  home = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-voice-'))
+  vi.stubEnv('HOME', home)
+  vi.stubEnv('USERPROFILE', home)
 });
 afterEach(() => {
-  vi.unstubAllEnvs();
-  fs.rmSync(home, { recursive: true, force: true });
+  vi.unstubAllEnvs()
+  fs.rmSync(home, { recursive: true, force: true })
 });
 
 describe('voiceConfig', () => {
@@ -31,18 +31,18 @@ describe('voiceConfig', () => {
       polishModel: 'deepseek-chat',
       polishApiKey: 'sk-deepseek',
       polishPrompt: '整理文本',
-    });
-    const loaded = loadVoiceConfig();
-    expect(loaded.public.hasVolcCredentials).toBe(true);
-    expect(loaded.public.hasPolishApiKey).toBe(true);
-    expect(JSON.stringify(loaded.public)).not.toContain('sk-deepseek');
-    expect(loaded.secrets.volcAccessKey).toBe('access');
-    const secret = path.join(home, '.clawmaster-user', 'secrets', 'voice-volc-access-key');
-    expect(fs.existsSync(secret)).toBe(true);
+    })
+    const loaded = loadVoiceConfig()
+    expect(loaded.public.hasVolcCredentials).toBe(true)
+    expect(loaded.public.hasPolishApiKey).toBe(true)
+    expect(JSON.stringify(loaded.public)).not.toContain('sk-deepseek')
+    expect(loaded.secrets.volcAccessKey).toBe('access')
+    const secret = path.join(home, '.clawmaster-user', 'secrets', 'voice-volc-access-key')
+    expect(fs.existsSync(secret)).toBe(true)
     // POSIX honors chmod(0600). Windows exposes inherited ACLs instead of
     // meaningful POSIX mode bits, so fs.stat().mode commonly reports 0666.
     if (process.platform !== 'win32') {
-      expect(fs.statSync(secret).mode & 0o777).toBe(0o600);
+      expect(fs.statSync(secret).mode & 0o777).toBe(0o600)
     }
-  });
+  })
 });

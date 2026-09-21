@@ -2,22 +2,22 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { createHash } from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto'
+import { describe, expect, it, vi } from 'vitest'
 
-import { createPostgresRegistrationRepository } from './postgresRegistrationRepository.js';
-import { canonicalJson } from '../modules/commercial_control/signedEnvelope.js';
+import { createPostgresRegistrationRepository } from './postgresRegistrationRepository.js'
+import { canonicalJson } from '../modules/commercial_control/signedEnvelope.js'
 import type {
   PostgresClientLike,
   PostgresPoolLike,
   PostgresQueryResult,
-} from '../modules/data_platform/postgresDatabaseLifecycle.js';
+} from '../modules/data_platform/postgresDatabaseLifecycle.js'
 
 function result<Row extends Record<string, unknown>>(
   rows: Row[] = [],
   rowCount: number | null = rows.length,
 ): PostgresQueryResult<Row> {
-  return { rows, rowCount };
+  return { rows, rowCount }
 }
 
 function poolWithClient(
@@ -26,27 +26,27 @@ function poolWithClient(
     values: readonly unknown[],
   ) => Promise<PostgresQueryResult>,
 ) {
-  const statements: Array<{ sql: string; values: readonly unknown[] }> = [];
+  const statements: Array<{ sql: string; values: readonly unknown[] }> = []
   const client: PostgresClientLike = {
     query: vi.fn(async (sql: string, values: readonly unknown[] = []) => {
-      statements.push({ sql, values });
-      return query(sql, values);
+      statements.push({ sql, values })
+      return query(sql, values)
     }),
     release: vi.fn(),
-  };
+  }
   const pool: PostgresPoolLike = {
     connect: vi.fn(async () => client),
     query: vi.fn(),
     end: vi.fn(),
-  };
-  return { pool, client, statements };
+  }
+  return { pool, client, statements }
 }
 
 const seatClaims = {
   organizationId: 'org_default',
   seatLimit: 5,
   expiresAt: '2099-08-01T00:00:00.000Z',
-};
+}
 const seatAdmission = {
   recordVersion: 1,
   signature: 'ed25519:test-signature',
@@ -54,7 +54,7 @@ const seatAdmission = {
     .update(canonicalJson(seatClaims))
     .digest('hex'),
   seatLimit: 5,
-};
+}
 
 function licenseAdmissionResult(sql: string): PostgresQueryResult | null {
   if (sql.includes('FROM enterprise_business_records')) {
@@ -68,12 +68,12 @@ function licenseAdmissionResult(sql: string): PostgresQueryResult | null {
           },
         },
       },
-    ]);
+    ])
   }
   if (sql.includes("account_type = 'enterprise'")) {
-    return result([{ count: 0 }]);
+    return result([{ count: 0 }])
   }
-  return null;
+  return null
 }
 
 describe('PostgreSQL registration authority', () => {
@@ -92,7 +92,7 @@ describe('PostgreSQL registration authority', () => {
             created_at: new Date('2026-08-01T00:00:00.000Z'),
             updated_at: new Date('2026-08-01T00:00:00.000Z'),
           },
-        ]);
+        ])
       }
       if (sql.includes('INSERT INTO organization_invites')) {
         return result([
@@ -112,54 +112,54 @@ describe('PostgreSQL registration authority', () => {
             max_uses: null,
             used_count: 0,
           },
-        ]);
+        ])
       }
-      return result();
+      return result()
     });
     const repository = createPostgresRegistrationRepository({
       pool,
       getAccount: vi.fn(),
       logAudit: vi.fn(async () => undefined),
-    });
+    })
 
     const invite = await repository.issueOrganizationInvite({
       organizationId: 'org_default',
       createdByAccountId: 'acc_admin',
       now: new Date('2026-08-01T00:00:00.000Z'),
-    });
+    })
 
     expect(invite.code).toMatch(
       /^[A-HJ-NP-Za-km-z2-9]{4}-[A-HJ-NP-Za-km-z2-9]{4}-[A-HJ-NP-Za-km-z2-9]{4}$/,
-    );
+    )
     const inserted = statements.find(({ sql }) =>
       sql.includes('INSERT INTO organization_invites'),
-    )!;
-    expect(inserted.values).not.toContain(invite.code);
+    )!
+    expect(inserted.values).not.toContain(invite.code)
     expect(inserted.values[3]).toBe(
       createHash('sha256')
         .update(invite.code.replaceAll('-', ''))
         .digest('hex'),
-    );
+    )
     expect(statements.map(({ sql }) => sql)).toEqual(
       expect.arrayContaining(['BEGIN', 'COMMIT']),
-    );
+    )
   });
 
   it('hashes SMS codes and rate limits challenge creation under a transaction lock', async () => {
     const { pool, statements } = poolWithClient(async (sql) => {
       if (sql.includes('FROM accounts') && sql.includes('phone ='))
-        return result();
-      if (sql.includes('FROM sms_registration_challenges')) return result();
+        return result()
+      if (sql.includes('FROM sms_registration_challenges')) return result()
       return result(
         [],
         sql.includes('INSERT INTO sms_registration_challenges') ? 1 : 0,
-      );
+      )
     });
     const repository = createPostgresRegistrationRepository({
       pool,
       getAccount: vi.fn(),
       logAudit: vi.fn(async () => undefined),
-    });
+    })
 
     await expect(
       repository.requestSmsRegistration({
@@ -170,16 +170,16 @@ describe('PostgreSQL registration authority', () => {
     ).resolves.toMatchObject({
       state: 'issued',
       registrationMode: 'personal',
-    });
+    })
 
     expect(
       statements.some(({ sql }) => sql.includes('pg_advisory_xact_lock')),
-    ).toBe(true);
+    ).toBe(true)
     const inserted = statements.find(({ sql }) =>
       sql.includes('INSERT INTO sms_registration_challenges'),
-    )!;
-    expect(inserted.values).not.toContain('123456');
-    expect(String(inserted.values[3])).not.toHaveLength(6);
+    )!
+    expect(inserted.values).not.toContain('123456')
+    expect(String(inserted.values[3])).not.toHaveLength(6)
   });
 
   it('fails closed when a personal account still has tenant-bound E2EE state', async () => {
@@ -193,7 +193,7 @@ describe('PostgreSQL registration authority', () => {
             status: 'active',
             name: 'Personal User',
           },
-        ]);
+        ])
       }
       if (sql.includes('FROM organization_invites')) {
         return result([
@@ -215,7 +215,7 @@ describe('PostgreSQL registration authority', () => {
             organization_name: 'ClawMaster',
             organization_status: 'active',
           },
-        ]);
+        ])
       }
       if (sql.includes('AS e2ee_devices')) {
         return result([
@@ -226,15 +226,15 @@ describe('PostgreSQL registration authority', () => {
             attachment_objects: 0,
             attachment_access: 0,
           },
-        ]);
+        ])
       }
-      return result();
+      return result()
     });
     const repository = createPostgresRegistrationRepository({
       pool,
       getAccount: vi.fn(),
       logAudit: vi.fn(async () => undefined),
-    });
+    })
 
     await expect(
       repository.joinOrganizationWithInvite({
@@ -242,18 +242,18 @@ describe('PostgreSQL registration authority', () => {
         inviteCode: 'ABCD-EFGH-JKLM',
         now: new Date('2026-08-01T00:01:00.000Z'),
       }),
-    ).resolves.toEqual({ state: 'security-state-present' });
+    ).resolves.toEqual({ state: 'security-state-present' })
 
     expect(
       statements.some(({ sql }) => sql.includes('UPDATE accounts SET')),
-    ).toBe(false);
-    expect(statements.map(({ sql }) => sql)).toContain('COMMIT');
+    ).toBe(false)
+    expect(statements.map(({ sql }) => sql)).toContain('COMMIT')
   });
 
   it('moves legal consent, consumes the invite and revokes sessions atomically', async () => {
     const { pool, statements } = poolWithClient(async (sql) => {
-      const admission = licenseAdmissionResult(sql);
-      if (admission) return admission;
+      const admission = licenseAdmissionResult(sql)
+      if (admission) return admission
       if (sql.includes('FROM accounts') && sql.includes('FOR UPDATE')) {
         return result([
           {
@@ -263,7 +263,7 @@ describe('PostgreSQL registration authority', () => {
             status: 'active',
             name: 'Personal User',
           },
-        ]);
+        ])
       }
       if (sql.includes('FROM organization_invites')) {
         return result([
@@ -285,7 +285,7 @@ describe('PostgreSQL registration authority', () => {
             organization_name: 'ClawMaster',
             organization_status: 'active',
           },
-        ]);
+        ])
       }
       if (sql.includes('AS e2ee_devices')) {
         return result([
@@ -296,7 +296,7 @@ describe('PostgreSQL registration authority', () => {
             attachment_objects: 0,
             attachment_access: 0,
           },
-        ]);
+        ])
       }
       if (sql.includes('FROM legal_consents')) {
         return result([
@@ -307,22 +307,22 @@ describe('PostgreSQL registration authority', () => {
             source: 'registration',
             accepted_at: new Date('2026-08-01T00:00:00.000Z'),
           },
-        ]);
+        ])
       }
       if (
         sql.includes('UPDATE accounts SET') ||
         sql.includes('UPDATE organization_invites')
       ) {
-        return result([], 1);
+        return result([], 1)
       }
-      return result();
+      return result()
     });
-    const getAccount = vi.fn(async () => ({ id: 'acc_personal' }) as never);
+    const getAccount = vi.fn(async () => ({ id: 'acc_personal' }) as never)
     const repository = createPostgresRegistrationRepository({
       pool,
       getAccount,
       logAudit: vi.fn(async () => undefined),
-    });
+    })
 
     await expect(
       repository.joinOrganizationWithInvite({
@@ -334,21 +334,21 @@ describe('PostgreSQL registration authority', () => {
     ).resolves.toMatchObject({
       state: 'joined',
       account: { id: 'acc_personal' },
-    });
+    })
 
     expect(
       statements.some(({ sql }) => sql.includes('DELETE FROM legal_consents')),
-    ).toBe(true);
+    ).toBe(true)
     expect(
       statements.some(({ sql }) =>
         sql.includes('UPDATE auth_sessions SET revoked_at'),
       ),
-    ).toBe(true);
+    ).toBe(true)
     expect(
       statements.some(({ sql }) =>
         sql.includes('SET used_count = used_count + 1'),
       ),
-    ).toBe(true);
-    expect(statements.map(({ sql }) => sql)).toContain('COMMIT');
+    ).toBe(true)
+    expect(statements.map(({ sql }) => sql)).toContain('COMMIT')
   });
-});
+})

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'node:fs/promises';
+import fs from 'node:fs/promises'
 
 /**
  * Interface for text file read/write operations.
@@ -22,7 +22,7 @@ export interface FileSystemService {
    *
    * @param filePath Absolute path to the file to read.
    */
-  readTextFile(filePath: string): Promise<string>;
+  readTextFile(filePath: string): Promise<string>
 
   /**
    * Write UTF-8 text content to a file, creating or overwriting it.
@@ -30,7 +30,7 @@ export interface FileSystemService {
    * @param filePath Absolute path to the file to write.
    * @param content  File contents.
    */
-  writeTextFile(filePath: string, content: string): Promise<void>;
+  writeTextFile(filePath: string, content: string): Promise<void>
 }
 
 /**
@@ -39,10 +39,10 @@ export interface FileSystemService {
  */
 export class StandardFileSystemService implements FileSystemService {
   async readTextFile(filePath: string): Promise<string> {
-    return fs.readFile(filePath, 'utf-8');
+    return fs.readFile(filePath, 'utf-8')
   }
 
   async writeTextFile(filePath: string, content: string): Promise<void> {
-    await fs.writeFile(filePath, content, 'utf-8');
+    await fs.writeFile(filePath, content, 'utf-8')
   }
 }

@@ -2,14 +2,14 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
 import {
   assertLocalSqliteDatabasePath,
   describeEnterpriseDatabaseTopology,
   requireLocalSqliteTopology,
   resolveEnterpriseDatabaseTopology,
-} from './enterpriseDatabaseTopology.js';
+} from './enterpriseDatabaseTopology.js'
 
 describe('enterprise database topology', () => {
   it('keeps a single local SQLite database as the default desktop topology', () => {
@@ -22,7 +22,7 @@ describe('enterprise database topology', () => {
       backend: 'sqlite',
       databasePath: 'D:\\clawmaster-data\\data.db',
       replicas: 1,
-    });
+    })
   });
 
   it('refuses multiple writers against SQLite', () => {
@@ -31,7 +31,7 @@ describe('enterprise database topology', () => {
         environment: { CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '2' },
         sqliteDatabasePath: '/var/lib/clawmaster/data.db',
       }),
-    ).toThrow(/SQLite.*exactly one.*PostgreSQL/i);
+    ).toThrow(/SQLite.*exactly one.*PostgreSQL/i)
   });
 
   it.each([
@@ -42,7 +42,7 @@ describe('enterprise database topology', () => {
   ])('refuses a SQLite database on a network share: %s', (databasePath) => {
     expect(() => assertLocalSqliteDatabasePath(databasePath)).toThrow(
       /SQLite.*NFS|SMB|network/i,
-    );
+    )
   });
 
   it.each([0x6969, 0x517b, 0xff534d42])(
@@ -52,9 +52,9 @@ describe('enterprise database topology', () => {
         assertLocalSqliteDatabasePath('/srv/clawmaster/data.db', {
           filesystemType: () => filesystemType,
         }),
-      ).toThrow(/network filesystem/i);
+      ).toThrow(/network filesystem/i)
     },
-  );
+  )
 
   it('requires PostgreSQL configuration and rejects SQLCipher server settings', () => {
     expect(() =>
@@ -62,7 +62,7 @@ describe('enterprise database topology', () => {
         environment: { CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql' },
         sqliteDatabasePath: '/unused/data.db',
       }),
-    ).toThrow(/CLAWMASTER_POSTGRES_URL is required/i);
+    ).toThrow(/CLAWMASTER_POSTGRES_URL is required/i)
 
     expect(() =>
       resolveEnterpriseDatabaseTopology({
@@ -73,7 +73,7 @@ describe('enterprise database topology', () => {
         },
         sqliteDatabasePath: '/unused/data.db',
       }),
-    ).toThrow(/SQLCipher.*local SQLite/i);
+    ).toThrow(/SQLCipher.*local SQLite/i)
   });
 
   it('allows multiple PostgreSQL application replicas without exposing credentials', () => {
@@ -85,21 +85,21 @@ describe('enterprise database topology', () => {
           'postgresql://clawmaster:super-secret@db.internal:5432/clawmaster',
       },
       sqliteDatabasePath: '/unused/data.db',
-    });
+    })
 
     expect(topology).toMatchObject({
       backend: 'postgresql',
       replicas: 4,
       connectionString: 'postgresql://clawmaster:super-secret@db.internal:5432/clawmaster',
-    });
-    const description = describeEnterpriseDatabaseTopology(topology);
+    })
+    const description = describeEnterpriseDatabaseTopology(topology)
     expect(description).toEqual({
       backend: 'postgresql',
       replicas: 4,
       target: 'db.internal:5432/clawmaster',
-    });
-    expect(JSON.stringify(description)).not.toContain('super-secret');
-    expect(JSON.stringify(description)).not.toContain('clawmaster@');
+    })
+    expect(JSON.stringify(description)).not.toContain('super-secret')
+    expect(JSON.stringify(description)).not.toContain('clawmaster@')
   });
 
   it('does not silently fall back to SQLite when PostgreSQL is configured', () => {
@@ -109,10 +109,10 @@ describe('enterprise database topology', () => {
         CLAWMASTER_POSTGRES_URL: 'postgresql://clawmaster:secret@db.internal/clawmaster',
       },
       sqliteDatabasePath: '/unused/data.db',
-    });
+    })
 
     expect(() => requireLocalSqliteTopology(topology)).toThrow(
       /PostgreSQL.*repositories.*not.*migrated.*refusing.*SQLite fallback/i,
-    );
+    )
   });
-});
+})

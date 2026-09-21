@@ -2,89 +2,89 @@
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  */
 
-import { app, type WebContents } from 'electron';
-import { applyKernelUpdate } from './incremental-kernel-updater.js';
-import { applyPatchUpdate } from './incremental-patch-updater.js';
-import { readActiveRendererCssPatch, resolvePatchUpdateRoot } from './incremental-patch-store.js';
-import { applyComponentUpdate } from './incremental-component-updater.js';
-import type { IncrementalUpdateArtifact, IncrementalUpdateKind, IncrementalUpdateManifest } from './incremental-update-manifest.js';
-import { parseIncrementalUpdateManifest } from './incremental-update-manifest.js';
-import { parseVerifiedManifestJson } from './update-manifest-integrity.js';
+import { app, type WebContents } from 'electron'
+import { applyKernelUpdate } from './incremental-kernel-updater.js'
+import { applyPatchUpdate } from './incremental-patch-updater.js'
+import { readActiveRendererCssPatch, resolvePatchUpdateRoot } from './incremental-patch-store.js'
+import { applyComponentUpdate } from './incremental-component-updater.js'
+import type { IncrementalUpdateArtifact, IncrementalUpdateKind, IncrementalUpdateManifest } from './incremental-update-manifest.js'
+import { parseIncrementalUpdateManifest } from './incremental-update-manifest.js'
+import { parseVerifiedManifestJson } from './update-manifest-integrity.js'
 
-const CHECK_TIMEOUT_MS = 15_000;
-const ENV_MANIFEST_URL = 'CLAWMASTER_INCREMENTAL_UPDATE_MANIFEST_URL';
+const CHECK_TIMEOUT_MS = 15_000
+const ENV_MANIFEST_URL = 'CLAWMASTER_INCREMENTAL_UPDATE_MANIFEST_URL'
 
 type FetchJsonResult =
   | { ok: true; json: unknown }
-  | { ok: false; error: string; httpStatus?: number };
+  | { ok: false; error: string; httpStatus?: number }
 
 export interface IncrementalUpdateAvailableArtifact {
-  id: string;
-  kind: IncrementalUpdateKind;
-  version: string;
-  target: string;
-  restart: IncrementalUpdateArtifact['restart'];
-  rollbackSupported: boolean;
+  id: string
+  kind: IncrementalUpdateKind
+  version: string
+  target: string
+  restart: IncrementalUpdateArtifact['restart']
+  rollbackSupported: boolean
 }
 
 export type IncrementalUpdateCheckResult =
   | {
-      status: 'available';
-      appVersion: string;
-      sourceCommit: string;
-      publishedAt: string;
-      artifacts: IncrementalUpdateAvailableArtifact[];
-    }
+    status: 'available'
+    appVersion: string
+    sourceCommit: string
+    publishedAt: string
+    artifacts: IncrementalUpdateAvailableArtifact[]
+  }
   | { status: 'up-to-date'; appVersion: string }
-  | { status: 'check-failed'; appVersion: string; message: string };
+  | { status: 'check-failed'; appVersion: string; message: string }
 
 export type IncrementalUpdateApplyResult =
   | {
-      ok: true;
-      kind: 'kernel';
-      id: string;
-      version: string;
-      target: string;
-      restart: IncrementalUpdateArtifact['restart'];
-      artifactPath: string;
-      modulePath: string;
-      binPath: string;
-    }
+    ok: true
+    kind: 'kernel'
+    id: string
+    version: string
+    target: string
+    restart: IncrementalUpdateArtifact['restart']
+    artifactPath: string
+    modulePath: string
+    binPath: string
+  }
   | {
-      ok: true;
-      kind: 'patch';
-      id: string;
-      version: string;
-      target: string;
-      restart: IncrementalUpdateArtifact['restart'];
-      artifactPath: string;
-      runtimeApplied: boolean;
-    }
+    ok: true
+    kind: 'patch'
+    id: string
+    version: string
+    target: string
+    restart: IncrementalUpdateArtifact['restart']
+    artifactPath: string
+    runtimeApplied: boolean
+  }
   | {
-      ok: true;
-      kind: 'component';
-      id: string;
-      version: string;
-      target: string;
-      restart: IncrementalUpdateArtifact['restart'];
-      artifactPath: string;
-    }
+    ok: true
+    kind: 'component'
+    id: string
+    version: string
+    target: string
+    restart: IncrementalUpdateArtifact['restart']
+    artifactPath: string
+  }
   | {
-      ok: false;
-      unsupported?: boolean;
-      cancelled?: boolean;
-      error: string;
-    };
+    ok: false
+    unsupported?: boolean
+    cancelled?: boolean
+    error: string
+  };
 
 function resolveIncrementalManifestUrl(candidate = process.env[ENV_MANIFEST_URL]): string | null {
-  const value = candidate?.trim();
-  if (!value) return null;
+  const value = candidate?.trim()
+  if (!value) return null
   try {
-    const url = new URL(value);
-    if (url.protocol !== 'https:' || url.username || url.password) return null;
-    return url.toString();
+    const url = new URL(value)
+    if (url.protocol !== 'https:' || url.username || url.password) return null
+    return url.toString()
   } catch {
-    return null;
+    return null
   }
 }
 
@@ -93,12 +93,12 @@ async function fetchJson(
   timeoutMs: number,
   expectedSha256?: string,
 ): Promise<FetchJsonResult> {
-  const controller = new AbortController();
-  let timedOut = false;
+  const controller = new AbortController()
+  let timedOut = false
   const timer = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, timeoutMs);
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
   try {
     const res = await fetch(url, {
       signal: controller.signal,
@@ -107,18 +107,18 @@ async function fetchJson(
         'user-agent': 'clawmaster-desktop-incremental-updater',
         accept: 'application/json',
       },
-    });
-    if (!res.ok) return { ok: false, error: `增量更新源返回 HTTP ${res.status}`, httpStatus: res.status };
+    })
+    if (!res.ok) return { ok: false, error: `增量更新源返回 HTTP ${res.status}`, httpStatus: res.status }
     try {
-      return parseVerifiedManifestJson(await res.text(), expectedSha256);
+      return parseVerifiedManifestJson(await res.text(), expectedSha256)
     } catch {
-      return { ok: false, error: '增量更新清单不是有效 JSON' };
+      return { ok: false, error: '增量更新清单不是有效 JSON' }
     }
   } catch (error) {
-    if (timedOut) return { ok: false, error: `检查增量更新超时（${Math.round(timeoutMs / 1000)}s 内无响应）` };
-    return { ok: false, error: `无法连接增量更新源：${error instanceof Error ? error.message : String(error)}` };
+    if (timedOut) return { ok: false, error: `检查增量更新超时（${Math.round(timeoutMs / 1000)}s 内无响应）` }
+    return { ok: false, error: `无法连接增量更新源：${error instanceof Error ? error.message : String(error)}` }
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timer)
   }
 }
 
@@ -130,17 +130,17 @@ function summarizeArtifact(artifact: IncrementalUpdateArtifact): IncrementalUpda
     target: artifact.target,
     restart: artifact.restart,
     rollbackSupported: artifact.rollback.supported,
-  };
+  }
 }
 
 function compatibleArtifacts(manifest: IncrementalUpdateManifest, appVersion: string): IncrementalUpdateArtifact[] {
   return [...manifest.channels.patch, ...manifest.channels.kernel, ...manifest.channels.component]
-    .filter((artifact) => artifact.compat.appVersion === appVersion);
+    .filter(artifact => artifact.compat.appVersion === appVersion)
 }
 
 export class IncrementalUpdateService {
-  private lastManifest: IncrementalUpdateManifest | null = null;
-  private allowedAssetOrigins: string[] = [];
+  private lastManifest: IncrementalUpdateManifest | null = null
+  private allowedAssetOrigins: string[] = []
 
   constructor(private readonly getWebContents?: () => WebContents | undefined) {}
 
@@ -148,52 +148,52 @@ export class IncrementalUpdateService {
     manifestUrlOverride?: string,
     expectedManifestSha256?: string,
   ): Promise<IncrementalUpdateCheckResult> {
-    this.lastManifest = null;
-    this.allowedAssetOrigins = [];
-    const appVersion = app.getVersion();
-    const manifestUrl = resolveIncrementalManifestUrl(manifestUrlOverride);
+    this.lastManifest = null
+    this.allowedAssetOrigins = []
+    const appVersion = app.getVersion()
+    const manifestUrl = resolveIncrementalManifestUrl(manifestUrlOverride)
     if (!manifestUrl) {
       return {
         status: 'check-failed',
         appVersion,
         message: `未配置 ${ENV_MANIFEST_URL}，无法检查补丁/内核/组件增量更新`,
-      };
+      }
     }
 
     const fetched = await fetchJson(
       manifestUrl,
       CHECK_TIMEOUT_MS,
       expectedManifestSha256,
-    );
-    if (!fetched.ok) return { status: 'check-failed', appVersion, message: fetched.error };
+    )
+    if (!fetched.ok) return { status: 'check-failed', appVersion, message: fetched.error }
 
-    const parsed = parseIncrementalUpdateManifest(fetched.json);
-    if (!parsed.ok) return { status: 'check-failed', appVersion, message: parsed.error };
+    const parsed = parseIncrementalUpdateManifest(fetched.json)
+    if (!parsed.ok) return { status: 'check-failed', appVersion, message: parsed.error }
 
-    const artifacts = compatibleArtifacts(parsed.manifest, appVersion);
-    if (artifacts.length === 0) return { status: 'up-to-date', appVersion };
+    const artifacts = compatibleArtifacts(parsed.manifest, appVersion)
+    if (artifacts.length === 0) return { status: 'up-to-date', appVersion }
 
-    this.lastManifest = parsed.manifest;
-    this.allowedAssetOrigins = [new URL(manifestUrl).origin];
+    this.lastManifest = parsed.manifest
+    this.allowedAssetOrigins = [new URL(manifestUrl).origin]
     return {
       status: 'available',
       appVersion,
       sourceCommit: parsed.manifest.sourceCommit,
       publishedAt: parsed.manifest.publishedAt,
       artifacts: artifacts.map(summarizeArtifact),
-    };
+    }
   }
 
   async applyUpdate(kind: IncrementalUpdateKind, id: string): Promise<IncrementalUpdateApplyResult> {
-    const manifest = this.lastManifest;
+    const manifest = this.lastManifest
     if (!manifest) {
-      return { ok: false, error: '当前没有已检查通过的增量更新清单，请先检查更新' };
+      return { ok: false, error: '当前没有已检查通过的增量更新清单，请先检查更新' }
     }
-    const appVersion = app.getVersion();
+    const appVersion = app.getVersion()
     const artifact = compatibleArtifacts(manifest, appVersion)
-      .find((candidate) => candidate.kind === kind && candidate.id === id);
+      .find(candidate => candidate.kind === kind && candidate.id === id)
     if (!artifact) {
-      return { ok: false, error: `未找到兼容的增量更新：${kind}/${id}` };
+      return { ok: false, error: `未找到兼容的增量更新：${kind}/${id}` }
     }
 
     if (artifact.kind === 'kernel') {
@@ -201,8 +201,8 @@ export class IncrementalUpdateService {
         artifact,
         userDataPath: app.getPath('userData'),
         allowedAssetOrigins: this.allowedAssetOrigins,
-      });
-      if (!result.ok) return result;
+      })
+      if (!result.ok) return result
 
       return {
         ok: true,
@@ -214,7 +214,7 @@ export class IncrementalUpdateService {
         artifactPath: result.receipt.installedArtifactPath,
         modulePath: result.record.modulePath,
         binPath: result.record.binPath,
-      };
+      }
     }
 
     if (artifact.kind === 'patch') {
@@ -222,8 +222,8 @@ export class IncrementalUpdateService {
         artifact,
         userDataPath: app.getPath('userData'),
         allowedAssetOrigins: this.allowedAssetOrigins,
-      });
-      if (!result.ok) return result;
+      })
+      if (!result.ok) return result
 
       return {
         ok: true,
@@ -234,15 +234,15 @@ export class IncrementalUpdateService {
         restart: artifact.restart,
         artifactPath: result.receipt.installedArtifactPath,
         runtimeApplied: await this.applyActiveRendererPatches(),
-      };
+      }
     }
 
     const result = await applyComponentUpdate({
       artifact,
       userDataPath: app.getPath('userData'),
       allowedAssetOrigins: this.allowedAssetOrigins,
-    });
-    if (!result.ok) return result;
+    })
+    if (!result.ok) return result
 
     return {
       ok: true,
@@ -252,15 +252,15 @@ export class IncrementalUpdateService {
       target: result.record.target,
       restart: artifact.restart,
       artifactPath: result.receipt.installedArtifactPath,
-    };
+    }
   }
 
   async applyActiveRendererPatches(): Promise<boolean> {
-    const webContents = this.getWebContents?.();
-    if (!webContents || webContents.isDestroyed()) return false;
-    const css = await readActiveRendererCssPatch(resolvePatchUpdateRoot(app.getPath('userData')));
-    if (!css) return false;
-    await webContents.insertCSS(css);
-    return true;
+    const webContents = this.getWebContents?.()
+    if (!webContents || webContents.isDestroyed()) return false
+    const css = await readActiveRendererCssPatch(resolvePatchUpdateRoot(app.getPath('userData')))
+    if (!css) return false
+    await webContents.insertCSS(css)
+    return true
   }
 }

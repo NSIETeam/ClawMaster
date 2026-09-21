@@ -2,8 +2,8 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useId, useLayoutEffect, useMemo, useState } from 'react';
-import type { UiMode } from '../uiModePreference.js';
+import React, { useEffect, useId, useLayoutEffect, useMemo, useState } from 'react'
+import type { UiMode } from '../uiModePreference.js'
 import {
   IconAgent,
   IconClose,
@@ -11,45 +11,45 @@ import {
   IconPaperclip,
   IconSettings,
   IconSparkle,
-} from './icons.js';
+} from './icons.js'
 
-type GuidePlacement = 'top' | 'right' | 'bclawmasterm' | 'left' | 'center';
+type GuidePlacement = 'top' | 'right' | 'bclawmasterm' | 'left' | 'center'
 
 interface GuideStep {
-  title: string;
-  description: string;
-  tip: string;
-  selector: string;
-  placement: GuidePlacement;
-  icon: React.ComponentType<{ size?: number }>;
+  title: string
+  description: string
+  tip: string
+  selector: string
+  placement: GuidePlacement
+  icon: React.ComponentType<{ size?: number }>
 }
 
 interface TargetRect {
-  top: number;
-  right: number;
-  bclawmasterm: number;
-  left: number;
-  width: number;
-  height: number;
+  top: number
+  right: number
+  bclawmasterm: number
+  left: number
+  width: number
+  height: number
 }
 
 interface CardPosition {
-  top: number;
-  left: number;
-  placement: GuidePlacement;
+  top: number
+  left: number
+  placement: GuidePlacement
 }
 
-const GUIDE_VERSION = 'v2';
-const CARD_WIDTH = 380;
-const CARD_HEIGHT = 320;
-const CARD_GAP = 18;
-const VIEWPORT_GAP = 16;
-const SPOTLIGHT_GAP = 6;
+const GUIDE_VERSION = 'v2'
+const CARD_WIDTH = 380
+const CARD_HEIGHT = 320
+const CARD_GAP = 18
+const VIEWPORT_GAP = 16
+const SPOTLIGHT_GAP = 6
 
 const MODE_LABEL: Record<UiMode, string> = {
   conversational: '对话式 UI',
   work: '工作式 UI',
-};
+}
 
 const STEPS: Record<UiMode, readonly GuideStep[]> = {
   conversational: [
@@ -112,29 +112,29 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
       icon: IconSettings,
     },
   ],
-};
+}
 
 function guideStorageKey(mode: UiMode): string {
-  return `clawmaster:first-run-guide:${GUIDE_VERSION}:${mode}`;
+  return `clawmaster:first-run-guide:${GUIDE_VERSION}:${mode}`
 }
 
 function hasCompletedGuide(mode: UiMode): boolean {
   try {
-    return localStorage.getItem(guideStorageKey(mode)) === 'completed';
+    return localStorage.getItem(guideStorageKey(mode)) === 'completed'
   } catch {
-    return false;
+    return false
   }
 }
 
 function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), Math.max(min, max));
+  return Math.min(Math.max(value, min), Math.max(min, max))
 }
 
 function readTargetRect(selector: string): TargetRect | null {
-  const element = document.querySelector<HTMLElement>(selector);
-  if (!element) return null;
-  const rect = element.getBoundingClientRect();
-  if (rect.width < 2 || rect.height < 2) return null;
+  const element = document.querySelector<HTMLElement>(selector)
+  if (!element) return null
+  const rect = element.getBoundingClientRect()
+  if (rect.width < 2 || rect.height < 2) return null
   return {
     top: rect.top,
     right: rect.right,
@@ -142,51 +142,51 @@ function readTargetRect(selector: string): TargetRect | null {
     left: rect.left,
     width: rect.width,
     height: rect.height,
-  };
+  }
 }
 
 function calculateCardPosition(rect: TargetRect | null, preferred: GuidePlacement): CardPosition {
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const cardWidth = Math.min(CARD_WIDTH, viewportWidth - VIEWPORT_GAP * 2);
-  const maxLeft = viewportWidth - cardWidth - VIEWPORT_GAP;
-  const maxTop = viewportHeight - CARD_HEIGHT - VIEWPORT_GAP;
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const cardWidth = Math.min(CARD_WIDTH, viewportWidth - VIEWPORT_GAP * 2)
+  const maxLeft = viewportWidth - cardWidth - VIEWPORT_GAP
+  const maxTop = viewportHeight - CARD_HEIGHT - VIEWPORT_GAP
 
   if (!rect || viewportWidth <= 760) {
     return {
       top: clamp(viewportHeight - CARD_HEIGHT - VIEWPORT_GAP, VIEWPORT_GAP, maxTop),
       left: clamp((viewportWidth - cardWidth) / 2, VIEWPORT_GAP, maxLeft),
       placement: 'center',
-    };
+    }
   }
 
-  let placement = preferred;
-  let left = rect.left + (rect.width - cardWidth) / 2;
-  let top = rect.top + (rect.height - CARD_HEIGHT) / 2;
+  let placement = preferred
+  let left = rect.left + (rect.width - cardWidth) / 2
+  let top = rect.top + (rect.height - CARD_HEIGHT) / 2
 
   if (placement === 'right') {
-    left = rect.right + CARD_GAP;
+    left = rect.right + CARD_GAP
     if (left + cardWidth > viewportWidth - VIEWPORT_GAP) {
-      placement = 'left';
-      left = rect.left - cardWidth - CARD_GAP;
+      placement = 'left'
+      left = rect.left - cardWidth - CARD_GAP
     }
   } else if (placement === 'left') {
-    left = rect.left - cardWidth - CARD_GAP;
+    left = rect.left - cardWidth - CARD_GAP
     if (left < VIEWPORT_GAP) {
-      placement = 'right';
-      left = rect.right + CARD_GAP;
+      placement = 'right'
+      left = rect.right + CARD_GAP
     }
   } else if (placement === 'top') {
-    top = rect.top - CARD_HEIGHT - CARD_GAP;
+    top = rect.top - CARD_HEIGHT - CARD_GAP
     if (top < VIEWPORT_GAP) {
-      placement = 'bclawmasterm';
-      top = rect.bclawmasterm + CARD_GAP;
+      placement = 'bclawmasterm'
+      top = rect.bclawmasterm + CARD_GAP
     }
   } else if (placement === 'bclawmasterm') {
-    top = rect.bclawmasterm + CARD_GAP;
+    top = rect.bclawmasterm + CARD_GAP
     if (top + CARD_HEIGHT > viewportHeight - VIEWPORT_GAP) {
-      placement = 'top';
-      top = rect.top - CARD_HEIGHT - CARD_GAP;
+      placement = 'top'
+      top = rect.top - CARD_HEIGHT - CARD_GAP
     }
   }
 
@@ -194,70 +194,70 @@ function calculateCardPosition(rect: TargetRect | null, preferred: GuidePlacemen
     top: clamp(top, VIEWPORT_GAP, maxTop),
     left: clamp(left, VIEWPORT_GAP, maxLeft),
     placement,
-  };
+  }
 }
 
 export function FirstRunGuide({ mode }: { mode: UiMode }): React.JSX.Element | null {
-  const steps = STEPS[mode];
-  const [step, setStep] = useState(0);
-  const [open, setOpen] = useState(() => !hasCompletedGuide(mode));
-  const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
-  const uid = useId();
-  const titleId = `${uid}-title`;
-  const current = steps[step];
+  const steps = STEPS[mode]
+  const [step, setStep] = useState(0)
+  const [open, setOpen] = useState(() => !hasCompletedGuide(mode))
+  const [targetRect, setTargetRect] = useState<TargetRect | null>(null)
+  const uid = useId()
+  const titleId = `${uid}-title`
+  const current = steps[step]
 
   useEffect(() => {
-    setStep(0);
-    setOpen(!hasCompletedGuide(mode));
-  }, [mode]);
+    setStep(0)
+    setOpen(!hasCompletedGuide(mode))
+  }, [mode])
 
   useLayoutEffect(() => {
-    if (!open) return undefined;
-    const updateTarget = (): void => setTargetRect(readTargetRect(current.selector));
-    updateTarget();
-    window.addEventListener('resize', updateTarget);
-    return () => window.removeEventListener('resize', updateTarget);
-  }, [current.selector, open]);
+    if (!open) return undefined
+    const updateTarget = (): void => setTargetRect(readTargetRect(current.selector))
+    updateTarget()
+    window.addEventListener('resize', updateTarget)
+    return () => window.removeEventListener('resize', updateTarget)
+  }, [current.selector, open])
 
   const cardPosition = useMemo(
     () => calculateCardPosition(targetRect, current.placement),
     [current.placement, targetRect],
-  );
+  )
 
-  if (!open) return null;
+  if (!open) return null
 
   const dismiss = (): void => {
     try {
-      localStorage.setItem(guideStorageKey(mode), 'completed');
+      localStorage.setItem(guideStorageKey(mode), 'completed')
     } catch {
       // localStorage 不可用时只关闭当前导览。
     }
-    setOpen(false);
+    setOpen(false)
   };
 
-  const StepIcon = current.icon;
-  const spotlightTop = targetRect ? Math.max(4, targetRect.top - SPOTLIGHT_GAP) : 0;
-  const spotlightLeft = targetRect ? Math.max(4, targetRect.left - SPOTLIGHT_GAP) : 0;
+  const StepIcon = current.icon
+  const spotlightTop = targetRect ? Math.max(4, targetRect.top - SPOTLIGHT_GAP) : 0
+  const spotlightLeft = targetRect ? Math.max(4, targetRect.left - SPOTLIGHT_GAP) : 0
   const spotlightStyle = targetRect
     ? {
-        top: spotlightTop,
-        left: spotlightLeft,
-        width: Math.min(
-          window.innerWidth - spotlightLeft - 4,
-          targetRect.width + SPOTLIGHT_GAP * 2,
-        ),
-        height: Math.min(
-          window.innerHeight - spotlightTop - 4,
-          targetRect.height + SPOTLIGHT_GAP * 2,
-        ),
-      }
-    : undefined;
+      top: spotlightTop,
+      left: spotlightLeft,
+      width: Math.min(
+        window.innerWidth - spotlightLeft - 4,
+        targetRect.width + SPOTLIGHT_GAP * 2,
+      ),
+      height: Math.min(
+        window.innerHeight - spotlightTop - 4,
+        targetRect.height + SPOTLIGHT_GAP * 2,
+      ),
+    }
+    : undefined
 
   return (
     <div
       className={`claw-first-run${targetRect ? '' : ' is-fallback'}`}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') dismiss();
+        if (event.key === 'Escape') dismiss()
       }}
     >
       {targetRect ? (
@@ -331,8 +331,8 @@ export function FirstRunGuide({ mode }: { mode: UiMode }): React.JSX.Element | n
               type="button"
               className="claw-first-run__next"
               onClick={() => {
-                if (step === steps.length - 1) dismiss();
-                else setStep(step + 1);
+                if (step === steps.length - 1) dismiss()
+                else setStep(step + 1)
               }}
               autoFocus
             >
@@ -342,5 +342,5 @@ export function FirstRunGuide({ mode }: { mode: UiMode }): React.JSX.Element | n
         </div>
       </div>
     </div>
-  );
+  )
 }

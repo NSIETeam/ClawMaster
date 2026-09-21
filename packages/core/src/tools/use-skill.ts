@@ -15,10 +15,10 @@ import {
   type ToolResult,
   type ToolCallConfirmationDetails,
   type ToolLocation,
-} from './tools.js';
-import { Type } from '@google/genai';
+} from './tools.js'
+import { Type } from '@google/genai'
 
-import path from 'path';
+import path from 'path'
 
 // Direct imports from skills module - no dynamic path resolution needed
 import {
@@ -28,11 +28,11 @@ import {
   SkillLoadLevel,
   SkillsPaths,
   type Skill,
-} from '../skills/index.js';
+} from '../skills/index.js'
 
 interface UseSkillParams {
   /** The skill name to activate (e.g., "pdf" or "test-pdf") */
-  skillName: string;
+  skillName: string
 }
 
 /**
@@ -83,27 +83,27 @@ Important:
       },
       false, // isOutputMarkdown
       false, // canUpdateOutput
-    );
+    )
   }
 
   override validateToolParams(params: UseSkillParams): string | null {
     if (!params.skillName || typeof params.skillName !== 'string') {
-      return 'skillName is required and must be a string';
+      return 'skillName is required and must be a string'
     }
 
     if (params.skillName.trim().length === 0) {
-      return 'skillName cannot be empty';
+      return 'skillName cannot be empty'
     }
 
-    return null;
+    return null
   }
 
   override getDescription(params: UseSkillParams): string {
-    return `Loading skill: ${params.skillName}`;
+    return `Loading skill: ${params.skillName}`
   }
 
   override toolLocations(_params: UseSkillParams): ToolLocation[] {
-    return []; // Skills don't affect file system
+    return [] // Skills don't affect file system
   }
 
   override async shouldConfirmExecute(
@@ -111,64 +111,64 @@ Important:
     _abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
     // No confirmation needed - just loading documentation
-    return false;
+    return false
   }
 
   override async execute(
     params: UseSkillParams,
     _signal: AbortSignal,
   ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
+    const validationError = this.validateToolParams(params)
     if (validationError) {
       return {
         llmContent: `❌ Invalid parameters: ${validationError}`,
         returnDisplay: `Invalid parameters: ${validationError}`,
-      };
+      }
     }
 
     try {
       // Initialize Skills system - directly using imported modules
-      const settings = new SettingsManager();
-      await settings.initialize();
+      const settings = new SettingsManager()
+      await settings.initialize()
 
-      const loader = new SkillLoader(settings);
-      const injector = new SkillContextInjector(loader);
+      const loader = new SkillLoader(settings)
+      const injector = new SkillContextInjector(loader)
 
       // Find the skill by name
-      const skills = await loader.loadEnabledSkills(SkillLoadLevel.RESOURCES);
+      const skills = await loader.loadEnabledSkills(SkillLoadLevel.RESOURCES)
 
       // Debug logging for skill discovery issues
       if (process.env.DEBUG_SKILLS) {
-        console.log(`[use_skill] Loaded ${skills.length} skills from SkillLoader:`);
+        console.log(`[use_skill] Loaded ${skills.length} skills from SkillLoader:`)
         skills.forEach((s: Skill) => {
-          console.log(`  - ${s.name} (id: ${s.id}, isCustom: ${s.isCustom}, location: ${s.location?.type || 'N/A'})`);
+          console.log(`  - ${s.name} (id: ${s.id}, isCustom: ${s.isCustom}, location: ${s.location?.type || 'N/A'})`)
         });
       }
 
       // 更健壮的匹配逻辑：支持多种格式
-      const normalizedSearchName = params.skillName.toLowerCase().trim();
+      const normalizedSearchName = params.skillName.toLowerCase().trim()
       const matchingSkills = skills.filter((s: Skill) => {
-        const skillName = (s.name || '').toLowerCase().trim();
-        const skillId = (s.id || '').toLowerCase();
+        const skillName = (s.name || '').toLowerCase().trim()
+        const skillId = (s.id || '').toLowerCase()
 
         // 精确匹配 name
-        if (skillName === normalizedSearchName) return true;
+        if (skillName === normalizedSearchName) return true
 
         // 匹配 ID 的末尾部分（支持 user:xxx, project:xxx:xxx 等格式）
-        if (skillId.endsWith(`:${normalizedSearchName}`)) return true;
+        if (skillId.endsWith(`:${normalizedSearchName}`)) return true
 
         // 匹配 ID 本身（如果用户输入完整 ID）
-        if (skillId === normalizedSearchName) return true;
+        if (skillId === normalizedSearchName) return true
 
         // 部分匹配（如果 name 包含搜索词）
-        if (skillName.includes(normalizedSearchName)) return true;
+        if (skillName.includes(normalizedSearchName)) return true
 
-        return false;
+        return false
       });
 
       if (matchingSkills.length === 0) {
-        const availableNames = skills.map((s: Skill) => s.name).sort().join(', ');
-        const availableIds = skills.map((s: Skill) => s.id).sort().join(', ');
+        const availableNames = skills.map((s: Skill) => s.name).sort().join(', ')
+        const availableIds = skills.map((s: Skill) => s.id).sort().join(', ')
 
         return {
           llmContent: `❌ Skill "${params.skillName}" not found.
@@ -200,16 +200,16 @@ Important:
 
 To see detailed skill information, check the "Available Skills" section in the system context.`,
           returnDisplay: `Skill "${params.skillName}" not found`,
-        };
+        }
       }
 
-      const skill = matchingSkills[0];
+      const skill = matchingSkills[0]
 
       // Load Level 2 (full SKILL.md)
-      const fullContent = await injector.loadSkillLevel2(skill.id);
+      const fullContent = await injector.loadSkillLevel2(skill.id)
 
       // Check if skill has scripts
-      const hasScripts = skill.scripts && skill.scripts.length > 0;
+      const hasScripts = skill.scripts && skill.scripts.length > 0
 
       // Get actual skill paths from the skill object
       if (!skill.path) {
@@ -223,68 +223,68 @@ This indicates a corrupted skill installation. Please try:
 
 If the problem persists, this may be a system bug.`,
           returnDisplay: `Skill "${params.skillName}" configuration error`,
-        };
+        }
       }
-      const skillRootDir = skill.path;
-      const scriptsDir = skill.scriptsPath || `${skillRootDir}/scripts`;
+      const skillRootDir = skill.path
+      const scriptsDir = skill.scriptsPath || `${skillRootDir}/scripts`
 
       // Determine plugin root directory based on skill source
-      let pluginRootDir = '';
+      let pluginRootDir = ''
       if (skill.marketplaceId) {
         // Marketplace skills: plugin root is ~/.clawmaster/marketplace/{marketplaceId}
-        pluginRootDir = path.join(SkillsPaths.MARKETPLACE_ROOT, skill.marketplaceId);
+        pluginRootDir = path.join(SkillsPaths.MARKETPLACE_ROOT, skill.marketplaceId)
       } else if (skill.location?.rootPath) {
         // Use location.rootPath if available
-        pluginRootDir = skill.location.rootPath;
+        pluginRootDir = skill.location.rootPath
       }
 
       // 格式化输出：简洁清晰
-      let output = '';
+      let output = ''
 
       // Build path info section
       const pathInfoLines = [
         `**Skill directory**: ${skillRootDir}`,
-      ];
+      ]
 
       if (pluginRootDir && pluginRootDir !== skillRootDir) {
-        pathInfoLines.unshift(`**Plugin root directory**: ${pluginRootDir}`);
+        pathInfoLines.unshift(`**Plugin root directory**: ${pluginRootDir}`)
       }
 
       if (hasScripts) {
         // For skills with scripts, generate simple script list
         const scriptList = skill.scripts!
-          .map((s) => `- ${s.name} (${s.path})`)
-          .join('\n');
+          .map(s => `- ${s.name} (${s.path})`)
+          .join('\n')
 
-        pathInfoLines.push(`**Scripts directory**: ${scriptsDir}`);
+        pathInfoLines.push(`**Scripts directory**: ${scriptsDir}`)
 
         output = [
           `## Skill: ${skill.name}`,
-          ``,
+          '',
           ...pathInfoLines,
-          ``,
-          `**Available scripts**:`,
+          '',
+          '**Available scripts**:',
           scriptList,
-          ``,
-          fullContent
-        ].join('\n');
+          '',
+          fullContent,
+        ].join('\n')
       } else {
         // For skills without scripts (knowledge-only)
         output = [
           `## Skill: ${skill.name}`,
-          ``,
+          '',
           ...pathInfoLines,
-          ``,
-          fullContent
-        ].join('\n');
+          '',
+          fullContent,
+        ].join('\n')
       }
 
       return {
         llmContent: output,
         returnDisplay: `✅ Loaded skill: ${params.skillName}`,
-      };
+      }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error)
 
       return {
         llmContent: `❌ Error loading skill: ${errorMessage}
@@ -300,7 +300,7 @@ Troubleshooting steps:
 3. Check that the skill's SKILL.md file exists
 4. Review application logs for detailed error information`,
         returnDisplay: `❌ Error: ${errorMessage}`,
-      };
+      }
     }
   }
 }

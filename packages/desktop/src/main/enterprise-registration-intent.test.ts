@@ -2,17 +2,17 @@
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 import {
   EnterpriseRegistrationIntentStore,
   parseEnterpriseRegistrationIntent,
-} from './enterprise-registration-intent.js';
+} from './enterprise-registration-intent.js'
 
 describe('enterprise registration link parsing', () => {
   it('accepts the branded clawmaster:// enterprise link', () => {
     expect(parseEnterpriseRegistrationIntent(
       'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
-    )).toEqual({ inviteCode: 'Ab3D-k9Pq-Z7xY' });
+    )).toEqual({ inviteCode: 'Ab3D-k9Pq-Z7xY' })
   });
 
   it('accepts exact clawmaster://enterprise/join links and normalizes invite codes', () => {
@@ -20,7 +20,7 @@ describe('enterprise registration link parsing', () => {
       'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
     )).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
-    });
+    })
   });
 
   it('accepts a single safe HTTPS enterprise server URL and normalizes it to origin', () => {
@@ -29,7 +29,7 @@ describe('enterprise registration link parsing', () => {
     )).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
       serverUrl: 'https://enterprise.clawmaster.test',
-    });
+    })
   });
 
   it('allows HTTP loopback URLs for local integration', () => {
@@ -38,7 +38,7 @@ describe('enterprise registration link parsing', () => {
     )).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
       serverUrl: 'http://127.0.0.1:7777',
-    });
+    })
   });
 
   it('preserves HTTPS reverse proxy path prefixes from clawmaster links', () => {
@@ -47,7 +47,7 @@ describe('enterprise registration link parsing', () => {
     )).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
       serverUrl: 'https://enterprise.clawmaster.test/company',
-    });
+    })
   });
 
   it('accepts HTTPS enterprise invite page links', () => {
@@ -56,7 +56,7 @@ describe('enterprise registration link parsing', () => {
     )).toEqual({
       inviteCode: 'F5e8-R2wA-Q9pB',
       serverUrl: 'https://59.110.154.44:7777',
-    });
+    })
   });
 
   it('preserves HTTPS reverse proxy path prefixes from invite page links', () => {
@@ -65,7 +65,7 @@ describe('enterprise registration link parsing', () => {
     )).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
       serverUrl: 'https://enterprise.clawmaster.test/company',
-    });
+    })
   });
 
   it.each([
@@ -88,36 +88,36 @@ describe('enterprise registration link parsing', () => {
     'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&invite=Wz8Y-m3Na-Q5pB',
     'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY#fragment',
   ])('rejects non-registration, legacy signed, or suspicious links: %s', (url) => {
-    expect(parseEnterpriseRegistrationIntent(url)).toBeNull();
+    expect(parseEnterpriseRegistrationIntent(url)).toBeNull()
   });
 
   it('safely rejects invite page links containing malformed percent encoding', () => {
     expect(parseEnterpriseRegistrationIntent(
       'https://enterprise.clawmaster.test/enterprise/join/%E0%A4%A',
-    )).toBeNull();
+    )).toBeNull()
   });
-});
+})
 
 describe('enterprise registration intent store', () => {
   it('caches a valid cold-start argv link until the renderer consumes it once', () => {
-    const store = new EnterpriseRegistrationIntentStore();
+    const store = new EnterpriseRegistrationIntentStore()
     expect(store.acceptArgv([
       '/Applications/ClawMaster.app/Contents/MacOS/ClawMaster',
       '--flag',
       'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
-    ])).toBe(true);
+    ])).toBe(true)
     expect(store.take()).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
-    });
-    expect(store.take()).toBeNull();
+    })
+    expect(store.take()).toBeNull()
   });
 
   it('does not let invalid second-instance args overwrite a cached valid intent', () => {
-    const store = new EnterpriseRegistrationIntentStore();
+    const store = new EnterpriseRegistrationIntentStore()
     store.acceptUrl(
       'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
-    );
-    expect(store.acceptArgv(['clawmaster://enterprise/join?token=signed&key=public'])).toBe(false);
-    expect(store.take()?.inviteCode).toBe('Ab3D-k9Pq-Z7xY');
+    )
+    expect(store.acceptArgv(['clawmaster://enterprise/join?token=signed&key=public'])).toBe(false)
+    expect(store.take()?.inviteCode).toBe('Ab3D-k9Pq-Z7xY')
   });
-});
+})

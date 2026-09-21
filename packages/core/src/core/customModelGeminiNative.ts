@@ -4,18 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GenerateContentResponse } from '@google/genai';
-import { MESSAGE_ROLES } from '../config/messageRoles.js';
-import { CustomModelConfig, resolveThinkingConfig, effortToGeminiLevel, effortToGeminiBudget } from '../types/customModel.js';
-import { sanitiseGeminiTools } from './customModelGeminiSchema.js';
+import { GenerateContentResponse } from '@google/genai'
+import { MESSAGE_ROLES } from '../config/messageRoles.js'
+import { CustomModelConfig, resolveThinkingConfig, effortToGeminiLevel, effortToGeminiBudget } from '../types/customModel.js'
+import { sanitiseGeminiTools } from './customModelGeminiSchema.js'
 
-type NativePart = Record<string, unknown>;
-type NativeContent = { role?: string; parts?: NativePart[] };
-export type NativeRequest = { contents?: unknown; config?: unknown };
+type NativePart = Record<string, unknown>
+type NativeContent = { role?: string; parts?: NativePart[] }
+export type NativeRequest = { contents?: unknown; config?: unknown }
 type NativeChunk = Record<string, unknown> & {
-  candidates?: Array<{ content?: NativeContent; finishReason?: string }>;
-  usageMetadata?: Record<string, unknown>;
-};
+  candidates?: Array<{ content?: NativeContent; finishReason?: string }>
+  usageMetadata?: Record<string, unknown>
+}
 
 // ============================================================================
 // Gemini native (GenAI v1beta) — POST /v1beta/models/{id}:streamGenerateContent
@@ -45,23 +45,23 @@ function applyGeminiNativeThinking(
   modelId: string,
   thinking: ReturnType<typeof resolveThinkingConfig>,
 ): void {
-  const lower = modelId.toLowerCase();
-  const isGemini3 = lower.includes('gemini-3') || lower.includes('gemini-3.5');
+  const lower = modelId.toLowerCase()
+  const isGemini3 = lower.includes('gemini-3') || lower.includes('gemini-3.5')
   if (thinking.mode === 'off') {
     generationConfig.thinkingConfig = isGemini3
       ? { thinkingLevel: 'minimal' }
-      : { thinkingBudget: 0 };
+      : { thinkingBudget: 0 }
     return;
   }
   if (isGemini3) {
-    const level = effortToGeminiLevel(thinking.effort) || 'medium';
-    generationConfig.thinkingConfig = { thinkingLevel: level, includeThoughts: true };
+    const level = effortToGeminiLevel(thinking.effort) || 'medium'
+    generationConfig.thinkingConfig = { thinkingLevel: level, includeThoughts: true }
   } else {
     const budget =
       thinking.budgetTokens !== undefined
         ? thinking.budgetTokens
-        : effortToGeminiBudget(thinking.effort) ?? -1; // -1 = dynamic thinking (Gemini 2.5 default)
-    generationConfig.thinkingConfig = { thinkingBudget: budget, includeThoughts: true };
+        : effortToGeminiBudget(thinking.effort) ?? -1 // -1 = dynamic thinking (Gemini 2.5 default)
+    generationConfig.thinkingConfig = { thinkingBudget: budget, includeThoughts: true }
   }
 }
 
@@ -77,27 +77,27 @@ export function buildGeminiNativeRequestBody(
 ): Record<string, unknown> {
   const reqConfig = request?.config && typeof request.config === 'object'
     ? request.config as Record<string, unknown>
-    : {};
+    : {}
   const generationConfig: Record<string, unknown> = {
     ...(reqConfig.generationConfig || {}),
-  };
+  }
   // Pull selected top-level GenAI config knobs into generationConfig
   // (the Google SDK lets users specify either at top-level config.* or under
   // generationConfig.*; we normalise into generationConfig for the wire body).
   for (const k of ['temperature', 'topP', 'topK', 'maxOutputTokens', 'stopSequences', 'candidateCount', 'responseMimeType', 'responseSchema'] as const) {
     if (reqConfig[k] !== undefined && generationConfig[k] === undefined) {
-      generationConfig[k] = reqConfig[k];
+      generationConfig[k] = reqConfig[k]
     }
   }
 
   // 🟢 maxOutputTokens 兜底：request 没指定 → 用 modelConfig.maxOutputTokens
   // （EasyClaw 元数据填的）→ 用 32K 默认。统一走 resolveOutputTokens。
   if (generationConfig['maxOutputTokens'] === undefined) {
-    generationConfig['maxOutputTokens'] = maxOutputTokens;
+    generationConfig['maxOutputTokens'] = maxOutputTokens
   }
 
-  const thinkingConfig = resolveThinkingConfig(modelConfig);
-  applyGeminiNativeThinking(generationConfig, modelConfig.modelId, thinkingConfig);
+  const thinkingConfig = resolveThinkingConfig(modelConfig)
+  applyGeminiNativeThinking(generationConfig, modelConfig.modelId, thinkingConfig)
 
   /**
    * Sanitise `contents[].parts[]` for the GenAI v1beta endpoint.
@@ -138,19 +138,19 @@ export function buildGeminiNativeRequestBody(
    *   Native Gemini 3.x → 3.x is unaffected: signed parts still round-trip.
    *   Gemini 2.5 / non-3.x targets are unaffected: detection gated on modelId.
    */
-  const lowerModelId = (modelConfig.modelId || '').toLowerCase();
-  const isGemini3Target = lowerModelId.includes('gemini-3');
+  const lowerModelId = (modelConfig.modelId || '').toLowerCase()
+  const isGemini3Target = lowerModelId.includes('gemini-3')
 
   // Pre-scan: collect pairing keys of naked functionCall parts so we can
   // rewrite both the call AND its corresponding response as text.
-  const nakedCallKeys: Set<string> = new Set();
+  const nakedCallKeys: Set<string> = new Set()
   if (isGemini3Target && Array.isArray(request.contents)) {
     for (const c of request.contents as NativeContent[]) {
-      if (!c || typeof c !== 'object') continue;
-      const parts = Array.isArray(c.parts) ? c.parts : [];
+      if (!c || typeof c !== 'object') continue
+      const parts = Array.isArray(c.parts) ? c.parts : []
       for (const p of parts) {
-        if (!p || typeof p !== 'object') continue;
-        const fc = p.functionCall as Record<string, unknown> | undefined;
+        if (!p || typeof p !== 'object') continue
+        const fc = p.functionCall as Record<string, unknown> | undefined
         if (
           fc &&
           typeof fc.name === 'string' &&
@@ -160,8 +160,8 @@ export function buildGeminiNativeRequestBody(
           const key =
             typeof fc.id === 'string' && fc.id.length > 0
               ? fc.id
-              : `name:${fc.name}`;
-          nakedCallKeys.add(key);
+              : `name:${fc.name}`
+          nakedCallKeys.add(key)
         }
       }
     }
@@ -170,42 +170,42 @@ export function buildGeminiNativeRequestBody(
   // Compact JSON helper for tool-summary text — keeps the line readable in
   // the model's context. Defensive against non-serialisable args.
   const safeStringify = (v: unknown): string => {
-    if (v === undefined || v === null) return '';
+    if (v === undefined || v === null) return ''
     try {
-      const s = JSON.stringify(v);
+      const s = JSON.stringify(v)
       // Trim absurdly long blobs so a single huge tool result doesn't blow
       // up the migrated summary line.
-      return s.length > 2000 ? s.slice(0, 2000) + '…(truncated)' : s;
+      return s.length > 2000 ? s.slice(0, 2000) + '…(truncated)' : s
     } catch {
-      return String(v);
+      return String(v)
     }
-  };
+  }
 
   const sanitiseContentsForGemini = (raw: NativeContent[] | undefined): NativeContent[] => {
-    if (!Array.isArray(raw)) return [];
-    const out: NativeContent[] = [];
+    if (!Array.isArray(raw)) return []
+    const out: NativeContent[] = []
     for (const c of raw) {
-      if (!c || typeof c !== 'object') continue;
-      const role = c.role;
-      const parts = Array.isArray(c.parts) ? c.parts : [];
-      const cleanParts: NativePart[] = [];
+      if (!c || typeof c !== 'object') continue
+      const role = c.role
+      const parts = Array.isArray(c.parts) ? c.parts : []
+      const cleanParts: NativePart[] = []
       for (const p of parts) {
-        if (!p || typeof p !== 'object') continue;
+        if (!p || typeof p !== 'object') continue
         // 1) UI-only `reasoning` projection → fold back to a thought part so
         //    the attached thoughtSignature (if any) is preserved.
         if (typeof p.reasoning === 'string') {
-          if (p.reasoning.length === 0) continue;
-          const part: NativePart = { thought: true, text: p.reasoning };
-          if (typeof p.thoughtSignature === 'string') part.thoughtSignature = p.thoughtSignature;
-          cleanParts.push(part);
+          if (p.reasoning.length === 0) continue
+          const part: NativePart = { thought: true, text: p.reasoning }
+          if (typeof p.thoughtSignature === 'string') part.thoughtSignature = p.thoughtSignature
+          cleanParts.push(part)
           continue;
         }
         // 2) Raw Gemini `thought:true` part — pass through with signature.
         if (p.thought === true) {
-          if (typeof p.text !== 'string' || p.text.length === 0) continue;
-          const part: NativePart = { thought: true, text: p.text };
-          if (typeof p.thoughtSignature === 'string') part.thoughtSignature = p.thoughtSignature;
-          cleanParts.push(part);
+          if (typeof p.text !== 'string' || p.text.length === 0) continue
+          const part: NativePart = { thought: true, text: p.text }
+          if (typeof p.thoughtSignature === 'string') part.thoughtSignature = p.thoughtSignature
+          cleanParts.push(part)
           continue;
         }
         // 3) Canonical GenAI shapes — pass through, but verify the inner
@@ -215,28 +215,28 @@ export function buildGeminiNativeRequestBody(
         // `{ functionResponse: { name:'…' } }` (missing `response`).
         if (typeof p.text === 'string') {
           // GenAI rejects '' for some models; keep only meaningful text.
-          if (p.text.length > 0) cleanParts.push({ text: p.text });
+          if (p.text.length > 0) cleanParts.push({ text: p.text })
           continue;
         }
         if (p.inlineData && typeof p.inlineData === 'object') {
-          const inline = p.inlineData as Record<string, unknown>;
+          const inline = p.inlineData as Record<string, unknown>
           if (typeof inline.mimeType === 'string' && typeof inline.data === 'string' && inline.data.length > 0) {
-            cleanParts.push({ inlineData: { mimeType: inline.mimeType, data: inline.data } });
+            cleanParts.push({ inlineData: { mimeType: inline.mimeType, data: inline.data } })
           }
-          continue;
+          continue
         }
         if (p.functionCall && typeof p.functionCall === 'object') {
-          const fc = p.functionCall as Record<string, unknown>;
+          const fc = p.functionCall as Record<string, unknown>
           if (typeof fc.name === 'string' && fc.name.length > 0) {
             // 🆕 Naked functionCall on Gemini 3.x → downgrade to text summary.
             // We cannot synthesise a thoughtSignature (server-signed opaque
             // token), so preserve the semantics as prose instead. The paired
             // functionResponse is downgraded in the same pass below.
             if (isGemini3Target && typeof p.thoughtSignature !== 'string') {
-              const argsStr = safeStringify(fc.args);
+              const argsStr = safeStringify(fc.args)
               cleanParts.push({
                 text: `[Previous tool call] ${fc.name}(${argsStr})`,
-              });
+              })
               continue;
             }
             const part: NativePart = {
@@ -245,18 +245,18 @@ export function buildGeminiNativeRequestBody(
                 args: (fc.args && typeof fc.args === 'object') ? fc.args : {},
                 ...(typeof fc.id === 'string' ? { id: fc.id } : {}),
               },
-            };
+            }
             // Preserve thoughtSignature on the part (Gemini 3.x with thinking
             // requires this to round-trip; missing it ⇒ HTTP 400).
             if (typeof p.thoughtSignature === 'string') {
-              part.thoughtSignature = p.thoughtSignature;
+              part.thoughtSignature = p.thoughtSignature
             }
-            cleanParts.push(part);
+            cleanParts.push(part)
           }
-          continue;
+          continue
         }
         if (p.functionResponse && typeof p.functionResponse === 'object') {
-          const fr = p.functionResponse as Record<string, unknown>;
+          const fr = p.functionResponse as Record<string, unknown>
           // GenAI requires both `name` and `response` to be present and non-empty.
           // If the response payload is missing/empty we synthesise an empty
           // object so the part stays valid; dropping it would unbalance the
@@ -270,54 +270,54 @@ export function buildGeminiNativeRequestBody(
               const key =
                 typeof fr.id === 'string' && fr.id.length > 0
                   ? fr.id
-                  : `name:${fr.name}`;
+                  : `name:${fr.name}`
               if (nakedCallKeys.has(key)) {
-                const resultStr = safeStringify(fr.response);
+                const resultStr = safeStringify(fr.response)
                 cleanParts.push({
                   text: `[Previous tool result] ${fr.name} → ${resultStr}`,
-                });
+                })
                 continue;
               }
             }
             const responseValue =
               fr.response && typeof fr.response === 'object'
                 ? fr.response
-                : { result: typeof fr.response === 'string' ? fr.response : '' };
+                : { result: typeof fr.response === 'string' ? fr.response : '' }
             cleanParts.push({
               functionResponse: {
                 name: fr.name,
                 response: responseValue,
                 ...(typeof fr.id === 'string' ? { id: fr.id } : {}),
               },
-            });
+            })
           }
-          continue;
+          continue
         }
         if (p.fileData && typeof p.fileData === 'object') {
-          const fd = p.fileData as Record<string, unknown>;
+          const fd = p.fileData as Record<string, unknown>
           if (typeof fd.fileUri === 'string' && fd.fileUri.length > 0) {
             cleanParts.push({
               fileData: {
                 fileUri: fd.fileUri,
                 ...(typeof fd.mimeType === 'string' ? { mimeType: fd.mimeType } : {}),
               },
-            });
+            })
           }
-          continue;
+          continue
         }
         // Unknown shapes silently dropped — better than a 400 from Gemini.
       }
       // A Content with zero valid parts also fails validation; skip it.
-      if (cleanParts.length === 0) continue;
-      out.push(role ? { role, parts: cleanParts } : { parts: cleanParts });
+      if (cleanParts.length === 0) continue
+      out.push(role ? { role, parts: cleanParts } : { parts: cleanParts })
     }
-    return out;
+    return out
   };
 
   const body: Record<string, unknown> = {
     contents: sanitiseContentsForGemini(Array.isArray(request.contents) ? request.contents as NativeContent[] : undefined),
     generationConfig,
-  };
+  }
   /**
    * Normalise `systemInstruction` to the GenAI wire shape `{ parts: [{ text }] }`.
    *
@@ -330,25 +330,25 @@ export function buildGeminiNativeRequestBody(
    * into Go struct field .systemInstruction of type ClawMasterChatContent".
    */
   const normaliseSystemInstruction = (raw: unknown): unknown => {
-    if (raw == null) return undefined;
+    if (raw == null) return undefined
     if (typeof raw === 'string') {
-      return { parts: [{ text: raw }] };
+      return { parts: [{ text: raw }] }
     }
     if (typeof raw === 'object') {
-      const obj = raw as Record<string, unknown>;
+      const obj = raw as Record<string, unknown>
       // already canonical
-      if (Array.isArray(obj.parts)) return obj;
+      if (Array.isArray(obj.parts)) return obj
       // {text:'…'} short form
-      if (typeof obj.text === 'string') return { parts: [{ text: obj.text }] };
+      if (typeof obj.text === 'string') return { parts: [{ text: obj.text }] }
     }
     // Anything weirder — let it through verbatim; the upstream error message
     // will still be informative if the structure is unrecognised.
-    return raw;
+    return raw
   };
 
   if (reqConfig.systemInstruction) {
-    const normalised = normaliseSystemInstruction(reqConfig.systemInstruction);
-    if (normalised !== undefined) body.systemInstruction = normalised;
+    const normalised = normaliseSystemInstruction(reqConfig.systemInstruction)
+    if (normalised !== undefined) body.systemInstruction = normalised
   }
   if (reqConfig.tools) {
     // Strip JSON-Schema-only keys (e.g. `$schema` from MCP tools) and
@@ -357,11 +357,11 @@ export function buildGeminiNativeRequestBody(
     // upstream — the ClawMasterServerAdapter path is shielded by the proxy doing
     // the same cleaning, but here we're talking to EasyRouter / Google
     // directly. See sanitiseGeminiToolSchema for the full rationale.
-    body.tools = sanitiseGeminiTools(reqConfig.tools);
+    body.tools = sanitiseGeminiTools(reqConfig.tools)
   }
-  if (reqConfig.toolConfig) body.toolConfig = reqConfig.toolConfig;
-  if (reqConfig.safetySettings) body.safetySettings = reqConfig.safetySettings;
-  return body;
+  if (reqConfig.toolConfig) body.toolConfig = reqConfig.toolConfig
+  if (reqConfig.safetySettings) body.safetySettings = reqConfig.safetySettings
+  return body
 }
 
 /**
@@ -375,16 +375,16 @@ export function buildGeminiNativeUrl(
   apiKeyValue: string,
   method: 'streamGenerateContent' | 'generateContent',
 ): string {
-  const baseUrl = baseUrlValue.replace(/\/+$/, '');
-  const apiKey = apiKeyValue;
+  const baseUrl = baseUrlValue.replace(/\/+$/, '')
+  const apiKey = apiKeyValue
   // Normalise base: callers configure `https://llm-endpoint.net/v1` from
   // EasyRouter, but the GenAI mount is /v1beta. If the configured base is
   // already a /v1beta-style endpoint, leave it alone.
   const root = baseUrl.endsWith('/v1beta')
     ? baseUrl
-    : baseUrl.replace(/\/v1$/, '') + '/v1beta';
-  const sep = method === 'streamGenerateContent' ? '?alt=sse&key=' : '?key=';
-  return `${root}/models/${encodeURIComponent(modelId)}:${method}${sep}${encodeURIComponent(apiKey)}`;
+    : baseUrl.replace(/\/v1$/, '') + '/v1beta'
+  const sep = method === 'streamGenerateContent' ? '?alt=sse&key=' : '?key='
+  return `${root}/models/${encodeURIComponent(modelId)}:${method}${sep}${encodeURIComponent(apiKey)}`
 }
 
 /**
@@ -414,18 +414,18 @@ export function buildGeminiNativeUrl(
  * double-count in cost calculators.
  */
 export function normaliseGeminiUsageMetadata(usage: unknown): Record<string, unknown> | unknown {
-  if (!usage || typeof usage !== 'object') return usage;
-  const metadata = usage as Record<string, unknown>;
-  const cached = typeof metadata.cachedContentTokenCount === 'number' ? metadata.cachedContentTokenCount : 0;
+  if (!usage || typeof usage !== 'object') return usage
+  const metadata = usage as Record<string, unknown>
+  const cached = typeof metadata.cachedContentTokenCount === 'number' ? metadata.cachedContentTokenCount : 0
   // Already normalised (defensive — never expected from Google's API today).
-  if (typeof metadata.cacheReadInputTokens === 'number') return usage;
+  if (typeof metadata.cacheReadInputTokens === 'number') return usage
   return {
     ...metadata,
     // Alias only when the upstream actually reported a hit; absent field
     // (round 1, miss) → leave undefined so existing `|| 0` fallbacks
     // downstream behave identically.
     ...(cached > 0 && { cacheReadInputTokens: cached }),
-  };
+  }
 }
 
 /**
@@ -442,41 +442,41 @@ export function* mapGeminiChunkToResponses(
   chunk: NativeChunk,
   attachFunctionCallsGetter: (obj: Record<string, unknown>) => void,
 ): Generator<GenerateContentResponse> {
-  const cand = chunk?.candidates?.[0];
-  const parts = cand?.content?.parts;
+  const cand = chunk?.candidates?.[0]
+  const parts = cand?.content?.parts
   if (Array.isArray(parts) && parts.length > 0) {
-    const mappedParts: NativePart[] = [];
+    const mappedParts: NativePart[] = []
     for (const p of parts) {
       // Gemini 3.x with thinking emits a `thoughtSignature` on functionCall
       // parts. We must propagate it back on the next request, otherwise
       // Gemini rejects with HTTP 400 "Function call is missing a thought_signature".
       // Carry the field as-is — opaque to us, validated by Gemini.
       if (p?.thought === true && typeof p.text === 'string') {
-        const out: NativePart = { reasoning: p.text };
-        if (typeof p.thoughtSignature === 'string') out.thoughtSignature = p.thoughtSignature;
-        mappedParts.push(out);
+        const out: NativePart = { reasoning: p.text }
+        if (typeof p.thoughtSignature === 'string') out.thoughtSignature = p.thoughtSignature
+        mappedParts.push(out)
       } else if (typeof p?.text === 'string') {
-        const out: NativePart = { text: p.text };
-        if (typeof p.thoughtSignature === 'string') out.thoughtSignature = p.thoughtSignature;
-        mappedParts.push(out);
+        const out: NativePart = { text: p.text }
+        if (typeof p.thoughtSignature === 'string') out.thoughtSignature = p.thoughtSignature
+        mappedParts.push(out)
       } else if (p?.functionCall && typeof p.functionCall === 'object') {
-        const fc = p.functionCall as Record<string, unknown>;
+        const fc = p.functionCall as Record<string, unknown>
         const out: NativePart = {
           functionCall: {
             name: typeof fc.name === 'string' ? fc.name.trim() || fc.name : undefined,
             args: fc.args || {},
             id: fc.id,
           },
-        };
-        if (typeof p.thoughtSignature === 'string') out.thoughtSignature = p.thoughtSignature;
-        mappedParts.push(out);
+        }
+        if (typeof p.thoughtSignature === 'string') out.thoughtSignature = p.thoughtSignature
+        mappedParts.push(out)
       } else if (p?.inlineData) {
         // Pass through inline image/audio data unchanged.
-        mappedParts.push({ inlineData: p.inlineData });
+        mappedParts.push({ inlineData: p.inlineData })
       }
     }
     if (mappedParts.length > 0) {
-      const content = { role: MESSAGE_ROLES.MODEL, parts: mappedParts };
+      const content = { role: MESSAGE_ROLES.MODEL, parts: mappedParts }
       const resp = {
         candidates: [
           {
@@ -485,10 +485,10 @@ export function* mapGeminiChunkToResponses(
             index: 0,
           },
         ],
-      };
-      attachFunctionCallsGetter(resp);
-      attachFunctionCallsGetter(content);
-      yield resp as unknown as GenerateContentResponse;
+      }
+      attachFunctionCallsGetter(resp)
+      attachFunctionCallsGetter(content)
+      yield resp as unknown as GenerateContentResponse
     }
   }
   // Usage metadata may arrive on any chunk (often the last one) — forward it,
@@ -498,7 +498,7 @@ export function* mapGeminiChunkToResponses(
     yield {
       candidates: [],
       usageMetadata: normaliseGeminiUsageMetadata(chunk.usageMetadata),
-    } as unknown as GenerateContentResponse;
+    } as unknown as GenerateContentResponse
   }
 }
 
@@ -520,13 +520,13 @@ export function* mapGeminiChunkToResponses(
  *   - Atomic via `.tmp` + rename so an in-flight crash never leaves
  *     half-written / mixed-with-old-content bytes.
  */
-const GEMINI_DUMP_DIR_SEGMENTS = ['.clawmaster-user', 'last-requests'] as const;
-const GEMINI_DUMP_RING_SIZE = 5;
+const GEMINI_DUMP_DIR_SEGMENTS = ['.clawmaster-user', 'last-requests'] as const
+const GEMINI_DUMP_RING_SIZE = 5
 
 export function shouldDumpGeminiRequest(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): boolean {
-  return env.FILE_DEBUG === '1' && !env.VITEST && env.NODE_ENV !== 'test';
+  return env.FILE_DEBUG === '1' && !env.VITEST && env.NODE_ENV !== 'test'
 }
 
 /**
@@ -540,63 +540,63 @@ export function shouldDumpGeminiRequest(
  *   - Fall back to `unknown-model` if the result is empty
  */
 function sanitiseModelIdForFilename(raw: string | undefined): string {
-  const id = (raw ?? '').toLowerCase().trim();
+  const id = (raw ?? '').toLowerCase().trim()
   const cleaned = id
     .replace(/[^a-z0-9._-]+/g, '-')
     .replace(/-{2,}/g, '-')
     .replace(/^[-.]+|[-.]+$/g, '')
-    .slice(0, 60);
-  return cleaned || 'unknown-model';
+    .slice(0, 60)
+  return cleaned || 'unknown-model'
 }
 
 export function dumpGeminiRequest(kind: 'unary' | 'stream', modelId: string, body: unknown): void {
-  if (!shouldDumpGeminiRequest()) return;
+  if (!shouldDumpGeminiRequest()) return
   void (async () => {
     try {
-      const os = await import('os');
-      const path = await import('path');
-      const fs = await import('fs');
+      const os = await import('os')
+      const path = await import('path')
+      const fs = await import('fs')
 
-      const home = os.homedir();
-      const dumpDir = path.join(home, ...GEMINI_DUMP_DIR_SEGMENTS);
-      await fs.promises.mkdir(dumpDir, { recursive: true });
+      const home = os.homedir()
+      const dumpDir = path.join(home, ...GEMINI_DUMP_DIR_SEGMENTS)
+      await fs.promises.mkdir(dumpDir, { recursive: true })
 
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      const safeModel = sanitiseModelIdForFilename(modelId);
+      const ts = new Date().toISOString().replace(/[:.]/g, '-')
+      const safeModel = sanitiseModelIdForFilename(modelId)
       const ringFile = path.join(
         dumpDir,
         `${ts}_gemini-${kind}_${safeModel}.json`,
-      );
+      )
 
       const payload = JSON.stringify(
         { kind, modelId, ts: new Date().toISOString(), body },
         null,
         2,
-      );
+      )
 
       // Atomic write to ring entry.
-      const tmp = ringFile + '.tmp';
-      await fs.promises.writeFile(tmp, payload, 'utf8');
-      await fs.promises.rename(tmp, ringFile);
+      const tmp = ringFile + '.tmp'
+      await fs.promises.writeFile(tmp, payload, 'utf8')
+      await fs.promises.rename(tmp, ringFile)
 
       // Trim ring to the last GEMINI_DUMP_RING_SIZE Gemini entries
       // (ClawMasterServerAdapter writes its own kinds in the same dir; we only
       // touch our own files identified by the `_gemini-` infix).
       try {
-        const entries = await fs.promises.readdir(dumpDir);
+        const entries = await fs.promises.readdir(dumpDir)
         const stale = entries
-          .filter((f) => /_gemini-(stream|unary)_/.test(f) && f.endsWith('.json'))
+          .filter(f => /_gemini-(stream|unary)_/.test(f) && f.endsWith('.json'))
           .sort()
           .reverse() // newest first
-          .slice(GEMINI_DUMP_RING_SIZE);
+          .slice(GEMINI_DUMP_RING_SIZE)
         await Promise.all(
-          stale.map((f) => fs.promises.unlink(path.join(dumpDir, f)).catch(() => undefined)),
-        );
+          stale.map(f => fs.promises.unlink(path.join(dumpDir, f)).catch(() => undefined)),
+        )
       } catch {
         // ring trim is best-effort
       }
     } catch {
       // Diagnostic dump must never break the call.
     }
-  })();
+  })()
 }

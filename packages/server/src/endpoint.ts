@@ -10,25 +10,25 @@
  * （对齐 feishuDaemon.ts 的 `~/.clawmaster-user/` 三件套约定）。
  */
 
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
-import { PROTOCOL_VERSION, type ServerEndpoint } from './protocol.js';
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { PROTOCOL_VERSION, type ServerEndpoint } from './protocol.js'
 
 const CONFIG_DIR = process.env.CLAWMASTER_USER_DIR?.trim()
-  || path.join(os.homedir(), '.clawmaster-user');
-const ENDPOINT_FILE = path.join(CONFIG_DIR, 'server-endpoint.json');
+  || path.join(os.homedir(), '.clawmaster-user')
+const ENDPOINT_FILE = path.join(CONFIG_DIR, 'server-endpoint.json')
 
 /**
  * 磁盘端点记录可以附带本机控制令牌。普通 ServerEndpoint 仍是可公开的连接信息，
  * 避免 token 被意外带进 renderer/线协议类型。
  */
 export interface ServerEndpointRecord extends ServerEndpoint {
-  controlToken?: string;
+  controlToken?: string
 }
 
 export function endpointFilePath(): string {
-  return ENDPOINT_FILE;
+  return ENDPOINT_FILE
 }
 
 /** 写端点文件（server 启动后调）。 */
@@ -39,7 +39,7 @@ export function writeEndpoint(
   controlToken?: string,
 ): ServerEndpoint {
   if (!clientToken.trim()) {
-    throw new Error('clientToken 不能为空');
+    throw new Error('clientToken 不能为空')
   }
   const ep: ServerEndpointRecord = {
     host,
@@ -49,18 +49,18 @@ export function writeEndpoint(
     startedAt: Date.now(),
     clientToken,
     ...(controlToken ? { controlToken } : {}),
-  };
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  fs.writeFileSync(ENDPOINT_FILE, JSON.stringify(ep, null, 2), { mode: 0o600 });
+  }
+  fs.mkdirSync(CONFIG_DIR, { recursive: true })
+  fs.writeFileSync(ENDPOINT_FILE, JSON.stringify(ep, null, 2), { mode: 0o600 })
   // writeFile 的 mode 不会收紧既有文件权限；显式 chmod 保证每次都是 0600。
-  fs.chmodSync(ENDPOINT_FILE, 0o600);
-  return publicEndpoint(ep);
+  fs.chmodSync(ENDPOINT_FILE, 0o600)
+  return publicEndpoint(ep)
 }
 
 /** 读端点文件（desktop / daemon 发现 server 用）。不存在返回 undefined。 */
 export function readEndpoint(): ServerEndpoint | undefined {
-  const record = readEndpointRecord();
-  return record ? publicEndpoint(record) : undefined;
+  const record = readEndpointRecord()
+  return record ? publicEndpoint(record) : undefined
 }
 
 /**
@@ -69,8 +69,8 @@ export function readEndpoint(): ServerEndpoint | undefined {
  */
 export function readEndpointRecord(): ServerEndpointRecord | undefined {
   try {
-    const raw = fs.readFileSync(ENDPOINT_FILE, 'utf8');
-    const parsed = JSON.parse(raw) as Partial<ServerEndpointRecord>;
+    const raw = fs.readFileSync(ENDPOINT_FILE, 'utf8')
+    const parsed = JSON.parse(raw) as Partial<ServerEndpointRecord>
     if (
       typeof parsed.host !== 'string' ||
       typeof parsed.port !== 'number' ||
@@ -80,11 +80,11 @@ export function readEndpointRecord(): ServerEndpointRecord | undefined {
       typeof parsed.clientToken !== 'string' ||
       !parsed.clientToken.trim()
     ) {
-      return undefined;
+      return undefined
     }
-    return parsed as ServerEndpointRecord;
+    return parsed as ServerEndpointRecord
   } catch {
-    return undefined;
+    return undefined
   }
 }
 
@@ -96,13 +96,13 @@ function publicEndpoint(record: ServerEndpointRecord): ServerEndpoint {
     pid: record.pid,
     startedAt: record.startedAt,
     clientToken: record.clientToken,
-  };
+  }
 }
 
 /** 清除端点文件（server 停止时调）。 */
 export function clearEndpoint(): void {
   try {
-    fs.rmSync(ENDPOINT_FILE, { force: true });
+    fs.rmSync(ENDPOINT_FILE, { force: true })
   } catch {
     // 忽略：文件不存在即视为已清。
   }

@@ -24,44 +24,44 @@ import {
   isCustomModel,
   type CustomModelConfig,
   type DocumentIdentity,
-} from 'clawmaster-core';
-import os from 'node:os';
-import { loadCustomModels, loadPreferredModel } from './customModels.js';
+} from 'clawmaster-core'
+import os from 'node:os'
+import { loadCustomModels, loadPreferredModel } from './customModels.js'
 import {
   loadSearchRuntimeConfig,
   type SearchRuntimeConfig,
-} from './searchConfig.js';
+} from './searchConfig.js'
 import {
   checkSearchQuota,
   recordSearchTelemetryEvent,
-} from './searchObservability.js';
+} from './searchObservability.js'
 
 export interface CreateCoreConfigOptions {
-  sessionId: string;
+  sessionId: string
   /** 选定模型 id（'auto' 或 'custom:...'）；缺省由 core 取默认。 */
-  model?: string;
+  model?: string
   /** 工作目录（默认 server 进程 cwd）。 */
-  cwd?: string;
+  cwd?: string
   /** 覆盖自定义模型注入（测试用）；缺省从 ~/.clawmaster-user/custom-models.json 读。 */
-  customModels?: CustomModelConfig[];
+  customModels?: CustomModelConfig[]
   /** 会话级 Agent profile，经 Config.userRules 进入 system prompt。 */
-  userRules?: string;
+  userRules?: string
   /** 由企业身份控制面解析出的受信文档署名。 */
-  documentIdentity?: DocumentIdentity;
+  documentIdentity?: DocumentIdentity
   /** 当前 runtime 是否服务于飞书会话；注入移动端/聊天渠道环境提示。 */
-  feishuMode?: boolean;
+  feishuMode?: boolean
   /** edition/角色对应的运行时禁用工具，不能只靠 renderer 隐藏。 */
-  excludeTools?: string[];
+  excludeTools?: string[]
   /** 安全无工具会话禁止真实 Config 在后台发现或连接 MCP。 */
-  disableMcpDiscovery?: boolean;
+  disableMcpDiscovery?: boolean
   /** 安全隔离会话不向模型发送系统环境、cwd 或目录树。 */
-  disableEnvironmentContext?: boolean;
+  disableEnvironmentContext?: boolean
   /** 安全隔离会话让 ClawMasterChat 的基础生成配置也保持 tools=[]。 */
-  disableTools?: boolean;
+  disableTools?: boolean
   /** 覆盖搜索 API 配置（测试用）；缺省从 ~/.clawmaster-user 读取脱敏配置与 secret。 */
-  searchConfig?: SearchRuntimeConfig;
+  searchConfig?: SearchRuntimeConfig
   /** 搜索用量按企业组织隔离；个人会话可传账号 ID。 */
-  searchTenantId?: string;
+  searchTenantId?: string
 }
 
 /**
@@ -77,15 +77,15 @@ export interface CreateCoreConfigOptions {
  * CLI（cwd = 真实项目目录）不受影响。
  */
 export function resolveDefaultCwd(): string {
-  const c = process.cwd();
-  if (!c || c === '/' || c === '\\') return os.homedir();
-  return c;
+  const c = process.cwd()
+  if (!c || c === '/' || c === '\\') return os.homedir()
+  return c
 }
 
 export function createCoreConfig(opts: CreateCoreConfigOptions): Config {
-  const cwd = opts.cwd ?? resolveDefaultCwd();
-  const customModels = opts.customModels ?? loadCustomModels();
-  const searchConfig = opts.searchConfig ?? loadSearchRuntimeConfig();
+  const cwd = opts.cwd ?? resolveDefaultCwd()
+  const customModels = opts.customModels ?? loadCustomModels()
+  const searchConfig = opts.searchConfig ?? loadSearchRuntimeConfig()
 
   // ── LLM-URL 崩溃根因兜底（BYO-key 化后必备）──
   // ClawMasterServerAdapter.generateContent 只有在 getModel() 返回 `custom:...` 时才走
@@ -95,19 +95,19 @@ export function createCoreConfig(opts: CreateCoreConfigOptions): Config {
   // 这里在 server 侧做兜底：当 opts.model 不是 custom id（含 undefined / 'auto'）时，
   // 解析成第一个「已启用」自定义模型的 id，让 getModel() 返回 custom，彻底绕开空代理。
   // 一个自定义模型都没配时保持原样（由 server 的空态/mock 检测拦截）。
-  const enabled = customModels.filter((m) => m.enabled !== false);
+  const enabled = customModels.filter(m => m.enabled !== false)
   const wantsCustom =
-    typeof opts.model === 'string' && isCustomModel(opts.model);
+    typeof opts.model === 'string' && isCustomModel(opts.model)
   const legacyManagedModel =
-    typeof opts.model === 'string' && opts.model.startsWith('clawmaster:');
+    typeof opts.model === 'string' && opts.model.startsWith('clawmaster:')
   // 会话未显式选模型时的兜底次序：
   //   1) makeActive 写入的「当前生效模型」preferredModel（前提：它仍在 enabled 列表里）；
   //   2) 退回第一个 enabled 自定义模型（历史行为）。
   // 这样多模型场景下「配置后立刻用新模型」（makeActive）才真正生效，而非永远跑 enabled[0]。
-  const enabledIds = new Set(enabled.map((m) => generateCustomModelId(m)));
-  const preferred = opts.customModels ? undefined : loadPreferredModel();
+  const enabledIds = new Set(enabled.map(m => generateCustomModelId(m)))
+  const preferred = opts.customModels ? undefined : loadPreferredModel()
   const preferredIfEnabled =
-    preferred && enabledIds.has(preferred) ? preferred : undefined;
+    preferred && enabledIds.has(preferred) ? preferred : undefined
   const resolvedModel = wantsCustom
     ? opts.model
     : (preferredIfEnabled ??
@@ -115,7 +115,7 @@ export function createCoreConfig(opts: CreateCoreConfigOptions): Config {
         ? generateCustomModelId(enabled[0])
         : legacyManagedModel
           ? undefined
-          : opts.model));
+          : opts.model))
 
   return new Config({
     sessionId: opts.sessionId,
@@ -157,5 +157,5 @@ export function createCoreConfig(opts: CreateCoreConfigOptions): Config {
       process.env.https_proxy ||
       process.env.HTTP_PROXY ||
       process.env.http_proxy,
-  });
+  })
 }

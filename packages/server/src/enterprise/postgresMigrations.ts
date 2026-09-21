@@ -2,7 +2,7 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import type { PostgresMigration } from '../modules/data_platform/postgresDatabaseLifecycle.js';
+import type { PostgresMigration } from '../modules/data_platform/postgresDatabaseLifecycle.js'
 
 /** PostgreSQL migrations for the clustered enterprise authority. */
 export const ENTERPRISE_POSTGRES_MIGRATIONS: readonly PostgresMigration[] = [
@@ -925,7 +925,7 @@ CREATE INDEX attachment_objects_mls_message
   ) WHERE mls_conversation_id IS NOT NULL;
 `,
   },
-];
+]
 
 export const ENTERPRISE_POSTGRES_SCHEMA_VERSION =
-  ENTERPRISE_POSTGRES_MIGRATIONS.length;
+  ENTERPRISE_POSTGRES_MIGRATIONS.length

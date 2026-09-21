@@ -2,7 +2,7 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import type { PostgresMigration } from './postgresDatabaseLifecycle.js';
+import type { PostgresMigration } from './postgresDatabaseLifecycle.js'
 
 /** Shared PostgreSQL platform control-plane migrations; no product tables. */
 export const ENTERPRISE_POSTGRES_MIGRATIONS: readonly PostgresMigration[] = [
@@ -138,7 +138,7 @@ CREATE TABLE clawmaster_sqlite_import_rows (
 CREATE INDEX clawmaster_sqlite_import_rows_verification
   ON clawmaster_sqlite_import_rows (run_id, table_name, row_index);`,
   },
-];
+]
 
 export const ENTERPRISE_POSTGRES_SCHEMA_VERSION =
-  ENTERPRISE_POSTGRES_MIGRATIONS.length;
+  ENTERPRISE_POSTGRES_MIGRATIONS.length

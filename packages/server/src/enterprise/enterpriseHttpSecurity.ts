@@ -1,31 +1,31 @@
-import type { IncomingMessage } from 'node:http';
-import { createHash, timingSafeEqual } from 'node:crypto';
-import { isIP } from 'node:net';
-import * as db from './db.js';
+import type { IncomingMessage } from 'node:http'
+import { createHash, timingSafeEqual } from 'node:crypto'
+import { isIP } from 'node:net'
+import * as db from './db.js'
 
 export interface PasswordLoginRateLimitOptions {
-  maxFailures?: number;
+  maxFailures?: number
   /** 单个客户端 IP 在窗口内跨账号失败的上限，防 identifier 轮换式密码喷洒。 */
-  maxIpFailures?: number;
-  windowMs?: number;
-  blockMs?: number;
-  maxEntries?: number;
+  maxIpFailures?: number
+  windowMs?: number
+  blockMs?: number
+  maxEntries?: number
   /**
    * 仅在明确知道前方有多少层可信反向代理时设置。1 表示 Caddy 直连本服务；
    * 服务会从 X-Forwarded-For 右侧按跳数取真实客户端，默认 0 完全忽略该 header。
    */
-  trustedProxyHops?: number;
+  trustedProxyHops?: number
   /**
    * 允许提供 X-Forwarded-For 的直连代理 IP（仅支持精确 IP）。
    * loopback 代理始终可信；其他来源必须列在这里或 CLAWMASTER_ENTERPRISE_TRUSTED_PROXIES。
    */
-  trustedProxyAddresses?: string[];
-  now?: () => number;
+  trustedProxyAddresses?: string[]
+  now?: () => number
 }
 
 export interface EnterpriseProxyOptions {
-  trustedProxyHops?: number;
-  trustedProxyAddresses?: readonly string[];
+  trustedProxyHops?: number
+  trustedProxyAddresses?: readonly string[]
 }
 
 export interface LoginRateLimiter {
@@ -33,12 +33,12 @@ export interface LoginRateLimiter {
     req: IncomingMessage,
     identifier: string,
   ): {
-    identity: string;
-    client: string;
-  };
-  retryAfterSeconds(keys: { identity: string; client: string }): number;
-  recordFailure(keys: { identity: string; client: string }): number;
-  clearIdentity(key: string): void;
+    identity: string
+    client: string
+  }
+  retryAfterSeconds(keys: { identity: string; client: string }): number
+  recordFailure(keys: { identity: string; client: string }): number
+  clearIdentity(key: string): void
 }
 
 function positiveInteger(
@@ -46,8 +46,8 @@ function positiveInteger(
   fallback: number,
   maximum: number,
 ): number {
-  if (!Number.isFinite(value) || value == null || value <= 0) return fallback;
-  return Math.min(maximum, Math.max(1, Math.floor(value)));
+  if (!Number.isFinite(value) || value == null || value <= 0) return fallback
+  return Math.min(maximum, Math.max(1, Math.floor(value)))
 }
 
 export function nonNegativeInteger(
@@ -55,17 +55,17 @@ export function nonNegativeInteger(
   fallback: number,
   maximum: number,
 ): number {
-  if (!Number.isFinite(value) || value == null || value < 0) return fallback;
-  return Math.min(maximum, Math.floor(value));
+  if (!Number.isFinite(value) || value == null || value < 0) return fallback
+  return Math.min(maximum, Math.floor(value))
 }
 
 function normalizedIp(value: string): string | null {
-  const normalized = value.trim().replace(/^::ffff:/, '');
-  return isIP(normalized) ? normalized : null;
+  const normalized = value.trim().replace(/^::ffff:/, '')
+  return isIP(normalized) ? normalized : null
 }
 
 function isLoopbackAddress(address: string): boolean {
-  return address === '127.0.0.1' || address === '::1';
+  return address === '127.0.0.1' || address === '::1'
 }
 
 /**
@@ -77,33 +77,33 @@ export function resolveEnterpriseClientAddress(
   forwardedFor: string | string[] | undefined,
   options: EnterpriseProxyOptions = {},
 ): string {
-  const direct = normalizedIp(remoteAddress || '') || 'unknown';
-  const trustedProxyHops = nonNegativeInteger(options.trustedProxyHops, 0, 5);
-  if (trustedProxyHops === 0) return direct;
+  const direct = normalizedIp(remoteAddress || '') || 'unknown'
+  const trustedProxyHops = nonNegativeInteger(options.trustedProxyHops, 0, 5)
+  if (trustedProxyHops === 0) return direct
 
   const trustedProxyAddresses = new Set(
     (options.trustedProxyAddresses ?? [])
-      .map((address) => normalizedIp(address))
+      .map(address => normalizedIp(address))
       .filter((address): address is string => address !== null),
-  );
+  )
   if (!isLoopbackAddress(direct) && !trustedProxyAddresses.has(direct))
-    return direct;
+    return direct
   if (typeof forwardedFor !== 'string' || forwardedFor.length > 2048)
-    return direct;
+    return direct
 
   const forwardedChain = forwardedFor
     .split(',')
-    .map((address) => normalizedIp(address));
+    .map(address => normalizedIp(address))
   if (
     forwardedChain.length === 0 ||
-    forwardedChain.some((address) => address === null)
+    forwardedChain.some(address => address === null)
   ) {
-    return direct;
+    return direct
   }
-  const chain = [...(forwardedChain as string[]), direct];
-  const candidateIndex = chain.length - trustedProxyHops - 1;
-  if (candidateIndex < 0) return direct;
-  return chain[candidateIndex] || direct;
+  const chain = [...(forwardedChain as string[]), direct]
+  const candidateIndex = chain.length - trustedProxyHops - 1
+  if (candidateIndex < 0) return direct
+  return chain[candidateIndex] || direct
 }
 
 function rateLimitClientAddress(
@@ -114,7 +114,7 @@ function rateLimitClientAddress(
     req.socket.remoteAddress,
     req.headers['x-forwarded-for'],
     options,
-  );
+  )
 }
 
 /**
@@ -124,42 +124,42 @@ function rateLimitClientAddress(
 export function createLoginRateLimiter(
   options: PasswordLoginRateLimitOptions = {},
 ): LoginRateLimiter {
-  const maxFailures = positiveInteger(options.maxFailures, 5, 100);
-  const maxIpFailures = positiveInteger(options.maxIpFailures, 30, 1_000);
+  const maxFailures = positiveInteger(options.maxFailures, 5, 100)
+  const maxIpFailures = positiveInteger(options.maxIpFailures, 30, 1_000)
   const windowMs = positiveInteger(
     options.windowMs,
     15 * 60 * 1000,
     24 * 60 * 60 * 1000,
-  );
+  )
   const blockMs = positiveInteger(
     options.blockMs,
     60 * 1000,
     24 * 60 * 60 * 1000,
-  );
-  const maxEntries = positiveInteger(options.maxEntries, 10_000, 100_000);
-  const trustedProxyHops = nonNegativeInteger(options.trustedProxyHops, 0, 5);
-  const trustedProxyAddresses = options.trustedProxyAddresses ?? [];
-  const now = options.now ?? Date.now;
+  )
+  const maxEntries = positiveInteger(options.maxEntries, 10_000, 100_000)
+  const trustedProxyHops = nonNegativeInteger(options.trustedProxyHops, 0, 5)
+  const trustedProxyAddresses = options.trustedProxyAddresses ?? []
+  const now = options.now ?? Date.now
   type RateEntry = {
-    failures: number;
-    windowStartedAt: number;
-    blockedUntil: number;
-  };
-  const identityEntries = new Map<string, RateEntry>();
-  const clientEntries = new Map<string, RateEntry>();
+    failures: number
+    windowStartedAt: number
+    blockedUntil: number
+  }
+  const identityEntries = new Map<string, RateEntry>()
+  const clientEntries = new Map<string, RateEntry>()
 
   const touch = (
     entries: Map<string, RateEntry>,
     key: string,
     entry: RateEntry,
   ): void => {
-    entries.delete(key);
+    entries.delete(key)
     while (entries.size >= maxEntries) {
-      const oldest = entries.keys().next().value as string | undefined;
-      if (!oldest) break;
-      entries.delete(oldest);
+      const oldest = entries.keys().next().value as string | undefined
+      if (!oldest) break
+      entries.delete(oldest)
     }
-    entries.set(key, entry);
+    entries.set(key, entry)
   };
 
   const currentEntryIn = (
@@ -167,17 +167,17 @@ export function createLoginRateLimiter(
     key: string,
     timestamp: number,
   ): RateEntry | null => {
-    const entry = entries.get(key);
-    if (!entry) return null;
+    const entry = entries.get(key)
+    if (!entry) return null
     if (
       entry.blockedUntil <= timestamp &&
       timestamp - entry.windowStartedAt >= windowMs
     ) {
-      entries.delete(key);
-      return null;
+      entries.delete(key)
+      return null
     }
-    touch(entries, key, entry);
-    return entry;
+    touch(entries, key, entry)
+    return entry
   };
 
   const retryAfterFor = (
@@ -185,10 +185,10 @@ export function createLoginRateLimiter(
     key: string,
     timestamp: number,
   ): number => {
-    const entry = currentEntryIn(entries, key, timestamp);
+    const entry = currentEntryIn(entries, key, timestamp)
     return entry && entry.blockedUntil > timestamp
       ? Math.max(1, Math.ceil((entry.blockedUntil - timestamp) / 1000))
-      : 0;
+      : 0
   };
 
   const recordFailureFor = (
@@ -197,17 +197,17 @@ export function createLoginRateLimiter(
     threshold: number,
     timestamp: number,
   ): number => {
-    const existing = currentEntryIn(entries, key, timestamp);
+    const existing = currentEntryIn(entries, key, timestamp)
     const entry =
       existing && timestamp - existing.windowStartedAt < windowMs
         ? existing
-        : { failures: 0, windowStartedAt: timestamp, blockedUntil: 0 };
-    entry.failures += 1;
-    if (entry.failures >= threshold) entry.blockedUntil = timestamp + blockMs;
-    touch(entries, key, entry);
+        : { failures: 0, windowStartedAt: timestamp, blockedUntil: 0 }
+    entry.failures += 1
+    if (entry.failures >= threshold) entry.blockedUntil = timestamp + blockMs
+    touch(entries, key, entry)
     return entry.blockedUntil > timestamp
       ? Math.max(1, Math.ceil((entry.blockedUntil - timestamp) / 1000))
-      : 0;
+      : 0
   };
 
   return {
@@ -215,32 +215,32 @@ export function createLoginRateLimiter(
       const clientAddress = rateLimitClientAddress(req, {
         trustedProxyHops,
         trustedProxyAddresses,
-      });
-      let normalizedIdentifier = identifier.trim().toLocaleLowerCase('en-US');
+      })
+      let normalizedIdentifier = identifier.trim().toLocaleLowerCase('en-US')
       try {
         // 登录接受带空格、连字符或 +86 的手机号，限流键必须采用相同归一化，
         // 否则攻击者可仅改变展示格式绕过失败计数。
-        normalizedIdentifier = db.normalizePhone(identifier);
+        normalizedIdentifier = db.normalizePhone(identifier)
       } catch {
         // 非手机号继续按大小写无关的用户名计数。
       }
       const identity = createHash('sha256')
         .update(`${normalizedIdentifier}\0${clientAddress}`)
-        .digest('base64url');
+        .digest('base64url')
       const client = createHash('sha256')
         .update(`client\0${clientAddress}`)
-        .digest('base64url');
-      return { identity, client };
+        .digest('base64url')
+      return { identity, client }
     },
     retryAfterSeconds(keys) {
-      const timestamp = now();
+      const timestamp = now()
       return Math.max(
         retryAfterFor(identityEntries, keys.identity, timestamp),
         retryAfterFor(clientEntries, keys.client, timestamp),
-      );
+      )
     },
     recordFailure(keys) {
-      const timestamp = now();
+      const timestamp = now()
       return Math.max(
         recordFailureFor(
           identityEntries,
@@ -249,59 +249,59 @@ export function createLoginRateLimiter(
           timestamp,
         ),
         recordFailureFor(clientEntries, keys.client, maxIpFailures, timestamp),
-      );
+      )
     },
     clearIdentity(key) {
-      identityEntries.delete(key);
+      identityEntries.delete(key)
     },
-  };
+  }
 }
 
 /** 管理令牌只允许放在 header；URL query 会进入代理日志与浏览器历史，禁止使用。 */
 export function extractToken(req: IncomingMessage): string {
-  const h = req.headers['x-clawmaster-admin-token'];
-  if (typeof h === 'string' && h) return h;
-  const auth = req.headers['authorization'];
+  const h = req.headers['x-clawmaster-admin-token']
+  if (typeof h === 'string' && h) return h
+  const auth = req.headers['authorization']
   if (typeof auth === 'string' && auth.startsWith('Bearer '))
-    return auth.slice(7);
-  return '';
+    return auth.slice(7)
+  return ''
 }
 
 export function tokensMatch(a: string, b: string): boolean {
-  if (!a || !b || a.length !== b.length) return false;
+  if (!a || !b || a.length !== b.length) return false
   try {
-    return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+    return timingSafeEqual(Buffer.from(a), Buffer.from(b))
   } catch {
-    return false;
+    return false
   }
 }
 
 export function licenseBlockedPayload() {
-  const status = db.getPrivateDeploymentStatus();
+  const status = db.getPrivateDeploymentStatus()
   return {
     error: 'deployment license is not active',
     license: status.license,
     allowed: ['login', 'license update', 'data export', 'diagnostics'],
-  };
+  }
 }
 
 export function isCrossOriginBrowserRequest(req: IncomingMessage): boolean {
-  const origin = req.headers.origin;
-  if (typeof origin !== 'string' || !origin) return false;
-  const host = req.headers.host;
-  if (typeof host !== 'string' || !host) return true;
+  const origin = req.headers.origin
+  if (typeof origin !== 'string' || !origin) return false
+  const host = req.headers.host
+  if (typeof host !== 'string' || !host) return true
   try {
-    return new URL(origin).host !== host;
+    return new URL(origin).host !== host
   } catch {
-    return true;
+    return true
   }
 }
 
 export function isLoopbackRequestHost(req: IncomingMessage): boolean {
-  const host = req.headers.host;
-  if (typeof host !== 'string' || !host.trim()) return false;
+  const host = req.headers.host
+  if (typeof host !== 'string' || !host.trim()) return false
   try {
-    const parsed = new URL(`http://${host}`);
+    const parsed = new URL(`http://${host}`)
     if (
       parsed.username ||
       parsed.password ||
@@ -309,13 +309,13 @@ export function isLoopbackRequestHost(req: IncomingMessage): boolean {
       parsed.search ||
       parsed.hash
     ) {
-      return false;
+      return false
     }
-    const hostname = parsed.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    const hostname = parsed.hostname.replace(/^\[|\]$/g, '').toLowerCase()
     return (
       hostname === '127.0.0.1' || hostname === '::1' || hostname === 'localhost'
-    );
+    )
   } catch {
-    return false;
+    return false
   }
 }

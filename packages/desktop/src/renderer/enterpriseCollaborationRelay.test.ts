@@ -2,9 +2,9 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it, vi } from 'vitest';
-import { parseAtoaMessage } from './atoaProtocol.js';
-import { executeEnterpriseCollaborationRelay } from './enterpriseCollaborationRelay.js';
+import { describe, expect, it, vi } from 'vitest'
+import { parseAtoaMessage } from './atoaProtocol.js'
+import { executeEnterpriseCollaborationRelay } from './enterpriseCollaborationRelay.js'
 
 const account = {
   id: 'me',
@@ -24,7 +24,7 @@ const account = {
   tags: [],
   createdAt: '2026-07-20T00:00:00.000Z',
   updatedAt: '2026-07-20T00:00:00.000Z',
-};
+}
 
 const organization = {
   organization: {
@@ -56,7 +56,7 @@ const organization = {
     },
   ],
   employeeCount: 2,
-};
+}
 
 const dependencies = () => ({
   getOrganizationView: vi.fn(async () => organization),
@@ -77,11 +77,11 @@ const dependencies = () => ({
     readAt: null,
   })),
   updateAccount: vi.fn(async (id: string, input: {
-    department: string;
-    positionTitle: string;
-    role?: string | null;
+    department: string
+    positionTitle: string
+    role?: string | null
   }) => ({
-    ...organization.members.find((member) => member.id === id)!,
+    ...organization.members.find(member => member.id === id)!,
     organizationId: 'org-1',
     organizationName: 'ClawMaster 企业',
     accountType: 'enterprise' as const,
@@ -93,7 +93,7 @@ const dependencies = () => ({
     updatedAt: '2026-07-20T02:00:00.000Z',
     ...input,
   })),
-});
+})
 
 describe('enterprise_collaboration renderer 真实中继', () => {
   it('does not expose decrypted private-chat history to ClawMaster tools', async () => {
@@ -101,15 +101,15 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       { action: 'list_messages', recipientAccountId: 'peer-1' },
       account,
       dependencies(),
-    )).rejects.toThrow('action');
+    )).rejects.toThrow('action')
   });
   it('list_members 返回真实 active 企业树成员和可用于后续动作的账号 ID', async () => {
-    const deps = dependencies();
+    const deps = dependencies()
     const result = await executeEnterpriseCollaborationRelay(
       { action: 'list_members' },
       account,
       deps,
-    );
+    )
     expect(result).toEqual({
       ok: true,
       organization: { id: 'org-1', name: 'ClawMaster 企业' },
@@ -117,11 +117,11 @@ describe('enterprise_collaboration renderer 真实中继', () => {
         expect.objectContaining({ id: 'me', name: 'Bob' }),
         expect.objectContaining({ id: 'peer-1', name: 'Alice' }),
       ],
-    });
+    })
   });
 
   it('发送前校验目标仍是当前组织 active 成员，并返回真实服务端消息', async () => {
-    const deps = dependencies();
+    const deps = dependencies()
     const result = await executeEnterpriseCollaborationRelay(
       {
         action: 'send_message',
@@ -130,16 +130,16 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       },
       account,
       deps,
-    );
+    )
     expect(deps.sendMessage).toHaveBeenCalledWith(
       'peer-1',
       '请确认接口评审时间。',
-    );
+    )
     expect(result).toMatchObject({
       ok: true,
       action: 'send_message',
       message: { id: 'sent-1' },
-    });
+    })
 
     await expect(
       executeEnterpriseCollaborationRelay(
@@ -151,11 +151,11 @@ describe('enterprise_collaboration renderer 真实中继', () => {
         account,
         deps,
       ),
-    ).rejects.toThrow('不在当前企业组织树');
+    ).rejects.toThrow('不在当前企业组织树')
   });
 
   it('ask_peer_clawmaster 发送严格协议请求，不能伪造即时回答', async () => {
-    const deps = dependencies();
+    const deps = dependencies()
     const result = await executeEnterpriseCollaborationRelay(
       {
         action: 'ask_peer_clawmaster',
@@ -164,21 +164,21 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       },
       account,
       deps,
-    );
-    const parsed = parseAtoaMessage(deps.sendMessage.mock.calls[0][1]);
+    )
+    const parsed = parseAtoaMessage(deps.sendMessage.mock.calls[0][1])
     expect(parsed).toMatchObject({
       kind: 'request',
       payload: { mode: 'answer', question: '今天可以评审吗？' },
-    });
+    })
     expect(result).toMatchObject({
       ok: true,
       action: 'ask_peer_clawmaster',
       status: 'waiting_for_peer_permission',
-    });
+    })
   });
 
   it('consult_peer_clawmaster 打开真实双方协商流程，而不是只改消息标签', async () => {
-    const deps = dependencies();
+    const deps = dependencies()
     const result = await executeEnterpriseCollaborationRelay(
       {
         action: 'consult_peer_clawmaster',
@@ -187,21 +187,21 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       },
       account,
       deps,
-    );
+    )
     expect(deps.requestConsult).toHaveBeenCalledWith(
       organization.members[1],
       '比较双方日程并协商评审时间',
-    );
+    )
     expect(result).toMatchObject({
       ok: true,
       action: 'consult_peer_clawmaster',
       status: 'waiting_for_peer_permission',
       message: { id: 'consult-1' },
-    });
+    })
   });
 
   it('企业管理员可通过真实账号更新接口安排同组织成员的部门与职位', async () => {
-    const deps = dependencies();
+    const deps = dependencies()
     const result = await executeEnterpriseCollaborationRelay(
       {
         action: 'assign_member_position',
@@ -212,13 +212,13 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       },
       { ...account, isAdmin: true },
       deps,
-    );
+    )
 
     expect(deps.updateAccount).toHaveBeenCalledWith('peer-1', {
       department: '产品部',
       positionTitle: '产品经理',
       role: '产品负责人',
-    });
+    })
     expect(result).toMatchObject({
       ok: true,
       action: 'assign_member_position',
@@ -228,11 +228,11 @@ describe('enterprise_collaboration renderer 真实中继', () => {
         positionTitle: '产品经理',
         role: '产品负责人',
       },
-    });
+    })
   });
 
   it('非管理员不能任命职位，非法字段也不会到达账号更新接口', async () => {
-    const deps = dependencies();
+    const deps = dependencies()
     await expect(executeEnterpriseCollaborationRelay(
       {
         action: 'assign_member_position',
@@ -242,7 +242,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       },
       account,
       deps,
-    )).rejects.toThrow('仅企业管理员');
+    )).rejects.toThrow('仅企业管理员')
     await expect(executeEnterpriseCollaborationRelay(
       {
         action: 'assign_member_position',
@@ -253,26 +253,26 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       },
       { ...account, isAdmin: true },
       deps,
-    )).rejects.toThrow('未知字段');
-    expect(deps.updateAccount).not.toHaveBeenCalled();
+    )).rejects.toThrow('未知字段')
+    expect(deps.updateAccount).not.toHaveBeenCalled()
   });
 
   it('个人账号和非法参数 fail closed，不调用任何企业 IPC', async () => {
-    const deps = dependencies();
+    const deps = dependencies()
     await expect(
       executeEnterpriseCollaborationRelay(
         { action: 'list_members' },
         { ...account, accountType: 'personal' },
         deps,
       ),
-    ).rejects.toThrow('仅企业账号');
+    ).rejects.toThrow('仅企业账号')
     await expect(
       executeEnterpriseCollaborationRelay(
         { action: 'ask_peer_clawmaster', recipientAccountId: 'peer-1' },
         account,
         deps,
       ),
-    ).rejects.toThrow('question');
-    expect(deps.getOrganizationView).not.toHaveBeenCalled();
+    ).rejects.toThrow('question')
+    expect(deps.getOrganizationView).not.toHaveBeenCalled()
   });
-});
+})

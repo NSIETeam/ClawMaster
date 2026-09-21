@@ -2,35 +2,35 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ENTERPRISE_MODEL_CATALOG,
   loadEnterpriseModelCatalog,
-} from './modelCatalog.js';
+} from './modelCatalog.js'
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => vi.unstubAllEnvs())
 
 describe('企业版 ClawMaster 托管模型目录', () => {
   it('覆盖国内主流模型家族，并明确展示积分倍率', () => {
-    const providers = new Set(ENTERPRISE_MODEL_CATALOG.map((model) => model.vendor));
+    const providers = new Set(ENTERPRISE_MODEL_CATALOG.map(model => model.vendor))
     expect(providers).toEqual(
       new Set(['DeepSeek', '通义千问', '智谱 GLM', '豆包', 'Kimi', '高端模型']),
-    );
-    expect(ENTERPRISE_MODEL_CATALOG.find((model) => model.id === 'clawmaster:deepseek')?.creditMultiplier).toBe(1);
+    )
+    expect(ENTERPRISE_MODEL_CATALOG.find(model => model.id === 'clawmaster:deepseek')?.creditMultiplier).toBe(1)
     expect(
-      ENTERPRISE_MODEL_CATALOG.filter((model) => model.tier === 'premium').every(
-        (model) => model.creditMultiplier > 1,
+      ENTERPRISE_MODEL_CATALOG.filter(model => model.tier === 'premium').every(
+        model => model.creditMultiplier > 1,
       ),
-    ).toBe(true);
+    ).toBe(true)
   });
 
   it('目录只下发 ClawMaster 模型 id，不向客户端暴露上游 baseUrl 或密钥', () => {
     for (const model of ENTERPRISE_MODEL_CATALOG) {
-      expect(model.id.startsWith('clawmaster:')).toBe(true);
-      expect(model).not.toHaveProperty('baseUrl');
-      expect(JSON.stringify(model)).not.toMatch(/apiKey|secret/i);
+      expect(model.id.startsWith('clawmaster:')).toBe(true)
+      expect(model).not.toHaveProperty('baseUrl')
+      expect(JSON.stringify(model)).not.toMatch(/apiKey|secret/i)
     }
-  });
+  })
 
   it('支持后台用 JSON 环境变量原子替换目录，非法配置回退内置目录', () => {
     vi.stubEnv(
@@ -47,12 +47,12 @@ describe('企业版 ClawMaster 托管模型目录', () => {
           outputCreditsPerMTok: 400,
         },
       ]),
-    );
+    )
     expect(loadEnterpriseModelCatalog()).toEqual([
       expect.objectContaining({ id: 'clawmaster:company-fast', managed: true, source: 'clawmaster' }),
-    ]);
+    ])
 
-    vi.stubEnv('CLAWMASTER_ENTERPRISE_MODEL_CATALOG', '{bad json');
-    expect(loadEnterpriseModelCatalog()).toEqual(ENTERPRISE_MODEL_CATALOG);
+    vi.stubEnv('CLAWMASTER_ENTERPRISE_MODEL_CATALOG', '{bad json')
+    expect(loadEnterpriseModelCatalog()).toEqual(ENTERPRISE_MODEL_CATALOG)
   });
-});
+})

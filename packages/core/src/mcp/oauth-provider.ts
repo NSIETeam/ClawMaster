@@ -4,92 +4,92 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as http from 'node:http';
-import * as crypto from 'node:crypto';
-import { URL } from 'node:url';
-import open from 'open';
-import { MCPOAuthToken, MCPOAuthTokenStorage } from './oauth-token-storage.js';
-import { getErrorMessage } from '../utils/errors.js';
-import { OAuthUtils } from './oauth-utils.js';
+import * as http from 'node:http'
+import * as crypto from 'node:crypto'
+import { URL } from 'node:url'
+import open from 'open'
+import { MCPOAuthToken, MCPOAuthTokenStorage } from './oauth-token-storage.js'
+import { getErrorMessage } from '../utils/errors.js'
+import { OAuthUtils } from './oauth-utils.js'
 
 /**
  * OAuth configuration for an MCP server.
  */
 export interface MCPOAuthConfig {
-  enabled?: boolean; // Whether OAuth is enabled for this server
-  clientId?: string;
-  clientSecret?: string;
-  authorizationUrl?: string;
-  tokenUrl?: string;
-  scopes?: string[];
-  redirectUri?: string;
-  tokenParamName?: string; // For SSE connections, specifies the query parameter name for the token
+  enabled?: boolean // Whether OAuth is enabled for this server
+  clientId?: string
+  clientSecret?: string
+  authorizationUrl?: string
+  tokenUrl?: string
+  scopes?: string[]
+  redirectUri?: string
+  tokenParamName?: string // For SSE connections, specifies the query parameter name for the token
 }
 
 /**
  * OAuth authorization response.
  */
 export interface OAuthAuthorizationResponse {
-  code: string;
-  state: string;
+  code: string
+  state: string
 }
 
 /**
  * OAuth token response from the authorization server.
  */
 export interface OAuthTokenResponse {
-  access_token: string;
-  token_type: string;
-  expires_in?: number;
-  refresh_token?: string;
-  scope?: string;
+  access_token: string
+  token_type: string
+  expires_in?: number
+  refresh_token?: string
+  scope?: string
 }
 
 /**
  * Dynamic client registration request.
  */
 export interface OAuthClientRegistrationRequest {
-  client_name: string;
-  redirect_uris: string[];
-  grant_types: string[];
-  response_types: string[];
-  token_endpoint_auth_method: string;
-  code_challenge_method?: string[];
-  scope?: string;
+  client_name: string
+  redirect_uris: string[]
+  grant_types: string[]
+  response_types: string[]
+  token_endpoint_auth_method: string
+  code_challenge_method?: string[]
+  scope?: string
 }
 
 /**
  * Dynamic client registration response.
  */
 export interface OAuthClientRegistrationResponse {
-  client_id: string;
-  client_secret?: string;
-  client_id_issued_at?: number;
-  client_secret_expires_at?: number;
-  redirect_uris: string[];
-  grant_types: string[];
-  response_types: string[];
-  token_endpoint_auth_method: string;
-  code_challenge_method?: string[];
-  scope?: string;
+  client_id: string
+  client_secret?: string
+  client_id_issued_at?: number
+  client_secret_expires_at?: number
+  redirect_uris: string[]
+  grant_types: string[]
+  response_types: string[]
+  token_endpoint_auth_method: string
+  code_challenge_method?: string[]
+  scope?: string
 }
 
 /**
  * PKCE (Proof Key for Code Exchange) parameters.
  */
 interface PKCEParams {
-  codeVerifier: string;
-  codeChallenge: string;
-  state: string;
+  codeVerifier: string
+  codeChallenge: string
+  state: string
 }
 
 /**
  * Provider for handling OAuth authentication for MCP servers.
  */
 export class MCPOAuthProvider {
-  private static readonly REDIRECT_PORT = 7777;
-  private static readonly REDIRECT_PATH = '/oauth/callback';
-  private static readonly HTTP_OK = 200;
+  private static readonly REDIRECT_PORT = 7777
+  private static readonly REDIRECT_PATH = '/oauth/callback'
+  private static readonly HTTP_OK = 200
 
   /**
    * Register a client dynamically with the OAuth server.
@@ -104,7 +104,7 @@ export class MCPOAuthProvider {
   ): Promise<OAuthClientRegistrationResponse> {
     const redirectUri =
       config.redirectUri ||
-      `http://localhost:${this.REDIRECT_PORT}${this.REDIRECT_PATH}`;
+      `http://localhost:${this.REDIRECT_PORT}${this.REDIRECT_PATH}`
 
     const registrationRequest: OAuthClientRegistrationRequest = {
       client_name: 'ClawMaster MCP Client',
@@ -114,7 +114,7 @@ export class MCPOAuthProvider {
       token_endpoint_auth_method: 'none', // Public client
       code_challenge_method: ['S256'],
       scope: config.scopes?.join(' ') || '',
-    };
+    }
 
     const response = await fetch(registrationUrl, {
       method: 'POST',
@@ -122,16 +122,16 @@ export class MCPOAuthProvider {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(registrationRequest),
-    });
+    })
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text()
       throw new Error(
         `Client registration failed: ${response.status} ${response.statusText} - ${errorText}`,
-      );
+      )
     }
 
-    return (await response.json()) as OAuthClientRegistrationResponse;
+    return (await response.json()) as OAuthClientRegistrationResponse
   }
 
   /**
@@ -143,8 +143,8 @@ export class MCPOAuthProvider {
   private static async discoverOAuthFromMCPServer(
     mcpServerUrl: string,
   ): Promise<MCPOAuthConfig | null> {
-    const baseUrl = OAuthUtils.extractBaseUrl(mcpServerUrl);
-    return OAuthUtils.discoverOAuthConfig(baseUrl);
+    const baseUrl = OAuthUtils.extractBaseUrl(mcpServerUrl)
+    return OAuthUtils.discoverOAuthConfig(baseUrl)
   }
 
   /**
@@ -154,18 +154,18 @@ export class MCPOAuthProvider {
    */
   private static generatePKCEParams(): PKCEParams {
     // Generate code verifier (43-128 characters)
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+    const codeVerifier = crypto.randomBytes(32).toString('base64url')
 
     // Generate code challenge using SHA256
     const codeChallenge = crypto
       .createHash('sha256')
       .update(codeVerifier)
-      .digest('base64url');
+      .digest('base64url')
 
     // Generate state for CSRF protection
-    const state = crypto.randomBytes(16).toString('base64url');
+    const state = crypto.randomBytes(16).toString('base64url')
 
-    return { codeVerifier, codeChallenge, state };
+    return { codeVerifier, codeChallenge, state }
   }
 
   /**
@@ -184,20 +184,20 @@ export class MCPOAuthProvider {
             const url = new URL(
               req.url!,
               `http://localhost:${this.REDIRECT_PORT}`,
-            );
+            )
 
             if (url.pathname !== this.REDIRECT_PATH) {
-              res.writeHead(404);
-              res.end('Not found');
+              res.writeHead(404)
+              res.end('Not found')
               return;
             }
 
-            const code = url.searchParams.get('code');
-            const state = url.searchParams.get('state');
-            const error = url.searchParams.get('error');
+            const code = url.searchParams.get('code')
+            const state = url.searchParams.get('state')
+            const error = url.searchParams.get('error')
 
             if (error) {
-              res.writeHead(this.HTTP_OK, { 'Content-Type': 'text/html' });
+              res.writeHead(this.HTTP_OK, { 'Content-Type': 'text/html' })
               res.end(`
               <html>
                 <body>
@@ -207,28 +207,28 @@ export class MCPOAuthProvider {
                   <p>You can close this window.</p>
                 </body>
               </html>
-            `);
-              server.close();
-              reject(new Error(`OAuth error: ${error}`));
+            `)
+              server.close()
+              reject(new Error(`OAuth error: ${error}`))
               return;
             }
 
             if (!code || !state) {
-              res.writeHead(400);
-              res.end('Missing code or state parameter');
+              res.writeHead(400)
+              res.end('Missing code or state parameter')
               return;
             }
 
             if (state !== expectedState) {
-              res.writeHead(400);
-              res.end('Invalid state parameter');
-              server.close();
-              reject(new Error('State mismatch - possible CSRF attack'));
+              res.writeHead(400)
+              res.end('Invalid state parameter')
+              server.close()
+              reject(new Error('State mismatch - possible CSRF attack'))
               return;
             }
 
             // Send success response to browser
-            res.writeHead(this.HTTP_OK, { 'Content-Type': 'text/html' });
+            res.writeHead(this.HTTP_OK, { 'Content-Type': 'text/html' })
             res.end(`
             <html>
               <head>
@@ -252,32 +252,32 @@ export class MCPOAuthProvider {
                 </div>
               </body>
             </html>
-          `);
+          `)
 
-            server.close();
-            resolve({ code, state });
+            server.close()
+            resolve({ code, state })
           } catch (error) {
-            server.close();
-            reject(error);
+            server.close()
+            reject(error)
           }
         },
-      );
+      )
 
-      server.on('error', reject);
+      server.on('error', reject)
       server.listen(this.REDIRECT_PORT, () => {
         console.log(
           `OAuth callback server listening on port ${this.REDIRECT_PORT}`,
-        );
+        )
       });
 
       // Timeout after 5 minutes
       setTimeout(
         () => {
-          server.close();
-          reject(new Error('OAuth callback timeout'));
+          server.close()
+          reject(new Error('OAuth callback timeout'))
         },
         5 * 60 * 1000,
-      );
+      )
     });
   }
 
@@ -294,7 +294,7 @@ export class MCPOAuthProvider {
   ): string {
     const redirectUri =
       config.redirectUri ||
-      `http://localhost:${this.REDIRECT_PORT}${this.REDIRECT_PATH}`;
+      `http://localhost:${this.REDIRECT_PORT}${this.REDIRECT_PATH}`
 
     const params = new URLSearchParams({
       client_id: config.clientId!,
@@ -303,19 +303,19 @@ export class MCPOAuthProvider {
       state: pkceParams.state,
       code_challenge: pkceParams.codeChallenge,
       code_challenge_method: 'S256',
-    });
+    })
 
     if (config.scopes && config.scopes.length > 0) {
-      params.append('scope', config.scopes.join(' '));
+      params.append('scope', config.scopes.join(' '))
     }
 
     // Add resource parameter for MCP OAuth spec compliance
     params.append(
       'resource',
       OAuthUtils.buildResourceParameter(config.authorizationUrl!),
-    );
+    )
 
-    return `${config.authorizationUrl}?${params.toString()}`;
+    return `${config.authorizationUrl}?${params.toString()}`
   }
 
   /**
@@ -333,7 +333,7 @@ export class MCPOAuthProvider {
   ): Promise<OAuthTokenResponse> {
     const redirectUri =
       config.redirectUri ||
-      `http://localhost:${this.REDIRECT_PORT}${this.REDIRECT_PATH}`;
+      `http://localhost:${this.REDIRECT_PORT}${this.REDIRECT_PATH}`
 
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -341,17 +341,17 @@ export class MCPOAuthProvider {
       redirect_uri: redirectUri,
       code_verifier: codeVerifier,
       client_id: config.clientId!,
-    });
+    })
 
     if (config.clientSecret) {
-      params.append('client_secret', config.clientSecret);
+      params.append('client_secret', config.clientSecret)
     }
 
     // Add resource parameter for MCP OAuth spec compliance
     params.append(
       'resource',
       OAuthUtils.buildResourceParameter(config.tokenUrl!),
-    );
+    )
 
     const response = await fetch(config.tokenUrl!, {
       method: 'POST',
@@ -359,16 +359,16 @@ export class MCPOAuthProvider {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params.toString(),
-    });
+    })
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text()
       throw new Error(
         `Token exchange failed: ${response.status} - ${errorText}`,
-      );
+      )
     }
 
-    return (await response.json()) as OAuthTokenResponse;
+    return (await response.json()) as OAuthTokenResponse
   }
 
   /**
@@ -387,18 +387,18 @@ export class MCPOAuthProvider {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: config.clientId!,
-    });
+    })
 
     if (config.clientSecret) {
-      params.append('client_secret', config.clientSecret);
+      params.append('client_secret', config.clientSecret)
     }
 
     if (config.scopes && config.scopes.length > 0) {
-      params.append('scope', config.scopes.join(' '));
+      params.append('scope', config.scopes.join(' '))
     }
 
     // Add resource parameter for MCP OAuth spec compliance
-    params.append('resource', OAuthUtils.buildResourceParameter(tokenUrl));
+    params.append('resource', OAuthUtils.buildResourceParameter(tokenUrl))
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -406,16 +406,16 @@ export class MCPOAuthProvider {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params.toString(),
-    });
+    })
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text()
       throw new Error(
         `Token refresh failed: ${response.status} - ${errorText}`,
-      );
+      )
     }
 
-    return (await response.json()) as OAuthTokenResponse;
+    return (await response.json()) as OAuthTokenResponse
   }
 
   /**
@@ -436,7 +436,7 @@ export class MCPOAuthProvider {
     if (!config.authorizationUrl && mcpServerUrl) {
       console.log(
         'No authorization URL provided, attempting OAuth discovery...',
-      );
+      )
 
       // For SSE URLs, first check if authentication is required
       if (OAuthUtils.isSSEEndpoint(mcpServerUrl)) {
@@ -446,42 +446,42 @@ export class MCPOAuthProvider {
             headers: {
               Accept: 'text/event-stream',
             },
-          });
+          })
 
           if (response.status === 401 || response.status === 307) {
-            const wwwAuthenticate = response.headers.get('www-authenticate');
+            const wwwAuthenticate = response.headers.get('www-authenticate')
             if (wwwAuthenticate) {
               const discoveredConfig =
                 await OAuthUtils.discoverOAuthFromWWWAuthenticate(
                   wwwAuthenticate,
-                );
+                )
               if (discoveredConfig) {
                 config = {
                   ...config,
                   ...discoveredConfig,
                   scopes: discoveredConfig.scopes || config.scopes || [],
-                };
+                }
               }
             }
           }
         } catch (error) {
           console.debug(
             `Failed to check SSE endpoint for authentication requirements: ${getErrorMessage(error)}`,
-          );
+          )
         }
       }
 
       // If we still don't have OAuth config, try the standard discovery
       if (!config.authorizationUrl) {
         const discoveredConfig =
-          await this.discoverOAuthFromMCPServer(mcpServerUrl);
+          await this.discoverOAuthFromMCPServer(mcpServerUrl)
         if (discoveredConfig) {
-          config = { ...config, ...discoveredConfig };
-          console.log('OAuth configuration discovered successfully');
+          config = { ...config, ...discoveredConfig }
+          console.log('OAuth configuration discovered successfully')
         } else {
           throw new Error(
             'Failed to discover OAuth configuration from MCP server',
-          );
+          )
         }
       }
     }
@@ -492,30 +492,30 @@ export class MCPOAuthProvider {
       if (!config.authorizationUrl) {
         throw new Error(
           'Cannot perform dynamic registration without authorization URL',
-        );
+        )
       }
 
-      const authUrl = new URL(config.authorizationUrl);
-      const serverUrl = `${authUrl.protocol}//${authUrl.host}`;
+      const authUrl = new URL(config.authorizationUrl)
+      const serverUrl = `${authUrl.protocol}//${authUrl.host}`
 
       console.log(
         'No client ID provided, attempting dynamic client registration...',
-      );
+      )
 
       // Get the authorization server metadata for registration
       const authServerMetadataUrl = new URL(
         '/.well-known/oauth-authorization-server',
         serverUrl,
-      ).toString();
+      ).toString()
 
       const authServerMetadata =
         await OAuthUtils.fetchAuthorizationServerMetadata(
           authServerMetadataUrl,
-        );
+        )
       if (!authServerMetadata) {
         throw new Error(
           'Failed to fetch authorization server metadata for client registration',
-        );
+        )
       }
 
       // Register client if registration endpoint is available
@@ -523,18 +523,18 @@ export class MCPOAuthProvider {
         const clientRegistration = await this.registerClient(
           authServerMetadata.registration_endpoint,
           config,
-        );
+        )
 
-        config.clientId = clientRegistration.client_id;
+        config.clientId = clientRegistration.client_id
         if (clientRegistration.client_secret) {
-          config.clientSecret = clientRegistration.client_secret;
+          config.clientSecret = clientRegistration.client_secret
         }
 
-        console.log('Dynamic client registration successful');
+        console.log('Dynamic client registration successful')
       } else {
         throw new Error(
           'No client ID provided and dynamic registration not supported',
-        );
+        )
       }
     }
 
@@ -542,66 +542,66 @@ export class MCPOAuthProvider {
     if (!config.clientId || !config.authorizationUrl || !config.tokenUrl) {
       throw new Error(
         'Missing required OAuth configuration after discovery and registration',
-      );
+      )
     }
 
     // Generate PKCE parameters
-    const pkceParams = this.generatePKCEParams();
+    const pkceParams = this.generatePKCEParams()
 
     // Build authorization URL
-    const authUrl = this.buildAuthorizationUrl(config, pkceParams);
+    const authUrl = this.buildAuthorizationUrl(config, pkceParams)
 
-    console.log('\nOpening browser for OAuth authentication...');
-    console.log('If the browser does not open, please visit:');
-    console.log('');
+    console.log('\nOpening browser for OAuth authentication...')
+    console.log('If the browser does not open, please visit:')
+    console.log('')
 
     // Get terminal width or default to 80
-    const terminalWidth = process.stdout.columns || 80;
-    const separatorLength = Math.min(terminalWidth - 2, 80);
-    const separator = '━'.repeat(separatorLength);
+    const terminalWidth = process.stdout.columns || 80
+    const separatorLength = Math.min(terminalWidth - 2, 80)
+    const separator = '━'.repeat(separatorLength)
 
-    console.log(separator);
+    console.log(separator)
     console.log(
       'COPY THE ENTIRE URL BELOW (select all text between the lines):',
-    );
-    console.log(separator);
-    console.log(authUrl);
-    console.log(separator);
-    console.log('');
+    )
+    console.log(separator)
+    console.log(authUrl)
+    console.log(separator)
+    console.log('')
     console.log(
       '💡 TIP: Triple-click to select the entire URL, then copy and paste it into your browser.',
-    );
+    )
     console.log(
       '⚠️  Make sure to copy the COMPLETE URL - it may wrap across multiple lines.',
-    );
-    console.log('');
+    )
+    console.log('')
 
     // Start callback server
-    const callbackPromise = this.startCallbackServer(pkceParams.state);
+    const callbackPromise = this.startCallbackServer(pkceParams.state)
 
     // Open browser
     try {
-      await open(authUrl);
+      await open(authUrl)
       if (updateOutput) {
-        updateOutput(`✓ Browser opened. If it didn't open, please visit:\n${authUrl}`);
+        updateOutput(`✓ Browser opened. If it didn't open, please visit:\n${authUrl}`)
       }
     } catch (_error) {
       if (updateOutput) {
-        updateOutput(`⚠ Failed to open browser. Please visit this URL:\n${authUrl}`);
+        updateOutput(`⚠ Failed to open browser. Please visit this URL:\n${authUrl}`)
       }
     }
 
     // Wait for callback
-    const { code } = await callbackPromise;
+    const { code } = await callbackPromise
 
-    console.log('\nAuthorization code received, exchanging for tokens...');
+    console.log('\nAuthorization code received, exchanging for tokens...')
 
     // Exchange code for tokens
     const tokenResponse = await this.exchangeCodeForToken(
       config,
       code,
       pkceParams.codeVerifier,
-    );
+    )
 
     // Convert to our token format
     const token: MCPOAuthToken = {
@@ -609,10 +609,10 @@ export class MCPOAuthProvider {
       tokenType: tokenResponse.token_type,
       refreshToken: tokenResponse.refresh_token,
       scope: tokenResponse.scope,
-    };
+    }
 
     if (tokenResponse.expires_in) {
-      token.expiresAt = Date.now() + tokenResponse.expires_in * 1000;
+      token.expiresAt = Date.now() + tokenResponse.expires_in * 1000
     }
 
     // Save token
@@ -622,24 +622,24 @@ export class MCPOAuthProvider {
         token,
         config.clientId,
         config.tokenUrl,
-      );
-      console.log('Authentication successful! Token saved.');
+      )
+      console.log('Authentication successful! Token saved.')
 
       // Verify token was saved
-      const savedToken = await MCPOAuthTokenStorage.getToken(serverName);
+      const savedToken = await MCPOAuthTokenStorage.getToken(serverName)
       if (savedToken) {
         console.log(
           `Token verification successful: ${savedToken.token.accessToken.substring(0, 20)}...`,
-        );
+        )
       } else {
-        console.error('Token verification failed: token not found after save');
+        console.error('Token verification failed: token not found after save')
       }
     } catch (saveError) {
-      console.error(`Failed to save token: ${getErrorMessage(saveError)}`);
-      throw saveError;
+      console.error(`Failed to save token: ${getErrorMessage(saveError)}`)
+      throw saveError
     }
 
-    return token;
+    return token
   }
 
   /**
@@ -653,35 +653,35 @@ export class MCPOAuthProvider {
     serverName: string,
     config: MCPOAuthConfig,
   ): Promise<string | null> {
-    console.debug(`Getting valid token for server: ${serverName}`);
-    const credentials = await MCPOAuthTokenStorage.getToken(serverName);
+    console.debug(`Getting valid token for server: ${serverName}`)
+    const credentials = await MCPOAuthTokenStorage.getToken(serverName)
 
     if (!credentials) {
-      console.debug(`No credentials found for server: ${serverName}`);
-      return null;
+      console.debug(`No credentials found for server: ${serverName}`)
+      return null
     }
 
-    const { token } = credentials;
+    const { token } = credentials
     console.debug(
       `Found token for server: ${serverName}, expired: ${MCPOAuthTokenStorage.isTokenExpired(token)}`,
-    );
+    )
 
     // Check if token is expired
     if (!MCPOAuthTokenStorage.isTokenExpired(token)) {
-      console.debug(`Returning valid token for server: ${serverName}`);
-      return token.accessToken;
+      console.debug(`Returning valid token for server: ${serverName}`)
+      return token.accessToken
     }
 
     // Try to refresh if we have a refresh token
     if (token.refreshToken && config.clientId && credentials.tokenUrl) {
       try {
-        console.log(`Refreshing expired token for MCP server: ${serverName}`);
+        console.log(`Refreshing expired token for MCP server: ${serverName}`)
 
         const newTokenResponse = await this.refreshAccessToken(
           config,
           token.refreshToken,
           credentials.tokenUrl,
-        );
+        )
 
         // Update stored token
         const newToken: MCPOAuthToken = {
@@ -689,10 +689,10 @@ export class MCPOAuthProvider {
           tokenType: newTokenResponse.token_type,
           refreshToken: newTokenResponse.refresh_token || token.refreshToken,
           scope: newTokenResponse.scope || token.scope,
-        };
+        }
 
         if (newTokenResponse.expires_in) {
-          newToken.expiresAt = Date.now() + newTokenResponse.expires_in * 1000;
+          newToken.expiresAt = Date.now() + newTokenResponse.expires_in * 1000
         }
 
         await MCPOAuthTokenStorage.saveToken(
@@ -700,16 +700,16 @@ export class MCPOAuthProvider {
           newToken,
           config.clientId,
           credentials.tokenUrl,
-        );
+        )
 
-        return newToken.accessToken;
+        return newToken.accessToken
       } catch (error) {
-        console.error(`Failed to refresh token: ${getErrorMessage(error)}`);
+        console.error(`Failed to refresh token: ${getErrorMessage(error)}`)
         // Remove invalid token
-        await MCPOAuthTokenStorage.removeToken(serverName);
+        await MCPOAuthTokenStorage.removeToken(serverName)
       }
     }
 
-    return null;
+    return null
   }
 }

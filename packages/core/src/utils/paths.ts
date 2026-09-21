@@ -4,18 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import path from 'node:path';
-import os from 'os';
-import * as crypto from 'crypto';
-import fs from 'node:fs';
+import path from 'node:path'
+import os from 'os'
+import * as crypto from 'crypto'
+import fs from 'node:fs'
 
-export const CLAWMASTER_DIR = '.clawmaster-user';
-export const PROJECT_DIR_PREFIX = '.clawmaster';
+export const CLAWMASTER_DIR = '.clawmaster-user'
+export const PROJECT_DIR_PREFIX = '.clawmaster'
 
-export const GOOGLE_ACCOUNTS_FILENAME = 'google_accounts.json';
-const TMP_DIR_NAME = 'tmp';
-const COMMANDS_DIR_NAME = 'commands';
-const SKILLS_DIR_NAME = 'skills';
+export const GOOGLE_ACCOUNTS_FILENAME = 'google_accounts.json'
+const TMP_DIR_NAME = 'tmp'
+const COMMANDS_DIR_NAME = 'commands'
+const SKILLS_DIR_NAME = 'skills'
 
 /**
  * Replaces the home directory with a tilde.
@@ -23,11 +23,11 @@ const SKILLS_DIR_NAME = 'skills';
  * @returns The tildeified path.
  */
 export function tildeifyPath(path: string): string {
-  const homeDir = os.homedir();
+  const homeDir = os.homedir()
   if (path.startsWith(homeDir)) {
-    return path.replace(homeDir, '~');
+    return path.replace(homeDir, '~')
   }
-  return path;
+  return path
 }
 
 /**
@@ -36,68 +36,68 @@ export function tildeifyPath(path: string): string {
  */
 export function shortenPath(filePath: string, maxLen: number = 35): string {
   if (filePath.length <= maxLen) {
-    return filePath;
+    return filePath
   }
 
-  const parsedPath = path.parse(filePath);
-  const root = parsedPath.root;
-  const separator = path.sep;
+  const parsedPath = path.parse(filePath)
+  const root = parsedPath.root
+  const separator = path.sep
 
   // Get segments of the path *after* the root
-  const relativePath = filePath.substring(root.length);
-  const segments = relativePath.split(separator).filter((s) => s !== ''); // Filter out empty segments
+  const relativePath = filePath.substring(root.length)
+  const segments = relativePath.split(separator).filter(s => s !== '') // Filter out empty segments
 
   // Handle cases with no segments after root (e.g., "/", "C:\") or only one segment
   if (segments.length <= 1) {
     // Fall back to simple start/end truncation for very short paths or single segments
-    const keepLen = Math.floor((maxLen - 3) / 2);
+    const keepLen = Math.floor((maxLen - 3) / 2)
     // Ensure keepLen is not negative if maxLen is very small
     if (keepLen <= 0) {
-      return filePath.substring(0, maxLen - 3) + '...';
+      return filePath.substring(0, maxLen - 3) + '...'
     }
-    const start = filePath.substring(0, keepLen);
-    const end = filePath.substring(filePath.length - keepLen);
-    return `${start}...${end}`;
+    const start = filePath.substring(0, keepLen)
+    const end = filePath.substring(filePath.length - keepLen)
+    return `${start}...${end}`
   }
 
-  const firstDir = segments[0];
-  const lastSegment = segments[segments.length - 1];
-  const startComponent = root + firstDir;
+  const firstDir = segments[0]
+  const lastSegment = segments[segments.length - 1]
+  const startComponent = root + firstDir
 
-  const endPartSegments: string[] = [];
+  const endPartSegments: string[] = []
   // Base length: separator + "..." + lastDir
-  let currentLength = separator.length + lastSegment.length;
+  let currentLength = separator.length + lastSegment.length
 
   // Iterate backwards through segments (excluding the first one)
   for (let i = segments.length - 2; i >= 0; i--) {
-    const segment = segments[i];
+    const segment = segments[i]
     // Length needed if we add this segment: current + separator + segment
-    const lengthWithSegment = currentLength + separator.length + segment.length;
+    const lengthWithSegment = currentLength + separator.length + segment.length
 
     if (lengthWithSegment <= maxLen) {
-      endPartSegments.unshift(segment); // Add to the beginning of the end part
-      currentLength = lengthWithSegment;
+      endPartSegments.unshift(segment) // Add to the beginning of the end part
+      currentLength = lengthWithSegment
     } else {
-      break;
+      break
     }
   }
 
-  let result = endPartSegments.join(separator) + separator + lastSegment;
+  let result = endPartSegments.join(separator) + separator + lastSegment
 
   if (currentLength > maxLen) {
-    return result;
+    return result
   }
 
   // Construct the final path
-  result = startComponent + separator + result;
+  result = startComponent + separator + result
 
   // As a final check, if the result is somehow still too long
   // truncate the result string from the beginning, prefixing with "...".
   if (result.length > maxLen) {
-    return '...' + result.substring(result.length - maxLen - 3);
+    return '...' + result.substring(result.length - maxLen - 3)
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -113,13 +113,13 @@ export function makeRelative(
   targetPath: string,
   rootDirectory: string,
 ): string {
-  const resolvedTargetPath = path.resolve(targetPath);
-  const resolvedRootDirectory = path.resolve(rootDirectory);
+  const resolvedTargetPath = path.resolve(targetPath)
+  const resolvedRootDirectory = path.resolve(rootDirectory)
 
-  const relativePath = path.relative(resolvedRootDirectory, resolvedTargetPath);
+  const relativePath = path.relative(resolvedRootDirectory, resolvedTargetPath)
 
   // If the paths are the same, path.relative returns '', return '.' instead
-  return relativePath || '.';
+  return relativePath || '.'
 }
 
 /**
@@ -131,26 +131,26 @@ export function escapePath(filePath: string): string {
   // On Windows, file paths with spaces work directly without escaping
   // Only escape on Unix-like systems (macOS, Linux)
   if (process.platform === 'win32') {
-    return filePath;
+    return filePath
   }
 
-  let result = '';
+  let result = ''
   for (let i = 0; i < filePath.length; i++) {
     // Only escape spaces that are not already escaped.
     if (filePath[i] === ' ' && (i === 0 || filePath[i - 1] !== '\\')) {
-      result += '\\ ';
+      result += '\\ '
     } else {
-      result += filePath[i];
+      result += filePath[i]
     }
   }
-  return result;
+  return result
 }
 
 /**
  * Unescapes spaces in a file path.
  */
 export function unescapePath(filePath: string): string {
-  return filePath.replace(/\\ /g, ' ');
+  return filePath.replace(/\\ /g, ' ')
 }
 
 /**
@@ -159,7 +159,7 @@ export function unescapePath(filePath: string): string {
  * @returns A SHA256 hash of the project root path.
  */
 export function getProjectHash(projectRoot: string): string {
-  return crypto.createHash('sha256').update(projectRoot).digest('hex');
+  return crypto.createHash('sha256').update(projectRoot).digest('hex')
 }
 
 /**
@@ -168,8 +168,8 @@ export function getProjectHash(projectRoot: string): string {
  * @returns The path to the project's temporary directory.
  */
 export function getProjectTempDir(projectRoot: string): string {
-  const hash = getProjectHash(projectRoot);
-  return path.join(os.homedir(), CLAWMASTER_DIR, TMP_DIR_NAME, hash);
+  const hash = getProjectHash(projectRoot)
+  return path.join(os.homedir(), CLAWMASTER_DIR, TMP_DIR_NAME, hash)
 }
 
 /**
@@ -177,7 +177,7 @@ export function getProjectTempDir(projectRoot: string): string {
  * @returns The path to the user's commands directory.
  */
 export function getUserCommandsDir(): string {
-  return path.join(os.homedir(), CLAWMASTER_DIR, COMMANDS_DIR_NAME);
+  return path.join(os.homedir(), CLAWMASTER_DIR, COMMANDS_DIR_NAME)
 }
 
 /**
@@ -189,7 +189,7 @@ export function getUserCommandsDirs(): string[] {
     getUserCommandsDir(),
     path.join(os.homedir(), '.clawmaster-user', COMMANDS_DIR_NAME),
     path.join(os.homedir(), '.gemini', COMMANDS_DIR_NAME),
-  ];
+  ]
 }
 
 /**
@@ -198,7 +198,7 @@ export function getUserCommandsDirs(): string[] {
  * @returns The path to the project's commands directory.
  */
 export function getProjectCommandsDir(projectRoot: string): string {
-  return path.join(projectRoot, PROJECT_DIR_PREFIX, COMMANDS_DIR_NAME);
+  return path.join(projectRoot, PROJECT_DIR_PREFIX, COMMANDS_DIR_NAME)
 }
 
 /**
@@ -211,11 +211,11 @@ export function getProjectCommandsDirs(projectRoot: string): string[] {
     getProjectCommandsDir(projectRoot),
     path.join(projectRoot, '.clawmaster', COMMANDS_DIR_NAME),
     path.join(projectRoot, '.gemini', COMMANDS_DIR_NAME),
-  ];
+  ]
 }
 
 export function getProjectSkillsDir(projectRoot: string): string {
-  return path.join(projectRoot, PROJECT_DIR_PREFIX, SKILLS_DIR_NAME);
+  return path.join(projectRoot, PROJECT_DIR_PREFIX, SKILLS_DIR_NAME)
 }
 
 /**
@@ -225,41 +225,41 @@ export function getProjectSkillsDir(projectRoot: string): string {
  * Recursively copies a directory to a new location with high-precision granular fault tolerance.
  */
 function copyFolderRecursiveSync(source: string, target: string) {
-  if (!fs.existsSync(source)) return;
+  if (!fs.existsSync(source)) return
 
   try {
     if (!fs.existsSync(target)) {
-      fs.mkdirSync(target, { recursive: true });
+      fs.mkdirSync(target, { recursive: true })
     }
   } catch {
-    return;
+    return
   }
 
-  let files: string[] = [];
+  let files: string[] = []
   try {
-    files = fs.readdirSync(source);
+    files = fs.readdirSync(source)
   } catch {
-    return;
+    return
   }
 
   for (const file of files) {
-    const curSource = path.join(source, file);
-    const curTarget = path.join(target, file);
+    const curSource = path.join(source, file)
+    const curTarget = path.join(target, file)
 
     try {
-      const stat = fs.lstatSync(curSource);
+      const stat = fs.lstatSync(curSource)
       if (stat.isDirectory()) {
-        copyFolderRecursiveSync(curSource, curTarget);
+        copyFolderRecursiveSync(curSource, curTarget)
       } else if (stat.isSymbolicLink()) {
         try {
-          const symlinkTarget = fs.readlinkSync(curSource);
-          fs.symlinkSync(symlinkTarget, curTarget);
+          const symlinkTarget = fs.readlinkSync(curSource)
+          fs.symlinkSync(symlinkTarget, curTarget)
         } catch {
           // Suppress symlink creation privilege errors in win32
         }
       } else {
         try {
-          fs.copyFileSync(curSource, curTarget);
+          fs.copyFileSync(curSource, curTarget)
         } catch {
           // Suppress locks / EBUSY / EPERM on individual files in win32
         }
@@ -284,44 +284,44 @@ function copyFolderRecursiveSync(source: string, target: string) {
  * @returns true if the directory was fully removed, false if anything remained.
  */
 function safeRemoveFolderSync(dirPath: string): boolean {
-  if (!fs.existsSync(dirPath)) return true;
+  if (!fs.existsSync(dirPath)) return true
 
-  let entries: string[] = [];
+  let entries: string[] = []
   try {
-    entries = fs.readdirSync(dirPath);
+    entries = fs.readdirSync(dirPath)
   } catch {
-    return false;
+    return false
   }
 
-  let allRemoved = true;
+  let allRemoved = true
   for (const entry of entries) {
-    const full = path.join(dirPath, entry);
+    const full = path.join(dirPath, entry)
     try {
-      const stat = fs.lstatSync(full);
+      const stat = fs.lstatSync(full)
       if (stat.isDirectory()) {
-        if (!safeRemoveFolderSync(full)) allRemoved = false;
+        if (!safeRemoveFolderSync(full)) allRemoved = false
       } else {
         try {
-          fs.rmSync(full, { force: true });
+          fs.rmSync(full, { force: true })
         } catch {
           // Individual file locked (EBUSY/EPERM on win32) — skip it.
-          allRemoved = false;
+          allRemoved = false
         }
       }
     } catch {
-      allRemoved = false;
+      allRemoved = false
     }
   }
 
   // Try to remove the directory itself only if it is now empty.
   if (allRemoved) {
     try {
-      fs.rmdirSync(dirPath);
+      fs.rmdirSync(dirPath)
     } catch {
-      allRemoved = false;
+      allRemoved = false
     }
   }
-  return allRemoved;
+  return allRemoved
 }
 
 /**
@@ -335,29 +335,29 @@ function safeRemoveFolderSync(dirPath: string): boolean {
  * "has content", the migration of real legacy data would be wrongly skipped.
  */
 function isDirWithoutRealData(dirPath: string): boolean {
-  if (!fs.existsSync(dirPath)) return true;
+  if (!fs.existsSync(dirPath)) return true
   try {
-    const entries = fs.readdirSync(dirPath);
+    const entries = fs.readdirSync(dirPath)
     for (const entry of entries) {
-      const full = path.join(dirPath, entry);
-      let stat;
+      const full = path.join(dirPath, entry)
+      let stat
       try {
-        stat = fs.lstatSync(full);
+        stat = fs.lstatSync(full)
       } catch {
         // If we cannot stat an entry, conservatively treat it as real data.
-        return false;
+        return false
       }
       if (stat.isDirectory()) {
         // Recurse: an empty subdirectory does not count as real data.
-        if (!isDirWithoutRealData(full)) return false;
+        if (!isDirWithoutRealData(full)) return false
       } else {
         // Any file (or symlink) counts as real data.
-        return false;
+        return false
       }
     }
-    return true;
+    return true
   } catch {
-    return true;
+    return true
   }
 }
 
@@ -365,9 +365,9 @@ function isDirWithoutRealData(dirPath: string): boolean {
  * Describes a single legacy -> new directory migration unit.
  */
 interface LegacyMigrationUnit {
-  type: 'project' | 'user' | 'global';
-  legacyDir: string;
-  newDir: string;
+  type: 'project' | 'user' | 'global'
+  legacyDir: string
+  newDir: string
 }
 
 /**
@@ -376,7 +376,7 @@ interface LegacyMigrationUnit {
  * `migrateLegacyDirectories` always agree on what should be migrated.
  */
 function getLegacyMigrationUnits(projectRoot: string): LegacyMigrationUnit[] {
-  const globalBaseDir = process.platform === 'win32' ? 'C:\\ProgramData' : '/etc';
+  const globalBaseDir = process.platform === 'win32' ? 'C:\\ProgramData' : '/etc'
   return [
     // 1. Current workspace directory configuration: .clawmaster -> .clawmaster
     {
@@ -396,7 +396,7 @@ function getLegacyMigrationUnits(projectRoot: string): LegacyMigrationUnit[] {
       legacyDir: path.join(globalBaseDir, '.clawmaster'),
       newDir: path.join(globalBaseDir, '.clawmaster-global'),
     },
-  ];
+  ]
 }
 
 /**
@@ -409,8 +409,8 @@ function getLegacyMigrationUnits(projectRoot: string): LegacyMigrationUnit[] {
  */
 export function needsLegacyMigration(projectRoot: string): boolean {
   return getLegacyMigrationUnits(projectRoot).some(
-    (unit) => fs.existsSync(unit.legacyDir) && isDirWithoutRealData(unit.newDir),
-  );
+    unit => fs.existsSync(unit.legacyDir) && isDirWithoutRealData(unit.newDir),
+  )
 }
 
 /**
@@ -420,9 +420,9 @@ export function migrateLegacyDirectories(projectRoot: string, onStart?: (type: '
   for (const unit of getLegacyMigrationUnits(projectRoot)) {
     if (fs.existsSync(unit.legacyDir) && isDirWithoutRealData(unit.newDir)) {
       try {
-        if (onStart) onStart(unit.type);
-        copyFolderRecursiveSync(unit.legacyDir, unit.newDir);
-        safeRemoveFolderSync(unit.legacyDir);
+        if (onStart) onStart(unit.type)
+        copyFolderRecursiveSync(unit.legacyDir, unit.newDir)
+        safeRemoveFolderSync(unit.legacyDir)
       } catch {
         // Ignore errors
       }

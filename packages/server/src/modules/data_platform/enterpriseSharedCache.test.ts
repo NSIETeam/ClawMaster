@@ -2,9 +2,9 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest'
 
-import { createRedisEnterpriseSharedCache } from './enterpriseSharedCache.js';
+import { createRedisEnterpriseSharedCache } from './enterpriseSharedCache.js'
 
 describe('Redis enterprise shared cache', () => {
   it('namespaces data and checks Redis health', async () => {
@@ -15,18 +15,18 @@ describe('Redis enterprise shared cache', () => {
       del: vi.fn(async () => 1),
       eval: vi.fn(async () => 1),
       quit: vi.fn(async () => undefined),
-    };
+    }
     const cache = createRedisEnterpriseSharedCache({
       client,
       keyPrefix: 'clawmaster',
-    });
+    })
 
     await expect(cache.healthCheck()).resolves.toEqual({
       ready: true,
       backend: 'redis',
-    });
-    await expect(cache.get('session:abc')).resolves.toBe('value');
-    expect(client.get).toHaveBeenCalledWith('clawmaster.session:abc');
+    })
+    await expect(cache.get('session:abc')).resolves.toBe('value')
+    expect(client.get).toHaveBeenCalledWith('clawmaster.session:abc')
   });
 
   it('uses atomic NX leases and owner-checked release', async () => {
@@ -37,27 +37,27 @@ describe('Redis enterprise shared cache', () => {
       del: vi.fn(async () => 0),
       eval: vi.fn(async () => 1),
       quit: vi.fn(async () => undefined),
-    };
-    const cache = createRedisEnterpriseSharedCache({ client });
+    }
+    const cache = createRedisEnterpriseSharedCache({ client })
 
     await expect(
       cache.acquireLease('rotation', 'worker-1', 30_000),
-    ).resolves.toBe(true);
+    ).resolves.toBe(true)
     expect(client.set).toHaveBeenCalledWith('clawmaster:rotation', 'worker-1', {
       NX: true,
       PX: 30_000,
-    });
+    })
 
     await expect(cache.releaseLease('rotation', 'worker-1')).resolves.toBe(
       true,
-    );
+    )
     expect(client.eval).toHaveBeenCalledWith(
       expect.stringMatching(/redis\.call\('get'/),
       {
         keys: ['clawmaster:rotation'],
         arguments: ['worker-1'],
       },
-    );
+    )
   });
 
   it('fails health checks closed on an unexpected response', async () => {
@@ -70,8 +70,8 @@ describe('Redis enterprise shared cache', () => {
         eval: vi.fn(async () => 0),
         quit: vi.fn(async () => undefined),
       },
-    });
+    })
 
-    await expect(cache.healthCheck()).rejects.toThrow(/health.*failed/i);
+    await expect(cache.healthCheck()).rejects.toThrow(/health.*failed/i)
   });
-});
+})

@@ -25,26 +25,26 @@ import {
   type Server,
   type IncomingMessage,
   type ServerResponse,
-} from 'node:http';
-import { createHash, randomBytes } from 'node:crypto';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { createAliyunLoginSmsFromEnv } from 'clawmaster-core';
-import * as db from './db.js';
-import { e2eeProductionCapabilities } from './e2eeProductionReleasePolicy.js';
+} from 'node:http'
+import { createHash, randomBytes } from 'node:crypto'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { createAliyunLoginSmsFromEnv } from 'clawmaster-core'
+import * as db from './db.js'
+import { e2eeProductionCapabilities } from './e2eeProductionReleasePolicy.js'
 
-import { resolveEnterprisePublicBaseUrl } from '../modules/identity_organization/index.js';
+import { resolveEnterprisePublicBaseUrl } from '../modules/identity_organization/index.js'
 import {
   createRepairFeishuSenderFromEnv,
   createRepairSmsSenderFromEnv,
   type RepairNotificationSender,
-} from '../modules/integration_adapters/index.js';
-import { FeatureFlagManager, ProjectSettingsManager } from 'clawmaster-core';
+} from '../modules/integration_adapters/index.js'
+import { FeatureFlagManager, ProjectSettingsManager } from 'clawmaster-core'
 import {
   dispatchEnterpriseRoute,
   type AdminPrincipal,
-} from './enterpriseRouteDispatcher.js';
+} from './enterpriseRouteDispatcher.js'
 import {
   commercialFeatureForEnterpriseRoute,
   FEATURE_ADMIN_PREFIX,
@@ -52,7 +52,7 @@ import {
   isLicenseMaintenanceRoute,
   isMemberRoute,
   isPublicSimpleParkRoute,
-} from '../modules/authorization/index.js';
+} from '../modules/authorization/index.js'
 import {
   createLoginRateLimiter,
   extractToken,
@@ -63,92 +63,92 @@ import {
   tokensMatch,
   type LoginRateLimiter,
   type PasswordLoginRateLimitOptions,
-} from './enterpriseHttpSecurity.js';
+} from './enterpriseHttpSecurity.js'
 import {
   BillingAdmissionError,
   commercialBillingOperationForRoute,
   startPrivateDeploymentRuntime,
-} from '../modules/commercial_control/index.js';
+} from '../modules/commercial_control/index.js'
 import {
   controlPublicKeysFromEnv,
-} from '../modules/control_commands/index.js';
-import { createEnterpriseControlCommandBoundary } from './controlCommandIntegration.js';
+} from '../modules/control_commands/index.js'
+import { createEnterpriseControlCommandBoundary } from './controlCommandIntegration.js'
 
-export { adminAccountsHTML } from './adminAccountsPage.js';
+export { adminAccountsHTML } from './adminAccountsPage.js'
 export {
   resolveEnterpriseClientAddress,
   type EnterpriseProxyOptions,
   type PasswordLoginRateLimitOptions,
-} from './enterpriseHttpSecurity.js';
+} from './enterpriseHttpSecurity.js'
 
-const DEFAULT_PORT = 7777;
-const BODY_TOO_LARGE = Symbol('bodyTooLarge');
+const DEFAULT_PORT = 7777
+const BODY_TOO_LARGE = Symbol('bodyTooLarge')
 
 interface RouteBody {
-  [key: string]: unknown;
-  [BODY_TOO_LARGE]?: true;
+  [key: string]: unknown
+  [BODY_TOO_LARGE]?: true
 }
 
 export interface EnterpriseServerOptions {
-  port?: number;
-  host?: string;
+  port?: number
+  host?: string
   /**
    * 尚未完成的本地 Agent 配对入口；默认关闭且不读取环境变量。
    * 仅测试或受控开发环境可显式开启。
    */
-  localAgentPairingEnabled?: boolean;
+  localAgentPairingEnabled?: boolean
   /** 对外企业引入页基址；不传则读 CLAWMASTER_ENTERPRISE_PUBLIC_URL，再回落到内置公网地址。 */
-  publicUrl?: string;
+  publicUrl?: string
   /** 管理端令牌；不传则读 CLAWMASTER_ENTERPRISE_ADMIN_TOKEN。 */
-  adminToken?: string;
+  adminToken?: string
   /** 验证码发送器；测试可注入，显式 null 表示关闭。 */
-  smsSender?: VerificationSmsSender | null;
+  smsSender?: VerificationSmsSender | null
   /** 园区报修通知短信；与验证码模板分离，测试可注入。 */
-  repairSmsSender?: RepairNotificationSender | null;
+  repairSmsSender?: RepairNotificationSender | null
   /** 园区报修飞书私聊；测试可注入。 */
-  repairFeishuSender?: RepairNotificationSender | null;
+  repairFeishuSender?: RepairNotificationSender | null
   /** 部署版本；不传则读 CLAWMASTER_APP_VERSION。 */
-  appVersion?: string;
+  appVersion?: string
   /** 构建提交；不传则读 CLAWMASTER_BUILD_COMMIT / GITHUB_SHA。 */
-  buildCommit?: string;
+  buildCommit?: string
   /** Test seam for the signed commercial-control billing channel. */
-  billingFetch?: typeof fetch;
+  billingFetch?: typeof fetch
   /** Control 信任根公钥（PEM 列表）；不传则读 CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS。未配置时 CONTROL-12 端点 fail closed 不挂载。 */
-  controlPublicKeys?: string[];
+  controlPublicKeys?: string[]
   /** 回执签名私钥（PEM）；不传则不签名（只含 digest）。 */
-  controlSigningPrivateKey?: string;
+  controlSigningPrivateKey?: string
   /** 执行 Control 下发指令的业务钩子（对接 SERVER-16 企业开通）。未传则 CONTROL-12 不启用执行。 */
-  controlCommandExecute?: (command: ControlCommandEnvelopeLike) => ControlCommandRunResultShim;
+  controlCommandExecute?: (command: ControlCommandEnvelopeLike) => ControlCommandRunResultShim
   /** 密码登录限流参数；生产使用安全默认值，测试可注入时钟和较小阈值。 */
-  loginRateLimit?: PasswordLoginRateLimitOptions;
+  loginRateLimit?: PasswordLoginRateLimitOptions
 }
 
 /** 与 control_command 边界的信封/执行结果类型对齐（避免 server.ts 循环依赖）。 */
 interface ControlCommandEnvelopeLike {
-  commandId: string;
-  deploymentId: string;
-  type: string;
-  schemaVersion: number;
-  sequence: number;
-  issuedAt: string;
-  expiresAt: string;
-  idempotencyKey?: string;
-  payloadDigest: string;
-  payload: Record<string, unknown>;
-  signature: string;
+  commandId: string
+  deploymentId: string
+  type: string
+  schemaVersion: number
+  sequence: number
+  issuedAt: string
+  expiresAt: string
+  idempotencyKey?: string
+  payloadDigest: string
+  payload: Record<string, unknown>
+  signature: string
 }
 interface ControlCommandRunResultShim {
-  status: 'succeeded' | 'failed' | 'unknown_outcome' | 'expired' | 'cancelled';
-  resultSummary: string;
-  resourceId?: string;
-  errorCategory?: string;
+  status: 'succeeded' | 'failed' | 'unknown_outcome' | 'expired' | 'cancelled'
+  resultSummary: string
+  resourceId?: string
+  errorCategory?: string
 }
 
 export interface VerificationSmsSender {
-  sendVerificationCode(phone: string, code: string): Promise<boolean>;
+  sendVerificationCode(phone: string, code: string): Promise<boolean>
 }
 
-const ENTERPRISE_API_VERSION = 4;
+const ENTERPRISE_API_VERSION = 4
 
 const ENTERPRISE_CAPABILITIES = [
   'password_auth',
@@ -203,24 +203,24 @@ const ENTERPRISE_CAPABILITIES = [
   'enterprise_skill_market_v1',
   'customer_module_market_v1',
   'federation_gateway_v1',
-] as const;
+] as const
 
 export interface DeploymentInfo {
-  version: string;
-  buildCommit: string;
-  startedAt: string;
+  version: string
+  buildCommit: string
+  startedAt: string
 }
 
 function isLoopback(host: string): boolean {
-  return host === '127.0.0.1' || host === '::1' || host === 'localhost';
+  return host === '127.0.0.1' || host === '::1' || host === 'localhost'
 }
 
 function sendJSON(res: ServerResponse, status: number, data: unknown): void {
   res.writeHead(status, {
     'Content-Type': 'application/json',
     'X-Content-Type-Options': 'nosniff',
-  });
-  res.end(JSON.stringify(data));
+  })
+  res.end(JSON.stringify(data))
 }
 
 function readBody(
@@ -228,32 +228,32 @@ function readBody(
   maxLength = 1_000_000,
 ): Promise<RouteBody> {
   return new Promise((resolve) => {
-    const chunks: Buffer[] = [];
-    let bodyLength = 0;
-    let tooLarge = false;
+    const chunks: Buffer[] = []
+    let bodyLength = 0
+    let tooLarge = false
     req.on('data', (chunk) => {
-      if (tooLarge) return;
-      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      bodyLength += bytes.length;
+      if (tooLarge) return
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+      bodyLength += bytes.length
       if (bodyLength > maxLength) {
-        tooLarge = true;
-        chunks.length = 0;
+        tooLarge = true
+        chunks.length = 0
         return;
       }
-      chunks.push(bytes);
+      chunks.push(bytes)
     });
     req.on('end', () => {
       if (tooLarge) {
-        resolve({ [BODY_TOO_LARGE]: true });
+        resolve({ [BODY_TOO_LARGE]: true })
         return;
       }
       try {
-        const body = Buffer.concat(chunks, bodyLength).toString('utf8');
-        resolve(body ? (JSON.parse(body) as RouteBody) : {});
+        const body = Buffer.concat(chunks, bodyLength).toString('utf8')
+        resolve(body ? (JSON.parse(body) as RouteBody) : {})
       } catch {
-        resolve({});
+        resolve({})
       }
-    });
+    })
   });
 }
 
@@ -269,32 +269,32 @@ function makeHandler(
   featureFlags?: FeatureFlagManager,
   billingFetch: typeof fetch = fetch,
   controlCommandHandle?: (deps: {
-    path: string;
-    method: string;
-    url: URL;
-    req: IncomingMessage;
-    res: ServerResponse;
-    readBody(req: IncomingMessage): Promise<Record<string, unknown>>;
-    sendJSON(res: ServerResponse, status: number, data: unknown): void;
+    path: string
+    method: string
+    url: URL
+    req: IncomingMessage
+    res: ServerResponse
+    readBody(req: IncomingMessage): Promise<Record<string, unknown>>
+    sendJSON(res: ServerResponse, status: number, data: unknown): void
   }) => Promise<boolean>,
 ) {
   // 同一账号可能在多台桌面端同时在线。服务端对现有 direct_messages 队列做
   // 短租约 claim，保证一条 A2A 请求同一时刻只交给一个客户端；进程异常后
   // 租约自动过期并可重试，不新增另一套聊天存储。
-  const atoaClaims = new Map<string, number>();
-  const ATOA_CLAIM_TTL_MS = 180_000;
+  const atoaClaims = new Map<string, number>()
+  const ATOA_CLAIM_TTL_MS = 180_000
   return async function handler(
     req: IncomingMessage,
     res: ServerResponse,
   ): Promise<void> {
     // 只需要 path/query，不使用客户端可控的 Host 或 X-Forwarded-Host 作为 URL 权威源。
-    const url = new URL(req.url || '/', 'http://127.0.0.1');
-    const path = url.pathname;
-    const method = req.method || 'GET';
-    const isFeatureFlagsRoute = path.startsWith(FEATURE_ADMIN_PREFIX);
-    const isPublicSimplePark = isPublicSimpleParkRoute(path, method, url);
-    let adminPrincipal: AdminPrincipal | null = null;
-    let memberAccount: db.AccountView | null = null;
+    const url = new URL(req.url || '/', 'http://127.0.0.1')
+    const path = url.pathname
+    const method = req.method || 'GET'
+    const isFeatureFlagsRoute = path.startsWith(FEATURE_ADMIN_PREFIX)
+    const isPublicSimplePark = isPublicSimpleParkRoute(path, method, url)
+    let adminPrincipal: AdminPrincipal | null = null
+    let memberAccount: db.AccountView | null = null
 
     if (
       !localAgentPairingEnabled &&
@@ -303,13 +303,13 @@ function makeHandler(
         path === '/enterprise/local-agent/pair' ||
         path === '/enterprise/local-agent/pair/verify')
     ) {
-      sendJSON(res, 404, { error: 'not found' });
+      sendJSON(res, 404, { error: 'not found' })
       return;
     }
 
     if (method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
+      res.writeHead(204)
+      res.end()
       return;
     }
 
@@ -317,26 +317,26 @@ function makeHandler(
       res.writeHead(302, {
         Location: '/enterprise/admin',
         'Cache-Control': 'no-store',
-      });
-      res.end();
+      })
+      res.end()
       return;
     }
 
     // 浏览器会自动请求站点图标；显式无内容响应，避免管理后台验收出现无关 404。
     if (path === '/favicon.ico' && method === 'GET') {
-      res.writeHead(204, { 'Cache-Control': 'public, max-age=86400' });
-      res.end();
+      res.writeHead(204, { 'Cache-Control': 'public, max-age=86400' })
+      res.end()
       return;
     }
 
     // 旧版曾允许 /dashboard?token=... 并把令牌注入 HTML。明确拒绝这一入口，
     // 防止平台令牌或账号会话进入反向代理日志、浏览器历史和 Referer。
     if (path === '/enterprise/dashboard' && url.searchParams.has('token')) {
-      res.setHeader('Cache-Control', 'no-store');
-      res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('Cache-Control', 'no-store')
+      res.setHeader('Referrer-Policy', 'no-referrer')
       sendJSON(res, 400, {
         error: '请勿在 URL 中传递管理令牌，请在安全看板页面中登录或粘贴令牌',
-      });
+      })
       return;
     }
 
@@ -351,7 +351,7 @@ function makeHandler(
       ) {
         sendJSON(res, 403, {
           error: 'forbidden: loopback admin host required',
-        });
+        })
         return;
       }
 
@@ -363,7 +363,7 @@ function makeHandler(
         ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) &&
         isCrossOriginBrowserRequest(req)
       ) {
-        sendJSON(res, 403, { error: 'forbidden: cross-origin admin request' });
+        sendJSON(res, 403, { error: 'forbidden: cross-origin admin request' })
         return;
       }
 
@@ -371,58 +371,58 @@ function makeHandler(
       // 即便是未配置静态 token 的本机服务，也必须先登录；loopback 只限制可访问来源，
       // 绝不能等价于“任何本机进程或网页都拥有平台管理员权限”。
       if ((isAdminRoute(path) || isFeatureFlagsRoute) && !isPublicSimplePark) {
-        const token = extractToken(req);
+        const token = extractToken(req)
         if (adminToken && tokensMatch(token, adminToken)) {
           adminPrincipal = {
             kind: 'system',
             organizationId: db.DEFAULT_ORGANIZATION_ID,
-          };
+          }
         } else if (adminToken) {
-          const account = db.getAccountBySession(token);
+          const account = db.getAccountBySession(token)
           if (!account) {
-            sendJSON(res, 401, { error: 'unauthorized: admin login required' });
+            sendJSON(res, 401, { error: 'unauthorized: admin login required' })
             return;
           }
           if (!account.isAdmin) {
-            sendJSON(res, 403, { error: 'forbidden: admin account required' });
+            sendJSON(res, 403, { error: 'forbidden: admin account required' })
             return;
           }
           adminPrincipal = {
             kind: 'account',
             organizationId: account.organizationId,
             account,
-          };
+          }
         } else {
           // 未配置静态 token 的本机模式仅接受管理员账号会话，不提供平台级绕过。
-          const account = db.getAccountBySession(token);
+          const account = db.getAccountBySession(token)
           if (!account) {
-            sendJSON(res, 401, { error: 'unauthorized: admin login required' });
+            sendJSON(res, 401, { error: 'unauthorized: admin login required' })
             return;
           }
           if (!account.isAdmin) {
-            sendJSON(res, 403, { error: 'forbidden: admin account required' });
+            sendJSON(res, 403, { error: 'forbidden: admin account required' })
             return;
           }
           adminPrincipal = {
             kind: 'account',
             organizationId: account.organizationId,
             account,
-          };
+          }
         }
       }
 
       if (isMemberRoute(path)) {
-        memberAccount = db.getAccountBySession(extractToken(req));
+        memberAccount = db.getAccountBySession(extractToken(req))
         if (!memberAccount) {
-          sendJSON(res, 401, { error: '登录已失效，请重新登录' });
+          sendJSON(res, 401, { error: '登录已失效，请重新登录' })
           return;
         }
       }
       const commercialOrganizationId =
-        memberAccount?.organizationId ?? adminPrincipal?.organizationId ?? null;
+        memberAccount?.organizationId ?? adminPrincipal?.organizationId ?? null
       const commercialActorId = memberAccount?.id ?? (
         adminPrincipal?.kind === 'account' ? adminPrincipal.account.id : null
-      );
+      )
       const auditCommercialDecision = (
         event: string,
         detail: Record<string, unknown>,
@@ -433,14 +433,14 @@ function makeHandler(
             commercialActorId,
             JSON.stringify({ method, path, ...detail }),
             commercialOrganizationId ?? db.DEFAULT_ORGANIZATION_ID,
-          );
+          )
         } catch (error) {
           console.error('[ClawMaster Enterprise] commercial decision audit failed', {
             event,
             message: error instanceof Error ? error.message : String(error),
-          });
+          })
         }
-      };
+      }
       if (
         (isAdminRoute(path) || isMemberRoute(path)) &&
         !isLicenseMaintenanceRoute(path, method) &&
@@ -448,18 +448,18 @@ function makeHandler(
       ) {
         auditCommercialDecision('commercial_license_denied', {
           code: 'deployment_license_inactive',
-        });
-        sendJSON(res, 402, licenseBlockedPayload());
+        })
+        sendJSON(res, 402, licenseBlockedPayload())
         return;
       }
       if (isPublicSimplePark && db.isLicenseRestricted()) {
         auditCommercialDecision('commercial_license_denied', {
           code: 'deployment_license_inactive',
-        });
-        sendJSON(res, 402, licenseBlockedPayload());
+        })
+        sendJSON(res, 402, licenseBlockedPayload())
         return;
       }
-      const commercialFeature = commercialFeatureForEnterpriseRoute(path);
+      const commercialFeature = commercialFeatureForEnterpriseRoute(path)
       if (
         commercialFeature &&
         !db.isLicenseUsableForOrganizationFeature(commercialFeature)
@@ -467,12 +467,12 @@ function makeHandler(
         auditCommercialDecision('commercial_module_denied', {
           code: 'commercial_module_not_entitled',
           feature: commercialFeature,
-        });
+        })
         sendJSON(res, 402, {
           error: 'commercial module is not entitled',
           code: 'commercial_module_not_entitled',
           feature: commercialFeature,
-        });
+        })
         return;
       }
       if (
@@ -486,7 +486,7 @@ function makeHandler(
         auditCommercialDecision('commercial_module_denied', {
           code: 'organization_feature_disabled',
           feature: commercialFeature,
-        });
+        })
         sendJSON(res, 403, {
           error:
             commercialFeature === 'knowledge'
@@ -494,26 +494,26 @@ function makeHandler(
               : 'organization feature is disabled',
           code: 'organization_feature_disabled',
           feature: commercialFeature,
-        });
+        })
         return;
       }
 
-      const billingOperation = commercialBillingOperationForRoute(path, method);
+      const billingOperation = commercialBillingOperationForRoute(path, method)
       if (billingOperation) {
         if (!commercialOrganizationId) {
           sendJSON(res, 401, {
             error: 'authenticated organization is required for billing',
             code: 'billing_organization_required',
-          });
+          })
           return;
         }
-        const rawIdempotencyKey = req.headers['x-clawmaster-idempotency-key'];
+        const rawIdempotencyKey = req.headers['x-clawmaster-idempotency-key']
         const idempotencyKey = Array.isArray(rawIdempotencyKey)
           ? rawIdempotencyKey[0] ?? ''
-          : rawIdempotencyKey ?? '';
+          : rawIdempotencyKey ?? ''
         const referenceId = `op_${createHash('sha256')
           .update(`${method}\0${path}\0${idempotencyKey}`, 'utf8')
-          .digest('hex')}`;
+          .digest('hex')}`
         try {
           const admission = await db.authorizeBillingOperation(
             {
@@ -523,23 +523,23 @@ function makeHandler(
               referenceId,
             },
             billingFetch,
-          );
+          )
           if (admission.required) {
             auditCommercialDecision('commercial_billing_admitted', {
               module: billingOperation.module,
               referenceId,
               holdId: admission.holdId,
-            });
-            res.setHeader('X-ClawMaster-Billing-Admission', admission.holdId ?? 'required');
+            })
+            res.setHeader('X-ClawMaster-Billing-Admission', admission.holdId ?? 'required')
             res.once('finish', () => {
               const outcome = res.statusCode >= 200 && res.statusCode < 400
                 ? 'capture'
-                : 'release';
+                : 'release'
               auditCommercialDecision('commercial_billing_finalization_queued', {
                 module: billingOperation.module,
                 referenceId,
                 outcome,
-              });
+              })
               void db.finalizeBillingOperation(
                 admission,
                 outcome,
@@ -548,24 +548,24 @@ function makeHandler(
                 console.error('[ClawMaster Enterprise] billing finalization failed', {
                   code: outcome,
                   message: error instanceof Error ? error.message : String(error),
-                });
+                })
               });
-            });
+            })
           }
         } catch (error) {
           if (error instanceof BillingAdmissionError) {
             auditCommercialDecision('commercial_billing_denied', {
               module: billingOperation.module,
               code: error.code,
-            });
+            })
             sendJSON(res, error.statusCode, {
               error: error.message,
               code: error.code,
               module: billingOperation.module,
-            });
+            })
             return;
           }
-          throw error;
+          throw error
         }
       }
 
@@ -596,19 +596,19 @@ function makeHandler(
           controlCommandHandle,
         })
       ) {
-        return;
+        return
       }
 
-      sendJSON(res, 404, { error: `Not found: ${method} ${path}` });
+      sendJSON(res, 404, { error: `Not found: ${method} ${path}` })
     } catch (err: unknown) {
-      console.error('[ClawMaster Enterprise] 请求处理失败', err);
+      console.error('[ClawMaster Enterprise] 请求处理失败', err)
       if (res.headersSent) {
-        res.destroy();
+        res.destroy()
         return;
       }
-      sendJSON(res, 500, { error: '企业服务暂时不可用，请稍后重试' });
+      sendJSON(res, 500, { error: '企业服务暂时不可用，请稍后重试' })
     }
-  };
+  }
 }
 
 /**
@@ -616,26 +616,26 @@ function makeHandler(
  * 任务存于 SQLite，服务器重启后由本运行时继续执行。
  */
 function startTicketNotificationRuntime(options: {
-  smsSender: RepairNotificationSender | null;
-  feishuSender: RepairNotificationSender | null;
-  intervalMs?: number;
-  onError?: (error: unknown) => void;
+  smsSender: RepairNotificationSender | null
+  feishuSender: RepairNotificationSender | null
+  intervalMs?: number
+  onError?: (error: unknown) => void
 }): () => void {
   const timer = setInterval(() => {
     db.processTicketNotificationTasks({
       smsSender: options.smsSender,
       feishuSender: options.feishuSender,
       resolveRecipientChannel: (accountId) => {
-        const account = db.getAccount(accountId);
+        const account = db.getAccount(accountId)
         return {
           phone: account?.phone ?? null,
           feishuOpenId: account?.feishuOpenId ?? null,
-        };
+        }
       },
-    }).catch((error) => options.onError?.(error));
-  }, options.intervalMs ?? 15_000);
-  timer.unref?.();
-  return () => clearInterval(timer);
+    }).catch(error => options.onError?.(error))
+  }, options.intervalMs ?? 15_000)
+  timer.unref?.()
+  return () => clearInterval(timer)
 }
 
 /**
@@ -643,96 +643,96 @@ function startTicketNotificationRuntime(options: {
  * 监听非本地又没给 token → 自动生成一枚并回传（调用方负责打印/落盘），绝不裸奔。
  */
 export function createEnterpriseServer(opts: EnterpriseServerOptions = {}): {
-  server: Server;
-  host: string;
-  port: number;
-  publicBaseUrl: string;
-  adminToken: string;
-  generatedToken: boolean;
-  repairSmsSender: RepairNotificationSender | null;
-  repairFeishuSender: RepairNotificationSender | null;
+  server: Server
+  host: string
+  port: number
+  publicBaseUrl: string
+  adminToken: string
+  generatedToken: boolean
+  repairSmsSender: RepairNotificationSender | null
+  repairFeishuSender: RepairNotificationSender | null
 } {
-  const host = opts.host || process.env.CLAWMASTER_ENTERPRISE_HOST || '127.0.0.1';
+  const host = opts.host || process.env.CLAWMASTER_ENTERPRISE_HOST || '127.0.0.1'
   const port =
     opts.port ??
-    parseInt(process.env.CLAWMASTER_ENTERPRISE_PORT || String(DEFAULT_PORT), 10);
+    parseInt(process.env.CLAWMASTER_ENTERPRISE_PORT || String(DEFAULT_PORT), 10)
   const publicBaseUrl = resolveEnterprisePublicBaseUrl({
     configuredUrl: opts.publicUrl ?? process.env.CLAWMASTER_ENTERPRISE_PUBLIC_URL,
     host,
     port,
-  });
+  })
   let adminToken =
-    opts.adminToken ?? process.env.CLAWMASTER_ENTERPRISE_ADMIN_TOKEN ?? '';
-  let generatedToken = false;
+    opts.adminToken ?? process.env.CLAWMASTER_ENTERPRISE_ADMIN_TOKEN ?? ''
+  let generatedToken = false
   if (!adminToken && !isLoopback(host)) {
-    adminToken = randomBytes(18).toString('base64url');
-    generatedToken = true;
+    adminToken = randomBytes(18).toString('base64url')
+    generatedToken = true
   }
   const hasSmsEnv = Boolean(
     process.env.ALIYUN_SMS_ACCESS_KEY_ID &&
     process.env.ALIYUN_SMS_ACCESS_KEY_SECRET &&
     process.env.ALIYUN_SMS_SIGN_NAME &&
     process.env.ALIYUN_SMS_TEMPLATE_ID,
-  );
+  )
   const smsSender =
     opts.smsSender === undefined
       ? hasSmsEnv
         ? createAliyunLoginSmsFromEnv()
         : null
-      : opts.smsSender;
+      : opts.smsSender
   const repairSmsSender =
     opts.repairSmsSender === undefined
       ? createRepairSmsSenderFromEnv()
-      : opts.repairSmsSender;
+      : opts.repairSmsSender
   const repairFeishuSender =
     opts.repairFeishuSender === undefined
       ? createRepairFeishuSenderFromEnv()
-      : opts.repairFeishuSender;
+      : opts.repairFeishuSender
   const version =
     opts.appVersion?.trim() ||
     process.env.CLAWMASTER_APP_VERSION?.trim() ||
-    'unknown';
+    'unknown'
   const buildCommit =
     opts.buildCommit?.trim() ||
     process.env.CLAWMASTER_BUILD_COMMIT?.trim() ||
     process.env.GITHUB_SHA?.trim() ||
-    'unknown';
+    'unknown'
   const configuredProxyHops = nonNegativeInteger(
     opts.loginRateLimit?.trustedProxyHops ??
       Number(process.env.CLAWMASTER_ENTERPRISE_TRUST_PROXY_HOPS),
     0,
     5,
-  );
+  )
   const configuredProxyAddresses =
     opts.loginRateLimit?.trustedProxyAddresses ??
     process.env.CLAWMASTER_ENTERPRISE_TRUSTED_PROXIES?.split(',')
-      .map((address) => address.trim())
+      .map(address => address.trim())
       .filter(Boolean) ??
-    [];
+    []
   const loginRateLimiter = createLoginRateLimiter({
     ...opts.loginRateLimit,
     trustedProxyHops: configuredProxyHops,
     trustedProxyAddresses: configuredProxyAddresses,
-  });
+  })
   const featureFlags = new FeatureFlagManager(
     new ProjectSettingsManager(process.cwd()),
-  );
+  )
   // CONTROL-12：配置了 Control 信任根公钥 + 业务执行钩子时才启用端点（其余 fail closed）。
   const controlKeys =
-    opts.controlPublicKeys ?? controlPublicKeysFromEnv(process.env);
+    opts.controlPublicKeys ?? controlPublicKeysFromEnv(process.env)
   const controlExecute =
     opts.controlCommandExecute ?? (() => ({
       status: 'failed' as const,
       resultSummary: 'no executor configured',
       errorCategory: 'not_configured',
-    }));
+    }))
   const controlBoundary = createEnterpriseControlCommandBoundary({
     deploymentId:
       process.env.CLAWMASTER_ENTERPRISE_DEPLOYMENT_ID || publicBaseUrl,
     controlPublicKeys: controlKeys,
     signingPrivateKey: opts.controlSigningPrivateKey,
     execute: controlExecute,
-  });
+  })
   const server = createServer(
     makeHandler(
       adminToken,
@@ -751,7 +751,7 @@ export function createEnterpriseServer(opts: EnterpriseServerOptions = {}): {
       opts.billingFetch,
       controlBoundary.enabled ? controlBoundary.handleRoute : undefined,
     ),
-  );
+  )
   return {
     server,
     host,
@@ -761,73 +761,73 @@ export function createEnterpriseServer(opts: EnterpriseServerOptions = {}): {
     generatedToken,
     repairSmsSender,
     repairFeishuSender,
-  };
+  }
 }
 
 function persistGeneratedAdminToken(token: string): string {
   const directory =
     process.env.CLAWMASTER_ENTERPRISE_DIR ||
-    path.join(os.homedir(), '.clawmaster-enterprise');
-  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    path.join(os.homedir(), '.clawmaster-enterprise')
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 })
   try {
-    fs.chmodSync(directory, 0o700);
+    fs.chmodSync(directory, 0o700)
   } catch {
     // 某些受限文件系统不支持 chmod；写文件仍使用最小权限。
   }
-  const tokenPath = path.join(directory, 'admin-token');
+  const tokenPath = path.join(directory, 'admin-token')
   fs.writeFileSync(tokenPath, `${token}\n`, {
     encoding: 'utf8',
     mode: 0o600,
-  });
+  })
   try {
-    fs.chmodSync(tokenPath, 0o600);
+    fs.chmodSync(tokenPath, 0o600)
   } catch {
     // 同上；创建时的 mode 已是主防线。
   }
-  return tokenPath;
+  return tokenPath
 }
 
 function validatedStartOptions(
   opts: EnterpriseServerOptions,
 ): EnterpriseServerOptions {
-  const host = opts.host || process.env.CLAWMASTER_ENTERPRISE_HOST || '127.0.0.1';
-  if (isLoopback(host)) return opts;
+  const host = opts.host || process.env.CLAWMASTER_ENTERPRISE_HOST || '127.0.0.1'
+  if (isLoopback(host)) return opts
 
   const appVersion =
-    opts.appVersion?.trim() || process.env.CLAWMASTER_APP_VERSION?.trim() || '';
+    opts.appVersion?.trim() || process.env.CLAWMASTER_APP_VERSION?.trim() || ''
   const buildCommit =
     opts.buildCommit?.trim() ||
     process.env.CLAWMASTER_BUILD_COMMIT?.trim() ||
     process.env.GITHUB_SHA?.trim() ||
-    '';
-  const errors: string[] = [];
+    ''
+  const errors: string[] = []
   if (!appVersion || appVersion.toLowerCase() === 'unknown') {
-    errors.push('CLAWMASTER_APP_VERSION 必须设置为明确的发布版本');
+    errors.push('CLAWMASTER_APP_VERSION 必须设置为明确的发布版本')
   }
   if (!/^[0-9a-f]{40}$/i.test(buildCommit)) {
-    errors.push('CLAWMASTER_BUILD_COMMIT 必须是完整的 40 位十六进制 Git SHA');
+    errors.push('CLAWMASTER_BUILD_COMMIT 必须是完整的 40 位十六进制 Git SHA')
   }
   if (errors.length > 0) {
     throw new Error(
       `[ClawMaster Enterprise] 拒绝非 loopback 启动：${errors.join('；')}`,
-    );
+    )
   }
   return {
     ...opts,
     host,
     appVersion,
     buildCommit,
-  };
+  }
 }
 
 /** 组装并 listen；返回 http.Server。访问地址不包含凭证，自动令牌只落 0600 文件。 */
 export function startEnterpriseServer(
   opts: EnterpriseServerOptions = {},
 ): Server {
-  const validatedOptions = validatedStartOptions(opts);
-  db.getDatabaseReadiness();
-  db.ensureDirectMessageContentEncrypted();
-  db.ensureDeploymentLicenseSecretsEncrypted();
+  const validatedOptions = validatedStartOptions(opts)
+  db.getDatabaseReadiness()
+  db.ensureDirectMessageContentEncrypted()
+  db.ensureDeploymentLicenseSecretsEncrypted()
   const {
     server,
     host,
@@ -837,108 +837,108 @@ export function startEnterpriseServer(
     generatedToken,
     repairSmsSender,
     repairFeishuSender,
-  } = createEnterpriseServer(validatedOptions);
+  } = createEnterpriseServer(validatedOptions)
   const generatedTokenPath = generatedToken
     ? persistGeneratedAdminToken(adminToken)
-    : null;
+    : null
   server.listen(port, host, () => {
-    console.log(`[ClawMaster Enterprise] 服务端运行于 http://${host}:${port}`);
+    console.log(`[ClawMaster Enterprise] 服务端运行于 http://${host}:${port}`)
     console.log(
       `[ClawMaster Enterprise] 账号管理: http://localhost:${port}/enterprise/admin`,
-    );
+    )
     console.log(
       `[ClawMaster Enterprise] 企业引入: ${publicBaseUrl}/enterprise/join/{邀请码}`,
-    );
+    )
     console.log(
       `[ClawMaster Enterprise] 老板看板: http://localhost:${port}/enterprise/dashboard`,
-    );
+    )
     console.log(
-      `[ClawMaster Enterprise] 数据: ~/.clawmaster-enterprise/data.db（本地，零云端）`,
-    );
+      '[ClawMaster Enterprise] 数据: ~/.clawmaster-enterprise/data.db（本地，零云端）',
+    )
     if (generatedTokenPath) {
       console.log(
         `[ClawMaster Enterprise] 自动生成的管理令牌已安全保存: ${generatedTokenPath}`,
-      );
+      )
     } else if (adminToken) {
       console.log(
         '[ClawMaster Enterprise] 已使用环境中配置的平台管理令牌（不会输出令牌内容）',
-      );
+      )
     } else {
       console.log(
         '[ClawMaster Enterprise] 未配置平台令牌；管理页面仍要求管理员账号登录',
-      );
+      )
     }
     console.log(
       '[ClawMaster Enterprise] 积分管理: http://localhost:' +
         port +
         '/enterprise/admin/credits',
-    );
-    console.log('[ClawMaster Enterprise] Ctrl+C 停止');
+    )
+    console.log('[ClawMaster Enterprise] Ctrl+C 停止')
   });
   const stopPrivateDeploymentRuntime = startPrivateDeploymentRuntime(db, {
-    onError: (error) =>
+    onError: error =>
       console.error(
         '[ClawMaster Enterprise] private deployment runtime failed',
         error,
       ),
-  });
-  let stopFederationRuntime: () => void;
+  })
+  let stopFederationRuntime: () => void
   try {
-    stopFederationRuntime = db.startFederationRuntime();
+    stopFederationRuntime = db.startFederationRuntime()
   } catch (error) {
-    stopPrivateDeploymentRuntime();
-    server.close();
-    throw error;
+    stopPrivateDeploymentRuntime()
+    server.close()
+    throw error
   }
-  let stopDataProtectionRuntime: () => void;
+  let stopDataProtectionRuntime: () => void
   try {
-    stopDataProtectionRuntime = db.startDataProtectionRuntime();
+    stopDataProtectionRuntime = db.startDataProtectionRuntime()
   } catch (error) {
-    stopPrivateDeploymentRuntime();
-    stopFederationRuntime();
-    server.close();
-    throw error;
+    stopPrivateDeploymentRuntime()
+    stopFederationRuntime()
+    server.close()
+    throw error
   }
-  let mlsCleanupRunning = false;
+  let mlsCleanupRunning = false
   const runMlsCleanup = () => {
-    if (mlsCleanupRunning) return;
-    mlsCleanupRunning = true;
+    if (mlsCleanupRunning) return
+    mlsCleanupRunning = true
     try {
-      db.cleanupExpiredMlsResources({ limit: 500 });
+      db.cleanupExpiredMlsResources({ limit: 500 })
     } catch (error) {
-      console.error('[ClawMaster Enterprise] MLS resource cleanup failed', error);
+      console.error('[ClawMaster Enterprise] MLS resource cleanup failed', error)
     } finally {
-      mlsCleanupRunning = false;
+      mlsCleanupRunning = false
     }
-  };
-  const mlsCleanupTimer = setInterval(runMlsCleanup, 15 * 60 * 1_000);
-  mlsCleanupTimer.unref();
-  const initialMlsCleanup = setImmediate(runMlsCleanup);
-  initialMlsCleanup.unref();
-  let stopTicketNotificationRuntime: () => void;
+  }
+  const mlsCleanupTimer = setInterval(runMlsCleanup, 15 * 60 * 1_000)
+  mlsCleanupTimer.unref()
+  const initialMlsCleanup = setImmediate(runMlsCleanup)
+  initialMlsCleanup.unref()
+  let stopTicketNotificationRuntime: () => void
   try {
     stopTicketNotificationRuntime = startTicketNotificationRuntime({
       smsSender: repairSmsSender,
       feishuSender: repairFeishuSender,
-      onError: (error) =>
+      onError: error =>
         console.error('[ClawMaster Enterprise] 工单通知升级任务失败', error),
-    });
+    })
   } catch (error) {
-    clearImmediate(initialMlsCleanup);
-    clearInterval(mlsCleanupTimer);
-    stopPrivateDeploymentRuntime();
-    stopFederationRuntime();
-    stopDataProtectionRuntime();
-    server.close();
-    throw error;
+    clearImmediate(initialMlsCleanup)
+    clearInterval(mlsCleanupTimer)
+    stopPrivateDeploymentRuntime()
+    stopFederationRuntime()
+    stopDataProtectionRuntime()
+    server.close()
+    throw error
   }
   server.once('close', () => {
-    clearImmediate(initialMlsCleanup);
-    clearInterval(mlsCleanupTimer);
-    stopPrivateDeploymentRuntime();
-    stopFederationRuntime();
-    stopDataProtectionRuntime();
-    stopTicketNotificationRuntime();
+    clearImmediate(initialMlsCleanup)
+    clearInterval(mlsCleanupTimer)
+    stopPrivateDeploymentRuntime()
+    stopFederationRuntime()
+    stopDataProtectionRuntime()
+    stopTicketNotificationRuntime()
   });
-  return server;
+  return server
 }

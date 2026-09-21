@@ -2,19 +2,19 @@
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ServerResponse } from 'node:http';
+import type { ServerResponse } from 'node:http'
 
-import * as db from './db.js';
-import type { DeploymentInfo } from './server.js';
+import * as db from './db.js'
+import type { DeploymentInfo } from './server.js'
 
 interface HealthRouteDeps {
-  path: string;
-  method: string;
-  res: ServerResponse;
-  apiVersion: number;
-  capabilities: readonly string[];
-  deploymentInfo: DeploymentInfo;
-  sendJSON(res: ServerResponse, status: number, data: unknown): void;
+  path: string
+  method: string
+  res: ServerResponse
+  apiVersion: number
+  capabilities: readonly string[]
+  deploymentInfo: DeploymentInfo
+  sendJSON(res: ServerResponse, status: number, data: unknown): void
 }
 
 export function handleHealthRoute({
@@ -27,11 +27,11 @@ export function handleHealthRoute({
   sendJSON,
 }: HealthRouteDeps): boolean {
   if (path !== '/enterprise/health' || method !== 'GET') {
-    return false;
+    return false
   }
 
   try {
-    db.getDatabaseReadiness();
+    db.getDatabaseReadiness()
     sendJSON(res, 200, {
       status: 'ok',
       service: 'clawmaster-enterprise',
@@ -41,7 +41,7 @@ export function handleHealthRoute({
       // diagnostics are available only from authenticated deployment routes.
       appVersion: deploymentInfo.version,
       capabilities: [...capabilities],
-    });
+    })
   } catch {
     sendJSON(res, 503, {
       status: 'unavailable',
@@ -51,7 +51,7 @@ export function handleHealthRoute({
       appVersion: deploymentInfo.version,
       capabilities: [...capabilities],
       error: 'enterprise database unavailable',
-    });
+    })
   }
-  return true;
+  return true
 }

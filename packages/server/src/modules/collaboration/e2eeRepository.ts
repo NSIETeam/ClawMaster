@@ -6,205 +6,205 @@
  * capable of decrypting a message or attachment.
  */
 
-import { createHash, createPublicKey, verify } from 'node:crypto';
+import { createHash, createPublicKey, verify } from 'node:crypto'
 
-import type { Database, EncryptedObjectStore } from '../data_platform/index.js';
+import type { Database, EncryptedObjectStore } from '../data_platform/index.js'
 
-export const E2EE_PROTOCOL_VERSION = 1 as const;
-export const E2EE_MESSAGE_MAX_CIPHERTEXT_BYTES = 64 * 1024;
-export const E2EE_ATTACHMENT_MAX_CIPHERTEXT_BYTES = 10 * 1024 * 1024 + 16;
-export const E2EE_ATTACHMENT_MAX_COUNT = 6;
+export const E2EE_PROTOCOL_VERSION = 1 as const
+export const E2EE_MESSAGE_MAX_CIPHERTEXT_BYTES = 64 * 1024
+export const E2EE_ATTACHMENT_MAX_CIPHERTEXT_BYTES = 10 * 1024 * 1024 + 16
+export const E2EE_ATTACHMENT_MAX_COUNT = 6
 
-export type E2eeContentType = 'message' | 'atoa_request' | 'atoa_response';
+export type E2eeContentType = 'message' | 'atoa_request' | 'atoa_response'
 
 export interface E2eeRepositoryStore {
-  db(): Database;
-  attachmentObjectStore?: EncryptedObjectStore;
+  db(): Database
+  attachmentObjectStore?: EncryptedObjectStore
   getActiveAccountInOrganization(
     accountId: string,
     organizationId: string,
-  ): { id: string; name: string } | null;
+  ): { id: string; name: string } | null
 }
 
 export interface E2eeDeviceRegistrationInput {
-  organizationId: string;
-  accountId: string;
-  deviceId: string;
-  deviceName: string;
-  identitySigningPublicKey: string;
-  deviceExchangePublicKey: string;
+  organizationId: string
+  accountId: string
+  deviceId: string
+  deviceName: string
+  identitySigningPublicKey: string
+  deviceExchangePublicKey: string
 }
 
 export interface E2eeDeviceView {
-  accountId: string;
-  deviceId: string;
-  deviceName: string;
-  identitySigningPublicKey: string;
-  deviceExchangePublicKey: string;
-  keyFingerprint: string;
-  approvalState: 'pending' | 'approved';
-  approvedByDeviceId: string | null;
-  approvedAt: string | null;
-  createdAt: string;
-  lastSeenAt: string;
-  revokedAt: string | null;
+  accountId: string
+  deviceId: string
+  deviceName: string
+  identitySigningPublicKey: string
+  deviceExchangePublicKey: string
+  keyFingerprint: string
+  approvalState: 'pending' | 'approved'
+  approvedByDeviceId: string | null
+  approvedAt: string | null
+  createdAt: string
+  lastSeenAt: string
+  revokedAt: string | null
 }
 
 export type E2eeKeyTransparencyEvent =
-  'bootstrap_approved' | 'registered_pending' | 'approved' | 'revoked';
+  'bootstrap_approved' | 'registered_pending' | 'approved' | 'revoked'
 
 export interface E2eeKeyTransparencyEntry {
-  sequence: number;
-  accountId: string;
-  deviceId: string;
-  event: E2eeKeyTransparencyEvent;
-  keyFingerprint: string;
-  actorDeviceId: string | null;
-  previousHash: string;
-  entryHash: string;
-  createdAt: string;
+  sequence: number
+  accountId: string
+  deviceId: string
+  event: E2eeKeyTransparencyEvent
+  keyFingerprint: string
+  actorDeviceId: string | null
+  previousHash: string
+  entryHash: string
+  createdAt: string
 }
 
 export interface E2eeKeyTransparencyView {
-  accountId: string;
-  headSequence: number;
-  headHash: string;
-  entries: E2eeKeyTransparencyEntry[];
+  accountId: string
+  headSequence: number
+  headHash: string
+  entries: E2eeKeyTransparencyEntry[]
 }
 
 export interface E2eeDeviceApprovalInput {
-  organizationId: string;
-  accountId: string;
-  approverDeviceId: string;
-  targetDeviceId: string;
-  targetKeyFingerprint: string;
-  signature: string;
+  organizationId: string
+  accountId: string
+  approverDeviceId: string
+  targetDeviceId: string
+  targetKeyFingerprint: string
+  signature: string
 }
 
 export interface E2eeMessageEnvelope {
-  accountId: string;
-  deviceId: string;
-  ephemeralPublicKey: string;
-  wrappedKey: string;
-  nonce: string;
+  accountId: string
+  deviceId: string
+  ephemeralPublicKey: string
+  wrappedKey: string
+  nonce: string
 }
 
 export interface E2eeAttachmentCiphertextInput {
-  id: string;
-  ciphertext: string;
-  nonce: string;
+  id: string
+  ciphertext: string
+  nonce: string
 }
 
 export interface SendE2eeDirectMessageInput {
-  organizationId: string;
-  senderAccountId: string;
-  recipientAccountId: string;
-  messageId: string;
-  senderDeviceId: string;
-  protocolVersion: 1;
-  contentType: E2eeContentType;
-  inReplyToMessageId?: string | null;
-  ciphertext: string;
-  nonce: string;
-  signature: string;
-  envelopes: E2eeMessageEnvelope[];
-  attachments?: E2eeAttachmentCiphertextInput[];
+  organizationId: string
+  senderAccountId: string
+  recipientAccountId: string
+  messageId: string
+  senderDeviceId: string
+  protocolVersion: 1
+  contentType: E2eeContentType
+  inReplyToMessageId?: string | null
+  ciphertext: string
+  nonce: string
+  signature: string
+  envelopes: E2eeMessageEnvelope[]
+  attachments?: E2eeAttachmentCiphertextInput[]
 }
 
 export interface E2eeAttachmentCiphertextView {
-  id: string;
-  ciphertextSize: number;
-  nonce: string;
+  id: string
+  ciphertextSize: number
+  nonce: string
 }
 
 export interface E2eeDirectMessageView {
-  id: string;
-  senderAccountId: string;
-  recipientAccountId: string;
-  senderDeviceId: string;
-  senderIdentitySigningPublicKey: string;
-  protocolVersion: 1;
-  contentType: E2eeContentType;
-  inReplyToMessageId: string | null;
-  ciphertext: string;
-  nonce: string;
-  signature: string;
-  envelopes: E2eeMessageEnvelope[];
-  createdAt: string;
-  readAt: string | null;
-  attachments: E2eeAttachmentCiphertextView[];
+  id: string
+  senderAccountId: string
+  recipientAccountId: string
+  senderDeviceId: string
+  senderIdentitySigningPublicKey: string
+  protocolVersion: 1
+  contentType: E2eeContentType
+  inReplyToMessageId: string | null
+  ciphertext: string
+  nonce: string
+  signature: string
+  envelopes: E2eeMessageEnvelope[]
+  createdAt: string
+  readAt: string | null
+  attachments: E2eeAttachmentCiphertextView[]
 }
 
 export interface E2eeAttachmentDownload {
-  message: E2eeDirectMessageView;
+  message: E2eeDirectMessageView
   attachment: {
-    id: string;
-    ciphertext: string;
-    nonce: string;
-  };
+    id: string
+    ciphertext: string
+    nonce: string
+  }
 }
 
 interface DeviceRow {
-  organization_id: string;
-  account_id: string;
-  device_id: string;
-  device_name: string;
-  identity_signing_public_key: string;
-  device_exchange_public_key: string;
-  key_fingerprint: string;
-  approval_state: 'pending' | 'approved';
-  approved_by_device_id: string | null;
-  approved_at: string | null;
-  created_at: string;
-  last_seen_at: string;
-  revoked_at: string | null;
+  organization_id: string
+  account_id: string
+  device_id: string
+  device_name: string
+  identity_signing_public_key: string
+  device_exchange_public_key: string
+  key_fingerprint: string
+  approval_state: 'pending' | 'approved'
+  approved_by_device_id: string | null
+  approved_at: string | null
+  created_at: string
+  last_seen_at: string
+  revoked_at: string | null
 }
 
 interface TransparencyRow {
-  sequence: number;
-  account_id: string;
-  device_id: string;
-  event: E2eeKeyTransparencyEvent;
-  key_fingerprint: string;
-  actor_device_id: string | null;
-  previous_hash: string;
-  entry_hash: string;
-  created_at: string;
+  sequence: number
+  account_id: string
+  device_id: string
+  event: E2eeKeyTransparencyEvent
+  key_fingerprint: string
+  actor_device_id: string | null
+  previous_hash: string
+  entry_hash: string
+  created_at: string
 }
 
 interface MessageRow {
-  id: string;
-  organization_id: string;
-  sender_account_id: string;
-  recipient_account_id: string;
-  content_type: E2eeContentType;
-  e2ee_protocol_version: number;
-  e2ee_sender_device_id: string;
-  e2ee_ciphertext: string;
-  e2ee_nonce: string;
-  e2ee_signature: string;
-  e2ee_envelopes_json: string;
-  in_reply_to_message_id: string | null;
-  created_at: string;
-  read_at: string | null;
+  id: string
+  organization_id: string
+  sender_account_id: string
+  recipient_account_id: string
+  content_type: E2eeContentType
+  e2ee_protocol_version: number
+  e2ee_sender_device_id: string
+  e2ee_ciphertext: string
+  e2ee_nonce: string
+  e2ee_signature: string
+  e2ee_envelopes_json: string
+  in_reply_to_message_id: string | null
+  created_at: string
+  read_at: string | null
 }
 
 interface AttachmentRow {
-  id: string;
-  message_id: string;
-  byte_size: number;
-  content: Uint8Array;
-  storage_backend: string;
-  storage_key: string | null;
-  e2ee_nonce: string;
+  id: string
+  message_id: string
+  byte_size: number
+  content: Uint8Array
+  storage_backend: string
+  storage_key: string | null
+  e2ee_nonce: string
 }
 
-const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/
 
 function requireIdentifier(value: string, label: string): string {
-  const normalized = value.trim();
-  if (!IDENTIFIER.test(normalized)) throw new Error(`${label} is invalid`);
-  return normalized;
+  const normalized = value.trim()
+  if (!IDENTIFIER.test(normalized)) throw new Error(`${label} is invalid`)
+  return normalized
 }
 
 function requireBase64(
@@ -212,25 +212,25 @@ function requireBase64(
   label: string,
   maximumBytes: number,
 ): Buffer {
-  const normalized = value.trim();
+  const normalized = value.trim()
   if (!normalized || normalized.length > Math.ceil(maximumBytes / 3) * 4 + 8) {
-    throw new Error(`${label} is invalid`);
+    throw new Error(`${label} is invalid`)
   }
-  const decoded = Buffer.from(normalized, 'base64');
+  const decoded = Buffer.from(normalized, 'base64')
   if (
     !decoded.length ||
     decoded.length > maximumBytes ||
     decoded.toString('base64') !== normalized
   ) {
-    throw new Error(`${label} is invalid`);
+    throw new Error(`${label} is invalid`)
   }
-  return decoded;
+  return decoded
 }
 
 function requireNonce(value: string, label: string): string {
-  const decoded = requireBase64(value, label, 12);
-  if (decoded.length !== 12) throw new Error(`${label} must be 12 bytes`);
-  return value;
+  const decoded = requireBase64(value, label, 12)
+  if (decoded.length !== 12) throw new Error(`${label} must be 12 bytes`)
+  return value
 }
 
 function requirePublicKey(
@@ -239,48 +239,48 @@ function requirePublicKey(
   label: string,
 ): string {
   if (typeof value !== 'string' || value.length > 2048) {
-    throw new Error(`${label} is invalid`);
+    throw new Error(`${label} is invalid`)
   }
   try {
-    const key = createPublicKey(value);
-    if (key.asymmetricKeyType !== expectedType) throw new Error('wrong type');
-    return key.export({ type: 'spki', format: 'pem' }).toString();
+    const key = createPublicKey(value)
+    if (key.asymmetricKeyType !== expectedType) throw new Error('wrong type')
+    return key.export({ type: 'spki', format: 'pem' }).toString()
   } catch {
-    throw new Error(`${label} must be a valid ${expectedType} public key`);
+    throw new Error(`${label} must be a valid ${expectedType} public key`)
   }
 }
 
-const KEY_FINGERPRINT = /^[0-9a-f]{64}$/;
-const EMPTY_TRANSPARENCY_HASH = '0'.repeat(64);
+const KEY_FINGERPRINT = /^[0-9a-f]{64}$/
+const EMPTY_TRANSPARENCY_HASH = '0'.repeat(64)
 
 export function e2eeDeviceKeyFingerprint(input: {
-  identitySigningPublicKey: string;
-  deviceExchangePublicKey: string;
+  identitySigningPublicKey: string
+  deviceExchangePublicKey: string
 }): string {
   const signing = requirePublicKey(
     input.identitySigningPublicKey,
     'ed25519',
     'identity signing public key',
-  );
+  )
   const exchange = requirePublicKey(
     input.deviceExchangePublicKey,
     'x25519',
     'device exchange public key',
-  );
+  )
   return createHash('sha256')
     .update('clawmaster:e2ee-device-fingerprint:v1\n')
     .update(signing)
     .update('\n')
     .update(exchange)
-    .digest('hex');
+    .digest('hex')
 }
 
 function requireKeyFingerprint(value: string): string {
-  const normalized = value.trim().toLowerCase();
+  const normalized = value.trim().toLowerCase()
   if (!KEY_FINGERPRINT.test(normalized)) {
-    throw new Error('E2EE device key fingerprint is invalid');
+    throw new Error('E2EE device key fingerprint is invalid')
   }
-  return normalized;
+  return normalized
 }
 
 export function e2eeDeviceApprovalSignaturePayload(
@@ -295,63 +295,63 @@ export function e2eeDeviceApprovalSignaturePayload(
     ),
     targetDeviceId: requireIdentifier(input.targetDeviceId, 'target device id'),
     targetKeyFingerprint: requireKeyFingerprint(input.targetKeyFingerprint),
-  };
+  }
   return Buffer.from(
     `clawmaster:e2ee-device-approval:v1\n${JSON.stringify(payload)}`,
     'utf8',
-  );
+  )
 }
 
 function transparencyEntryHash(input: {
-  sequence: number;
-  organizationId: string;
-  accountId: string;
-  deviceId: string;
-  event: E2eeKeyTransparencyEvent;
-  keyFingerprint: string;
-  actorDeviceId: string | null;
-  previousHash: string;
-  createdAt: string;
+  sequence: number
+  organizationId: string
+  accountId: string
+  deviceId: string
+  event: E2eeKeyTransparencyEvent
+  keyFingerprint: string
+  actorDeviceId: string | null
+  previousHash: string
+  createdAt: string
 }): string {
   return createHash('sha256')
     .update('clawmaster:e2ee-key-transparency:v1\n')
     .update(JSON.stringify(input))
-    .digest('hex');
+    .digest('hex')
 }
 
 function atomicDeviceMutation<T>(database: Database, operation: () => T): T {
-  const nested = database.inTransaction;
+  const nested = database.inTransaction
   database.exec(
     nested ? 'SAVEPOINT clawmaster_e2ee_device_mutation' : 'BEGIN IMMEDIATE',
-  );
+  )
   try {
-    const result = operation();
-    database.exec(nested ? 'RELEASE clawmaster_e2ee_device_mutation' : 'COMMIT');
-    return result;
+    const result = operation()
+    database.exec(nested ? 'RELEASE clawmaster_e2ee_device_mutation' : 'COMMIT')
+    return result
   } catch (error) {
     try {
       database.exec(
         nested
           ? 'ROLLBACK TO clawmaster_e2ee_device_mutation; RELEASE clawmaster_e2ee_device_mutation'
           : 'ROLLBACK',
-      );
+      )
     } catch {
       // Preserve the mutation error.
     }
-    throw error;
+    throw error
   }
 }
 
 function appendTransparencyEntry(
   database: Database,
   input: {
-    organizationId: string;
-    accountId: string;
-    deviceId: string;
-    event: E2eeKeyTransparencyEvent;
-    keyFingerprint: string;
-    actorDeviceId: string | null;
-    createdAt: string;
+    organizationId: string
+    accountId: string
+    deviceId: string
+    event: E2eeKeyTransparencyEvent
+    keyFingerprint: string
+    actorDeviceId: string | null
+    createdAt: string
   },
 ): E2eeKeyTransparencyEntry {
   const previous = database
@@ -361,9 +361,9 @@ function appendTransparencyEntry(
        ORDER BY sequence DESC LIMIT 1`,
     )
     .get(input.organizationId, input.accountId) as
-    { sequence: number; entry_hash: string } | undefined;
-  const sequence = Number(previous?.sequence ?? 0) + 1;
-  const previousHash = previous?.entry_hash ?? EMPTY_TRANSPARENCY_HASH;
+    { sequence: number; entry_hash: string } | undefined
+  const sequence = Number(previous?.sequence ?? 0) + 1
+  const previousHash = previous?.entry_hash ?? EMPTY_TRANSPARENCY_HASH
   const entryHash = transparencyEntryHash({
     sequence,
     organizationId: input.organizationId,
@@ -374,7 +374,7 @@ function appendTransparencyEntry(
     actorDeviceId: input.actorDeviceId,
     previousHash,
     createdAt: input.createdAt,
-  });
+  })
   database
     .prepare(
       `INSERT INTO e2ee_key_transparency_log
@@ -393,7 +393,7 @@ function appendTransparencyEntry(
       previousHash,
       entryHash,
       input.createdAt,
-    );
+    )
   return {
     sequence,
     accountId: input.accountId,
@@ -404,7 +404,7 @@ function appendTransparencyEntry(
     previousHash,
     entryHash,
     createdAt: input.createdAt,
-  };
+  }
 }
 
 function deviceView(row: DeviceRow): E2eeDeviceView {
@@ -413,7 +413,7 @@ function deviceView(row: DeviceRow): E2eeDeviceView {
     e2eeDeviceKeyFingerprint({
       identitySigningPublicKey: row.identity_signing_public_key,
       deviceExchangePublicKey: row.device_exchange_public_key,
-    });
+    })
   return {
     accountId: row.account_id,
     deviceId: row.device_id,
@@ -427,7 +427,7 @@ function deviceView(row: DeviceRow): E2eeDeviceView {
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
     revokedAt: row.revoked_at,
-  };
+  }
 }
 
 export function registerE2eeDeviceInRepository(
@@ -437,36 +437,36 @@ export function registerE2eeDeviceInRepository(
   const organizationId = requireIdentifier(
     input.organizationId,
     'organization id',
-  );
-  const accountId = requireIdentifier(input.accountId, 'account id');
-  const deviceId = requireIdentifier(input.deviceId, 'device id');
+  )
+  const accountId = requireIdentifier(input.accountId, 'account id')
+  const deviceId = requireIdentifier(input.deviceId, 'device id')
   if (!store.getActiveAccountInOrganization(accountId, organizationId)) {
-    throw new Error('device account is not active in organization');
+    throw new Error('device account is not active in organization')
   }
-  const deviceName = input.deviceName.trim().slice(0, 120);
-  if (!deviceName) throw new Error('device name is required');
+  const deviceName = input.deviceName.trim().slice(0, 120)
+  if (!deviceName) throw new Error('device name is required')
   const identitySigningPublicKey = requirePublicKey(
     input.identitySigningPublicKey,
     'ed25519',
     'identity signing public key',
-  );
+  )
   const deviceExchangePublicKey = requirePublicKey(
     input.deviceExchangePublicKey,
     'x25519',
     'device exchange public key',
-  );
+  )
   const keyFingerprint = e2eeDeviceKeyFingerprint({
     identitySigningPublicKey,
     deviceExchangePublicKey,
-  });
-  const database = store.db();
+  })
+  const database = store.db()
   return atomicDeviceMutation(database, () => {
     const existing = database
       .prepare(
         `SELECT * FROM e2ee_devices
          WHERE organization_id = ? AND account_id = ? AND device_id = ?`,
       )
-      .get(organizationId, accountId, deviceId) as DeviceRow | undefined;
+      .get(organizationId, accountId, deviceId) as DeviceRow | undefined
     if (
       existing &&
       (existing.identity_signing_public_key !== identitySigningPublicKey ||
@@ -474,7 +474,7 @@ export function registerE2eeDeviceInRepository(
     ) {
       throw new Error(
         'a registered device id cannot be rebound to different keys',
-      );
+      )
     }
     if (existing) {
       database
@@ -488,16 +488,16 @@ export function registerE2eeDeviceInRepository(
           organizationId,
           accountId,
           deviceId,
-        );
+        )
     } else {
       const history = database
         .prepare(
           `SELECT COUNT(*) AS count FROM e2ee_devices
            WHERE organization_id = ? AND account_id = ?`,
         )
-        .get(organizationId, accountId) as { count: number };
-      const bootstrap = Number(history.count) === 0;
-      const createdAt = new Date().toISOString();
+        .get(organizationId, accountId) as { count: number }
+      const bootstrap = Number(history.count) === 0
+      const createdAt = new Date().toISOString()
       database
         .prepare(
           `INSERT INTO e2ee_devices
@@ -518,7 +518,7 @@ export function registerE2eeDeviceInRepository(
           bootstrap ? createdAt : null,
           createdAt,
           createdAt,
-        );
+        )
       appendTransparencyEntry(database, {
         organizationId,
         accountId,
@@ -527,7 +527,7 @@ export function registerE2eeDeviceInRepository(
         keyFingerprint,
         actorDeviceId: bootstrap ? deviceId : null,
         createdAt,
-      });
+      })
     }
     return deviceView(
       database
@@ -536,51 +536,51 @@ export function registerE2eeDeviceInRepository(
            WHERE organization_id = ? AND account_id = ? AND device_id = ?`,
         )
         .get(organizationId, accountId, deviceId) as DeviceRow,
-    );
+    )
   });
 }
 
 export function listE2eeDevicesInRepository(
   store: E2eeRepositoryStore,
   input: {
-    organizationId: string;
-    requesterAccountId: string;
-    accountIds: string[];
-    includeRevoked?: boolean;
-    includePending?: boolean;
+    organizationId: string
+    requesterAccountId: string
+    accountIds: string[]
+    includeRevoked?: boolean
+    includePending?: boolean
   },
 ): E2eeDeviceView[] {
   const organizationId = requireIdentifier(
     input.organizationId,
     'organization id',
-  );
+  )
   const requesterAccountId = requireIdentifier(
     input.requesterAccountId,
     'requester account id',
-  );
+  )
   if (
     !store.getActiveAccountInOrganization(requesterAccountId, organizationId)
   ) {
-    throw new Error('requester account is not active in organization');
+    throw new Error('requester account is not active in organization')
   }
   const accountIds = [
     ...new Set(
-      input.accountIds.map((id) => requireIdentifier(id, 'account id')),
+      input.accountIds.map(id => requireIdentifier(id, 'account id')),
     ),
-  ];
+  ]
   if (accountIds.length === 0 || accountIds.length > 2) {
-    throw new Error('one or two device accounts are required');
+    throw new Error('one or two device accounts are required')
   }
   for (const accountId of accountIds) {
     if (!store.getActiveAccountInOrganization(accountId, organizationId)) {
-      throw new Error('device account is not active in organization');
+      throw new Error('device account is not active in organization')
     }
   }
-  const placeholders = accountIds.map(() => '?').join(',');
+  const placeholders = accountIds.map(() => '?').join(',')
   const includeRevoked =
-    input.includeRevoked && accountIds.every((id) => id === requesterAccountId);
+    input.includeRevoked && accountIds.every(id => id === requesterAccountId)
   const includePending =
-    input.includePending && accountIds.every((id) => id === requesterAccountId);
+    input.includePending && accountIds.every(id => id === requesterAccountId)
   const rows = store
     .db()
     .prepare(
@@ -590,8 +590,8 @@ export function listE2eeDevicesInRepository(
        ${includePending ? '' : "AND approval_state = 'approved'"}
      ORDER BY account_id, created_at, device_id`,
     )
-    .all(organizationId, ...accountIds) as DeviceRow[];
-  return rows.map(deviceView);
+    .all(organizationId, ...accountIds) as DeviceRow[]
+  return rows.map(deviceView)
 }
 
 export function revokeE2eeDeviceInRepository(
@@ -601,30 +601,30 @@ export function revokeE2eeDeviceInRepository(
   const organizationId = requireIdentifier(
     input.organizationId,
     'organization id',
-  );
-  const accountId = requireIdentifier(input.accountId, 'account id');
-  const deviceId = requireIdentifier(input.deviceId, 'device id');
+  )
+  const accountId = requireIdentifier(input.accountId, 'account id')
+  const deviceId = requireIdentifier(input.deviceId, 'device id')
   if (!store.getActiveAccountInOrganization(accountId, organizationId)) {
-    throw new Error('device account is not active in organization');
+    throw new Error('device account is not active in organization')
   }
-  const database = store.db();
+  const database = store.db()
   return atomicDeviceMutation(database, () => {
     const device = database
       .prepare(
         `SELECT * FROM e2ee_devices
          WHERE organization_id = ? AND account_id = ? AND device_id = ?`,
       )
-      .get(organizationId, accountId, deviceId) as DeviceRow | undefined;
-    if (!device || device.revoked_at) return false;
-    const revokedAt = new Date().toISOString();
+      .get(organizationId, accountId, deviceId) as DeviceRow | undefined
+    if (!device || device.revoked_at) return false
+    const revokedAt = new Date().toISOString()
     const result = database
       .prepare(
         `UPDATE e2ee_devices SET revoked_at = ?
          WHERE organization_id = ? AND account_id = ? AND device_id = ?
            AND revoked_at IS NULL`,
       )
-      .run(revokedAt, organizationId, accountId, deviceId);
-    if (Number(result.changes) !== 1) return false;
+      .run(revokedAt, organizationId, accountId, deviceId)
+    if (Number(result.changes) !== 1) return false
     appendTransparencyEntry(database, {
       organizationId,
       accountId,
@@ -638,8 +638,8 @@ export function revokeE2eeDeviceInRepository(
         }),
       actorDeviceId: null,
       createdAt: revokedAt,
-    });
-    return true;
+    })
+    return true
   });
 }
 
@@ -662,9 +662,9 @@ export function approveE2eeDeviceInRepository(
       'target device id',
     ),
     targetKeyFingerprint: requireKeyFingerprint(rawInput.targetKeyFingerprint),
-  };
+  }
   if (unsigned.approverDeviceId === unsigned.targetDeviceId) {
-    throw new Error('a pending device cannot approve itself');
+    throw new Error('a pending device cannot approve itself')
   }
   if (
     !store.getActiveAccountInOrganization(
@@ -672,14 +672,14 @@ export function approveE2eeDeviceInRepository(
       unsigned.organizationId,
     )
   ) {
-    throw new Error('device account is not active in organization');
+    throw new Error('device account is not active in organization')
   }
   const signature = requireBase64(
     rawInput.signature,
     'device approval signature',
     128,
-  );
-  const database = store.db();
+  )
+  const database = store.db()
   return atomicDeviceMutation(database, () => {
     const approver = database
       .prepare(
@@ -691,9 +691,9 @@ export function approveE2eeDeviceInRepository(
         unsigned.organizationId,
         unsigned.accountId,
         unsigned.approverDeviceId,
-      ) as DeviceRow | undefined;
+      ) as DeviceRow | undefined
     if (!approver)
-      throw new Error('approver E2EE device is not active and approved');
+      throw new Error('approver E2EE device is not active and approved')
     const target = database
       .prepare(
         `SELECT * FROM e2ee_devices
@@ -704,16 +704,16 @@ export function approveE2eeDeviceInRepository(
         unsigned.organizationId,
         unsigned.accountId,
         unsigned.targetDeviceId,
-      ) as DeviceRow | undefined;
-    if (!target) throw new Error('pending E2EE device is unavailable');
+      ) as DeviceRow | undefined
+    if (!target) throw new Error('pending E2EE device is unavailable')
     const targetFingerprint =
       target.key_fingerprint ||
       e2eeDeviceKeyFingerprint({
         identitySigningPublicKey: target.identity_signing_public_key,
         deviceExchangePublicKey: target.device_exchange_public_key,
-      });
+      })
     if (targetFingerprint !== unsigned.targetKeyFingerprint) {
-      throw new Error('pending E2EE device fingerprint changed');
+      throw new Error('pending E2EE device fingerprint changed')
     }
     if (
       !verify(
@@ -723,10 +723,10 @@ export function approveE2eeDeviceInRepository(
         signature,
       )
     ) {
-      throw new Error('E2EE device approval signature is invalid');
+      throw new Error('E2EE device approval signature is invalid')
     }
-    if (target.approval_state === 'approved') return deviceView(target);
-    const approvedAt = new Date().toISOString();
+    if (target.approval_state === 'approved') return deviceView(target)
+    const approvedAt = new Date().toISOString()
     database
       .prepare(
         `UPDATE e2ee_devices
@@ -740,7 +740,7 @@ export function approveE2eeDeviceInRepository(
         unsigned.organizationId,
         unsigned.accountId,
         unsigned.targetDeviceId,
-      );
+      )
     appendTransparencyEntry(database, {
       organizationId: unsigned.organizationId,
       accountId: unsigned.accountId,
@@ -749,7 +749,7 @@ export function approveE2eeDeviceInRepository(
       keyFingerprint: targetFingerprint,
       actorDeviceId: unsigned.approverDeviceId,
       createdAt: approvedAt,
-    });
+    })
     return deviceView(
       database
         .prepare(
@@ -761,32 +761,32 @@ export function approveE2eeDeviceInRepository(
           unsigned.accountId,
           unsigned.targetDeviceId,
         ) as DeviceRow,
-    );
+    )
   });
 }
 
 export function listE2eeKeyTransparencyInRepository(
   store: E2eeRepositoryStore,
   input: {
-    organizationId: string;
-    requesterAccountId: string;
-    accountId: string;
+    organizationId: string
+    requesterAccountId: string
+    accountId: string
   },
 ): E2eeKeyTransparencyView {
   const organizationId = requireIdentifier(
     input.organizationId,
     'organization id',
-  );
+  )
   const requesterAccountId = requireIdentifier(
     input.requesterAccountId,
     'requester account id',
-  );
-  const accountId = requireIdentifier(input.accountId, 'account id');
+  )
+  const accountId = requireIdentifier(input.accountId, 'account id')
   if (
     !store.getActiveAccountInOrganization(requesterAccountId, organizationId) ||
     !store.getActiveAccountInOrganization(accountId, organizationId)
   ) {
-    throw new Error('key transparency account is not active in organization');
+    throw new Error('key transparency account is not active in organization')
   }
   const rows = store
     .db()
@@ -794,8 +794,8 @@ export function listE2eeKeyTransparencyInRepository(
       `SELECT * FROM e2ee_key_transparency_log
        WHERE organization_id = ? AND account_id = ? ORDER BY sequence`,
     )
-    .all(organizationId, accountId) as TransparencyRow[];
-  let previousHash = EMPTY_TRANSPARENCY_HASH;
+    .all(organizationId, accountId) as TransparencyRow[]
+  let previousHash = EMPTY_TRANSPARENCY_HASH
   const entries = rows.map((row, index) => {
     const entry: E2eeKeyTransparencyEntry = {
       sequence: Number(row.sequence),
@@ -807,7 +807,7 @@ export function listE2eeKeyTransparencyInRepository(
       previousHash: row.previous_hash,
       entryHash: row.entry_hash,
       createdAt: row.created_at,
-    };
+    }
     const expectedHash = transparencyEntryHash({
       sequence: entry.sequence,
       organizationId,
@@ -818,23 +818,23 @@ export function listE2eeKeyTransparencyInRepository(
       actorDeviceId: entry.actorDeviceId,
       previousHash: entry.previousHash,
       createdAt: entry.createdAt,
-    });
+    })
     if (
       entry.sequence !== index + 1 ||
       entry.previousHash !== previousHash ||
       entry.entryHash !== expectedHash
     ) {
-      throw new Error('E2EE key transparency log integrity check failed');
+      throw new Error('E2EE key transparency log integrity check failed')
     }
-    previousHash = entry.entryHash;
-    return entry;
+    previousHash = entry.entryHash
+    return entry
   });
   return {
     accountId,
     headSequence: entries.length,
     headHash: previousHash,
     entries,
-  };
+  }
 }
 
 function envelopeDigest(envelopes: readonly E2eeMessageEnvelope[]): string {
@@ -844,16 +844,16 @@ function envelopeDigest(envelopes: readonly E2eeMessageEnvelope[]): string {
         `${b.accountId}:${b.deviceId}`,
       ),
     )
-    .map((envelope) => ({
+    .map(envelope => ({
       accountId: envelope.accountId,
       deviceId: envelope.deviceId,
       ephemeralPublicKey: envelope.ephemeralPublicKey,
       wrappedKey: envelope.wrappedKey,
       nonce: envelope.nonce,
-    }));
+    }))
   return createHash('sha256')
     .update(JSON.stringify(canonical))
-    .digest('base64');
+    .digest('base64')
 }
 
 export function e2eeMessageSignaturePayload(
@@ -873,8 +873,8 @@ export function e2eeMessageSignaturePayload(
       .update(Buffer.from(input.ciphertext, 'base64'))
       .digest('base64'),
     envelopeDigest: envelopeDigest(input.envelopes),
-  };
-  return Buffer.from(`clawmaster-e2ee-message-v1\n${JSON.stringify(body)}`, 'utf8');
+  }
+  return Buffer.from(`clawmaster-e2ee-message-v1\n${JSON.stringify(body)}`, 'utf8')
 }
 
 function normalizeEnvelope(envelope: E2eeMessageEnvelope): E2eeMessageEnvelope {
@@ -890,32 +890,32 @@ function normalizeEnvelope(envelope: E2eeMessageEnvelope): E2eeMessageEnvelope {
       'base64',
     ),
     nonce: requireNonce(envelope.nonce, 'envelope nonce'),
-  };
+  }
 }
 
 function normalizeAttachment(
   attachment: E2eeAttachmentCiphertextInput,
 ): E2eeAttachmentCiphertextInput & { bytes: Buffer } {
-  const id = requireIdentifier(attachment.id, 'attachment id');
+  const id = requireIdentifier(attachment.id, 'attachment id')
   const bytes = requireBase64(
     attachment.ciphertext,
     'attachment ciphertext',
     E2EE_ATTACHMENT_MAX_CIPHERTEXT_BYTES,
-  );
-  if (bytes.length <= 16) throw new Error('attachment ciphertext is too short');
+  )
+  if (bytes.length <= 16) throw new Error('attachment ciphertext is too short')
   return {
     id,
     ciphertext: bytes.toString('base64'),
     nonce: requireNonce(attachment.nonce, 'attachment nonce'),
     bytes,
-  };
+  }
 }
 
 function parseEnvelopes(value: string): E2eeMessageEnvelope[] {
-  const parsed = JSON.parse(value) as unknown;
+  const parsed = JSON.parse(value) as unknown
   if (!Array.isArray(parsed))
-    throw new Error('stored E2EE envelopes are invalid');
-  return parsed as E2eeMessageEnvelope[];
+    throw new Error('stored E2EE envelopes are invalid')
+  return parsed as E2eeMessageEnvelope[]
 }
 
 function attachmentViews(
@@ -928,15 +928,15 @@ function attachmentViews(
      WHERE message_id = ? ORDER BY ordinal, id`,
     )
     .all(messageId) as Array<{
-    id: string;
-    byte_size: number;
-    e2ee_nonce: string;
-  }>;
-  return rows.map((row) => ({
+    id: string
+    byte_size: number
+    e2ee_nonce: string
+  }>
+  return rows.map(row => ({
     id: row.id,
     ciphertextSize: Number(row.byte_size) + 16,
     nonce: row.e2ee_nonce,
-  }));
+  }))
 }
 
 function messageView(
@@ -945,7 +945,7 @@ function messageView(
   attachments = attachmentViews(database, row.id),
 ): E2eeDirectMessageView {
   if (row.e2ee_protocol_version !== E2EE_PROTOCOL_VERSION) {
-    throw new Error('stored E2EE protocol version is unsupported');
+    throw new Error('stored E2EE protocol version is unsupported')
   }
   const senderDevice = database
     .prepare(
@@ -956,9 +956,9 @@ function messageView(
       row.organization_id,
       row.sender_account_id,
       row.e2ee_sender_device_id,
-    ) as { identity_signing_public_key: string } | undefined;
+    ) as { identity_signing_public_key: string } | undefined
   if (!senderDevice)
-    throw new Error('stored E2EE sender device is unavailable');
+    throw new Error('stored E2EE sender device is unavailable')
   return {
     id: row.id,
     senderAccountId: row.sender_account_id,
@@ -975,7 +975,7 @@ function messageView(
     createdAt: row.created_at,
     readAt: row.read_at,
     attachments,
-  };
+  }
 }
 
 export function sendE2eeDirectMessageInRepository(
@@ -983,7 +983,7 @@ export function sendE2eeDirectMessageInRepository(
   rawInput: SendE2eeDirectMessageInput,
 ): E2eeDirectMessageView {
   if (rawInput.protocolVersion !== E2EE_PROTOCOL_VERSION) {
-    throw new Error('E2EE protocol version is unsupported');
+    throw new Error('E2EE protocol version is unsupported')
   }
   const input = {
     ...rawInput,
@@ -1004,9 +1004,9 @@ export function sendE2eeDirectMessageInRepository(
       rawInput.senderDeviceId,
       'sender device id',
     ),
-  };
+  }
   if (input.senderAccountId === input.recipientAccountId) {
-    throw new Error('sender and recipient must be different');
+    throw new Error('sender and recipient must be different')
   }
   if (
     !store.getActiveAccountInOrganization(
@@ -1014,7 +1014,7 @@ export function sendE2eeDirectMessageInRepository(
       input.organizationId,
     )
   ) {
-    throw new Error('sender account is not active in organization');
+    throw new Error('sender account is not active in organization')
   }
   if (
     !store.getActiveAccountInOrganization(
@@ -1022,40 +1022,40 @@ export function sendE2eeDirectMessageInRepository(
       input.organizationId,
     )
   ) {
-    throw new Error('recipient account is not active in organization');
+    throw new Error('recipient account is not active in organization')
   }
   if (
     !['message', 'atoa_request', 'atoa_response'].includes(input.contentType)
   ) {
-    throw new Error('E2EE content type is invalid');
+    throw new Error('E2EE content type is invalid')
   }
   const inReplyToMessageId = input.inReplyToMessageId
     ? requireIdentifier(input.inReplyToMessageId, 'reply message id')
-    : null;
+    : null
   if ((input.contentType === 'atoa_response') !== Boolean(inReplyToMessageId)) {
-    throw new Error('A2A responses must reference exactly one request');
+    throw new Error('A2A responses must reference exactly one request')
   }
   const ciphertext = requireBase64(
     input.ciphertext,
     'message ciphertext',
     E2EE_MESSAGE_MAX_CIPHERTEXT_BYTES,
-  ).toString('base64');
+  ).toString('base64')
   if (Buffer.from(ciphertext, 'base64').length <= 16) {
-    throw new Error('message ciphertext is too short');
+    throw new Error('message ciphertext is too short')
   }
-  const nonce = requireNonce(input.nonce, 'message nonce');
-  const signature = requireBase64(input.signature, 'message signature', 128);
-  const envelopes = input.envelopes.map(normalizeEnvelope);
-  const attachments = (input.attachments ?? []).map(normalizeAttachment);
+  const nonce = requireNonce(input.nonce, 'message nonce')
+  const signature = requireBase64(input.signature, 'message signature', 128)
+  const envelopes = input.envelopes.map(normalizeEnvelope)
+  const attachments = (input.attachments ?? []).map(normalizeAttachment)
   if (attachments.length > E2EE_ATTACHMENT_MAX_COUNT) {
-    throw new Error('a message can contain at most 6 encrypted attachments');
+    throw new Error('a message can contain at most 6 encrypted attachments')
   }
-  const uniqueAttachmentIds = new Set(attachments.map((item) => item.id));
+  const uniqueAttachmentIds = new Set(attachments.map(item => item.id))
   if (uniqueAttachmentIds.size !== attachments.length) {
-    throw new Error('encrypted attachment ids must be unique');
+    throw new Error('encrypted attachment ids must be unique')
   }
 
-  const database = store.db();
+  const database = store.db()
   const activeDevices = database
     .prepare(
       `SELECT * FROM e2ee_devices
@@ -1067,34 +1067,34 @@ export function sendE2eeDirectMessageInRepository(
       input.organizationId,
       input.senderAccountId,
       input.recipientAccountId,
-    ) as DeviceRow[];
+    ) as DeviceRow[]
   const senderDevice = activeDevices.find(
-    (device) =>
+    device =>
       device.account_id === input.senderAccountId &&
       device.device_id === input.senderDeviceId,
-  );
+  )
   if (!senderDevice)
-    throw new Error('sender E2EE device is not registered or was revoked');
+    throw new Error('sender E2EE device is not registered or was revoked')
   if (
     !activeDevices.some(
-      (device) => device.account_id === input.recipientAccountId,
+      device => device.account_id === input.recipientAccountId,
     )
   ) {
-    throw new Error('recipient has no active E2EE device');
+    throw new Error('recipient has no active E2EE device')
   }
   const expectedEnvelopeIds = activeDevices
-    .map((device) => `${device.account_id}:${device.device_id}`)
-    .sort();
+    .map(device => `${device.account_id}:${device.device_id}`)
+    .sort()
   const actualEnvelopeIds = envelopes
-    .map((envelope) => `${envelope.accountId}:${envelope.deviceId}`)
-    .sort();
+    .map(envelope => `${envelope.accountId}:${envelope.deviceId}`)
+    .sort()
   if (
     new Set(actualEnvelopeIds).size !== actualEnvelopeIds.length ||
     JSON.stringify(actualEnvelopeIds) !== JSON.stringify(expectedEnvelopeIds)
   ) {
     throw new Error(
       'message key envelopes must cover every active participant device exactly once',
-    );
+    )
   }
   const signaturePayload = e2eeMessageSignaturePayload({
     ...input,
@@ -1103,7 +1103,7 @@ export function sendE2eeDirectMessageInRepository(
     nonce,
     envelopes,
     attachments,
-  });
+  })
   if (
     !verify(
       null,
@@ -1112,7 +1112,7 @@ export function sendE2eeDirectMessageInRepository(
       signature,
     )
   ) {
-    throw new Error('message signature is invalid');
+    throw new Error('message signature is invalid')
   }
 
   if (inReplyToMessageId) {
@@ -1128,12 +1128,12 @@ export function sendE2eeDirectMessageInRepository(
         input.organizationId,
         input.recipientAccountId,
         input.senderAccountId,
-      );
-    if (!request) throw new Error('referenced A2A request does not exist');
+      )
+    if (!request) throw new Error('referenced A2A request does not exist')
   }
 
-  const storedObjectKeys: string[] = [];
-  database.exec('BEGIN IMMEDIATE');
+  const storedObjectKeys: string[] = []
+  database.exec('BEGIN IMMEDIATE')
   try {
     database
       .prepare(
@@ -1156,20 +1156,20 @@ export function sendE2eeDirectMessageInRepository(
         signature.toString('base64'),
         JSON.stringify(envelopes),
         inReplyToMessageId,
-      );
+      )
     const insertAttachment = database.prepare(
       `INSERT INTO direct_message_attachments
         (id, message_id, organization_id, ordinal, file_name, mime_type,
          byte_size, content, storage_backend, storage_key, e2ee_nonce)
        VALUES (?, ?, ?, ?, '[e2ee]', 'application/octet-stream', ?, ?, ?, ?, ?)`,
-    );
+    )
     attachments.forEach((attachment, ordinal) => {
       const stored = store.attachmentObjectStore?.put({
         namespace: input.organizationId,
         objectId: attachment.id,
         content: attachment.bytes,
-      });
-      if (stored) storedObjectKeys.push(stored.key);
+      })
+      if (stored) storedObjectKeys.push(stored.key)
       insertAttachment.run(
         attachment.id,
         input.messageId,
@@ -1180,7 +1180,7 @@ export function sendE2eeDirectMessageInRepository(
         stored?.backend ?? 'sqlite',
         stored?.key ?? null,
         attachment.nonce,
-      );
+      )
     });
     if (inReplyToMessageId) {
       database
@@ -1188,67 +1188,67 @@ export function sendE2eeDirectMessageInRepository(
           `UPDATE direct_messages SET read_at = COALESCE(read_at, datetime('now'))
          WHERE id = ? AND organization_id = ?`,
         )
-        .run(inReplyToMessageId, input.organizationId);
+        .run(inReplyToMessageId, input.organizationId)
     }
-    database.exec('COMMIT');
+    database.exec('COMMIT')
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      database.exec('ROLLBACK')
     } catch {
       /* preserve original error */
     }
     for (const key of storedObjectKeys) {
       try {
-        store.attachmentObjectStore?.delete(key);
+        store.attachmentObjectStore?.delete(key)
       } catch {
         /* orphan sweep */
       }
     }
-    throw error;
+    throw error
   }
   return messageView(
     database,
     database
       .prepare('SELECT * FROM direct_messages WHERE id = ?')
       .get(input.messageId) as MessageRow,
-  );
+  )
 }
 
 export function listE2eeDirectMessagesInRepository(
   store: E2eeRepositoryStore,
   input: {
-    organizationId: string;
-    accountId: string;
-    peerAccountId: string;
-    limit?: number;
+    organizationId: string
+    accountId: string
+    peerAccountId: string
+    limit?: number
   },
 ): E2eeDirectMessageView[] {
   const organizationId = requireIdentifier(
     input.organizationId,
     'organization id',
-  );
-  const accountId = requireIdentifier(input.accountId, 'account id');
+  )
+  const accountId = requireIdentifier(input.accountId, 'account id')
   const peerAccountId = requireIdentifier(
     input.peerAccountId,
     'peer account id',
-  );
+  )
   if (!store.getActiveAccountInOrganization(accountId, organizationId)) {
-    throw new Error('message account is not active in organization');
+    throw new Error('message account is not active in organization')
   }
   if (!store.getActiveAccountInOrganization(peerAccountId, organizationId)) {
-    throw new Error('message peer is not active in organization');
+    throw new Error('message peer is not active in organization')
   }
   const limit = Number.isFinite(input.limit)
     ? Math.min(200, Math.max(1, Math.floor(input.limit!)))
-    : 100;
-  const database = store.db();
+    : 100
+  const database = store.db()
   database
     .prepare(
       `UPDATE direct_messages SET read_at = COALESCE(read_at, datetime('now'))
      WHERE organization_id = ? AND sender_account_id = ? AND recipient_account_id = ?
        AND e2ee_protocol_version = 1`,
     )
-    .run(organizationId, peerAccountId, accountId);
+    .run(organizationId, peerAccountId, accountId)
   const rows = (
     database
       .prepare(
@@ -1266,8 +1266,8 @@ export function listE2eeDirectMessagesInRepository(
         accountId,
         limit,
       ) as MessageRow[]
-  ).reverse();
-  return rows.map((row) => messageView(database, row));
+  ).reverse()
+  return rows.map(row => messageView(database, row))
 }
 
 export function listPendingE2eeAtoaRequestsInRepository(
@@ -1277,15 +1277,15 @@ export function listPendingE2eeAtoaRequestsInRepository(
   const organizationId = requireIdentifier(
     input.organizationId,
     'organization id',
-  );
-  const accountId = requireIdentifier(input.accountId, 'account id');
+  )
+  const accountId = requireIdentifier(input.accountId, 'account id')
   if (!store.getActiveAccountInOrganization(accountId, organizationId)) {
-    throw new Error('A2A account is not active in organization');
+    throw new Error('A2A account is not active in organization')
   }
   const limit = Number.isFinite(input.limit)
     ? Math.min(100, Math.max(1, Math.floor(input.limit!)))
-    : 50;
-  const database = store.db();
+    : 50
+  const database = store.db()
   const rows = database
     .prepare(
       `SELECT request.* FROM direct_messages request
@@ -1302,36 +1302,36 @@ export function listPendingE2eeAtoaRequestsInRepository(
        )
      ORDER BY request.created_at, request.id LIMIT ?`,
     )
-    .all(organizationId, accountId, limit) as MessageRow[];
-  return rows.map((row) => ({
+    .all(organizationId, accountId, limit) as MessageRow[]
+  return rows.map(row => ({
     ...messageView(database, row),
     peerAccountId: row.sender_account_id,
-  }));
+  }))
 }
 
 export function listUnreadE2eeNotificationsInRepository(
   store: E2eeRepositoryStore,
   input: { organizationId: string; accountId: string; limit?: number },
 ): Array<{
-  id: string;
-  source: 'enterprise';
-  title: string;
-  senderAccountId: string;
-  senderName: string;
-  preview: string;
-  createdAt: string;
+  id: string
+  source: 'enterprise'
+  title: string
+  senderAccountId: string
+  senderName: string
+  preview: string
+  createdAt: string
 }> {
   const organizationId = requireIdentifier(
     input.organizationId,
     'organization id',
-  );
-  const accountId = requireIdentifier(input.accountId, 'account id');
+  )
+  const accountId = requireIdentifier(input.accountId, 'account id')
   if (!store.getActiveAccountInOrganization(accountId, organizationId)) {
-    throw new Error('message account is not active in organization');
+    throw new Error('message account is not active in organization')
   }
   const limit = Number.isFinite(input.limit)
     ? Math.min(100, Math.max(1, Math.floor(input.limit!)))
-    : 50;
+    : 50
   const rows = store
     .db()
     .prepare(
@@ -1344,12 +1344,12 @@ export function listUnreadE2eeNotificationsInRepository(
      ORDER BY m.created_at DESC, m.id DESC LIMIT ?`,
     )
     .all(organizationId, accountId, limit) as Array<{
-    id: string;
-    sender_account_id: string;
-    sender_name: string;
-    created_at: string;
-  }>;
-  return rows.reverse().map((row) => ({
+    id: string
+    sender_account_id: string
+    sender_name: string
+    created_at: string
+  }>
+  return rows.reverse().map(row => ({
     id: row.id,
     source: 'enterprise' as const,
     title: `${row.sender_name} sent an encrypted message`,
@@ -1357,7 +1357,7 @@ export function listUnreadE2eeNotificationsInRepository(
     senderName: row.sender_name,
     preview: 'End-to-end encrypted message',
     createdAt: row.created_at,
-  }));
+  }))
 }
 
 export function getE2eeAttachmentInRepository(
@@ -1367,13 +1367,13 @@ export function getE2eeAttachmentInRepository(
   const organizationId = requireIdentifier(
     input.organizationId,
     'organization id',
-  );
-  const accountId = requireIdentifier(input.accountId, 'account id');
-  const attachmentId = requireIdentifier(input.attachmentId, 'attachment id');
+  )
+  const accountId = requireIdentifier(input.accountId, 'account id')
+  const attachmentId = requireIdentifier(input.attachmentId, 'attachment id')
   if (!store.getActiveAccountInOrganization(accountId, organizationId)) {
-    throw new Error('attachment account is not active in organization');
+    throw new Error('attachment account is not active in organization')
   }
-  const database = store.db();
+  const database = store.db()
   const row = database
     .prepare(
       `SELECT a.* FROM direct_message_attachments a
@@ -1383,22 +1383,22 @@ export function getE2eeAttachmentInRepository(
        AND (m.sender_account_id = ? OR m.recipient_account_id = ?)`,
     )
     .get(attachmentId, organizationId, accountId, accountId) as
-    AttachmentRow | undefined;
-  if (!row) throw new Error('encrypted attachment not found or access denied');
-  let ciphertext: Buffer;
+    AttachmentRow | undefined
+  if (!row) throw new Error('encrypted attachment not found or access denied')
+  let ciphertext: Buffer
   if (row.storage_backend === 'encrypted-filesystem') {
     if (!row.storage_key || !store.attachmentObjectStore) {
-      throw new Error('attachment object storage is unavailable');
+      throw new Error('attachment object storage is unavailable')
     }
-    ciphertext = store.attachmentObjectStore.read(row.storage_key);
+    ciphertext = store.attachmentObjectStore.read(row.storage_key)
   } else if (row.storage_backend === 'sqlite') {
-    ciphertext = Buffer.from(row.content);
+    ciphertext = Buffer.from(row.content)
   } else {
-    throw new Error('attachment storage backend is unsupported');
+    throw new Error('attachment storage backend is unsupported')
   }
   const message = database
     .prepare('SELECT * FROM direct_messages WHERE id = ?')
-    .get(row.message_id) as MessageRow;
+    .get(row.message_id) as MessageRow
   return {
     message: messageView(database, message),
     attachment: {
@@ -1406,7 +1406,7 @@ export function getE2eeAttachmentInRepository(
       ciphertext: ciphertext.toString('base64'),
       nonce: row.e2ee_nonce,
     },
-  };
+  }
 }
 
 export function createE2eeFacade(store: E2eeRepositoryStore) {
@@ -1438,5 +1438,5 @@ export function createE2eeFacade(store: E2eeRepositoryStore) {
     getE2eeAttachment: (
       input: Parameters<typeof getE2eeAttachmentInRepository>[1],
     ) => getE2eeAttachmentInRepository(store, input),
-  };
+  }
 }

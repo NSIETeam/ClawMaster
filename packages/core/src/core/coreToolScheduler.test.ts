@@ -5,15 +5,15 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { afterEach, describe, it, expect, vi } from 'vitest';
-import * as fs from 'node:fs/promises';
-import * as os from 'node:os';
-import * as path from 'node:path';
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import * as fs from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {
   CoreToolScheduler,
   ToolCall,
   convertToFunctionResponse,
-} from './coreToolScheduler.js';
+} from './coreToolScheduler.js'
 import {
   BaseTool,
   ToolCallConfirmationDetails,
@@ -22,37 +22,37 @@ import {
   ToolResult,
   Config,
   Icon,
-} from '../index.js';
-import { Part, PartListUnion } from '@google/genai';
+} from '../index.js'
+import { Part, PartListUnion } from '@google/genai'
 
-import { ModifiableTool, ModifyContext } from '../tools/modifiable-tool.js';
-import { resetAuditLoggerForTesting } from '../orchestration/auditLog.js';
+import { ModifiableTool, ModifyContext } from '../tools/modifiable-tool.js'
+import { resetAuditLoggerForTesting } from '../orchestration/auditLog.js'
 
-const tempRoots: string[] = [];
+const tempRoots: string[] = []
 
 afterEach(async () => {
-  delete process.env.CLAWMASTER_USER_DIR;
-  resetAuditLoggerForTesting();
+  delete process.env.CLAWMASTER_USER_DIR
+  resetAuditLoggerForTesting()
   await Promise.all(
-    tempRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })),
-  );
+    tempRoots.splice(0).map(root => fs.rm(root, { recursive: true, force: true })),
+  )
 });
 
 const waitUntil = async (cb: () => boolean, timeout = 5000) => {
-  const start = Date.now();
+  const start = Date.now()
   while (Date.now() - start < timeout) {
-    if (cb()) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    if (cb()) return
+    await new Promise(resolve => setTimeout(resolve, 50))
   }
-  throw new Error('Timeout waiting for condition');
+  throw new Error('Timeout waiting for condition')
 };
 
 class MockTool extends BaseTool<Record<string, unknown>, ToolResult> {
-  shouldConfirm = false;
-  executeFn = vi.fn();
+  shouldConfirm = false
+  executeFn = vi.fn()
 
   constructor(name = 'mockTool') {
-    super(name, name, 'A mock tool', Icon.Hammer, {});
+    super(name, name, 'A mock tool', Icon.Hammer, {})
   }
 
   async shouldConfirmExecute(
@@ -66,17 +66,17 @@ class MockTool extends BaseTool<Record<string, unknown>, ToolResult> {
         command: 'do_thing',
         rootCommand: 'do_thing',
         onConfirm: async () => {},
-      };
+      }
     }
-    return false;
+    return false
   }
 
   async execute(
     params: Record<string, unknown>,
     _abortSignal: AbortSignal,
   ): Promise<ToolResult> {
-    this.executeFn(params);
-    return { llmContent: 'Tool executed', returnDisplay: 'Tool executed' };
+    this.executeFn(params)
+    return { llmContent: 'Tool executed', returnDisplay: 'Tool executed' }
   }
 }
 
@@ -85,8 +85,8 @@ class MockModifiableTool
   implements ModifiableTool<Record<string, unknown>>
 {
   constructor(name = 'mockModifiableTool') {
-    super(name);
-    this.shouldConfirm = true;
+    super(name)
+    this.shouldConfirm = true
   }
 
   getModifyContext(
@@ -101,7 +101,7 @@ class MockModifiableTool
         modifiedProposedContent: string,
         _originalParams: Record<string, unknown>,
       ) => ({ newContent: modifiedProposedContent }),
-    };
+    }
   }
 
   async shouldConfirmExecute(
@@ -117,15 +117,15 @@ class MockModifiableTool
         originalContent: 'originalContent',
         newContent: 'newContent',
         onConfirm: async () => {},
-      };
+      }
     }
-    return false;
+    return false
   }
 }
 
 describe('CoreToolScheduler', () => {
   it('hard-blocks mutating tools while plan mode is active', async () => {
-    const mockTool = new MockTool('write_file');
+    const mockTool = new MockTool('write_file')
     const toolRegistry = {
       getTool: () => mockTool,
       getFunctionDeclarations: () => [],
@@ -138,8 +138,8 @@ describe('CoreToolScheduler', () => {
       discoverTools: async () => {},
       getAllTools: () => [mockTool],
       getToolsByServer: () => [],
-    };
-    const onAllToolCallsComplete = vi.fn();
+    }
+    const onAllToolCallsComplete = vi.fn()
     const scheduler = new CoreToolScheduler({
       config: {
         getSessionId: () => 'plan-session',
@@ -152,7 +152,7 @@ describe('CoreToolScheduler', () => {
       onAllToolCallsComplete,
       onToolCallsUpdate: vi.fn(),
       getPreferredEditor: () => 'vscode',
-    });
+    })
 
     await scheduler.schedule({
       callId: 'plan-write',
@@ -160,16 +160,16 @@ describe('CoreToolScheduler', () => {
       args: { path: 'plan.md', content: 'must not be written' },
       isClientInitiated: false,
       prompt_id: 'plan-prompt',
-    }, new AbortController().signal);
+    }, new AbortController().signal)
 
-    const completed = onAllToolCallsComplete.mock.calls[0]?.[0] as ToolCall[];
-    expect(completed[0]?.status).toBe('error');
-    expect(completed[0]?.response?.error?.message).toContain('计划模式');
-    expect(mockTool.executeFn).not.toHaveBeenCalled();
+    const completed = onAllToolCallsComplete.mock.calls[0]?.[0] as ToolCall[]
+    expect(completed[0]?.status).toBe('error')
+    expect(completed[0]?.response?.error?.message).toContain('计划模式')
+    expect(mockTool.executeFn).not.toHaveBeenCalled()
   });
 
   it('allows read-only investigation tools while plan mode is active', async () => {
-    const mockTool = new MockTool('read_file');
+    const mockTool = new MockTool('read_file')
     const toolRegistry = {
       getTool: () => mockTool,
       getFunctionDeclarations: () => [],
@@ -182,7 +182,7 @@ describe('CoreToolScheduler', () => {
       discoverTools: async () => {},
       getAllTools: () => [mockTool],
       getToolsByServer: () => [],
-    };
+    }
     const scheduler = new CoreToolScheduler({
       config: {
         getSessionId: () => 'plan-session',
@@ -195,7 +195,7 @@ describe('CoreToolScheduler', () => {
       onAllToolCallsComplete: vi.fn(),
       onToolCallsUpdate: vi.fn(),
       getPreferredEditor: () => 'vscode',
-    });
+    })
 
     await scheduler.schedule({
       callId: 'plan-read',
@@ -203,19 +203,19 @@ describe('CoreToolScheduler', () => {
       args: { path: 'README.md' },
       isClientInitiated: false,
       prompt_id: 'plan-prompt',
-    }, new AbortController().signal);
+    }, new AbortController().signal)
 
-    expect(mockTool.executeFn).toHaveBeenCalledOnce();
+    expect(mockTool.executeFn).toHaveBeenCalledOnce()
   });
 
   it('writes an audit record when a confirmation is denied', async () => {
-    const auditRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-audit-confirm-'));
-    tempRoots.push(auditRoot);
-    process.env.CLAWMASTER_USER_DIR = auditRoot;
-    resetAuditLoggerForTesting();
+    const auditRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-audit-confirm-'))
+    tempRoots.push(auditRoot)
+    process.env.CLAWMASTER_USER_DIR = auditRoot
+    resetAuditLoggerForTesting()
 
-    const mockTool = new MockTool('run_shell_command');
-    mockTool.shouldConfirm = true;
+    const mockTool = new MockTool('run_shell_command')
+    mockTool.shouldConfirm = true
     const toolRegistry = {
       getTool: () => mockTool,
       getFunctionDeclarations: () => [],
@@ -228,7 +228,7 @@ describe('CoreToolScheduler', () => {
       discoverTools: async () => {},
       getAllTools: () => [],
       getToolsByServer: () => [],
-    };
+    }
 
     const scheduler = new CoreToolScheduler({
       config: {
@@ -244,9 +244,9 @@ describe('CoreToolScheduler', () => {
       onAllToolCallsComplete: vi.fn(),
       onToolCallsUpdate: vi.fn(),
       getPreferredEditor: () => 'vscode',
-    });
+    })
 
-    const abortController = new AbortController();
+    const abortController = new AbortController()
     const schedulePromise = scheduler.schedule(
       [
         {
@@ -258,42 +258,42 @@ describe('CoreToolScheduler', () => {
         },
       ],
       abortController.signal,
-    );
+    )
 
     await waitUntil(() => {
-      const calls = scheduler.getToolCalls();
-      return calls.length > 0 && calls[0].status === 'awaiting_approval';
+      const calls = scheduler.getToolCalls()
+      return calls.length > 0 && calls[0].status === 'awaiting_approval'
     });
     await scheduler.handleConfirmationResponse(
       'audit-call',
       ToolConfirmationOutcome.Cancel,
       undefined,
       abortController.signal,
-    );
-    await schedulePromise;
+    )
+    await schedulePromise
 
-    const auditDir = path.join(auditRoot, 'audit');
-    const [auditFile] = await fs.readdir(auditDir);
-    const raw = await fs.readFile(path.join(auditDir, auditFile), 'utf8');
+    const auditDir = path.join(auditRoot, 'audit')
+    const [auditFile] = await fs.readdir(auditDir)
+    const raw = await fs.readFile(path.join(auditDir, auditFile), 'utf8')
     const entries = raw
       .split(/\r?\n/)
       .filter(Boolean)
-      .map((line) => JSON.parse(line));
-    const entry = entries.find((candidate) =>
-      String(candidate.action).includes('confirmation:cancel'));
+      .map(line => JSON.parse(line))
+    const entry = entries.find(candidate =>
+      String(candidate.action).includes('confirmation:cancel'))
 
-    expect(entry).toBeDefined();
-    expect(entry.sessionId).toBe('audit-session');
-    expect(entry.toolName).toBe('run_shell_command');
-    expect(entry.action).toContain('confirmation:cancel');
-    expect(entry.success).toBe(false);
-    expect(entry.riskLevel).toBe('high');
-    expect(entry.inputSummary).toContain('rm -rf ./target');
+    expect(entry).toBeDefined()
+    expect(entry.sessionId).toBe('audit-session')
+    expect(entry.toolName).toBe('run_shell_command')
+    expect(entry.action).toContain('confirmation:cancel')
+    expect(entry.success).toBe(false)
+    expect(entry.riskLevel).toBe('high')
+    expect(entry.inputSummary).toContain('rm -rf ./target')
   });
 
   it('should cancel a tool call if the signal is aborted before confirmation', async () => {
-    const mockTool = new MockTool();
-    mockTool.shouldConfirm = true;
+    const mockTool = new MockTool()
+    mockTool.shouldConfirm = true
     const toolRegistry = {
       getTool: () => mockTool,
       getFunctionDeclarations: () => [],
@@ -306,17 +306,17 @@ describe('CoreToolScheduler', () => {
       discoverTools: async () => {},
       getAllTools: () => [],
       getToolsByServer: () => [],
-    };
+    }
 
-    const onAllToolCallsComplete = vi.fn();
-    const onToolCallsUpdate = vi.fn();
+    const onAllToolCallsComplete = vi.fn()
+    const onToolCallsUpdate = vi.fn()
 
     const mockConfig = {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
       getApprovalMode: () => 'default',
-    } as unknown as Config;
+    } as unknown as Config
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -324,30 +324,30 @@ describe('CoreToolScheduler', () => {
       onAllToolCallsComplete,
       onToolCallsUpdate,
       getPreferredEditor: () => 'vscode',
-    });
+    })
 
-    const abortController = new AbortController();
+    const abortController = new AbortController()
     const request = {
       callId: '1',
       name: 'mockTool',
       args: {},
       isClientInitiated: false,
       prompt_id: 'prompt-id-1',
-    };
+    }
 
-    abortController.abort();
-    await scheduler.schedule([request], abortController.signal);
+    abortController.abort()
+    await scheduler.schedule([request], abortController.signal)
 
-    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    expect(onAllToolCallsComplete).toHaveBeenCalled()
     const completedCalls = onAllToolCallsComplete.mock
-      .calls[0][0] as ToolCall[];
-    expect(completedCalls[0].status).toBe('cancelled');
+      .calls[0][0] as ToolCall[]
+    expect(completedCalls[0].status).toBe('cancelled')
   });
-});
+})
 
 describe('CoreToolScheduler with payload', () => {
   it('should update args and diff and execute tool when payload is provided', async () => {
-    const mockTool = new MockModifiableTool();
+    const mockTool = new MockModifiableTool()
     const toolRegistry = {
       getTool: () => mockTool,
       getFunctionDeclarations: () => [],
@@ -360,17 +360,17 @@ describe('CoreToolScheduler with payload', () => {
       discoverTools: async () => {},
       getAllTools: () => [],
       getToolsByServer: () => [],
-    };
+    }
 
-    const onAllToolCallsComplete = vi.fn();
-    const onToolCallsUpdate = vi.fn();
+    const onAllToolCallsComplete = vi.fn()
+    const onToolCallsUpdate = vi.fn()
 
     const mockConfig = {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
       getApprovalMode: () => 'default',
-    } as unknown as Config;
+    } as unknown as Config
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -378,90 +378,90 @@ describe('CoreToolScheduler with payload', () => {
       onAllToolCallsComplete,
       onToolCallsUpdate,
       getPreferredEditor: () => 'vscode',
-    });
+    })
 
-    const abortController = new AbortController();
+    const abortController = new AbortController()
     const request = {
       callId: '1',
       name: 'mockModifiableTool',
       args: {},
       isClientInitiated: false,
       prompt_id: 'prompt-id-2',
-    };
+    }
 
-    const schedulePromise = scheduler.schedule([request], abortController.signal);
+    const schedulePromise = scheduler.schedule([request], abortController.signal)
 
     // 等待进入待确认状态
     await waitUntil(() => {
-      const calls = scheduler.getToolCalls();
-      return calls.length > 0 && calls[0].status === 'awaiting_approval';
+      const calls = scheduler.getToolCalls()
+      return calls.length > 0 && calls[0].status === 'awaiting_approval'
     });
 
-    const payload: ToolConfirmationPayload = { newContent: 'final version' };
+    const payload: ToolConfirmationPayload = { newContent: 'final version' }
     await scheduler.handleConfirmationResponse(
       '1',
       ToolConfirmationOutcome.ProceedOnce,
       payload,
       abortController.signal,
-    );
+    )
 
-    await schedulePromise;
+    await schedulePromise
 
-    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    expect(onAllToolCallsComplete).toHaveBeenCalled()
     const completedCalls = onAllToolCallsComplete.mock
-      .calls[0][0] as ToolCall[];
-    expect(completedCalls[0].status).toBe('success');
+      .calls[0][0] as ToolCall[]
+    expect(completedCalls[0].status).toBe('success')
     expect(mockTool.executeFn).toHaveBeenCalledWith({
       newContent: 'final version',
-    });
+    })
   });
-});
+})
 
 describe('convertToFunctionResponse', () => {
-  const toolName = 'testTool';
-  const callId = 'call1';
+  const toolName = 'testTool'
+  const callId = 'call1'
 
   it('should handle simple string llmContent', () => {
-    const llmContent = 'Simple text output';
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const llmContent = 'Simple text output'
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
         id: callId,
         response: { output: 'Simple text output' },
       },
-    });
+    })
   });
 
   it('should handle llmContent as a single Part with text', () => {
-    const llmContent: Part = { text: 'Text from Part object' };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const llmContent: Part = { text: 'Text from Part object' }
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
         id: callId,
         response: { output: 'Text from Part object' },
       },
-    });
+    })
   });
 
   it('should handle llmContent as a PartListUnion array with a single text Part', () => {
-    const llmContent: PartListUnion = [{ text: 'Text from array' }];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const llmContent: PartListUnion = [{ text: 'Text from array' }]
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
         id: callId,
         response: { output: 'Text from array' },
       },
-    });
+    })
   });
 
   it('should handle llmContent with inlineData', () => {
     const llmContent: Part = {
       inlineData: { mimeType: 'image/png', data: 'base64...' },
-    };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    }
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual([
       {
         functionResponse: {
@@ -473,14 +473,14 @@ describe('convertToFunctionResponse', () => {
         },
       },
       llmContent,
-    ]);
+    ])
   });
 
   it('should handle llmContent with fileData', () => {
     const llmContent: Part = {
       fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
-    };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    }
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual([
       {
         functionResponse: {
@@ -492,7 +492,7 @@ describe('convertToFunctionResponse', () => {
         },
       },
       llmContent,
-    ]);
+    ])
   });
 
   it('should handle llmContent as an array of multiple Parts (text and inlineData)', () => {
@@ -500,8 +500,8 @@ describe('convertToFunctionResponse', () => {
       { text: 'Some textual description' },
       { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
       { text: 'Another text part' },
-    ];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    ]
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual([
       {
         functionResponse: {
@@ -511,14 +511,14 @@ describe('convertToFunctionResponse', () => {
         },
       },
       ...llmContent,
-    ]);
+    ])
   });
 
   it('should handle llmContent as an array with a single inlineData Part', () => {
     const llmContent: PartListUnion = [
       { inlineData: { mimeType: 'image/gif', data: 'gifdata...' } },
-    ];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    ]
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual([
       {
         functionResponse: {
@@ -530,31 +530,31 @@ describe('convertToFunctionResponse', () => {
         },
       },
       ...llmContent,
-    ]);
+    ])
   });
 
   it('should handle llmContent as a generic Part (not text, inlineData, or fileData)', () => {
-    const llmContent: Part = { functionCall: { name: 'test', args: {} } };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const llmContent: Part = { functionCall: { name: 'test', args: {} } }
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
         id: callId,
         response: { output: 'Tool execution succeeded.' },
       },
-    });
+    })
   });
 
   it('should handle empty string llmContent', () => {
-    const llmContent = '';
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const llmContent = ''
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
         id: callId,
         response: { output: '' },
       },
-    });
+    })
   });
 
   it('should handle llmContent as a string array (like read-many-files)', () => {
@@ -562,22 +562,22 @@ describe('convertToFunctionResponse', () => {
       '--- file1.txt ---\n\nContent of file 1\n\n',
       '--- file2.txt ---\n\nContent of file 2\n\n',
       '--- file3.txt ---\n\nContent of file 3\n\n',
-    ];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    ]
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
         id: callId,
         response: {
-          output: '--- file1.txt ---\n\nContent of file 1\n\n--- file2.txt ---\n\nContent of file 2\n\n--- file3.txt ---\n\nContent of file 3\n\n'
+          output: '--- file1.txt ---\n\nContent of file 1\n\n--- file2.txt ---\n\nContent of file 2\n\n--- file3.txt ---\n\nContent of file 3\n\n',
         },
       },
-    });
+    })
   });
 
   it('should handle llmContent as an empty array', () => {
-    const llmContent: PartListUnion = [];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const llmContent: PartListUnion = []
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual([
       {
         functionResponse: {
@@ -586,21 +586,21 @@ describe('convertToFunctionResponse', () => {
           response: { output: 'Tool execution succeeded.' },
         },
       },
-    ]);
+    ])
   });
 
   it('should handle llmContent as a Part with undefined inlineData/fileData/text', () => {
-    const llmContent: Part = {}; // An empty part object
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const llmContent: Part = {} // An empty part object
+    const result = convertToFunctionResponse(toolName, callId, llmContent)
     expect(result).toEqual({
       functionResponse: {
         name: toolName,
         id: callId,
         response: { output: 'Tool execution succeeded.' },
       },
-    });
+    })
   });
-});
+})
 
 describe('CoreToolScheduler edit cancellation', () => {
   it('should preserve diff when an edit is cancelled', async () => {
@@ -612,7 +612,7 @@ describe('CoreToolScheduler edit cancellation', () => {
           'A mock edit tool',
           Icon.Pencil,
           {},
-        );
+        )
       }
 
       async shouldConfirmExecute(
@@ -628,7 +628,7 @@ describe('CoreToolScheduler edit cancellation', () => {
           originalContent: 'old content',
           newContent: 'new content',
           onConfirm: async () => {},
-        };
+        }
       }
 
       async execute(
@@ -638,11 +638,11 @@ describe('CoreToolScheduler edit cancellation', () => {
         return {
           llmContent: 'Edited successfully',
           returnDisplay: 'Edited successfully',
-        };
+        }
       }
     }
 
-    const mockEditTool = new MockEditTool();
+    const mockEditTool = new MockEditTool()
     const toolRegistry = {
       getTool: () => mockEditTool,
       getFunctionDeclarations: () => [],
@@ -655,17 +655,17 @@ describe('CoreToolScheduler edit cancellation', () => {
       discoverTools: async () => {},
       getAllTools: () => [],
       getToolsByServer: () => [],
-    };
+    }
 
-    const onAllToolCallsComplete = vi.fn();
-    const onToolCallsUpdate = vi.fn();
+    const onAllToolCallsComplete = vi.fn()
+    const onToolCallsUpdate = vi.fn()
 
     const mockConfig = {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
       getApprovalMode: () => 'default',
-    } as unknown as Config;
+    } as unknown as Config
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -673,23 +673,23 @@ describe('CoreToolScheduler edit cancellation', () => {
       onAllToolCallsComplete,
       onToolCallsUpdate,
       getPreferredEditor: () => 'vscode',
-    });
+    })
 
-    const abortController = new AbortController();
+    const abortController = new AbortController()
     const request = {
       callId: '1',
       name: 'mockEditTool',
       args: {},
       isClientInitiated: false,
       prompt_id: 'prompt-id-1',
-    };
+    }
 
-    const schedulePromise = scheduler.schedule([request], abortController.signal);
+    const schedulePromise = scheduler.schedule([request], abortController.signal)
 
     // 等待进入待确认状态
     await waitUntil(() => {
-      const calls = scheduler.getToolCalls();
-      return calls.length > 0 && calls[0].status === 'awaiting_approval';
+      const calls = scheduler.getToolCalls()
+      return calls.length > 0 && calls[0].status === 'awaiting_approval'
     });
 
     // Cancel the edit
@@ -698,22 +698,22 @@ describe('CoreToolScheduler edit cancellation', () => {
       ToolConfirmationOutcome.Cancel,
       undefined,
       abortController.signal,
-    );
+    )
 
-    await schedulePromise;
+    await schedulePromise
 
-    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    expect(onAllToolCallsComplete).toHaveBeenCalled()
     const completedCalls = onAllToolCallsComplete.mock
-      .calls[0][0] as ToolCall[];
+      .calls[0][0] as ToolCall[]
 
-    expect(completedCalls[0].status).toBe('cancelled');
+    expect(completedCalls[0].status).toBe('cancelled')
 
     // Check that the diff is preserved
-    const cancelledCall = completedCalls[0] as any;
-    expect(cancelledCall.response.resultDisplay).toBeDefined();
+    const cancelledCall = completedCalls[0] as any
+    expect(cancelledCall.response.resultDisplay).toBeDefined()
     expect(cancelledCall.response.resultDisplay.fileDiff).toBe(
       '--- test.txt\n+++ test.txt\n@@ -1,1 +1,1 @@\n-old content\n+new content',
-    );
-    expect(cancelledCall.response.resultDisplay.fileName).toBe('test.txt');
+    )
+    expect(cancelledCall.response.resultDisplay.fileName).toBe('test.txt')
   });
-});
+})

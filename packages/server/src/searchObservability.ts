@@ -2,9 +2,9 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import type {
   SearchProviderDiagnostic,
   SearchQuotaDecision,
@@ -12,26 +12,26 @@ import type {
   SearchTelemetryEvent,
   WebSearchDiagnosticsSnapshot,
   WebSearchProvider,
-} from 'clawmaster-core';
-import { loadUserSettingsSubset } from './userSettings.js';
+} from 'clawmaster-core'
+import { loadUserSettingsSubset } from './userSettings.js'
 
-const MAX_LOG_BYTES = 5 * 1024 * 1024;
-const RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const MAX_LOG_BYTES = 5 * 1024 * 1024
+const RETENTION_MS = 90 * 24 * 60 * 60 * 1000
 
 export function searchTelemetryFilePath(homeDir = os.homedir()): string {
-  return path.join(homeDir, '.clawmaster-user', 'search-telemetry.jsonl');
+  return path.join(homeDir, '.clawmaster-user', 'search-telemetry.jsonl')
 }
 
 function rotateIfNeeded(file: string): void {
   try {
-    if (fs.statSync(file).size < MAX_LOG_BYTES) return;
-    const previous = `${file}.1`;
+    if (fs.statSync(file).size < MAX_LOG_BYTES) return
+    const previous = `${file}.1`
     try {
-      fs.rmSync(previous);
+      fs.rmSync(previous)
     } catch {
       // 首次轮换没有旧文件。
     }
-    fs.renameSync(file, previous);
+    fs.renameSync(file, previous)
   } catch {
     // 文件尚未创建。
   }
@@ -44,20 +44,20 @@ export function recordSearchTelemetryEvent(
   event: SearchTelemetryEvent,
   homeDir = os.homedir(),
 ): void {
-  const file = searchTelemetryFilePath(homeDir);
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  rotateIfNeeded(file);
+  const file = searchTelemetryFilePath(homeDir)
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+  rotateIfNeeded(file)
   fs.appendFileSync(file, `${JSON.stringify(event)}\n`, {
     encoding: 'utf8',
     mode: 0o600,
-  });
+  })
 }
 
 interface ProviderUsageSummary {
-  attempts: number;
-  successes: number;
-  failures: number;
-  estimatedCostCny: number;
+  attempts: number
+  successes: number
+  failures: number
+  estimatedCostCny: number
 }
 
 function emptyProviderUsage(): Record<WebSearchProvider, ProviderUsageSummary> {
@@ -66,7 +66,7 @@ function emptyProviderUsage(): Record<WebSearchProvider, ProviderUsageSummary> {
     bocha: { attempts: 0, successes: 0, failures: 0, estimatedCostCny: 0 },
     gemini: { attempts: 0, successes: 0, failures: 0, estimatedCostCny: 0 },
     volcengine: { attempts: 0, successes: 0, failures: 0, estimatedCostCny: 0 },
-  };
+  }
 }
 
 function readEvents(file: string): SearchTelemetryEvent[] {
@@ -77,22 +77,22 @@ function readEvents(file: string): SearchTelemetryEvent[] {
       .filter(Boolean)
       .flatMap((line) => {
         try {
-          return [JSON.parse(line) as SearchTelemetryEvent];
+          return [JSON.parse(line) as SearchTelemetryEvent]
         } catch {
-          return [];
+          return []
         }
-      });
+      })
   } catch {
-    return [];
+    return []
   }
 }
 
 function monthBounds(now: number): { start: number; end: number } {
-  const date = new Date(now);
+  const date = new Date(now)
   return {
     start: Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1),
     end: Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1),
-  };
+  }
 }
 
 export function getSearchQuotaStatus(
@@ -100,28 +100,28 @@ export function getSearchQuotaStatus(
   homeDir = os.homedir(),
   now = Date.now(),
 ): SearchQuotaDiagnostic {
-  const settings = loadUserSettingsSubset(homeDir);
-  const file = searchTelemetryFilePath(homeDir);
-  const period = monthBounds(now);
+  const settings = loadUserSettingsSubset(homeDir)
+  const file = searchTelemetryFilePath(homeDir)
+  const period = monthBounds(now)
   const attempts = [...readEvents(`${file}.1`), ...readEvents(file)].filter(
-    (event) =>
+    event =>
       event.tenantId === (tenantId.trim() || 'local') &&
       event.kind === 'provider_attempt' &&
       event.timestamp >= period.start &&
       event.timestamp < period.end,
-  );
-  const requestsUsed = attempts.length;
+  )
+  const requestsUsed = attempts.length
   const budgetUsedCny = Number(
     attempts
       .reduce((sum, event) => sum + Math.max(0, event.estimatedCostCny || 0), 0)
       .toFixed(6),
-  );
+  )
   const requestBlocked =
     typeof settings.searchMonthlyRequestQuota === 'number' &&
-    requestsUsed >= settings.searchMonthlyRequestQuota;
+    requestsUsed >= settings.searchMonthlyRequestQuota
   const budgetBlocked =
     typeof settings.searchMonthlyBudgetCny === 'number' &&
-    budgetUsedCny >= settings.searchMonthlyBudgetCny;
+    budgetUsedCny >= settings.searchMonthlyBudgetCny
   return {
     periodStart: period.start,
     periodEnd: period.end,
@@ -135,7 +135,7 @@ export function getSearchQuotaStatus(
       : budgetBlocked
         ? 'monthly_budget_exhausted'
         : undefined,
-  };
+  }
 }
 
 export function checkSearchQuota(
@@ -144,20 +144,20 @@ export function checkSearchQuota(
   homeDir = os.homedir(),
   now = Date.now(),
 ): SearchQuotaDecision {
-  const status = getSearchQuotaStatus(tenantId, homeDir, now);
+  const status = getSearchQuotaStatus(tenantId, homeDir, now)
   if (
     typeof status.requestLimit === 'number' &&
     status.requestsUsed >= status.requestLimit
   ) {
-    return { allowed: false, reason: 'monthly_request_quota_exhausted' };
+    return { allowed: false, reason: 'monthly_request_quota_exhausted' }
   }
   if (
     typeof status.budgetLimitCny === 'number' &&
     status.budgetUsedCny + Math.max(0, estimatedCostCny) > status.budgetLimitCny
   ) {
-    return { allowed: false, reason: 'monthly_budget_exhausted' };
+    return { allowed: false, reason: 'monthly_budget_exhausted' }
   }
-  return { allowed: true };
+  return { allowed: true }
 }
 
 export function mergePersistedSearchDiagnostics(
@@ -165,45 +165,45 @@ export function mergePersistedSearchDiagnostics(
   homeDir = os.homedir(),
   now = Date.now(),
 ): WebSearchDiagnosticsSnapshot {
-  const file = searchTelemetryFilePath(homeDir);
+  const file = searchTelemetryFilePath(homeDir)
   const events = [...readEvents(`${file}.1`), ...readEvents(file)].filter(
-    (event) =>
+    event =>
       event.tenantId === live.tenantId &&
       event.timestamp >= now - RETENTION_MS &&
       event.timestamp <= now + 5 * 60 * 1000,
-  );
+  )
   if (events.length === 0) {
     return {
       ...live,
       quota: getSearchQuotaStatus(live.tenantId, homeDir, now),
       updatedAt: now,
-    };
+    }
   }
 
-  const usage = emptyProviderUsage();
-  let cacheHits = 0;
+  const usage = emptyProviderUsage()
+  let cacheHits = 0
   for (const event of events) {
     if (event.kind === 'cache_hit') {
-      cacheHits += 1;
+      cacheHits += 1
       continue;
     }
-    if (event.kind !== 'provider_attempt' || !event.provider) continue;
-    const item = usage[event.provider];
-    item.attempts += 1;
-    if (event.success) item.successes += 1;
-    else item.failures += 1;
-    item.estimatedCostCny += Math.max(0, event.estimatedCostCny || 0);
+    if (event.kind !== 'provider_attempt' || !event.provider) continue
+    const item = usage[event.provider]
+    item.attempts += 1
+    if (event.success) item.successes += 1
+    else item.failures += 1
+    item.estimatedCostCny += Math.max(0, event.estimatedCostCny || 0)
   }
 
   const providers = live.providers.map((provider): SearchProviderDiagnostic => {
-    const persisted = usage[provider.provider];
+    const persisted = usage[provider.provider]
     return {
       ...provider,
       attempts: persisted.attempts,
       successes: persisted.successes,
       failures: persisted.failures,
       estimatedCostCny: Number(persisted.estimatedCostCny.toFixed(6)),
-    };
+    }
   });
   return {
     ...live,
@@ -218,5 +218,5 @@ export function mergePersistedSearchDiagnostics(
     providers,
     quota: getSearchQuotaStatus(live.tenantId, homeDir, now),
     updatedAt: now,
-  };
+  }
 }

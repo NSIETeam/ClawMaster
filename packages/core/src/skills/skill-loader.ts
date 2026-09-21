@@ -9,10 +9,10 @@
  * - Support multi-layer storage (project + user global + marketplace)
  */
 
-import fs from 'fs-extra';
-import path from 'path';
-import os from 'os';
-import matter from 'gray-matter';
+import fs from 'fs-extra'
+import path from 'path'
+import os from 'os'
+import matter from 'gray-matter'
 import {
   Skill,
   SkillMetadata,
@@ -24,32 +24,32 @@ import {
   ValidationError,
   SkillType,
   SkillSource,
-} from './skill-types.js';
-import { SettingsManager } from './settings-manager.js';
-import { isDirentDirectoryFollowingSymlinks } from './utils/fs-helpers.js';
-import { MarketplaceLoader } from './loaders/marketplace-loader.js';
-import { UnifiedComponent, ComponentType } from './models/unified.js';
-import { getProjectSkillsDir } from '../utils/paths.js';
+} from './skill-types.js'
+import { SettingsManager } from './settings-manager.js'
+import { isDirentDirectoryFollowingSymlinks } from './utils/fs-helpers.js'
+import { MarketplaceLoader } from './loaders/marketplace-loader.js'
+import { UnifiedComponent, ComponentType } from './models/unified.js'
+import { getProjectSkillsDir } from '../utils/paths.js'
 
 /**
  * Skill 缓存项
  */
 interface SkillCacheItem {
-  skill: Skill;
-  timestamp: number;
-  loadLevel: SkillLoadLevel;
+  skill: Skill
+  timestamp: number
+  loadLevel: SkillLoadLevel
   /**
    * SKILL.md 在缓存时刻的 mtime（epoch ms）。热更新判据：无论 TTL 是否到期，
    * 只要磁盘文件的 mtime 比这个记录的新，就说明用户编辑过 SKILL.md，缓存立即
    * 失效重新解析——不需要等 1 小时 TTL、也不需要重启进程。
    * undefined 表示取 mtime 失败（文件不存在等），此时保守地当作"已过期"处理。
    */
-  mtimeMs?: number;
+  mtimeMs?: number
 }
 
 interface SkillLoaderOptions {
-  cacheTTL?: number;
-  projectRoot?: string;
+  cacheTTL?: number
+  projectRoot?: string
 }
 
 /**
@@ -63,20 +63,20 @@ interface SkillLoaderOptions {
  * 5. 三层存储扫描（项目级 .clawmaster/skills/ + 用户级 ~/.clawmaster/skills/ + Marketplace）
  */
 export class SkillLoader {
-  private cache: Map<string, SkillCacheItem> = new Map();
-  private readonly cacheTTL: number;
-  private marketplaceLoader: MarketplaceLoader;
-  private customSkillPaths: Map<SkillSource, string> = new Map();
-  private projectRoot: string;
+  private cache: Map<string, SkillCacheItem> = new Map()
+  private readonly cacheTTL: number
+  private marketplaceLoader: MarketplaceLoader
+  private customSkillPaths: Map<SkillSource, string> = new Map()
+  private projectRoot: string
 
   constructor(
     private settingsManager: SettingsManager,
     options: SkillLoaderOptions = {},
   ) {
-    this.cacheTTL = options.cacheTTL ?? 3600000; // 默认 1 小时
-    this.projectRoot = options.projectRoot ?? process.cwd();
-    this.marketplaceLoader = new MarketplaceLoader(settingsManager);
-    this.initializeCustomSkillPaths();
+    this.cacheTTL = options.cacheTTL ?? 3600000 // 默认 1 小时
+    this.projectRoot = options.projectRoot ?? process.cwd()
+    this.marketplaceLoader = new MarketplaceLoader(settingsManager)
+    this.initializeCustomSkillPaths()
   }
 
   /**
@@ -86,10 +86,10 @@ export class SkillLoader {
     // 用户全局技能路径
     // 用 os.homedir() 而非 process.env.HOME：Windows 无 HOME(用 USERPROFILE)，
     // 否则会退化成相对路径 .clawmaster-user/skills，导致用户级技能失效/作用域错乱。
-    this.customSkillPaths.set(SkillSource.USER_GLOBAL, path.join(os.homedir(), '.clawmaster-user', 'skills'));
+    this.customSkillPaths.set(SkillSource.USER_GLOBAL, path.join(os.homedir(), '.clawmaster-user', 'skills'))
 
     // 项目技能路径（使用工具函数，与命令处理保持一致）
-    this.customSkillPaths.set(SkillSource.USER_PROJECT, getProjectSkillsDir(this.projectRoot));
+    this.customSkillPaths.set(SkillSource.USER_PROJECT, getProjectSkillsDir(this.projectRoot))
   }
 
   // ============================================================================
@@ -104,27 +104,27 @@ export class SkillLoader {
     loadLevel: SkillLoadLevel = SkillLoadLevel.METADATA,
   ): Promise<Skill[]> {
     try {
-      const allSkills: Skill[] = [];
+      const allSkills: Skill[] = []
 
       // 按优先级加载：项目级 > 用户级 > 市场级
       const sources = [
         SkillSource.USER_PROJECT,
         SkillSource.USER_GLOBAL,
         SkillSource.MARKETPLACE,
-      ];
+      ]
 
       for (const source of sources) {
-        const skills = await this.loadSkillsFromSource(source, loadLevel);
-        allSkills.push(...skills);
+        const skills = await this.loadSkillsFromSource(source, loadLevel)
+        allSkills.push(...skills)
       }
 
-      return allSkills;
+      return allSkills
     } catch (error) {
       throw new SkillError(
         `Failed to load enabled skills: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.SKILL_LOAD_FAILED,
         { originalError: error },
-      );
+      )
     }
   }
 
@@ -137,23 +137,23 @@ export class SkillLoader {
   ): Promise<Skill[]> {
     // 如果是市场技能，使用现有的加载逻辑
     if (source === SkillSource.MARKETPLACE) {
-      return await this.loadMarketplaceSkills(loadLevel);
+      return await this.loadMarketplaceSkills(loadLevel)
     }
 
-    const rootPath = this.customSkillPaths.get(source);
+    const rootPath = this.customSkillPaths.get(source)
     if (!rootPath || !(await fs.pathExists(rootPath))) {
-      return [];
+      return []
     }
 
-    const skills: Skill[] = [];
-    const skillDirs = await this.scanSkillDirectories(rootPath);
+    const skills: Skill[] = []
+    const skillDirs = await this.scanSkillDirectories(rootPath)
 
     for (const skillDir of skillDirs) {
-      const skill = await this.parseCustomSkill(skillDir, source, loadLevel);
-      if (skill) skills.push(skill);
+      const skill = await this.parseCustomSkill(skillDir, source, loadLevel)
+      if (skill) skills.push(skill)
     }
 
-    return skills;
+    return skills
   }
 
   /**
@@ -164,27 +164,27 @@ export class SkillLoader {
    * `entry.isDirectory()` 会把 symlink 全部漏掉。
    */
   private async scanSkillDirectories(rootPath: string): Promise<string[]> {
-    const skillDirs: string[] = [];
+    const skillDirs: string[] = []
 
     try {
-      const entries = await fs.readdir(rootPath, { withFileTypes: true });
+      const entries = await fs.readdir(rootPath, { withFileTypes: true })
 
       for (const entry of entries) {
-        const isDir = await isDirentDirectoryFollowingSymlinks(entry, rootPath);
-        if (!isDir) continue;
+        const isDir = await isDirentDirectoryFollowingSymlinks(entry, rootPath)
+        if (!isDir) continue
 
-        const skillDir = path.join(rootPath, entry.name);
-        const skillPath = path.join(skillDir, 'SKILL.md');
+        const skillDir = path.join(rootPath, entry.name)
+        const skillPath = path.join(skillDir, 'SKILL.md')
 
         if (await fs.pathExists(skillPath)) {
-          skillDirs.push(skillDir);
+          skillDirs.push(skillDir)
         }
       }
     } catch (error) {
-      console.warn(`Failed to scan skill directory ${rootPath}:`, error);
+      console.warn(`Failed to scan skill directory ${rootPath}:`, error)
     }
 
-    return skillDirs;
+    return skillDirs
   }
 
   /**
@@ -196,11 +196,11 @@ export class SkillLoader {
     loadLevel: SkillLoadLevel,
   ): Promise<Skill | null> {
     try {
-      const skillName = path.basename(skillPath);
-      const skillId = this.generateCustomSkillId(skillPath, source);
+      const skillName = path.basename(skillPath)
+      const skillId = this.generateCustomSkillId(skillPath, source)
 
       // 使用统一的 marketplaceId 以便正确分组
-      const marketplaceId = source === SkillSource.USER_GLOBAL ? 'user-global' : 'user-project';
+      const marketplaceId = source === SkillSource.USER_GLOBAL ? 'user-global' : 'user-project'
 
       const skill = await this.parseSkillFile(
         path.join(skillPath, 'SKILL.md'),
@@ -208,10 +208,10 @@ export class SkillLoader {
         marketplaceId,
         loadLevel,
         SkillType.SKILL,
-      );
+      )
 
       if (skill) {
-        const rootPath = this.customSkillPaths.get(source)!;
+        const rootPath = this.customSkillPaths.get(source)!
 
         const customSkill: Skill = {
           ...skill,
@@ -224,25 +224,25 @@ export class SkillLoader {
           },
           isCustom: true,
           isBuiltIn: false,
-        };
+        }
 
         // 添加到缓存
-        this.addToCache(customSkill);
+        this.addToCache(customSkill)
 
-        return customSkill;
+        return customSkill
       }
 
-      return null;
+      return null
     } catch (error) {
-      const directoryName = path.basename(skillPath);
+      const directoryName = path.basename(skillPath)
       if (directoryName.startsWith('auto-') && !/^[a-z0-9-]+$/.test(directoryName)) {
         console.warn(
           `[skills] 已忽略旧版自动 Skill 目录 ${directoryName}；新生成器已使用兼容名称。`,
-        );
-        return null;
+        )
+        return null
       }
-      console.warn(`Failed to parse custom skill ${skillPath}:`, error);
-      return null;
+      console.warn(`Failed to parse custom skill ${skillPath}:`, error)
+      return null
     }
   }
 
@@ -250,19 +250,19 @@ export class SkillLoader {
    * 生成自定义技能ID
    */
   private generateCustomSkillId(skillPath: string, source: SkillSource): string {
-    const rootPath = this.customSkillPaths.get(source)!;
-    const relativePath = path.relative(rootPath, skillPath);
+    const rootPath = this.customSkillPaths.get(source)!
+    const relativePath = path.relative(rootPath, skillPath)
 
     switch (source) {
       case SkillSource.USER_GLOBAL:
-        return `user:${relativePath}`;
+        return `user:${relativePath}`
       case SkillSource.USER_PROJECT: {
         // 使用 this.projectRoot 而非 process.cwd()，避免 cwd 切换导致 ID 不稳定
-        const projectName = path.basename(this.projectRoot);
-        return `project:${projectName}:${relativePath}`;
+        const projectName = path.basename(this.projectRoot)
+        return `project:${projectName}:${relativePath}`
       }
       default:
-        return relativePath;
+        return relativePath
     }
   }
 
@@ -272,35 +272,35 @@ export class SkillLoader {
    */
   private async loadMarketplaceSkills(loadLevel: SkillLoadLevel): Promise<Skill[]> {
     try {
-      const skills: Skill[] = [];
+      const skills: Skill[] = []
 
       // 获取已启用的 Plugins
-      const enabledPluginIds = new Set(await this.settingsManager.getEnabledPlugins());
+      const enabledPluginIds = new Set(await this.settingsManager.getEnabledPlugins())
 
       // 一次性加载所有插件（避免循环中重复调用 loadPlugins）
-      const allPlugins = await this.marketplaceLoader.loadPlugins();
+      const allPlugins = await this.marketplaceLoader.loadPlugins()
 
       for (const plugin of allPlugins) {
         // 按启用状态过滤
-        if (!enabledPluginIds.has(plugin.id)) continue;
+        if (!enabledPluginIds.has(plugin.id)) continue
 
         try {
           for (const comp of plugin.components) {
-            const skill = this.convertToSkill(comp, loadLevel);
-            skill.isCustom = false;
-            skill.isBuiltIn = true;
-            this.addToCache(skill);
-            skills.push(skill);
+            const skill = this.convertToSkill(comp, loadLevel)
+            skill.isCustom = false
+            skill.isBuiltIn = true
+            this.addToCache(skill)
+            skills.push(skill)
           }
         } catch (error) {
-          console.warn(`Failed to load skills for plugin ${plugin.id}:`, error);
+          console.warn(`Failed to load skills for plugin ${plugin.id}:`, error)
         }
       }
 
-      return skills;
+      return skills
     } catch (error) {
-      console.warn('Failed to load marketplace skills:', error);
-      return [];
+      console.warn('Failed to load marketplace skills:', error)
+      return []
     }
   }
 
@@ -312,21 +312,21 @@ export class SkillLoader {
     loadLevel: SkillLoadLevel = SkillLoadLevel.METADATA,
   ): Promise<Skill[]> {
     try {
-      const plugins = await this.marketplaceLoader.loadPlugins();
-      const targetPlugin = plugins.find(p => p.id === pluginId);
+      const plugins = await this.marketplaceLoader.loadPlugins()
+      const targetPlugin = plugins.find(p => p.id === pluginId)
 
       if (targetPlugin) {
-        return targetPlugin.components.map(comp => {
-          const skill = this.convertToSkill(comp, loadLevel);
-          this.addToCache(skill);
-          return skill;
+        return targetPlugin.components.map((comp) => {
+          const skill = this.convertToSkill(comp, loadLevel)
+          this.addToCache(skill)
+          return skill
         });
       }
 
-      return [];
+      return []
     } catch (error) {
-      console.warn(`Failed to load skills for plugin ${pluginId}:`, error);
-      return [];
+      console.warn(`Failed to load skills for plugin ${pluginId}:`, error)
+      return []
     }
   }
 
@@ -335,25 +335,25 @@ export class SkillLoader {
    */
   private convertToSkill(component: UnifiedComponent, loadLevel: SkillLoadLevel): Skill {
     // 映射 ComponentType 到 SkillType
-    let type = SkillType.SKILL;
-    if (component.type === ComponentType.AGENT) type = SkillType.AGENT;
-    if (component.type === ComponentType.COMMAND) type = SkillType.COMMAND;
+    let type = SkillType.SKILL
+    if (component.type === ComponentType.AGENT) type = SkillType.AGENT
+    if (component.type === ComponentType.COMMAND) type = SkillType.COMMAND
 
     // 确保 metadata 存在
-    const metadata = (component.metadata || {}) as SkillMetadata;
-    if (!metadata.name) metadata.name = component.name;
-    if (!metadata.description) metadata.description = component.description;
+    const metadata = (component.metadata || {}) as SkillMetadata
+    if (!metadata.name) metadata.name = component.name
+    if (!metadata.description) metadata.description = component.description
 
     // 根据加载级别决定是否包含内容 (使用枚举值比较)
     const levelOrder = [
       SkillLoadLevel.METADATA,
       SkillLoadLevel.FULL,
       SkillLoadLevel.RESOURCES,
-    ];
-    const requestedLevelIndex = levelOrder.indexOf(loadLevel);
-    const fullLevelIndex = levelOrder.indexOf(SkillLoadLevel.FULL);
+    ]
+    const requestedLevelIndex = levelOrder.indexOf(loadLevel)
+    const fullLevelIndex = levelOrder.indexOf(SkillLoadLevel.FULL)
 
-    const content = requestedLevelIndex >= fullLevelIndex ? component.content : undefined;
+    const content = requestedLevelIndex >= fullLevelIndex ? component.content : undefined
 
     // component.location.path 在 SKILL 类型下指向"技能目录"（见
     // component-parser.ts 里 `component.location.path = itemPath` 那段），
@@ -365,7 +365,7 @@ export class SkillLoader {
     // 路径，文件型（command/agent 的独立 .md）保持原样。
     const resolvedSkillFilePath = component.location.type === 'directory'
       ? path.join(component.location.path, 'SKILL.md')
-      : component.location.path;
+      : component.location.path
 
     return {
       id: component.id,
@@ -383,12 +383,12 @@ export class SkillLoader {
       scripts: (component.scripts || []).map(s => ({
         name: s.name,
         path: s.path,
-        type: this.detectScriptType(s.name)
+        type: this.detectScriptType(s.name),
       })),
       references: component.references || [],
       isBuiltIn: true,
       isCustom: false,
-    };
+    }
   }
 
   /**
@@ -399,21 +399,21 @@ export class SkillLoader {
     loadLevel: SkillLoadLevel = SkillLoadLevel.METADATA,
   ): Promise<Skill | null> {
     // 检查缓存
-    const cached = this.getFromCache(skillId, loadLevel);
+    const cached = this.getFromCache(skillId, loadLevel)
     if (cached) {
-      return cached;
+      return cached
     }
 
     // 从所有已启用的 Skills 中查找
-    const skills = await this.loadEnabledSkills(loadLevel);
-    const foundSkill = skills.find((s) => s.id === skillId) || null;
+    const skills = await this.loadEnabledSkills(loadLevel)
+    const foundSkill = skills.find(s => s.id === skillId) || null
 
     // 如果找到技能，添加到缓存以支持后续的缓存命中
     if (foundSkill) {
-      this.addToCache(foundSkill);
+      this.addToCache(foundSkill)
     }
 
-    return foundSkill;
+    return foundSkill
   }
 
   // ============================================================================
@@ -430,28 +430,28 @@ export class SkillLoader {
     loadLevel: SkillLoadLevel = SkillLoadLevel.METADATA,
     type?: SkillType,
   ): Promise<Skill> {
-    let skillFilePath = skillPath;
-    let skillDirPath = skillPath;
+    let skillFilePath = skillPath
+    let skillDirPath = skillPath
 
     // Determine path based on type and file existence
     try {
-      const stat = await fs.stat(skillPath);
+      const stat = await fs.stat(skillPath)
       if (stat.isDirectory()) {
         // If it's a directory, it MUST have a SKILL.md (standard skill structure)
-        skillFilePath = path.join(skillPath, 'SKILL.md');
+        skillFilePath = path.join(skillPath, 'SKILL.md')
       } else {
         // If it's a file, it IS the skill file (command/agent markdown)
-        skillDirPath = path.dirname(skillPath);
+        skillDirPath = path.dirname(skillPath)
       }
     } catch (_error) {
       // Path doesn't exist.
       // If type is COMMAND or AGENT, and it ends in .md, assume it's a missing file.
       // Otherwise, assume it's a missing directory that should have SKILL.md
       if ((type === SkillType.COMMAND || type === SkillType.AGENT) && skillPath.endsWith('.md')) {
-         skillFilePath = skillPath;
-         skillDirPath = path.dirname(skillPath);
+        skillFilePath = skillPath
+         skillDirPath = path.dirname(skillPath)
       } else {
-         skillFilePath = path.join(skillPath, 'SKILL.md');
+        skillFilePath = path.join(skillPath, 'SKILL.md')
       }
     }
 
@@ -462,21 +462,21 @@ export class SkillLoader {
           `Skill file not found: ${skillFilePath}`,
           SkillErrorCode.FILE_NOT_FOUND,
           { path: skillFilePath },
-        );
+        )
       }
 
       // 读取文件内容
-      const fileContent = await fs.readFile(skillFilePath, 'utf-8');
+      const fileContent = await fs.readFile(skillFilePath, 'utf-8')
 
       // 解析 YAML frontmatter
-      const { data, content } = matter(fileContent);
+      const { data, content } = matter(fileContent)
 
       // 验证元数据（传递文件路径以便从文件名生成 name）
-      this.validateMetadata(data, skillFilePath);
+      this.validateMetadata(data, skillFilePath)
 
-      const metadata = data as SkillMetadata;
-      const skillName = metadata.name;
-      const skillId = `${marketplaceId}:${pluginId.split(':')[1]}:${skillName}`;
+      const metadata = data as SkillMetadata
+      const skillName = metadata.name
+      const skillId = `${marketplaceId}:${pluginId.split(':')[1]}:${skillName}`
 
       // 构建 Skill 对象（Level 1: 仅元数据）
       const skill: Skill = {
@@ -493,30 +493,30 @@ export class SkillLoader {
         loadLevel: SkillLoadLevel.METADATA,
         isBuiltIn: true,
         isCustom: false,
-      };
+      }
 
       // Level 2: 加载完整内容
       if (loadLevel === SkillLoadLevel.FULL || loadLevel === SkillLoadLevel.RESOURCES) {
-        skill.content = content.trim();
-        skill.loadLevel = SkillLoadLevel.FULL;
+        skill.content = content.trim()
+        skill.loadLevel = SkillLoadLevel.FULL
       }
 
       // Level 3: 加载资源和脚本
       if (loadLevel === SkillLoadLevel.RESOURCES) {
-        await this.loadSkillResources(skill);
-        skill.loadLevel = SkillLoadLevel.RESOURCES;
+        await this.loadSkillResources(skill)
+        skill.loadLevel = SkillLoadLevel.RESOURCES
       }
 
       // 缓存 Skill
-      this.addToCache(skill);
+      this.addToCache(skill)
 
-      return skill;
+      return skill
     } catch (error) {
       throw new SkillError(
         `Failed to parse skill file: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.SKILL_PARSE_FAILED,
         { path: skillFilePath, originalError: error },
-      );
+      )
     }
   }
 
@@ -524,31 +524,31 @@ export class SkillLoader {
    * 加载 Skill 资源（脚本、引用文档等）
    */
   private async loadSkillResources(skill: Skill): Promise<void> {
-    const skillDir = skill.path;
+    const skillDir = skill.path
 
     // 加载脚本
-    const scriptsPath = path.join(skillDir, 'scripts');
+    const scriptsPath = path.join(skillDir, 'scripts')
     if (await fs.pathExists(scriptsPath)) {
-      skill.scriptsPath = scriptsPath;
-      skill.scripts = await this.discoverScripts(scriptsPath);
+      skill.scriptsPath = scriptsPath
+      skill.scripts = await this.discoverScripts(scriptsPath)
     }
 
     // 加载引用文档
-    const references: string[] = [];
-    const files = await fs.readdir(skillDir);
+    const references: string[] = []
+    const files = await fs.readdir(skillDir)
     for (const file of files) {
       if (file !== 'SKILL.md' && file.endsWith('.md')) {
-        references.push(path.join(skillDir, file));
+        references.push(path.join(skillDir, file))
       }
     }
     if (references.length > 0) {
-      skill.references = references;
+      skill.references = references
     }
 
     // 加载 License
-    const licensePath = path.join(skillDir, 'LICENSE.txt');
+    const licensePath = path.join(skillDir, 'LICENSE.txt')
     if (await fs.pathExists(licensePath)) {
-      skill.licensePath = licensePath;
+      skill.licensePath = licensePath
     }
   }
 
@@ -556,48 +556,48 @@ export class SkillLoader {
    * 发现脚本目录中的所有脚本
    */
   private async discoverScripts(scriptsPath: string): Promise<SkillScript[]> {
-    const scripts: SkillScript[] = [];
+    const scripts: SkillScript[] = []
 
     try {
-      const files = await fs.readdir(scriptsPath);
+      const files = await fs.readdir(scriptsPath)
 
       for (const file of files) {
-        const filePath = path.join(scriptsPath, file);
-        const stat = await fs.stat(filePath);
+        const filePath = path.join(scriptsPath, file)
+        const stat = await fs.stat(filePath)
 
         if (stat.isFile()) {
-          const scriptType = this.detectScriptType(file);
+          const scriptType = this.detectScriptType(file)
           scripts.push({
             name: file,
             path: filePath,
             type: scriptType,
-          });
+          })
         }
       }
     } catch (error) {
-      console.warn(`Failed to discover scripts in ${scriptsPath}:`, error);
+      console.warn(`Failed to discover scripts in ${scriptsPath}:`, error)
     }
 
-    return scripts;
+    return scripts
   }
 
   /**
    * 检测脚本类型
    */
   private detectScriptType(filename: string): ScriptType {
-    const ext = path.extname(filename).toLowerCase();
+    const ext = path.extname(filename).toLowerCase()
     switch (ext) {
       case '.py':
-        return ScriptType.PYTHON;
+        return ScriptType.PYTHON
       case '.sh':
       case '.bash':
-        return ScriptType.BASH;
+        return ScriptType.BASH
       case '.js':
       case '.mjs':
       case '.cjs':
-        return ScriptType.NODE;
+        return ScriptType.NODE
       default:
-        return ScriptType.UNKNOWN;
+        return ScriptType.UNKNOWN
     }
   }
 
@@ -610,36 +610,36 @@ export class SkillLoader {
    */
   private validateMetadata(metadata: unknown, skillFilePath?: string): void {
     if (!metadata || typeof metadata !== 'object') {
-      throw new ValidationError('Invalid SKILL.md: missing frontmatter');
+      throw new ValidationError('Invalid SKILL.md: missing frontmatter')
     }
 
-    const data = metadata as Record<string, unknown>;
+    const data = metadata as Record<string, unknown>
 
     // 验证必需字段
     // 如果没有 name，尝试从文件名生成（支持 Claude Code 格式）
     if (!data.name || typeof data.name !== 'string') {
       if (skillFilePath) {
         // 从文件名生成 name（移除 .md 扩展名，支持 kebab-case）
-        const fileName = path.basename(skillFilePath, '.md');
-        data.name = fileName;
+        const fileName = path.basename(skillFilePath, '.md')
+        data.name = fileName
       } else {
-        throw new ValidationError('Invalid SKILL.md: missing or invalid "name" field');
+        throw new ValidationError('Invalid SKILL.md: missing or invalid "name" field')
       }
     }
 
     if (!data.description || typeof data.description !== 'string') {
       throw new ValidationError(
         'Invalid SKILL.md: missing or invalid "description" field',
-      );
+      )
     }
 
     // 验证名称规则（小写字母、数字、连字符）
-    const nameRegex = /^[a-z0-9-]+$/;
-    const nameStr = String(data.name);
+    const nameRegex = /^[a-z0-9-]+$/
+    const nameStr = String(data.name)
     if (!nameRegex.test(nameStr)) {
       throw new ValidationError(
         `Invalid skill name "${nameStr}": must contain only lowercase letters, numbers, and hyphens`,
-      );
+      )
     }
   }
 
@@ -651,18 +651,18 @@ export class SkillLoader {
    * 添加到缓存，同时记录 SKILL.md 当前 mtime 用于热更新失效判定。
    */
   private addToCache(skill: Skill): void {
-    let mtimeMs: number | undefined;
+    let mtimeMs: number | undefined
     try {
-      mtimeMs = fs.statSync(skill.skillFilePath).mtimeMs;
+      mtimeMs = fs.statSync(skill.skillFilePath).mtimeMs
     } catch {
-      mtimeMs = undefined;
+      mtimeMs = undefined
     }
     this.cache.set(skill.id, {
       skill,
       timestamp: Date.now(),
       loadLevel: skill.loadLevel,
       mtimeMs,
-    });
+    })
   }
 
   /**
@@ -674,22 +674,22 @@ export class SkillLoader {
    * 变更对下一次工具调用立即生效，不需要等 1 小时 TTL、也不需要重启 CLI 进程。
    */
   private getFromCache(skillId: string, loadLevel: SkillLoadLevel): Skill | null {
-    const cached = this.cache.get(skillId);
+    const cached = this.cache.get(skillId)
 
     if (!cached) {
-      return null;
+      return null
     }
 
     // 检查是否过期（原有 TTL 机制，保留作为兜底）
     if (Date.now() - cached.timestamp > this.cacheTTL) {
-      this.cache.delete(skillId);
-      return null;
+      this.cache.delete(skillId)
+      return null
     }
 
     // 热更新检查：磁盘文件被改过（mtime 变新）则立即失效，不等 TTL。
     if (this.isSkillFileModified(cached)) {
-      this.cache.delete(skillId);
-      return null;
+      this.cache.delete(skillId)
+      return null
     }
 
     // 检查加载级别是否满足
@@ -697,15 +697,15 @@ export class SkillLoader {
       SkillLoadLevel.METADATA,
       SkillLoadLevel.FULL,
       SkillLoadLevel.RESOURCES,
-    ];
-    const cachedLevelIndex = levelOrder.indexOf(cached.loadLevel);
-    const requestedLevelIndex = levelOrder.indexOf(loadLevel);
+    ]
+    const cachedLevelIndex = levelOrder.indexOf(cached.loadLevel)
+    const requestedLevelIndex = levelOrder.indexOf(loadLevel)
 
     if (cachedLevelIndex >= requestedLevelIndex) {
-      return cached.skill;
+      return cached.skill
     }
 
-    return null;
+    return null
   }
 
   /**
@@ -713,28 +713,28 @@ export class SkillLoader {
    * 取当前 mtime 失败（文件被删除等）也视为"已修改"，保守地强制重新加载/丢弃。
    */
   private isSkillFileModified(cached: SkillCacheItem): boolean {
-    let currentMtimeMs: number | undefined;
+    let currentMtimeMs: number | undefined
     try {
-      currentMtimeMs = fs.statSync(cached.skill.skillFilePath).mtimeMs;
+      currentMtimeMs = fs.statSync(cached.skill.skillFilePath).mtimeMs
     } catch {
-      return true;
+      return true
     }
-    if (cached.mtimeMs === undefined) return true;
-    return currentMtimeMs !== cached.mtimeMs;
+    if (cached.mtimeMs === undefined) return true
+    return currentMtimeMs !== cached.mtimeMs
   }
 
   /**
    * 清除缓存
    */
   clearCache(): void {
-    this.cache.clear();
+    this.cache.clear()
   }
 
   /**
    * 清除指定 Skill 的缓存
    */
   clearSkillCache(skillId: string): void {
-    this.cache.delete(skillId);
+    this.cache.delete(skillId)
   }
 
   /**
@@ -744,7 +744,7 @@ export class SkillLoader {
     return {
       size: this.cache.size,
       skills: Array.from(this.cache.keys()),
-    };
+    }
   }
 
   // ============================================================================
@@ -755,46 +755,46 @@ export class SkillLoader {
    * 搜索 Skills
    */
   async searchSkills(query: string): Promise<Skill[]> {
-    const skills = await this.loadEnabledSkills(SkillLoadLevel.METADATA);
-    const lowerQuery = query.toLowerCase();
+    const skills = await this.loadEnabledSkills(SkillLoadLevel.METADATA)
+    const lowerQuery = query.toLowerCase()
 
     return skills.filter(
-      (skill) =>
+      skill =>
         skill.name.toLowerCase().includes(lowerQuery) ||
         skill.description.toLowerCase().includes(lowerQuery),
-    );
+    )
   }
 
   /**
    * 按 Marketplace 分组 Skills
    */
   async getSkillsByMarketplace(): Promise<Map<string, Skill[]>> {
-    const skills = await this.loadEnabledSkills(SkillLoadLevel.METADATA);
-    const grouped = new Map<string, Skill[]>();
+    const skills = await this.loadEnabledSkills(SkillLoadLevel.METADATA)
+    const grouped = new Map<string, Skill[]>()
 
     for (const skill of skills) {
-      const marketplaceSkills = grouped.get(skill.marketplaceId) || [];
-      marketplaceSkills.push(skill);
-      grouped.set(skill.marketplaceId, marketplaceSkills);
+      const marketplaceSkills = grouped.get(skill.marketplaceId) || []
+      marketplaceSkills.push(skill)
+      grouped.set(skill.marketplaceId, marketplaceSkills)
     }
 
-    return grouped;
+    return grouped
   }
 
   /**
    * 按 Plugin 分组 Skills
    */
   async getSkillsByPlugin(): Promise<Map<string, Skill[]>> {
-    const skills = await this.loadEnabledSkills(SkillLoadLevel.METADATA);
-    const grouped = new Map<string, Skill[]>();
+    const skills = await this.loadEnabledSkills(SkillLoadLevel.METADATA)
+    const grouped = new Map<string, Skill[]>()
 
     for (const skill of skills) {
-      const pluginSkills = grouped.get(skill.pluginId) || [];
-      pluginSkills.push(skill);
-      grouped.set(skill.pluginId, pluginSkills);
+      const pluginSkills = grouped.get(skill.pluginId) || []
+      pluginSkills.push(skill)
+      grouped.set(skill.pluginId, pluginSkills)
     }
 
-    return grouped;
+    return grouped
   }
 
   /**
@@ -802,29 +802,29 @@ export class SkillLoader {
    * @param forceReload 强制重新加载配置（避免缓存导致的统计不一致）
    */
   async getSkillStats(forceReload = false): Promise<{
-    total: number;
-    byMarketplace: Record<string, number>;
-    byPlugin: Record<string, number>;
+    total: number
+    byMarketplace: Record<string, number>
+    byPlugin: Record<string, number>
   }> {
     // 强制重新加载配置以避免缓存问题
     if (forceReload) {
-      await this.settingsManager.readSettings(true);
+      await this.settingsManager.readSettings(true)
     }
 
-    const skills = await this.loadEnabledSkills(SkillLoadLevel.METADATA);
+    const skills = await this.loadEnabledSkills(SkillLoadLevel.METADATA)
 
-    const byMarketplace: Record<string, number> = {};
-    const byPlugin: Record<string, number> = {};
+    const byMarketplace: Record<string, number> = {}
+    const byPlugin: Record<string, number> = {}
 
     for (const skill of skills) {
-      byMarketplace[skill.marketplaceId] = (byMarketplace[skill.marketplaceId] || 0) + 1;
-      byPlugin[skill.pluginId] = (byPlugin[skill.pluginId] || 0) + 1;
+      byMarketplace[skill.marketplaceId] = (byMarketplace[skill.marketplaceId] || 0) + 1
+      byPlugin[skill.pluginId] = (byPlugin[skill.pluginId] || 0) + 1
     }
 
     return {
       total: skills.length,
       byMarketplace,
       byPlugin,
-    };
+    }
   }
 }

@@ -5,11 +5,11 @@
  */
 
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { ApprovalMode } from './config.js';
-import { HookEventName, HookDefinition } from '../hooks/types.js';
-import type { ThinkingConfig } from '../types/customModel.js';
+import * as fs from 'fs'
+import * as path from 'path'
+import { ApprovalMode } from './config.js'
+import { HookEventName, HookDefinition } from '../hooks/types.js'
+import type { ThinkingConfig } from '../types/customModel.js'
 
 /**
  * Agent 风格类型
@@ -21,60 +21,60 @@ import type { ThinkingConfig } from '../types/customModel.js';
  * - antigravity: Antigravity-style，强调知识库（KI）优先、高端美学、系统化工作流
  * - windsurf: Windsurf-style，基于 AI Flow 范式，强调独立与协作平衡
  */
-export type AgentStyle = 'default' | 'codex' | 'cursor' | 'augment' | 'claude-code' | 'antigravity' | 'windsurf';
+export type AgentStyle = 'default' | 'codex' | 'cursor' | 'augment' | 'claude-code' | 'antigravity' | 'windsurf'
 
 /**
  * 项目级配置接口
  */
 export interface ProjectSettings {
-  yolo?: boolean;  // YOLO模式开关
-  autoTrimTrailingSpaces?: boolean;  // 自动删除行末空格（适用于C++、Python等源代码）
-  hooks?: { [K in HookEventName]?: HookDefinition[] };  // Hook配置
-  agentStyle?: AgentStyle;  // Agent 风格：default（Claude）或 codex
-  thinking?: ThinkingConfig;  // 思考模式开关与强度（用于 /thinking 命令的会话级覆盖）
-  featureFlags?: Record<string, boolean>;  // 特性开关：键名 → 启用状态
+  yolo?: boolean  // YOLO模式开关
+  autoTrimTrailingSpaces?: boolean  // 自动删除行末空格（适用于C++、Python等源代码）
+  hooks?: { [K in HookEventName]?: HookDefinition[] }  // Hook配置
+  agentStyle?: AgentStyle  // Agent 风格：default（Claude）或 codex
+  thinking?: ThinkingConfig  // 思考模式开关与强度（用于 /thinking 命令的会话级覆盖）
+  featureFlags?: Record<string, boolean>  // 特性开关：键名 → 启用状态
   feishu?: {
-    recommend?: boolean;      // 是否仅申请推荐级（免审）权限
-    excludeScopes?: string[]; // 需要显式排除的敏感权限列表（例如 ["im:message.send_as_user"]）
-  };
+    recommend?: boolean      // 是否仅申请推荐级（免审）权限
+    excludeScopes?: string[] // 需要显式排除的敏感权限列表（例如 ["im:message.send_as_user"]）
+  }
 }
 
 
-export const PROJECT_CONFIG_DIR_NAME = '.clawmaster';
+export const PROJECT_CONFIG_DIR_NAME = '.clawmaster'
 /**
  * 项目级配置管理器
  * 负责读写项目根目录下的 ./clawmastercode/settings.json 文件
  */
 export class ProjectSettingsManager {
-  private readonly configFileName = 'settings.json';
-  private readonly workspaceDir: string;
-  private settings: ProjectSettings = {};
+  private readonly configFileName = 'settings.json'
+  private readonly workspaceDir: string
+  private settings: ProjectSettings = {}
 
   constructor(workspaceDir: string) {
-    this.workspaceDir = workspaceDir;
+    this.workspaceDir = workspaceDir
   }
 
   /**
    * 获取配置文件路径
    */
   private getConfigFilePath(): string {
-    return path.join(this.workspaceDir, PROJECT_CONFIG_DIR_NAME, this.configFileName);
+    return path.join(this.workspaceDir, PROJECT_CONFIG_DIR_NAME, this.configFileName)
   }
 
   /**
    * 获取配置目录路径
    */
   getConfigDirPath(): string {
-    return path.join(this.workspaceDir, PROJECT_CONFIG_DIR_NAME);
+    return path.join(this.workspaceDir, PROJECT_CONFIG_DIR_NAME)
   }
 
   /**
    * 确保配置目录存在
    */
   private ensureConfigDir(): void {
-    const configDir = this.getConfigDirPath();
+    const configDir = this.getConfigDirPath()
     if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true });
+      fs.mkdirSync(configDir, { recursive: true })
     }
   }
 
@@ -83,25 +83,25 @@ export class ProjectSettingsManager {
    */
   load(): ProjectSettings {
     try {
-      const configPath = this.getConfigFilePath();
+      const configPath = this.getConfigFilePath()
 
       if (!fs.existsSync(configPath)) {
         // 文件不存在，返回默认配置
-        this.settings = {};
-        return this.settings;
+        this.settings = {}
+        return this.settings
       }
 
-      const content = fs.readFileSync(configPath, 'utf-8');
-      const parsed = JSON.parse(content) as ProjectSettings;
+      const content = fs.readFileSync(configPath, 'utf-8')
+      const parsed = JSON.parse(content) as ProjectSettings
 
       // 验证配置格式
-      const validAgentStyles: AgentStyle[] = ['default', 'codex', 'cursor', 'augment', 'claude-code', 'antigravity', 'windsurf'];
+      const validAgentStyles: AgentStyle[] = ['default', 'codex', 'cursor', 'augment', 'claude-code', 'antigravity', 'windsurf']
       const featureFlags = parsed.featureFlags && typeof parsed.featureFlags === 'object'
         ? Object.fromEntries(
-            Object.entries(parsed.featureFlags as Record<string, unknown>)
-              .filter(([, v]) => typeof v === 'boolean')
+          Object.entries(parsed.featureFlags as Record<string, unknown>)
+            .filter(([, v]) => typeof v === 'boolean'),
           ) as Record<string, boolean>
-        : undefined;
+        : undefined
 
       this.settings = {
         yolo: typeof parsed.yolo === 'boolean' ? parsed.yolo : undefined,
@@ -114,15 +114,15 @@ export class ProjectSettingsManager {
         featureFlags,
         feishu: parsed.feishu ? {
           recommend: typeof parsed.feishu.recommend === 'boolean' ? parsed.feishu.recommend : undefined,
-          excludeScopes: Array.isArray(parsed.feishu.excludeScopes) ? parsed.feishu.excludeScopes.filter((s) => typeof s === 'string') : undefined,
+          excludeScopes: Array.isArray(parsed.feishu.excludeScopes) ? parsed.feishu.excludeScopes.filter(s => typeof s === 'string') : undefined,
         } : undefined,
-      };
+      }
 
-      return this.settings;
+      return this.settings
     } catch (error) {
-      console.warn('Failed to load project settings:', error);
-      this.settings = {};
-      return this.settings;
+      console.warn('Failed to load project settings:', error)
+      this.settings = {}
+      return this.settings
     }
   }
 
@@ -131,16 +131,16 @@ export class ProjectSettingsManager {
    */
   save(settings: ProjectSettings): void {
     try {
-      this.ensureConfigDir();
+      this.ensureConfigDir()
 
-      const configPath = this.getConfigFilePath();
-      const content = JSON.stringify(settings, null, 2);
+      const configPath = this.getConfigFilePath()
+      const content = JSON.stringify(settings, null, 2)
 
-      fs.writeFileSync(configPath, content, 'utf-8');
-      this.settings = { ...settings };
+      fs.writeFileSync(configPath, content, 'utf-8')
+      this.settings = { ...settings }
     } catch (error) {
-      console.warn('Failed to save project settings:', error);
-      throw new Error(`无法保存项目配置: ${error instanceof Error ? error.message : String(error)}`);
+      console.warn('Failed to save project settings:', error)
+      throw new Error(`无法保存项目配置: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -148,7 +148,7 @@ export class ProjectSettingsManager {
    * 获取当前YOLO模式设置
    */
   getYoloMode(): boolean | undefined {
-    return this.settings.yolo;
+    return this.settings.yolo
   }
 
   /**
@@ -158,15 +158,15 @@ export class ProjectSettingsManager {
     const newSettings = {
       ...this.settings,
       yolo: enabled,
-    };
-    this.save(newSettings);
+    }
+    this.save(newSettings)
   }
 
   /**
    * 获取自动删除行末空格设置
    */
   getAutoTrimTrailingSpaces(): boolean | undefined {
-    return this.settings.autoTrimTrailingSpaces;
+    return this.settings.autoTrimTrailingSpaces
   }
 
   /**
@@ -176,38 +176,38 @@ export class ProjectSettingsManager {
     const newSettings = {
       ...this.settings,
       autoTrimTrailingSpaces: enabled,
-    };
-    this.save(newSettings);
+    }
+    this.save(newSettings)
   }
 
   /**
    * 获取当前所有设置
    */
   getSettings(): ProjectSettings {
-    return { ...this.settings };
+    return { ...this.settings }
   }
 
   /**
    * 将项目配置转换为ApprovalMode
    */
   static toApprovalMode(yolo: boolean | undefined): ApprovalMode | undefined {
-    if (yolo === true) return ApprovalMode.YOLO;
-    if (yolo === false) return ApprovalMode.DEFAULT;
-    return undefined; // 未设置，使用默认逻辑
+    if (yolo === true) return ApprovalMode.YOLO
+    if (yolo === false) return ApprovalMode.DEFAULT
+    return undefined // 未设置，使用默认逻辑
   }
 
   /**
    * 检查项目配置是否覆盖了YOLO设置
    */
   hasYoloOverride(): boolean {
-    return typeof this.settings.yolo === 'boolean';
+    return typeof this.settings.yolo === 'boolean'
   }
 
   /**
    * 获取当前 Agent 风格
    */
   getAgentStyle(): AgentStyle {
-    return this.settings.agentStyle ?? 'default';
+    return this.settings.agentStyle ?? 'default'
   }
 
   /**
@@ -217,15 +217,15 @@ export class ProjectSettingsManager {
     const newSettings = {
       ...this.settings,
       agentStyle: style,
-    };
-    this.save(newSettings);
+    }
+    this.save(newSettings)
   }
 
   /**
    * 获取当前思考配置（如未设置则返回 undefined）
    */
   getThinkingConfig(): ThinkingConfig | undefined {
-    return this.settings.thinking;
+    return this.settings.thinking
   }
 
   /**
@@ -235,33 +235,33 @@ export class ProjectSettingsManager {
     const newSettings: ProjectSettings = {
       ...this.settings,
       thinking: config,
-    };
-    this.save(newSettings);
+    }
+    this.save(newSettings)
   }
 
   /**
    * 校验从 settings.json 读取的 thinking 字段，过滤非法值
    */
   private validateThinkingConfig(input: unknown): ThinkingConfig | undefined {
-    if (!input || typeof input !== 'object') return undefined;
-    const obj = input as Record<string, unknown>;
-    const validModes = new Set(['on', 'off', 'auto']);
-    const validEfforts = new Set(['low', 'medium', 'high', 'max', 'xhigh', 'auto']);
+    if (!input || typeof input !== 'object') return undefined
+    const obj = input as Record<string, unknown>
+    const validModes = new Set(['on', 'off', 'auto'])
+    const validEfforts = new Set(['low', 'medium', 'high', 'max', 'xhigh', 'auto'])
 
     const mode = typeof obj.mode === 'string' && validModes.has(obj.mode)
       ? (obj.mode as ThinkingConfig['mode'])
-      : 'auto';
+      : 'auto'
     const effort = typeof obj.effort === 'string' && validEfforts.has(obj.effort)
       ? (obj.effort as ThinkingConfig['effort'])
-      : undefined;
+      : undefined
     const budgetTokens = typeof obj.budgetTokens === 'number' && obj.budgetTokens > 0
       ? obj.budgetTokens
-      : undefined;
+      : undefined
 
     return {
       mode,
       ...(effort ? { effort } : {}),
       ...(budgetTokens !== undefined ? { budgetTokens } : {}),
-    };
+    }
   }
 }

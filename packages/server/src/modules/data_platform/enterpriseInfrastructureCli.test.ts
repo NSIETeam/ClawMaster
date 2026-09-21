@@ -2,15 +2,15 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest'
 
-import type { AttachmentObjectStore } from './attachmentObjectStore.js';
-import type { EnterpriseSharedCache } from './enterpriseSharedCache.js';
-import type { ClusteredEnterpriseDatabaseLifecycle } from './enterpriseInfrastructureRuntime.js';
+import type { AttachmentObjectStore } from './attachmentObjectStore.js'
+import type { EnterpriseSharedCache } from './enterpriseSharedCache.js'
+import type { ClusteredEnterpriseDatabaseLifecycle } from './enterpriseInfrastructureRuntime.js'
 import {
   checkClusteredEnterpriseInfrastructure,
   safeInfrastructureErrorMessage,
-} from './enterpriseInfrastructureCli.js';
+} from './enterpriseInfrastructureCli.js'
 
 const environment = {
   CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
@@ -22,7 +22,7 @@ const environment = {
   CLAWMASTER_S3_BUCKET: 'clawmaster-private',
   CLAWMASTER_S3_REGION: 'cn-east-1',
   CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
-};
+}
 
 describe('enterprise infrastructure preflight', () => {
   it('checks shared dependencies and logs only credential-free topology', async () => {
@@ -36,18 +36,18 @@ describe('enterprise infrastructure preflight', () => {
       })),
       getReadiness: vi.fn(),
       close: vi.fn(async () => undefined),
-    };
+    }
     const cache = {
       backend: 'redis',
       healthCheck: vi.fn(async () => ({ ready: true, backend: 'redis' })),
       close: vi.fn(async () => undefined),
-    } as unknown as EnterpriseSharedCache;
+    } as unknown as EnterpriseSharedCache
     const attachments = {
       backend: 's3',
       listObjects: vi.fn(async () => ({ objects: [], cursor: null })),
-    } as unknown as AttachmentObjectStore;
-    const closeAttachments = vi.fn();
-    const log = vi.fn();
+    } as unknown as AttachmentObjectStore
+    const closeAttachments = vi.fn()
+    const log = vi.fn()
 
     await checkClusteredEnterpriseInfrastructure({
       environment,
@@ -59,15 +59,15 @@ describe('enterprise infrastructure preflight', () => {
         close: closeAttachments,
       })),
       log,
-    });
+    })
 
-    const output = log.mock.calls[0]?.[0] as string;
-    expect(output).toContain('db.internal:5432/clawmaster');
-    expect(output).toContain('cache.internal:6379/1');
-    expect(output).not.toMatch(/db-secret|cache-secret|default@/);
-    expect(database.close).toHaveBeenCalledOnce();
-    expect(cache.close).toHaveBeenCalledOnce();
-    expect(closeAttachments).toHaveBeenCalledOnce();
+    const output = log.mock.calls[0]?.[0] as string
+    expect(output).toContain('db.internal:5432/clawmaster')
+    expect(output).toContain('cache.internal:6379/1')
+    expect(output).not.toMatch(/db-secret|cache-secret|default@/)
+    expect(database.close).toHaveBeenCalledOnce()
+    expect(cache.close).toHaveBeenCalledOnce()
+    expect(closeAttachments).toHaveBeenCalledOnce()
   });
 
   it('redacts PostgreSQL and Redis credentials from failures', () => {
@@ -78,6 +78,6 @@ describe('enterprise infrastructure preflight', () => {
         ),
         environment,
       ),
-    ).toBe('failed postgresql://[REDACTED] and redis://[REDACTED]');
+    ).toBe('failed postgresql://[REDACTED] and redis://[REDACTED]')
   });
-});
+})

@@ -5,22 +5,22 @@
  */
 
 
-import * as http from 'http';
-import { URL } from 'url';
-import * as crypto from 'crypto';
+import * as http from 'http'
+import { URL } from 'url'
+import * as crypto from 'crypto'
 
-import { createClawMasterAuthHandler } from './clawmasterAuth.js';
-import { getFeishuConfigFromServer, getFeishuTenantsFromServer } from '../../config/serverConfig.js';
-import { ProxyAuthManager } from '../../core/proxyAuth.js';
-import { AuthTemplates } from './templates/index.js';
-import { getUserAgent } from '../../utils/userAgent.js';
+import { createClawMasterAuthHandler } from './clawmasterAuth.js'
+import { getFeishuConfigFromServer, getFeishuTenantsFromServer } from '../../config/serverConfig.js'
+import { ProxyAuthManager } from '../../core/proxyAuth.js'
+import { AuthTemplates } from './templates/index.js'
+import { getUserAgent } from '../../utils/userAgent.js'
 
 type VipLoginData = {
-  accessToken?: string;
-  refreshToken?: string;
-  expiresIn?: number;
-  user?: { email?: string; name?: string; avatar?: string; quota_name?: string; expires_at?: string };
-};
+  accessToken?: string
+  refreshToken?: string
+  expiresIn?: number
+  user?: { email?: string; name?: string; avatar?: string; quota_name?: string; expires_at?: string }
+}
 
 
 
@@ -29,33 +29,33 @@ type VipLoginData = {
  * 在7862端口提供认证选择页面，在7863端口处理回调
  */
 export class AuthServer {
-  private selectServer?: http.Server;
-  private callbackServer?: http.Server;
-  private readonly BASE_SELECT_PORT = 7862;
-  private readonly BASE_CALLBACK_PORT = 7863;
-  private actualSelectPort: number = 7862;
-  private actualCallbackPort: number = 7863;
+  private selectServer?: http.Server
+  private callbackServer?: http.Server
+  private readonly BASE_SELECT_PORT = 7862
+  private readonly BASE_CALLBACK_PORT = 7863
+  private actualSelectPort: number = 7862
+  private actualCallbackPort: number = 7863
 
   /**
    * 启动认证服务器
    */
   async start(): Promise<void> {
-    await this.startSelectServer();
-    await this.startCallbackServer();
+    await this.startSelectServer()
+    await this.startCallbackServer()
   }
 
   /**
    * 获取实际的选择服务器端口
    */
   getActualSelectPort(): number {
-    return this.actualSelectPort;
+    return this.actualSelectPort
   }
 
   /**
    * 获取实际的回调服务器端口
    */
   getActualCallbackPort(): number {
-    return this.actualCallbackPort;
+    return this.actualCallbackPort
   }
 
   /**
@@ -65,50 +65,50 @@ export class AuthServer {
     return new Promise((resolve, reject) => {
       this.selectServer = http.createServer(async (req, res) => {
         // Add CORS headers to all responses
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
         // Handle preflight requests
         if (req.method === 'OPTIONS') {
-          res.writeHead(200);
-          res.end();
+          res.writeHead(200)
+          res.end()
           return;
         }
 
         if (!req.url) {
-          this.sendErrorResponse(res, 'Invalid request');
+          this.sendErrorResponse(res, 'Invalid request')
           return;
         }
 
-        const reqUrl = new URL(req.url, `http://localhost:${this.actualSelectPort}`);
+        const reqUrl = new URL(req.url, `http://localhost:${this.actualSelectPort}`)
 
         if (reqUrl.pathname === '/' || reqUrl.pathname === '/auth-select') {
-          await this.sendAuthSelectPage(res);
+          await this.sendAuthSelectPage(res)
         } else if (reqUrl.pathname === '/start-feishu-auth' && req.method === 'POST') {
           // 解析body获取可选的appId（多租户支持）
-          let body = '';
-          req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+          let body = ''
+          req.on('data', (chunk: Buffer) => { body += chunk.toString() });
           req.on('end', async () => {
             try {
-              const parsed = body ? JSON.parse(body) : {};
-              await this.handleStartFeishuAuth(res, parsed);
+              const parsed = body ? JSON.parse(body) : {}
+              await this.handleStartFeishuAuth(res, parsed)
             } catch {
-              await this.handleStartFeishuAuth(res);
+              await this.handleStartFeishuAuth(res)
             }
-          });
+          })
         } else if (reqUrl.pathname === '/start-clawmaster-auth' && req.method === 'POST') {
-          await this.handleStartClawMasterAuth(res);
+          await this.handleStartClawMasterAuth(res)
         } else if (reqUrl.pathname === '/start-vipcard-auth' && req.method === 'POST') {
-          await this.handleStartVipCardAuth(req, res);
+          await this.handleStartVipCardAuth(req, res)
         } else if (reqUrl.pathname === '/api/backend/feishu-allowed' && req.method === 'GET') {
-          await this.handleFeishuAllowedCheck(res);
+          await this.handleFeishuAllowedCheck(res)
         } else if (reqUrl.pathname === '/api/backend/feishu-tenants' && req.method === 'GET') {
-          await this.handleFeishuTenants(res);
+          await this.handleFeishuTenants(res)
         } else {
-          this.sendErrorResponse(res, 'Not found');
+          this.sendErrorResponse(res, 'Not found')
         }
-      });
+      })
 
       // 尝试启动服务器，如果端口被占用则尝试下一个端口
       const tryListenSelect = (currentPort: number) => {
@@ -116,75 +116,75 @@ export class AuthServer {
         if (currentPort > this.BASE_SELECT_PORT) {
           this.selectServer = http.createServer(async (req, res) => {
             // Add CORS headers to all responses
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            res.setHeader('Access-Control-Allow-Origin', '*')
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
             // Handle preflight requests
             if (req.method === 'OPTIONS') {
-              res.writeHead(200);
-              res.end();
+              res.writeHead(200)
+              res.end()
               return;
             }
 
             if (!req.url) {
-              this.sendErrorResponse(res, 'Invalid request');
+              this.sendErrorResponse(res, 'Invalid request')
               return;
             }
 
-            const reqUrl = new URL(req.url, `http://localhost:${this.actualSelectPort}`);
+            const reqUrl = new URL(req.url, `http://localhost:${this.actualSelectPort}`)
 
             if (reqUrl.pathname === '/' || reqUrl.pathname === '/auth-select') {
-              await this.sendAuthSelectPage(res);
+              await this.sendAuthSelectPage(res)
             } else if (reqUrl.pathname === '/start-feishu-auth' && req.method === 'POST') {
-              let body = '';
-              req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+              let body = ''
+              req.on('data', (chunk: Buffer) => { body += chunk.toString() });
               req.on('end', async () => {
                 try {
-                  const parsed = body ? JSON.parse(body) : {};
-                  await this.handleStartFeishuAuth(res, parsed);
+                  const parsed = body ? JSON.parse(body) : {}
+                  await this.handleStartFeishuAuth(res, parsed)
                 } catch {
-                  await this.handleStartFeishuAuth(res);
+                  await this.handleStartFeishuAuth(res)
                 }
-              });
+              })
             } else if (reqUrl.pathname === '/start-clawmaster-auth' && req.method === 'POST') {
-              await this.handleStartClawMasterAuth(res);
+              await this.handleStartClawMasterAuth(res)
             } else if (reqUrl.pathname === '/start-vipcard-auth' && req.method === 'POST') {
-              await this.handleStartVipCardAuth(req, res);
+              await this.handleStartVipCardAuth(req, res)
             } else if (reqUrl.pathname === '/api/backend/feishu-allowed' && req.method === 'GET') {
-              await this.handleFeishuAllowedCheck(res);
+              await this.handleFeishuAllowedCheck(res)
             } else if (reqUrl.pathname === '/api/backend/feishu-tenants' && req.method === 'GET') {
-              await this.handleFeishuTenants(res);
+              await this.handleFeishuTenants(res)
             } else {
-              this.sendErrorResponse(res, 'Not found');
+              this.sendErrorResponse(res, 'Not found')
             }
-          });
+          })
         }
 
         this.selectServer!.listen(currentPort, () => {
-          this.actualSelectPort = currentPort;
-          console.log(`🌐 认证选择服务器启动在端口 ${currentPort}`);
-          console.log(`🔗 认证选择页面: http://localhost:${currentPort}`);
-          resolve();
+          this.actualSelectPort = currentPort
+          console.log(`🌐 认证选择服务器启动在端口 ${currentPort}`)
+          console.log(`🔗 认证选择页面: http://localhost:${currentPort}`)
+          resolve()
         });
 
         this.selectServer!.on('error', (err: NodeJS.ErrnoException) => {
           if (err.code === 'EADDRINUSE') {
-            console.log(`⚠️ 端口 ${currentPort} 被占用，尝试端口 ${currentPort + 1}`);
+            console.log(`⚠️ 端口 ${currentPort} 被占用，尝试端口 ${currentPort + 1}`)
             if (currentPort < this.BASE_SELECT_PORT + 10) { // 最多尝试10个端口
               // 移除所有监听器，避免重复绑定
-              this.selectServer!.removeAllListeners();
-              tryListenSelect(currentPort + 1);
+              this.selectServer!.removeAllListeners()
+              tryListenSelect(currentPort + 1)
             } else {
-              reject(new Error(`无法找到可用端口 (${this.BASE_SELECT_PORT}-${this.BASE_SELECT_PORT + 10})`));
+              reject(new Error(`无法找到可用端口 (${this.BASE_SELECT_PORT}-${this.BASE_SELECT_PORT + 10})`))
             }
           } else {
-            reject(err);
+            reject(err)
           }
-        });
+        })
       };
 
-      tryListenSelect(this.BASE_SELECT_PORT);
+      tryListenSelect(this.BASE_SELECT_PORT)
     });
   }
 
@@ -195,18 +195,18 @@ export class AuthServer {
     return new Promise((resolve, reject) => {
       this.callbackServer = http.createServer(async (req, res) => {
         if (!req.url) {
-          this.sendErrorResponse(res, 'Invalid request');
+          this.sendErrorResponse(res, 'Invalid request')
           return;
         }
 
-        const reqUrl = new URL(req.url, `http://localhost:${this.actualCallbackPort}`);
+        const reqUrl = new URL(req.url, `http://localhost:${this.actualCallbackPort}`)
 
         if (reqUrl.pathname === '/callback') {
-          await this.handleCallback(reqUrl, res);
+          await this.handleCallback(reqUrl, res)
         } else {
-          this.sendErrorResponse(res, 'Not found');
+          this.sendErrorResponse(res, 'Not found')
         }
-      });
+      })
 
       // 尝试启动服务器，如果端口被占用则尝试下一个端口
       const tryListenCallback = (currentPort: number) => {
@@ -214,44 +214,44 @@ export class AuthServer {
         if (currentPort > this.BASE_CALLBACK_PORT) {
           this.callbackServer = http.createServer(async (req, res) => {
             if (!req.url) {
-              this.sendErrorResponse(res, 'Invalid request');
+              this.sendErrorResponse(res, 'Invalid request')
               return;
             }
 
-            const reqUrl = new URL(req.url, `http://localhost:${this.actualCallbackPort}`);
+            const reqUrl = new URL(req.url, `http://localhost:${this.actualCallbackPort}`)
 
             if (reqUrl.pathname === '/callback') {
-              await this.handleCallback(reqUrl, res);
+              await this.handleCallback(reqUrl, res)
             } else {
-              this.sendErrorResponse(res, 'Not found');
+              this.sendErrorResponse(res, 'Not found')
             }
-          });
+          })
         }
 
         this.callbackServer!.listen(currentPort, () => {
-          this.actualCallbackPort = currentPort;
-          console.log(`🌐 认证回调服务器启动在端口 ${currentPort}`);
-          console.log(`🔗 认证回调地址: http://localhost:${currentPort}/callback`);
-          resolve();
+          this.actualCallbackPort = currentPort
+          console.log(`🌐 认证回调服务器启动在端口 ${currentPort}`)
+          console.log(`🔗 认证回调地址: http://localhost:${currentPort}/callback`)
+          resolve()
         });
 
         this.callbackServer!.on('error', (err: NodeJS.ErrnoException) => {
           if (err.code === 'EADDRINUSE') {
-            console.log(`⚠️ 端口 ${currentPort} 被占用，尝试端口 ${currentPort + 1}`);
+            console.log(`⚠️ 端口 ${currentPort} 被占用，尝试端口 ${currentPort + 1}`)
             if (currentPort < this.BASE_CALLBACK_PORT + 10) { // 最多尝试10个端口
               // 移除所有监听器，避免重复绑定
-              this.callbackServer!.removeAllListeners();
-              tryListenCallback(currentPort + 1);
+              this.callbackServer!.removeAllListeners()
+              tryListenCallback(currentPort + 1)
             } else {
-              reject(new Error(`无法找到可用端口 (${this.BASE_CALLBACK_PORT}-${this.BASE_CALLBACK_PORT + 10})`));
+              reject(new Error(`无法找到可用端口 (${this.BASE_CALLBACK_PORT}-${this.BASE_CALLBACK_PORT + 10})`))
             }
           } else {
-            reject(err);
+            reject(err)
           }
-        });
+        })
       };
 
-      tryListenCallback(this.BASE_CALLBACK_PORT);
+      tryListenCallback(this.BASE_CALLBACK_PORT)
     });
   }
 
@@ -260,17 +260,17 @@ export class AuthServer {
    */
   private async sendAuthSelectPage(res: http.ServerResponse): Promise<void> {
     // Add CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
-    const html = AuthTemplates.getAuthSelectPage();
+    const html = AuthTemplates.getAuthSelectPage()
 
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
     });
-    res.end(html);
+    res.end(html)
   }
 
   /**
@@ -278,47 +278,47 @@ export class AuthServer {
    */
   private async handleFeishuAllowedCheck(res: http.ServerResponse): Promise<void> {
     try {
-      console.log('🔍 [Auth Server] 处理飞书允许检查请求');
+      console.log('🔍 [Auth Server] 处理飞书允许检查请求')
 
       // 调用后台接口检查是否允许飞书登录
       // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时无后端，抛错由本方法既有 catch 处理，不 fetch 空 URL。
-      const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || '';
+      const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || ''
       if (!proxyServerUrl) {
-        throw new Error('未配置 CLAWMASTER_SERVER_URL，飞书登录不可用');
+        throw new Error('未配置 CLAWMASTER_SERVER_URL，飞书登录不可用')
       }
-      const apiUrl = `${proxyServerUrl}/api/client/feishu-allowed`;
+      const apiUrl = `${proxyServerUrl}/api/client/feishu-allowed`
 
-      console.log('🔍 [Auth Server] 调用后台接口:', apiUrl);
+      console.log('🔍 [Auth Server] 调用后台接口:', apiUrl)
 
-      let response;
+      let response
       try {
         response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': getUserAgent()
+            'User-Agent': getUserAgent(),
           }
-        });
+        })
       } catch (fetchError: unknown) {
         // 网络层错误处理
-        console.error('❌ [Auth Server] 网络请求失败:', fetchError instanceof Error ? fetchError.message : String(fetchError));
-        throw new Error(this.formatNetworkError(fetchError, 'Checking Feishu login permission'));
+        console.error('❌ [Auth Server] 网络请求失败:', fetchError instanceof Error ? fetchError.message : String(fetchError))
+        throw new Error(this.formatNetworkError(fetchError, 'Checking Feishu login permission'))
       }
 
       if (!response.ok) {
-        console.error('❌ [Auth Server] 后台接口调用失败:', response.status, response.statusText);
-        throw new Error(`后台接口调用失败: ${response.status}`);
+        console.error('❌ [Auth Server] 后台接口调用失败:', response.status, response.statusText)
+        throw new Error(`后台接口调用失败: ${response.status}`)
       }
 
-      let data;
+      let data
       try {
-        data = await response.json();
+        data = await response.json()
       } catch (jsonError: unknown) {
-        console.error('❌ [Auth Server] 响应解析失败:', jsonError instanceof Error ? jsonError.message : String(jsonError));
-        throw new Error('Server returned an invalid response format. Please try again later.');
+        console.error('❌ [Auth Server] 响应解析失败:', jsonError instanceof Error ? jsonError.message : String(jsonError))
+        throw new Error('Server returned an invalid response format. Please try again later.')
       }
 
-      console.log('📋 [Auth Server] 后台接口返回:', data);
+      console.log('📋 [Auth Server] 后台接口返回:', data)
 
       // 返回完整的后台数据，包含所有字段
       const result = {
@@ -329,19 +329,19 @@ export class AuthServer {
         isChina: Boolean(data.isChina),
         messages: Array.isArray(data.messages) ? data.messages : [],
         country: data.country || 'unknown',
-        timestamp: data.timestamp || new Date().toISOString()
+        timestamp: data.timestamp || new Date().toISOString(),
       };
 
-      console.log('✅ [Auth Server] 飞书登录权限检查结果:', result);
+      console.log('✅ [Auth Server] 飞书登录权限检查结果:', result)
 
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify(result));
+      res.end(JSON.stringify(result))
 
     } catch (error) {
-      console.error('❌ [Auth Server] 飞书允许检查失败:', error);
+      console.error('❌ [Auth Server] 飞书允许检查失败:', error)
 
       // 发生错误时返回不允许飞书登录
       const errorResponse = {
@@ -353,14 +353,14 @@ export class AuthServer {
         messages: [],
         country: 'unknown',
         error: error instanceof Error ? error.message : '检查失败',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       res.writeHead(500, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify(errorResponse));
+      res.end(JSON.stringify(errorResponse))
     }
   }
 
@@ -369,20 +369,20 @@ export class AuthServer {
    */
   private async handleFeishuTenants(res: http.ServerResponse): Promise<void> {
     try {
-      const tenants = await getFeishuTenantsFromServer();
+      const tenants = await getFeishuTenantsFromServer()
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify(tenants));
+      res.end(JSON.stringify(tenants))
     } catch (error) {
-      console.error('❌ [Auth Server] 获取飞书租户列表失败:', error);
+      console.error('❌ [Auth Server] 获取飞书租户列表失败:', error)
       // 失败时返回空数组，前端会 fallback 到默认按钮
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify([]));
+      res.end(JSON.stringify([]))
     }
   }
 
@@ -391,45 +391,45 @@ export class AuthServer {
    */
   private async handleStartFeishuAuth(res: http.ServerResponse, reqBody?: { appId?: string }): Promise<void> {
     try {
-      console.log('🚀 [Auth Server] 启动飞书认证流程');
+      console.log('🚀 [Auth Server] 启动飞书认证流程')
 
       // 支持多租户：客户端可传入 appId 指定租户
-      const targetAppId = reqBody?.appId;
-      let appId: string;
+      const targetAppId = reqBody?.appId
+      let appId: string
 
       if (targetAppId) {
-        appId = targetAppId;
+        appId = targetAppId
       } else {
-        const feishuConfig = await getFeishuConfigFromServer();
-        appId = feishuConfig.appId;
+        const feishuConfig = await getFeishuConfigFromServer()
+        appId = feishuConfig.appId
       }
 
       // 直接构建飞书认证URL
-      const authUrl = this.buildFeishuAuthUrl(appId);
+      const authUrl = this.buildFeishuAuthUrl(appId)
 
       const response = {
         success: true,
-        authUrl
+        authUrl,
       };
 
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify(response));
+      res.end(JSON.stringify(response))
 
     } catch (error) {
-      console.error('❌ [Auth Server] 飞书认证启动失败:', error);
+      console.error('❌ [Auth Server] 飞书认证启动失败:', error)
       const response = {
         success: false,
-        error: error instanceof Error ? error.message : '飞书认证启动失败'
+        error: error instanceof Error ? error.message : '飞书认证启动失败',
       };
 
       res.writeHead(500, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify(response));
+      res.end(JSON.stringify(response))
     }
   }
 
@@ -438,26 +438,26 @@ export class AuthServer {
    */
   private buildFeishuAuthUrl(appId: string): string {
     // state 中编码 appId（格式: randomStr_appId），回调时解析
-    const state = `${this.generateState()}_${appId}`;
+    const state = `${this.generateState()}_${appId}`
     const params = new URLSearchParams({
       app_id: appId,
       redirect_uri: `http://localhost:${this.actualCallbackPort}/callback`,
       response_type: 'code',
       scope: 'contact:user.employee_id:readonly',
       state,
-    });
+    })
 
-    const authUrl = `https://open.feishu.cn/open-apis/authen/v1/authorize?${params.toString()}`;
-    console.log('🔗 [Auth Server] 飞书认证URL:', authUrl);
+    const authUrl = `https://open.feishu.cn/open-apis/authen/v1/authorize?${params.toString()}`
+    console.log('🔗 [Auth Server] 飞书认证URL:', authUrl)
 
-    return authUrl;
+    return authUrl
   }
 
   /**
    * 生成state参数用于防止CSRF攻击
    */
   private generateState(): string {
-    return crypto.randomBytes(16).toString('hex');
+    return crypto.randomBytes(16).toString('hex')
   }
 
   /**
@@ -465,34 +465,34 @@ export class AuthServer {
    */
   private async handleStartClawMasterAuth(res: http.ServerResponse): Promise<void> {
     try {
-      console.log('🚀 [Auth Server] 启动 ClawMaster 认证流程');
+      console.log('🚀 [Auth Server] 启动 ClawMaster 认证流程')
 
-      const clawmasterHandler = createClawMasterAuthHandler(this.actualCallbackPort);
-      const authUrl = clawmasterHandler.buildAuthUrl();
+      const clawmasterHandler = createClawMasterAuthHandler(this.actualCallbackPort)
+      const authUrl = clawmasterHandler.buildAuthUrl()
 
       const response = {
         success: true,
-        authUrl
+        authUrl,
       };
 
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify(response));
+      res.end(JSON.stringify(response))
 
     } catch (error) {
-      console.error('❌ [Auth Server] ClawMaster 认证启动失败:', error);
+      console.error('❌ [Auth Server] ClawMaster 认证启动失败:', error)
       const response = {
         success: false,
-        error: error instanceof Error ? error.message : 'ClawMaster 认证启动失败'
+        error: error instanceof Error ? error.message : 'ClawMaster 认证启动失败',
       };
 
       res.writeHead(500, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify(response));
+      res.end(JSON.stringify(response))
     }
   }
 
@@ -502,139 +502,139 @@ export class AuthServer {
    */
   private async handleStartVipCardAuth(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     try {
-      console.log('🚀 [Auth Server] 启动VIP卡认证流程');
+      console.log('🚀 [Auth Server] 启动VIP卡认证流程')
 
       // 读取请求体
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk.toString();
+      let body = ''
+      req.on('data', (chunk) => {
+        body += chunk.toString()
       });
 
       req.on('end', async () => {
         try {
-          const { code } = JSON.parse(body);
+          const { code } = JSON.parse(body)
 
           if (!code || !code.trim()) {
             const response = {
               success: false,
-              message: '兑换码不能为空'
+              message: '兑换码不能为空',
             };
 
             res.writeHead(400, {
               'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
+              'Access-Control-Allow-Origin': '*',
             });
-            res.end(JSON.stringify(response));
+            res.end(JSON.stringify(response))
             return;
           }
 
-          const trimmedCode = code.trim().toUpperCase();
-          console.log('🔄 [Auth Server] VIP卡兑换码:', trimmedCode);
+          const trimmedCode = code.trim().toUpperCase()
+          console.log('🔄 [Auth Server] VIP卡兑换码:', trimmedCode)
 
           // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时无后端，抛错由既有 catch 处理，不 fetch 空 URL。
-          const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || '';
+          const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || ''
           if (!proxyServerUrl) {
-            throw new Error('未配置 CLAWMASTER_SERVER_URL，VIP卡兑换不可用');
+            throw new Error('未配置 CLAWMASTER_SERVER_URL，VIP卡兑换不可用')
           }
 
           // 智能处理：先尝试登录
-          console.log('🔄 [Auth Server] 尝试VIP卡登录...');
-          let loginResult = await this.tryVipCardLogin(proxyServerUrl, trimmedCode);
+          console.log('🔄 [Auth Server] 尝试VIP卡登录...')
+          let loginResult = await this.tryVipCardLogin(proxyServerUrl, trimmedCode)
 
           if (loginResult.success) {
             // 登录成功
-            console.log('✅ [Auth Server] VIP卡登录成功');
-            await this.handleVipCardSuccess(res, loginResult.data as VipLoginData, trimmedCode);
+            console.log('✅ [Auth Server] VIP卡登录成功')
+            await this.handleVipCardSuccess(res, loginResult.data as VipLoginData, trimmedCode)
             return;
           }
 
           // 登录失败，检查是否需要先注册
           if (loginResult.error === '兑换码无效或尚未激活') {
-            console.log('🔄 [Auth Server] VIP卡未激活，尝试快速注册...');
+            console.log('🔄 [Auth Server] VIP卡未激活，尝试快速注册...')
 
             // 尝试快速注册
-            const registerResult = await this.tryVipCardRegister(proxyServerUrl, trimmedCode);
+            const registerResult = await this.tryVipCardRegister(proxyServerUrl, trimmedCode)
 
             if (!registerResult.success) {
               // 注册失败
-              console.error('❌ [Auth Server] VIP卡注册失败:', registerResult.error);
+              console.error('❌ [Auth Server] VIP卡注册失败:', registerResult.error)
               const response = {
                 success: false,
-                message: registerResult.error || '兑换码无效或已过期'
+                message: registerResult.error || '兑换码无效或已过期',
               };
 
               res.writeHead(200, {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
+                'Access-Control-Allow-Origin': '*',
               });
-              res.end(JSON.stringify(response));
+              res.end(JSON.stringify(response))
               return;
             }
 
-            console.log('✅ [Auth Server] VIP卡注册成功，自动登录...');
+            console.log('✅ [Auth Server] VIP卡注册成功，自动登录...')
 
             // 注册成功后再次尝试登录
-            loginResult = await this.tryVipCardLogin(proxyServerUrl, trimmedCode);
+            loginResult = await this.tryVipCardLogin(proxyServerUrl, trimmedCode)
 
             if (!loginResult.success) {
-              console.error('❌ [Auth Server] VIP卡注册后登录失败:', loginResult.error);
+              console.error('❌ [Auth Server] VIP卡注册后登录失败:', loginResult.error)
               const response = {
                 success: false,
-                message: loginResult.error || '登录失败，请稍后重试'
+                message: loginResult.error || '登录失败，请稍后重试',
               };
 
               res.writeHead(200, {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
+                'Access-Control-Allow-Origin': '*',
               });
-              res.end(JSON.stringify(response));
+              res.end(JSON.stringify(response))
               return;
             }
 
-            console.log('✅ [Auth Server] VIP卡激活并登录成功');
-            await this.handleVipCardSuccess(res, loginResult.data as VipLoginData, trimmedCode);
+            console.log('✅ [Auth Server] VIP卡激活并登录成功')
+            await this.handleVipCardSuccess(res, loginResult.data as VipLoginData, trimmedCode)
           } else {
             // 其他登录错误
-            console.error('❌ [Auth Server] VIP卡登录失败:', loginResult.error);
+            console.error('❌ [Auth Server] VIP卡登录失败:', loginResult.error)
             const response = {
               success: false,
-              message: loginResult.error || '登录失败，请检查兑换码'
+              message: loginResult.error || '登录失败，请检查兑换码',
             };
 
             res.writeHead(200, {
               'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
+              'Access-Control-Allow-Origin': '*',
             });
-            res.end(JSON.stringify(response));
+            res.end(JSON.stringify(response))
           }
 
         } catch (parseError) {
-          console.error('❌ [Auth Server] 解析请求体失败:', parseError);
+          console.error('❌ [Auth Server] 解析请求体失败:', parseError)
           const response = {
             success: false,
-            message: '请求格式错误'
+            message: '请求格式错误',
           };
 
           res.writeHead(400, {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': '*',
           });
-          res.end(JSON.stringify(response));
+          res.end(JSON.stringify(response))
         }
-      });
+      })
 
     } catch (error) {
-      console.error('❌ [Auth Server] VIP卡认证启动失败:', error);
+      console.error('❌ [Auth Server] VIP卡认证启动失败:', error)
       const response = {
         success: false,
-        message: error instanceof Error ? error.message : 'VIP卡认证启动失败'
+        message: error instanceof Error ? error.message : 'VIP卡认证启动失败',
       };
 
       res.writeHead(500, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify(response));
+      res.end(JSON.stringify(response))
     }
   }
 
@@ -647,21 +647,21 @@ export class AuthServer {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': getUserAgent()
+          'User-Agent': getUserAgent(),
         },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ code }),
       });
 
-      const data = await response.json();
+      const data = await response.json()
 
       if (data.success) {
-        return { success: true, data: data.data };
+        return { success: true, data: data.data }
       } else {
-        return { success: false, error: data.error || '登录失败' };
+        return { success: false, error: data.error || '登录失败' }
       }
     } catch (error: unknown) {
-      console.error('❌ [Auth Server] VIP卡登录请求失败:', error instanceof Error ? error.message : String(error));
-      return { success: false, error: this.formatNetworkError(error, 'VIP卡登录') };
+      console.error('❌ [Auth Server] VIP卡登录请求失败:', error instanceof Error ? error.message : String(error))
+      return { success: false, error: this.formatNetworkError(error, 'VIP卡登录') }
     }
   }
 
@@ -674,21 +674,21 @@ export class AuthServer {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': getUserAgent()
+          'User-Agent': getUserAgent(),
         },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ code }),
       });
 
-      const data = await response.json();
+      const data = await response.json()
 
       if (data.success) {
-        return { success: true, data: data.data };
+        return { success: true, data: data.data }
       } else {
-        return { success: false, error: data.error || '注册失败' };
+        return { success: false, error: data.error || '注册失败' }
       }
     } catch (error: unknown) {
-      console.error('❌ [Auth Server] VIP卡注册请求失败:', error instanceof Error ? error.message : String(error));
-      return { success: false, error: this.formatNetworkError(error, 'VIP卡注册') };
+      console.error('❌ [Auth Server] VIP卡注册请求失败:', error instanceof Error ? error.message : String(error))
+      return { success: false, error: this.formatNetworkError(error, 'VIP卡注册') }
     }
   }
 
@@ -700,16 +700,16 @@ export class AuthServer {
    */
   private async handleVipCardSuccess(res: http.ServerResponse, loginData: VipLoginData, code: string): Promise<void> {
     // 保存JWT令牌和用户信息到~/.clawmaster/目录
-    const proxyAuthManager = ProxyAuthManager.getInstance();
+    const proxyAuthManager = ProxyAuthManager.getInstance()
 
     // 保存JWT token
     if (loginData.accessToken) {
       proxyAuthManager.setJwtTokenData({
         accessToken: loginData.accessToken,
         refreshToken: loginData.refreshToken,
-        expiresIn: loginData.expiresIn || 604800 // VIP卡默认7天
+        expiresIn: loginData.expiresIn || 604800, // VIP卡默认7天
       });
-      console.log('✅ [Auth Server] VIP卡JWT访问令牌和刷新令牌已保存到~/.clawmaster/');
+      console.log('✅ [Auth Server] VIP卡JWT访问令牌和刷新令牌已保存到~/.clawmaster/')
     }
 
     // 保存用户信息（使用code作为显示名称的fallback）
@@ -719,9 +719,9 @@ export class AuthServer {
       name: loginData.user?.name || code,
       enName: loginData.user?.name || code,
       email: loginData.user?.email || '',
-      avatar: loginData.user?.avatar || ''
+      avatar: loginData.user?.avatar || '',
     };
-    proxyAuthManager.setUserInfo(userInfo);
+    proxyAuthManager.setUserInfo(userInfo)
     console.log(`✅ [Auth Server] VIP卡用户信息已保存到~/.clawmaster/: ${userInfo.name} (${userInfo.email || code})`)
 
     // 返回成功响应
@@ -731,39 +731,39 @@ export class AuthServer {
       data: {
         email: loginData.user?.email,
         quota_name: loginData.user?.quota_name,
-        expires_at: loginData.user?.expires_at
+        expires_at: loginData.user?.expires_at,
       }
-    };
+    }
 
     res.writeHead(200, {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
     });
-    res.end(JSON.stringify(response));
+    res.end(JSON.stringify(response))
 
     // 延迟恢复终端状态，确保响应已发送
     setTimeout(() => {
-      this.restoreVSCodeTerminalState();
-    }, 100);
+      this.restoreVSCodeTerminalState()
+    }, 100)
   }
 
   /**
    * 处理认证回调
    */
   private async handleCallback(url: URL, res: http.ServerResponse): Promise<void> {
-    const plat = url.searchParams.get('plat');
+    const plat = url.searchParams.get('plat')
 
-    console.log('🔄 [Auth Server] 收到认证回调');
-    console.log('🔄 [Auth Server] 回调URL:', url.toString());
-    console.log('🔄 [Auth Server] 平台参数:', plat);
+    console.log('🔄 [Auth Server] 收到认证回调')
+    console.log('🔄 [Auth Server] 回调URL:', url.toString())
+    console.log('🔄 [Auth Server] 平台参数:', plat)
 
     if (plat === 'clawmaster') {
       // ClawMaster认证回调处理
-      await this.handleClawMasterCallback(url, res);
+      await this.handleClawMasterCallback(url, res)
     } else {
       // 飞书认证回调处理（默认）
-      console.log('🔄 [Auth Server] 处理飞书认证回调');
-      await this.handleFeishuCallback(url, res);
+      console.log('🔄 [Auth Server] 处理飞书认证回调')
+      await this.handleFeishuCallback(url, res)
     }
   }
 
@@ -773,56 +773,56 @@ export class AuthServer {
   private verifyJwtFormat(token: string): { valid: boolean; payload?: Record<string, unknown>; error?: string } {
     try {
       // JWT应该有3个部分，用.分隔
-      const parts = token.split('.');
+      const parts = token.split('.')
       if (parts.length !== 3) {
-        return { valid: false, error: 'JWT格式错误：应该包含3个部分' };
+        return { valid: false, error: 'JWT格式错误：应该包含3个部分' }
       }
 
-      const [header, payload] = parts;
+      const [header, payload] = parts
 
       // 验证header
-      let decodedHeader;
+      let decodedHeader
       try {
-        decodedHeader = JSON.parse(Buffer.from(header, 'base64url').toString());
+        decodedHeader = JSON.parse(Buffer.from(header, 'base64url').toString())
       } catch {
-        return { valid: false, error: 'JWT header解码失败' };
+        return { valid: false, error: 'JWT header解码失败' }
       }
 
       // 验证payload
-      let decodedPayload;
+      let decodedPayload
       try {
-        decodedPayload = JSON.parse(Buffer.from(payload, 'base64url').toString());
+        decodedPayload = JSON.parse(Buffer.from(payload, 'base64url').toString())
       } catch {
-        return { valid: false, error: 'JWT payload解码失败' };
+        return { valid: false, error: 'JWT payload解码失败' }
       }
 
       // 检查必要字段
       if (!decodedPayload.exp) {
-        return { valid: false, error: 'JWT缺少过期时间(exp)字段' };
+        return { valid: false, error: 'JWT缺少过期时间(exp)字段' }
       }
 
       if (!decodedPayload.iat) {
-        return { valid: false, error: 'JWT缺少签发时间(iat)字段' };
+        return { valid: false, error: 'JWT缺少签发时间(iat)字段' }
       }
 
       // 检查是否过期
-      const now = Math.floor(Date.now() / 1000);
+      const now = Math.floor(Date.now() / 1000)
       if (decodedPayload.exp < now) {
-        return { valid: false, error: 'JWT已过期' };
+        return { valid: false, error: 'JWT已过期' }
       }
 
       console.log('✅ [Auth Server] JWT格式验证通过:', {
         header: decodedHeader,
         exp: new Date(decodedPayload.exp * 1000).toISOString(),
-        iat: new Date(decodedPayload.iat * 1000).toISOString()
+        iat: new Date(decodedPayload.iat * 1000).toISOString(),
       });
 
-      return { valid: true, payload: decodedPayload };
+      return { valid: true, payload: decodedPayload }
 
     } catch (error) {
       return {
         valid: false,
-        error: `JWT验证失败: ${error instanceof Error ? error.message : '未知错误'}`
+        error: `JWT验证失败: ${error instanceof Error ? error.message : '未知错误'}`,
       };
     }
   }
@@ -832,49 +832,49 @@ export class AuthServer {
    */
   private async handleClawMasterCallback(url: URL, res: http.ServerResponse): Promise<void> {
     try {
-      console.log('🔄 [Auth Server] 处理 ClawMaster 认证回调');
-      const clawmasterHandler = createClawMasterAuthHandler(this.actualCallbackPort);
-      const result = clawmasterHandler.handleCallback(url);
+      console.log('🔄 [Auth Server] 处理 ClawMaster 认证回调')
+      const clawmasterHandler = createClawMasterAuthHandler(this.actualCallbackPort)
+      const result = clawmasterHandler.handleCallback(url)
 
       if (!result.success) {
-        console.error('❌ [Auth Server] ClawMaster 认证失败:', result.error);
-        this.sendErrorResponse(res, result.error || 'ClawMaster authentication failed');
+        console.error('❌ [Auth Server] ClawMaster 认证失败:', result.error)
+        this.sendErrorResponse(res, result.error || 'ClawMaster authentication failed')
         return;
       }
 
       if (!result.token || !result.user_id) {
-        console.error('❌ [Auth Server] ClawMaster 认证回调缺少必要参数');
-        this.sendErrorResponse(res, 'Missing token or user_id in ClawMaster authentication callback');
+        console.error('❌ [Auth Server] ClawMaster 认证回调缺少必要参数')
+        this.sendErrorResponse(res, 'Missing token or user_id in ClawMaster authentication callback')
         return;
       }
 
       // 🔍 新增：JWT格式验证
-      console.log('� [Auth Server] 开始验证JWT token格式');
-      const jwtVerification = this.verifyJwtFormat(result.token);
+      console.log('� [Auth Server] 开始验证JWT token格式')
+      const jwtVerification = this.verifyJwtFormat(result.token)
 
       if (!jwtVerification.valid) {
-        console.error('❌ [Auth Server] JWT格式验证失败:', jwtVerification.error);
-        this.sendErrorResponse(res, `JWT格式验证失败: ${jwtVerification.error}`);
+        console.error('❌ [Auth Server] JWT格式验证失败:', jwtVerification.error)
+        this.sendErrorResponse(res, `JWT格式验证失败: ${jwtVerification.error}`)
         return;
       }
 
-      console.log('✅ [Auth Server] JWT格式验证通过，开始交换JWT令牌');
+      console.log('✅ [Auth Server] JWT格式验证通过，开始交换JWT令牌')
 
       // 调用后端接口交换JWT令牌
       // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时无后端，抛错由既有 catch 处理，不 fetch 空 URL。
-      const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || '';
+      const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || ''
       if (!proxyServerUrl) {
-        throw new Error('未配置 CLAWMASTER_SERVER_URL，登录令牌交换不可用');
+        throw new Error('未配置 CLAWMASTER_SERVER_URL，登录令牌交换不可用')
       }
-      console.log('ClawMaster 正在交换认证令牌');
+      console.log('ClawMaster 正在交换认证令牌')
 
-      let jwtResponse;
+      let jwtResponse
       try {
         jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/clawmaster-login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': getUserAgent()
+            'User-Agent': getUserAgent(),
           },
           body: JSON.stringify({
             plat: 'clawmaster',
@@ -884,51 +884,51 @@ export class AuthServer {
               platform: process.platform,
               version: process.version,
               timestamp: Date.now(),
-              userAgent: getUserAgent()
+              userAgent: getUserAgent(),
             }
-          })
+          }),
         });
       } catch (fetchError: unknown) {
-        console.error('❌ [Auth Server] 网络请求失败:', fetchError instanceof Error ? fetchError.message : String(fetchError));
-        this.sendErrorResponse(res, this.formatNetworkError(fetchError, 'Connecting to authentication server'));
+        console.error('❌ [Auth Server] 网络请求失败:', fetchError instanceof Error ? fetchError.message : String(fetchError))
+        this.sendErrorResponse(res, this.formatNetworkError(fetchError, 'Connecting to authentication server'))
         return;
       }
 
       if (!jwtResponse.ok) {
-        const errorText = await jwtResponse.text();
-        console.error('❌ [Auth Server] JWT交换失败:', jwtResponse.status, errorText);
-        this.sendErrorResponse(res, `Authentication failed (HTTP ${jwtResponse.status}). Please try again later.`);
+        const errorText = await jwtResponse.text()
+        console.error('❌ [Auth Server] JWT交换失败:', jwtResponse.status, errorText)
+        this.sendErrorResponse(res, `Authentication failed (HTTP ${jwtResponse.status}). Please try again later.`)
         return;
       }
 
-      let jwtData;
+      let jwtData
       try {
-        jwtData = await jwtResponse.json();
+        jwtData = await jwtResponse.json()
       } catch (jsonError: unknown) {
-        console.error('❌ [Auth Server] JWT响应解析失败:', jsonError instanceof Error ? jsonError.message : String(jsonError));
-        this.sendErrorResponse(res, 'Server returned an invalid response format. Please try again later.');
+        console.error('❌ [Auth Server] JWT响应解析失败:', jsonError instanceof Error ? jsonError.message : String(jsonError))
+        this.sendErrorResponse(res, 'Server returned an invalid response format. Please try again later.')
         return;
       }
 
-      console.log('📋 [Auth Server] JWT交换响应数据:', jwtData);
+      console.log('📋 [Auth Server] JWT交换响应数据:', jwtData)
 
       console.log('✅ [Auth Server] JWT交换成功:', {
         user: jwtData.user?.name,
         email: jwtData.user?.email,
         expiresIn: jwtData.expiresIn,
-      });
+      })
 
       // 保存JWT令牌和用户信息到~/.clawmaster/目录
-      const proxyAuthManager = ProxyAuthManager.getInstance();
+      const proxyAuthManager = ProxyAuthManager.getInstance()
 
       // 保存JWT token
       if (jwtData.accessToken) {
         proxyAuthManager.setJwtTokenData({
           accessToken: jwtData.accessToken,
           refreshToken: jwtData.refreshToken,
-          expiresIn: jwtData.expiresIn || 900
+          expiresIn: jwtData.expiresIn || 900,
         });
-        console.log('✅ [Auth Server] JWT访问令牌和刷新令牌已保存到~/.clawmaster/');
+        console.log('✅ [Auth Server] JWT访问令牌和刷新令牌已保存到~/.clawmaster/')
       }
 
       // 保存用户信息
@@ -939,19 +939,19 @@ export class AuthServer {
           name: jwtData.user.name,
           enName: jwtData.user.name,
           email: jwtData.user.email,
-          avatar: jwtData.user.avatar
+          avatar: jwtData.user.avatar,
         };
-        proxyAuthManager.setUserInfo(userInfo);
-        console.log(`✅ [Auth Server] 用户信息已保存到~/.clawmaster/: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+        proxyAuthManager.setUserInfo(userInfo)
+        console.log(`✅ [Auth Server] 用户信息已保存到~/.clawmaster/: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`)
       }
 
       // 显示成功页面
-      this.sendClawMasterSuccessResponse(res);
+      this.sendClawMasterSuccessResponse(res)
 
     } catch (error) {
-      console.error('❌ [Auth Server] ClawMaster 认证处理失败:', error);
-      const errorMsg = error instanceof Error ? error.message : 'ClawMaster 认证处理失败';
-      this.sendErrorResponse(res, errorMsg);
+      console.error('❌ [Auth Server] ClawMaster 认证处理失败:', error)
+      const errorMsg = error instanceof Error ? error.message : 'ClawMaster 认证处理失败'
+      this.sendErrorResponse(res, errorMsg)
     }
   }
 
@@ -960,87 +960,87 @@ export class AuthServer {
    */
   private async handleFeishuCallback(url: URL, res: http.ServerResponse): Promise<void> {
     try {
-      const code = url.searchParams.get('code');
-      const state = url.searchParams.get('state');
-      const error = url.searchParams.get('error');
+      const code = url.searchParams.get('code')
+      const state = url.searchParams.get('state')
+      const error = url.searchParams.get('error')
 
       if (error) {
-        console.error('❌ [Auth Server] 飞书认证错误:', error);
-        this.sendErrorResponse(res, `Feishu authentication failed: ${error}`);
+        console.error('❌ [Auth Server] 飞书认证错误:', error)
+        this.sendErrorResponse(res, `Feishu authentication failed: ${error}`)
         return;
       }
 
       if (!code) {
-        console.error('❌ [Auth Server] 缺少授权码');
-        this.sendErrorResponse(res, 'Missing authorization code in Feishu authentication callback');
+        console.error('❌ [Auth Server] 缺少授权码')
+        this.sendErrorResponse(res, 'Missing authorization code in Feishu authentication callback')
         return;
       }
 
-      console.log('🔄 [Auth Server] 开始处理飞书认证回调');
-      console.log('🔄 [Auth Server] 授权码已获取，开始交换访问令牌');
+      console.log('🔄 [Auth Server] 开始处理飞书认证回调')
+      console.log('🔄 [Auth Server] 授权码已获取，开始交换访问令牌')
 
-      console.log('🔄 [Auth Server] 调用服务端exchange接口交换飞书token');
+      console.log('🔄 [Auth Server] 调用服务端exchange接口交换飞书token')
 
       // 从 state 中解析多租户 appId（格式: randomStr_appId）
-      const stateAppId = state && state.includes('_') ? state.split('_').slice(1).join('_') : undefined;
+      const stateAppId = state && state.includes('_') ? state.split('_').slice(1).join('_') : undefined
 
       // 调用服务端的飞书token交换接口（与官网相同的流程）
       // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时无后端，抛错由既有 catch 处理，不 fetch 空 URL。
-      const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || '';
+      const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || ''
       if (!proxyServerUrl) {
-        throw new Error('未配置 CLAWMASTER_SERVER_URL，飞书token交换不可用');
+        throw new Error('未配置 CLAWMASTER_SERVER_URL，飞书token交换不可用')
       }
-      console.log('飞书token交换，proxyServerUrl:', `${proxyServerUrl}/api/auth/feishu/exchange`);
+      console.log('飞书token交换，proxyServerUrl:', `${proxyServerUrl}/api/auth/feishu/exchange`)
 
-      let exchangeResponse;
+      let exchangeResponse
       try {
         exchangeResponse = await fetch(`${proxyServerUrl}/api/auth/feishu/exchange`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': getUserAgent()
+            'User-Agent': getUserAgent(),
           },
           body: JSON.stringify({
             code,
             redirect_uri: `http://localhost:${this.actualCallbackPort}/callback`,
             app_id: stateAppId,
-          })
+          }),
         });
       } catch (fetchError: unknown) {
-        console.error('❌ [Auth Server] 网络请求失败:', fetchError instanceof Error ? fetchError.message : String(fetchError));
-        throw new Error(this.formatNetworkError(fetchError, 'Connecting to authentication server'));
+        console.error('❌ [Auth Server] 网络请求失败:', fetchError instanceof Error ? fetchError.message : String(fetchError))
+        throw new Error(this.formatNetworkError(fetchError, 'Connecting to authentication server'))
       }
 
       if (!exchangeResponse.ok) {
-        throw new Error(`Feishu token exchange failed (HTTP ${exchangeResponse.status}). Please try again later.`);
+        throw new Error(`Feishu token exchange failed (HTTP ${exchangeResponse.status}). Please try again later.`)
       }
 
-      let exchangeData;
+      let exchangeData
       try {
-        exchangeData = await exchangeResponse.json();
+        exchangeData = await exchangeResponse.json()
       } catch (jsonError: unknown) {
-        console.error('❌ [Auth Server] 响应解析失败:', jsonError instanceof Error ? jsonError.message : String(jsonError));
-        throw new Error('Server returned an invalid response format. Please try again later.');
+        console.error('❌ [Auth Server] 响应解析失败:', jsonError instanceof Error ? jsonError.message : String(jsonError))
+        throw new Error('Server returned an invalid response format. Please try again later.')
       }
 
       if (!exchangeData.success) {
-        throw new Error(`飞书token交换失败: ${exchangeData.error || '未知错误'}`);
+        throw new Error(`飞书token交换失败: ${exchangeData.error || '未知错误'}`)
       }
 
-      const accessToken = exchangeData.data.accessToken;
-      console.log('✅ [Auth Server] 飞书访问令牌获取成功');
-      console.log('🔄 [Auth Server] 开始交换JWT令牌');
+      const accessToken = exchangeData.data.accessToken
+      console.log('✅ [Auth Server] 飞书访问令牌获取成功')
+      console.log('🔄 [Auth Server] 开始交换JWT令牌')
 
       // 调用后端接口交换JWT令牌
-      console.log ('飞书交换JWT，proxyServerUrl:', `${proxyServerUrl}/auth/jwt/feishu-login`);
+      console.log ('飞书交换JWT，proxyServerUrl:', `${proxyServerUrl}/auth/jwt/feishu-login`)
 
-      let jwtResponse;
+      let jwtResponse
       try {
         jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/feishu-login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': getUserAgent()
+            'User-Agent': getUserAgent(),
           },
           body: JSON.stringify({
             feishuAccessToken: accessToken,
@@ -1048,51 +1048,51 @@ export class AuthServer {
               platform: process.platform,
               version: process.version,
               timestamp: Date.now(),
-              userAgent: getUserAgent()
+              userAgent: getUserAgent(),
             }
-          })
+          }),
         });
       } catch (fetchError: unknown) {
-        console.error('❌ [Auth Server] 网络请求失败:', fetchError instanceof Error ? fetchError.message : String(fetchError));
-        this.sendErrorResponse(res, this.formatNetworkError(fetchError, 'Connecting to authentication server'));
+        console.error('❌ [Auth Server] 网络请求失败:', fetchError instanceof Error ? fetchError.message : String(fetchError))
+        this.sendErrorResponse(res, this.formatNetworkError(fetchError, 'Connecting to authentication server'))
         return;
       }
 
       if (!jwtResponse.ok) {
-        const errorText = await jwtResponse.text();
-        console.error('❌ [Auth Server] JWT交换失败:', jwtResponse.status, errorText);
-        this.sendErrorResponse(res, `Authentication failed (HTTP ${jwtResponse.status}). Please try again later.`);
+        const errorText = await jwtResponse.text()
+        console.error('❌ [Auth Server] JWT交换失败:', jwtResponse.status, errorText)
+        this.sendErrorResponse(res, `Authentication failed (HTTP ${jwtResponse.status}). Please try again later.`)
         return;
       }
 
-      let jwtData;
+      let jwtData
       try {
-        jwtData = await jwtResponse.json();
+        jwtData = await jwtResponse.json()
       } catch (jsonError: unknown) {
-        console.error('❌ [Auth Server] JWT响应解析失败:', jsonError instanceof Error ? jsonError.message : String(jsonError));
-        this.sendErrorResponse(res, 'Server returned an invalid response format. Please try again later.');
+        console.error('❌ [Auth Server] JWT响应解析失败:', jsonError instanceof Error ? jsonError.message : String(jsonError))
+        this.sendErrorResponse(res, 'Server returned an invalid response format. Please try again later.')
         return;
       }
 
-      console.log('📋 [Auth Server] JWT交换响应数据:', jwtData);
+      console.log('📋 [Auth Server] JWT交换响应数据:', jwtData)
 
       console.log('✅ [Auth Server] JWT交换成功33:', {
         user: jwtData.user?.name,
         email: jwtData.user?.email,
         expiresIn: jwtData.expiresIn,
-      });
+      })
 
       // 保存JWT令牌和用户信息到~/.clawmaster/目录
-      const proxyAuthManager = ProxyAuthManager.getInstance();
+      const proxyAuthManager = ProxyAuthManager.getInstance()
 
       // 保存JWT token
       if (jwtData.accessToken) {
         proxyAuthManager.setJwtTokenData({
           accessToken: jwtData.accessToken,
           refreshToken: jwtData.refreshToken,
-          expiresIn: jwtData.expiresIn || 900
+          expiresIn: jwtData.expiresIn || 900,
         });
-        console.log('✅ [Auth Server] JWT访问令牌和刷新令牌已保存到~/.clawmaster/');
+        console.log('✅ [Auth Server] JWT访问令牌和刷新令牌已保存到~/.clawmaster/')
       }
 
       // 保存用户信息（与其他登录方式保持一致的字段映射）
@@ -1103,19 +1103,19 @@ export class AuthServer {
           name: jwtData.user.name,
           enName: jwtData.user.name,
           email: jwtData.user.email,
-          avatar: jwtData.user.avatar
+          avatar: jwtData.user.avatar,
         };
-        proxyAuthManager.setUserInfo(userInfo);
-        console.log(`✅ [Auth Server] 用户信息已保存到~/.clawmaster/: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+        proxyAuthManager.setUserInfo(userInfo)
+        console.log(`✅ [Auth Server] 用户信息已保存到~/.clawmaster/: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`)
       }
 
       // 显示成功页面
-      this.sendFeishuSuccessResponse(res);
+      this.sendFeishuSuccessResponse(res)
 
     } catch (error) {
-      console.error('❌ [Auth Server] 飞书认证处理失败:', error);
-      const errorMsg = error instanceof Error ? error.message : '飞书认证处理失败';
-      this.sendErrorResponse(res, errorMsg);
+      console.error('❌ [Auth Server] 飞书认证处理失败:', error)
+      const errorMsg = error instanceof Error ? error.message : '飞书认证处理失败'
+      this.sendErrorResponse(res, errorMsg)
     }
   }
 
@@ -1125,36 +1125,36 @@ export class AuthServer {
    * 发送ClawMaster认证成功响应
    */
   private sendClawMasterSuccessResponse(res: http.ServerResponse): void {
-    const html = AuthTemplates.getClawMasterSuccessPage();
+    const html = AuthTemplates.getClawMasterSuccessPage()
 
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
     });
-    res.end(html);
+    res.end(html)
 
     // 延迟恢复终端状态，确保响应已发送
     setTimeout(() => {
-      this.restoreVSCodeTerminalState();
-    }, 100);
+      this.restoreVSCodeTerminalState()
+    }, 100)
   }
 
   /**
    * 发送飞书认证成功响应
    */
   private sendFeishuSuccessResponse(res: http.ServerResponse): void {
-    const html = AuthTemplates.getFeishuSuccessPage();
+    const html = AuthTemplates.getFeishuSuccessPage()
 
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
     });
-    res.end(html);
+    res.end(html)
 
     // 延迟恢复终端状态，确保响应已发送
     setTimeout(() => {
-      this.restoreVSCodeTerminalState();
-    }, 100);
+      this.restoreVSCodeTerminalState()
+    }, 100)
   }
 
   /**
@@ -1162,17 +1162,17 @@ export class AuthServer {
    */
   private sendErrorResponse(res: http.ServerResponse, message: string): void {
     // Add CORS headers to error responses too
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
-    const html = AuthTemplates.getErrorPage(message);
+    const html = AuthTemplates.getErrorPage(message)
 
     res.writeHead(400, {
       'Content-Type': 'text/html; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
     });
-    res.end(html);
+    res.end(html)
   }
 
   /**
@@ -1180,16 +1180,16 @@ export class AuthServer {
    */
   stop(): void {
     if (this.selectServer) {
-      this.selectServer.close();
-      console.log('🛑 认证选择服务器已停止');
+      this.selectServer.close()
+      console.log('🛑 认证选择服务器已停止')
     }
     if (this.callbackServer) {
-      this.callbackServer.close();
-      console.log('🛑 认证回调服务器已停止');
+      this.callbackServer.close()
+      console.log('🛑 认证回调服务器已停止')
     }
 
     // VSCode终端特殊处理：确保终端状态正确恢复
-    this.restoreVSCodeTerminalState();
+    this.restoreVSCodeTerminalState()
   }
 
   /**
@@ -1198,41 +1198,41 @@ export class AuthServer {
   private formatNetworkError(error: unknown, operation: string): string {
     // TypeError: Invalid URL
     if (error instanceof TypeError && error.message.includes('Invalid URL')) {
-      return `服务器配置错误，请联系管理员 (错误: ${error.message})`;
+      return `服务器配置错误，请联系管理员 (错误: ${error.message})`
     }
 
     // TypeError: Only HTTP(S) protocols are supported
     if (error instanceof TypeError && error.message.includes('Only HTTP(S)')) {
-      return '服务器地址配置错误，请检查环境变量 CLAWMASTER_SERVER_URL';
+      return '服务器地址配置错误，请检查环境变量 CLAWMASTER_SERVER_URL'
     }
 
     // FetchError with error codes
-    const errorRecord = error as { code?: string; errno?: string; message?: string };
-    const errorCode = errorRecord.code || errorRecord.errno;
+    const errorRecord = error as { code?: string; errno?: string; message?: string }
+    const errorCode = errorRecord.code || errorRecord.errno
 
     if (errorCode === 'ENOTFOUND') {
-      return `无法连接到服务器 (DNS解析失败)，请检查网络连接`;
+      return '无法连接到服务器 (DNS解析失败)，请检查网络连接';
     }
 
     if (errorCode === 'ECONNREFUSED') {
-      return '服务器暂时不可用，请稍后重试';
+      return '服务器暂时不可用，请稍后重试'
     }
 
     if (errorCode === 'ETIMEDOUT') {
-      return `${operation}超时，请检查网络连接`;
+      return `${operation}超时，请检查网络连接`
     }
 
     if (errorCode === 'ECONNRESET') {
-      return '网络连接中断，请重试';
+      return '网络连接中断，请重试'
     }
 
     // AbortError (timeout)
     if (errorRecord.code === 'AbortError' || (error instanceof Error && error.name === 'AbortError')) {
-      return `${operation}超时，请检查网络连接`;
+      return `${operation}超时，请检查网络连接`
     }
 
     // 默认错误
-    return `${operation}失败: ${errorRecord.message || '未知错误'}，请稍后重试`;
+    return `${operation}失败: ${errorRecord.message || '未知错误'}，请稍后重试`
   }
 
   /**
@@ -1242,36 +1242,36 @@ export class AuthServer {
     const isVSCodeTerminal = !!(
       process.env.VSCODE_PID ||
       process.env.TERM_PROGRAM === 'vscode'
-    );
+    )
 
     if (!isVSCodeTerminal) {
-      return; // 非VSCode环境，无需特殊处理
+      return // 非VSCode环境，无需特殊处理
     }
 
-    console.log('🔧 检测到VSCode终端环境，正在恢复终端状态...');
+    console.log('🔧 检测到VSCode终端环境，正在恢复终端状态...')
 
     try {
       // 强制刷新终端状态
       if (process.stdout.isTTY) {
         // 发送终端重置序列
-        process.stdout.write('\x1b[0m'); // 重置所有属性
-        process.stdout.write('\x1b[?25h'); // 显示光标
+        process.stdout.write('\x1b[0m') // 重置所有属性
+        process.stdout.write('\x1b[?25h') // 显示光标
 
         // 触发终端重新计算
-        const originalColumns = process.stdout.columns;
+        const originalColumns = process.stdout.columns
         if (originalColumns) {
           // 模拟resize事件来强制终端重新校准
-          process.stdout.emit('resize');
+          process.stdout.emit('resize')
         }
       }
 
       // 发送一个空的输入提示来激活输入状态
-      process.stdout.write('\r'); // 回车符
+      process.stdout.write('\r') // 回车符
 
-      console.log('✅ VSCode终端状态恢复完成');
+      console.log('✅ VSCode终端状态恢复完成')
 
     } catch (error) {
-      console.warn('⚠️ VSCode终端状态恢复时出现警告:', error);
+      console.warn('⚠️ VSCode终端状态恢复时出现警告:', error)
       // 即使恢复失败也不影响主流程
     }
   }

@@ -4,32 +4,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AudioReaderTool } from './audio-reader.js';
-import { createMockConfig } from '../utils/test-helpers.js';
-import type { Config } from '../config/config.js';
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AudioReaderTool } from './audio-reader.js'
+import { createMockConfig } from '../utils/test-helpers.js'
+import type { Config } from '../config/config.js'
 
 type AudioTestConfig = Config & {
-  getModel: () => string;
-  getCustomModelConfig: () => Record<string, unknown>;
-  getClawMasterClient: ReturnType<typeof vi.fn>;
-};
+  getModel: () => string
+  getCustomModelConfig: () => Record<string, unknown>
+  getClawMasterClient: ReturnType<typeof vi.fn>
+}
 
 describe('AudioReaderTool', () => {
-  let tempDir: string;
-  let audioPath: string;
+  let tempDir: string
+  let audioPath: string
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-audio-reader-'));
-    audioPath = path.join(tempDir, 'meeting.wav');
-    fs.writeFileSync(audioPath, Buffer.from('RIFF----WAVEfmt '));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-audio-reader-'))
+    audioPath = path.join(tempDir, 'meeting.wav')
+    fs.writeFileSync(audioPath, Buffer.from('RIFF----WAVEfmt '))
   });
 
   afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(tempDir, { recursive: true, force: true })
   });
 
   it('uses the current audio-capable model before local ASR', async () => {
@@ -42,13 +42,13 @@ describe('AudioReaderTool', () => {
           },
         },
       ],
-    });
-    const createTemporaryChat = vi.fn().mockResolvedValue({ sendMessage });
-    const localTranscriber = vi.fn().mockResolvedValue('local transcript');
+    })
+    const createTemporaryChat = vi.fn().mockResolvedValue({ sendMessage })
+    const localTranscriber = vi.fn().mockResolvedValue('local transcript')
     const config = createMockConfig({
       getTargetDir: () => tempDir,
-    }) as unknown as AudioTestConfig;
-    config.getModel = () => 'custom:openai:gpt-4o-audio-preview@abc123';
+    }) as unknown as AudioTestConfig
+    config.getModel = () => 'custom:openai:gpt-4o-audio-preview@abc123'
     config.getCustomModelConfig = () => ({
       enabled: true,
       provider: 'openai',
@@ -57,30 +57,30 @@ describe('AudioReaderTool', () => {
       modelId: 'gpt-4o-audio-preview',
       displayName: 'GPT-4o Audio',
       capabilities: ['audio'],
-    });
-    config.getClawMasterClient = vi.fn(() => ({ createTemporaryChat }));
+    })
+    config.getClawMasterClient = vi.fn(() => ({ createTemporaryChat }))
 
-    const tool = new AudioReaderTool(config, localTranscriber);
+    const tool = new AudioReaderTool(config, localTranscriber)
 
-    const result = await tool.execute({ absolute_path: audioPath }, new AbortController().signal);
+    const result = await tool.execute({ absolute_path: audioPath }, new AbortController().signal)
 
-    expect(result.llmContent).toContain('via current model: GPT-4o Audio');
-    expect(result.llmContent).toContain('transcript from current audio model');
+    expect(result.llmContent).toContain('via current model: GPT-4o Audio')
+    expect(result.llmContent).toContain('transcript from current audio model')
     expect(createTemporaryChat).toHaveBeenCalledWith(
       'image_reader',
       'custom:openai:gpt-4o-audio-preview@abc123',
       { type: 'sub', agentId: 'AudioReader' },
       { disableSystemPrompt: true },
-    );
-    expect(localTranscriber).not.toHaveBeenCalled();
+    )
+    expect(localTranscriber).not.toHaveBeenCalled()
   });
 
   it('falls back to local ASR when the current custom model is text-only', async () => {
-    const getClawMasterClient = vi.fn();
+    const getClawMasterClient = vi.fn()
     const config = createMockConfig({
       getTargetDir: () => tempDir,
-    }) as unknown as AudioTestConfig;
-    config.getModel = () => 'custom:openai:doubao-pro@abc123';
+    }) as unknown as AudioTestConfig
+    config.getModel = () => 'custom:openai:doubao-pro@abc123'
     config.getCustomModelConfig = () => ({
       enabled: true,
       provider: 'openai',
@@ -89,26 +89,26 @@ describe('AudioReaderTool', () => {
       modelId: 'doubao-pro',
       displayName: 'Doubao Pro',
       capabilities: ['text'],
-    });
-    config.getClawMasterClient = getClawMasterClient;
+    })
+    config.getClawMasterClient = getClawMasterClient
 
     const tool = new AudioReaderTool(
       config,
       vi.fn().mockResolvedValue('local meeting transcript'),
-    );
+    )
 
-    const result = await tool.execute({ absolute_path: audioPath }, new AbortController().signal);
+    const result = await tool.execute({ absolute_path: audioPath }, new AbortController().signal)
 
-    expect(result.llmContent).toContain('via local ASR');
-    expect(result.llmContent).toContain('local meeting transcript');
-    expect(getClawMasterClient).not.toHaveBeenCalled();
+    expect(result.llmContent).toContain('via local ASR')
+    expect(result.llmContent).toContain('local meeting transcript')
+    expect(getClawMasterClient).not.toHaveBeenCalled()
   });
 
   it('explains local setup options when a custom text model has no local ASR', async () => {
     const config = createMockConfig({
       getTargetDir: () => tempDir,
-    }) as unknown as AudioTestConfig;
-    config.getModel = () => 'custom:openai:doubao-pro@abc123';
+    }) as unknown as AudioTestConfig
+    config.getModel = () => 'custom:openai:doubao-pro@abc123'
     config.getCustomModelConfig = () => ({
       enabled: true,
       provider: 'openai',
@@ -117,22 +117,22 @@ describe('AudioReaderTool', () => {
       modelId: 'doubao-pro',
       displayName: 'Doubao Pro',
       capabilities: ['text'],
-    });
-    config.getClawMasterClient = vi.fn();
+    })
+    config.getClawMasterClient = vi.fn()
 
-    const tool = new AudioReaderTool(config, vi.fn().mockResolvedValue(null));
+    const tool = new AudioReaderTool(config, vi.fn().mockResolvedValue(null))
 
-    const result = await tool.execute({ absolute_path: audioPath }, new AbortController().signal);
+    const result = await tool.execute({ absolute_path: audioPath }, new AbortController().signal)
 
-    expect(result.llmContent).toContain('Audio transcription setup is needed');
-    expect(result.llmContent).toContain('Capability check');
-    expect(result.llmContent).toContain('not marked as audio-capable');
-    expect(result.llmContent).toContain('local transcription fallback');
-    expect(result.llmContent).toContain('voice/transcription diagnostics');
-    expect(result.llmContent).toContain('winget install --id Gyan.FFmpeg');
-    expect(result.llmContent).toContain('CLAWMASTER_WHISPER_MODEL');
-    expect(result.llmContent).not.toContain('pip install -U openai-whisper');
-    expect(result.llmContent).not.toContain('Gemini');
-    expect(config.getClawMasterClient).not.toHaveBeenCalled();
+    expect(result.llmContent).toContain('Audio transcription setup is needed')
+    expect(result.llmContent).toContain('Capability check')
+    expect(result.llmContent).toContain('not marked as audio-capable')
+    expect(result.llmContent).toContain('local transcription fallback')
+    expect(result.llmContent).toContain('voice/transcription diagnostics')
+    expect(result.llmContent).toContain('winget install --id Gyan.FFmpeg')
+    expect(result.llmContent).toContain('CLAWMASTER_WHISPER_MODEL')
+    expect(result.llmContent).not.toContain('pip install -U openai-whisper')
+    expect(result.llmContent).not.toContain('Gemini')
+    expect(config.getClawMasterClient).not.toHaveBeenCalled()
   });
-});
+})

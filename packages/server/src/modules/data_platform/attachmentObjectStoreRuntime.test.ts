@@ -2,13 +2,13 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest'
 
-import type { EncryptedObjectStore } from './encryptedObjectStore.js';
+import type { EncryptedObjectStore } from './encryptedObjectStore.js'
 import {
   createAttachmentObjectStoreRuntime,
   resolveAttachmentObjectStoreConfig,
-} from './attachmentObjectStoreRuntime.js';
+} from './attachmentObjectStoreRuntime.js'
 
 const encryptedStore: EncryptedObjectStore = {
   backend: 'encrypted-filesystem',
@@ -20,17 +20,17 @@ const encryptedStore: EncryptedObjectStore = {
   delete: vi.fn(),
   listKeys: vi.fn(() => []),
   sizeBytes: vi.fn(() => 0),
-};
+}
 
 describe('attachment object-store runtime', () => {
   it('uses encrypted local storage by default for development and offline deployment', () => {
     const runtime = createAttachmentObjectStoreRuntime({
       environment: {},
       encryptedStore,
-    });
+    })
 
-    expect(runtime.config).toEqual({ backend: 'encrypted-filesystem' });
-    expect(runtime.store.backend).toBe('encrypted-filesystem');
+    expect(runtime.config).toEqual({ backend: 'encrypted-filesystem' })
+    expect(runtime.store.backend).toBe('encrypted-filesystem')
   });
 
   it('fails closed when an S3 bucket has not been confirmed private', () => {
@@ -40,7 +40,7 @@ describe('attachment object-store runtime', () => {
         CLAWMASTER_S3_BUCKET: 'clawmaster-private',
         CLAWMASTER_S3_REGION: 'us-east-1',
       }),
-    ).toThrow(/private.*confirmed/i);
+    ).toThrow(/private.*confirmed/i)
   });
 
   it('refuses local attachment storage for multiple server replicas', () => {
@@ -49,13 +49,13 @@ describe('attachment object-store runtime', () => {
         CLAWMASTER_ATTACHMENT_OBJECT_STORE: 'local',
         CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '2',
       }),
-    ).toThrow(/local.*one.*replica/i);
+    ).toThrow(/local.*one.*replica/i)
   });
 
   it('configures an S3-compatible MinIO endpoint and optional SSE-KMS', () => {
     const clientFactory = vi.fn(() => ({
       send: vi.fn(async () => ({})),
-    }));
+    }))
     const runtime = createAttachmentObjectStoreRuntime({
       environment: {
         CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
@@ -69,13 +69,13 @@ describe('attachment object-store runtime', () => {
       },
       encryptedStore,
       s3ClientFactory: clientFactory,
-    });
+    })
 
     expect(clientFactory).toHaveBeenCalledWith({
       endpoint: 'https://minio.internal:9000/',
       forcePathStyle: true,
       region: 'us-east-1',
-    });
+    })
     expect(runtime.config).toEqual({
       backend: 's3',
       bucket: 'clawmaster-private',
@@ -84,8 +84,8 @@ describe('attachment object-store runtime', () => {
       kmsKeyId: 'minio-kms-key',
       presignTtlSeconds: 90,
       region: 'us-east-1',
-    });
-    expect(runtime.store.backend).toBe('s3');
+    })
+    expect(runtime.store.backend).toBe('s3')
   });
 
   it('rejects insecure object-store endpoints unless explicitly enabled', () => {
@@ -97,6 +97,6 @@ describe('attachment object-store runtime', () => {
         CLAWMASTER_S3_ENDPOINT: 'http://minio.internal:9000',
         CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
       }),
-    ).toThrow(/insecure.*explicitly enabled/i);
+    ).toThrow(/insecure.*explicitly enabled/i)
   });
-});
+})

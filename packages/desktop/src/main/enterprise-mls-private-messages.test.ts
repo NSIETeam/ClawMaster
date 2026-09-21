@@ -2,26 +2,26 @@
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   EnterpriseMlsPrivateMessageService,
   FileEnterpriseMlsMessageHistory,
   type EnterpriseMlsAttachmentObjectTransport,
   type EnterpriseMlsPrivateMessageCoordinator,
-} from './enterprise-mls-private-messages.js';
+} from './enterprise-mls-private-messages.js'
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: string[] = []
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
-    fs.rmSync(directory, { recursive: true, force: true });
+    fs.rmSync(directory, { recursive: true, force: true })
   }
-});
+})
 
 function coordinator(): EnterpriseMlsPrivateMessageCoordinator {
   return {
@@ -85,42 +85,42 @@ function coordinator(): EnterpriseMlsPrivateMessageCoordinator {
     acknowledgeReceivedApplication: vi.fn(async () => undefined),
     listActiveConversationPeers: vi.fn(async () => ['bob']),
     resetDirectSession: vi.fn(async () => undefined),
-  };
+  }
 }
 
 function history(): FileEnterpriseMlsMessageHistory {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-mls-chat-'));
-  temporaryDirectories.push(directory);
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-mls-chat-'))
+  temporaryDirectories.push(directory)
   return new FileEnterpriseMlsMessageHistory({
     directory,
     secureStorage: {
       assertAvailable: () => undefined,
-      protect: (value) => `protected:${value}`,
-      unprotect: (value) => value.slice('protected:'.length),
+      protect: value => `protected:${value}`,
+      unprotect: value => value.slice('protected:'.length),
     },
-  });
+  })
 }
 
 describe('EnterpriseMlsPrivateMessageService', () => {
   it('persists an outgoing message before sending it through MLS', async () => {
-    const transport = coordinator();
-    let sentApplication = Buffer.alloc(0);
+    const transport = coordinator()
+    let sentApplication = Buffer.alloc(0)
     const sendApplication = vi
       .mocked(transport.sendApplication)
-      .getMockImplementation()!;
+      .getMockImplementation()!
     vi.mocked(transport.sendApplication).mockImplementation(
       async (peerAccountId, plaintext) => {
-        sentApplication = Buffer.from(plaintext);
-        return sendApplication(peerAccountId, plaintext);
+        sentApplication = Buffer.from(plaintext)
+        return sendApplication(peerAccountId, plaintext)
       },
-    );
-    const store = history();
+    )
+    const store = history()
     const service = new EnterpriseMlsPrivateMessageService(transport, store, {
       randomId: () => '018f0000-0000-7000-8000-000000000001',
       now: () => new Date('2026-08-03T00:00:00.000Z'),
-    });
+    })
 
-    const message = await service.send('bob', 'secret message');
+    const message = await service.send('bob', 'secret message')
 
     expect(message).toMatchObject({
       id: 'mls-message-018f0000-0000-7000-8000-000000000001',
@@ -129,22 +129,22 @@ describe('EnterpriseMlsPrivateMessageService', () => {
       content: 'secret message',
       e2ee: true,
       e2eeProtocol: 'mls10-openmls-0.8',
-    });
-    expect(transport.sendApplication).toHaveBeenCalledOnce();
-    expect(transport.refreshEpoch).toHaveBeenCalledWith('bob');
-    const plaintext = sentApplication.toString('utf8');
+    })
+    expect(transport.sendApplication).toHaveBeenCalledOnce()
+    expect(transport.refreshEpoch).toHaveBeenCalledWith('bob')
+    const plaintext = sentApplication.toString('utf8')
     expect(JSON.parse(plaintext)).toMatchObject({
       format: 1,
       id: message.id,
       senderAccountId: 'alice',
       recipientAccountId: 'bob',
       content: 'secret message',
-    });
-    expect(await service.list('bob')).toEqual([message]);
+    })
+    expect(await service.list('bob')).toEqual([message])
   });
 
   it('stores a received plaintext durably before acknowledging the native inbox', async () => {
-    const transport = coordinator();
+    const transport = coordinator()
     const received = {
       format: 1,
       id: 'mls-message-018f0000-0000-7000-8000-000000000002',
@@ -154,7 +154,7 @@ describe('EnterpriseMlsPrivateMessageService', () => {
       contentType: 'message',
       inReplyToMessageId: null,
       createdAt: '2026-08-03T00:00:02.000Z',
-    };
+    }
     vi.mocked(transport.poll).mockResolvedValue({
       previousSequence: 0,
       nextSequence: 1,
@@ -169,9 +169,9 @@ describe('EnterpriseMlsPrivateMessageService', () => {
           createdAt: '2026-08-03T00:00:03.000Z',
         },
       ],
-    });
-    const store = history();
-    const service = new EnterpriseMlsPrivateMessageService(transport, store);
+    })
+    const store = history()
+    const service = new EnterpriseMlsPrivateMessageService(transport, store)
 
     expect(await service.list('bob')).toEqual([
       expect.objectContaining({
@@ -179,15 +179,15 @@ describe('EnterpriseMlsPrivateMessageService', () => {
         senderAccountId: 'bob',
         content: 'received secret',
       }),
-    ]);
+    ])
     expect(transport.acknowledgeReceivedApplication).toHaveBeenCalledWith(
       'bob',
       'transport-event-b',
-    );
+    )
   });
 
   it('does not acknowledge plaintext when durable history persistence fails', async () => {
-    const transport = coordinator();
+    const transport = coordinator()
     vi.mocked(transport.poll).mockResolvedValue({
       previousSequence: 0,
       nextSequence: 1,
@@ -213,55 +213,55 @@ describe('EnterpriseMlsPrivateMessageService', () => {
           createdAt: '2026-08-03T00:00:03.000Z',
         },
       ],
-    });
+    })
     const service = new EnterpriseMlsPrivateMessageService(transport, {
       list: vi.fn(async () => []),
       put: vi.fn(async () => {
-        throw new Error('disk full');
+        throw new Error('disk full')
       }),
       pendingOutgoing: vi.fn(async () => []),
       markOutgoingDelivered: vi.fn(async () => undefined),
       markRead: vi.fn(async () => undefined),
       unread: vi.fn(async () => []),
-    });
+    })
 
-    await expect(service.list('bob')).rejects.toThrow('disk full');
-    expect(transport.acknowledgeReceivedApplication).not.toHaveBeenCalled();
+    await expect(service.list('bob')).rejects.toThrow('disk full')
+    expect(transport.acknowledgeReceivedApplication).not.toHaveBeenCalled()
   });
 
   it('encrypts and uploads an attachment before sending its manifest inside MLS', async () => {
-    const transport = coordinator();
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-mls-file-'));
-    temporaryDirectories.push(directory);
-    const sourcePath = path.join(directory, 'secret.txt');
-    fs.writeFileSync(sourcePath, 'secret');
-    let uploadedCiphertext = Buffer.alloc(0);
+    const transport = coordinator()
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-mls-file-'))
+    temporaryDirectories.push(directory)
+    const sourcePath = path.join(directory, 'secret.txt')
+    fs.writeFileSync(sourcePath, 'secret')
+    let uploadedCiphertext = Buffer.alloc(0)
     const upload = vi.fn<EnterpriseMlsAttachmentObjectTransport['upload']>(
       async ({ manifest, ciphertextPath }) => {
         expect(fs.statSync(ciphertextPath).size).toBe(
           manifest.ciphertextBytes,
-        );
+        )
         expect(fs.readFileSync(ciphertextPath).toString('utf8')).not.toContain(
           'secret',
-        );
-        uploadedCiphertext = fs.readFileSync(ciphertextPath);
-        return manifest.object;
+        )
+        uploadedCiphertext = fs.readFileSync(ciphertextPath)
+        return manifest.object
       },
-    );
+    )
     const download = vi.fn(async ({ manifest, ciphertextPath }) => {
-      fs.writeFileSync(ciphertextPath, uploadedCiphertext);
-      return manifest.object;
+      fs.writeFileSync(ciphertextPath, uploadedCiphertext)
+      return manifest.object
     });
-    let sentPlaintext = Buffer.alloc(0);
+    let sentPlaintext = Buffer.alloc(0)
     const defaultSend = vi
       .mocked(transport.sendApplication)
-      .getMockImplementation()!;
+      .getMockImplementation()!
     vi.mocked(transport.sendApplication).mockImplementation(
       async (peerAccountId, plaintext) => {
-        sentPlaintext = Buffer.from(plaintext);
-        return defaultSend(peerAccountId, plaintext);
+        sentPlaintext = Buffer.from(plaintext)
+        return defaultSend(peerAccountId, plaintext)
       },
-    );
+    )
     const service = new EnterpriseMlsPrivateMessageService(
       transport,
       history(),
@@ -273,7 +273,7 @@ describe('EnterpriseMlsPrivateMessageService', () => {
         attachmentDirectory: path.join(directory, 'encrypted-outbox'),
         attachmentTransport: { upload, download },
       },
-    );
+    )
 
     const message = await service.send('bob', 'file', [
       {
@@ -282,7 +282,7 @@ describe('EnterpriseMlsPrivateMessageService', () => {
         size: 6,
         sourcePath,
       },
-    ]);
+    ])
 
     expect(message.attachments).toEqual([
       {
@@ -291,12 +291,12 @@ describe('EnterpriseMlsPrivateMessageService', () => {
         mimeType: 'text/plain',
         size: 6,
       },
-    ]);
-    expect(upload).toHaveBeenCalledOnce();
+    ])
+    expect(upload).toHaveBeenCalledOnce()
     const plaintext = JSON.parse(
       sentPlaintext.toString('utf8'),
-    ) as { format: number; attachments: Array<Record<string, unknown>> };
-    expect(plaintext.format).toBe(2);
+    ) as { format: number; attachments: Array<Record<string, unknown>> }
+    expect(plaintext.format).toBe(2)
     expect(plaintext.attachments[0]).toMatchObject({
       id: message.attachments![0]!.id,
       fileName: 'secret.txt',
@@ -304,36 +304,36 @@ describe('EnterpriseMlsPrivateMessageService', () => {
       plaintextBytes: 6,
       dek: expect.any(String),
       object: expect.objectContaining({ id: message.attachments![0]!.id }),
-    });
+    })
     expect(JSON.stringify(vi.mocked(upload).mock.calls[0]![0])).not.toContain(
       sourcePath,
-    );
+    )
     await expect(service.readAttachment(message.attachments![0]!.id)).resolves.toEqual({
       ...message.attachments![0],
       data: Buffer.from('secret').toString('base64'),
-    });
-    expect(download).toHaveBeenCalledOnce();
+    })
+    expect(download).toHaveBeenCalledOnce()
   });
 
   it('exposes an explicit peer-bound MLS security-state reset', async () => {
-    const transport = coordinator();
+    const transport = coordinator()
     const service = new EnterpriseMlsPrivateMessageService(
       transport,
       history(),
-    );
+    )
 
-    await expect(service.reset('bob')).resolves.toBeUndefined();
-    expect(transport.resetDirectSession).toHaveBeenCalledWith('bob');
+    await expect(service.reset('bob')).resolves.toBeUndefined()
+    expect(transport.resetDirectSession).toHaveBeenCalledWith('bob')
     await expect(service.reset('alice')).rejects.toThrow(
       'peer account is invalid',
-    );
+    )
   });
-});
+})
 
 describe('FileEnterpriseMlsMessageHistory', () => {
   it('never writes message plaintext or the unwrapped history key to disk', async () => {
-    const store = history();
-    const scope = coordinator().activeScope();
+    const store = history()
+    const scope = coordinator().activeScope()
     await store.put(scope, 'bob', {
       id: 'mls-message-018f0000-0000-7000-8000-000000000004',
       senderAccountId: 'alice',
@@ -346,20 +346,20 @@ describe('FileEnterpriseMlsMessageHistory', () => {
       contentType: 'message',
       inReplyToMessageId: null,
       deliveryState: 'delivered',
-    });
+    })
 
-    const files = fs.readdirSync(temporaryDirectories.at(-1)!);
-    expect(files).toHaveLength(1);
+    const files = fs.readdirSync(temporaryDirectories.at(-1)!)
+    expect(files).toHaveLength(1)
     const serialized = fs.readFileSync(
       path.join(temporaryDirectories.at(-1)!, files[0]!),
       'utf8',
-    );
-    expect(serialized).not.toContain('plaintext must not appear');
-    expect(serialized).not.toMatch(/"content"/);
+    )
+    expect(serialized).not.toContain('plaintext must not appear')
+    expect(serialized).not.toMatch(/"content"/)
     expect(JSON.parse(serialized)).toMatchObject({
       format: 1,
       keyProtection: 'os-secure-storage',
       cipher: 'aes-256-gcm',
-    });
+    })
   });
-});
+})

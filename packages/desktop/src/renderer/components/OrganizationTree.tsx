@@ -2,8 +2,8 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ProductWorkspaceSnapshot, ScheduleItemInfo } from 'clawmaster-server';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ProductWorkspaceSnapshot, ScheduleItemInfo } from 'clawmaster-server'
 import type {
   EnterpriseAccount,
   EnterpriseDirectMessage,
@@ -11,81 +11,81 @@ import type {
   EnterpriseDirectMessageAttachmentDownload,
   EnterpriseDirectMessageAttachmentUpload,
   EnterpriseOrganizationView,
-} from '../../preload/index.js';
-import { buildAtoaRequest, displayDirectMessageContent } from '../atoaProtocol.js';
-import { isAuthenticatedEnterpriseAccount } from '../internal-test-access.js';
-import { askLocalPeerClawMaster } from '../peerClawMasterRunner.js';
-import { IconChevronDown, IconPaperclip, IconPlus } from './icons.js';
-import { AtoaConsultDialog } from './AtoaConsultDialog.js';
-import type { EnterpriseUnreadCounts } from '../enterpriseUnreadNotifications.js';
-import { startNonOverlappingPoll } from '../lib/nonOverlappingPoll.js';
+} from '../../preload/index.js'
+import { buildAtoaRequest, displayDirectMessageContent } from '../atoaProtocol.js'
+import { isAuthenticatedEnterpriseAccount } from '../internal-test-access.js'
+import { askLocalPeerClawMaster } from '../peerClawMasterRunner.js'
+import { IconChevronDown, IconPaperclip, IconPlus } from './icons.js'
+import { AtoaConsultDialog } from './AtoaConsultDialog.js'
+import type { EnterpriseUnreadCounts } from '../enterpriseUnreadNotifications.js'
+import { startNonOverlappingPoll } from '../lib/nonOverlappingPoll.js'
 
-const ORGANIZATION_REFRESH_MS = 10_000;
-const DIRECT_CHAT_CASCADE_PX = 28;
+const ORGANIZATION_REFRESH_MS = 10_000
+const DIRECT_CHAT_CASCADE_PX = 28
 
 export interface EnterpriseDirectChatOpenRequest {
-  peerAccountId: string;
-  requestId: number;
+  peerAccountId: string
+  requestId: number
 }
 
-type EnterpriseOrganizationMember = EnterpriseOrganizationView['members'][number];
+type EnterpriseOrganizationMember = EnterpriseOrganizationView['members'][number]
 
 export interface OrganizationMemberPositionGroup {
-  key: string;
-  title: string;
-  members: EnterpriseOrganizationMember[];
+  key: string
+  title: string
+  members: EnterpriseOrganizationMember[]
 }
 
 export interface OrganizationMemberDepartmentGroup {
-  key: string;
-  name: string;
-  memberCount: number;
-  positions: OrganizationMemberPositionGroup[];
+  key: string
+  name: string
+  memberCount: number
+  positions: OrganizationMemberPositionGroup[]
 }
 
 function enterpriseMemberPositionTitle(member: EnterpriseOrganizationMember): string {
   return member.positionTitle?.trim()
-    || (member.isAdmin ? '管理员' : member.role?.trim() || '成员');
+    || (member.isAdmin ? '管理员' : member.role?.trim() || '成员')
 }
 
 function groupEnterpriseMembersForDisplay(
   members: EnterpriseOrganizationView['members'],
   structure: NonNullable<EnterpriseOrganizationView['structure']> = [],
 ): OrganizationMemberDepartmentGroup[] {
-  const configuredDepartments = new Map<string, number>();
-  const configuredPositions = new Map<string, number>();
+  const configuredDepartments = new Map<string, number>()
+  const configuredPositions = new Map<string, number>()
   structure.forEach((department, departmentIndex) => {
-    configuredDepartments.set(department.id, departmentIndex);
-    configuredDepartments.set(department.name.trim(), departmentIndex);
+    configuredDepartments.set(department.id, departmentIndex)
+    configuredDepartments.set(department.name.trim(), departmentIndex)
     department.positions.forEach((position, positionIndex) => {
       configuredPositions.set(
         `${department.name.trim()}\u0000${position.title.trim()}`,
         positionIndex,
-      );
+      )
     });
-  });
+  })
 
   const departments = new Map<string, {
-    key: string;
-    name: string;
-    order: number;
+    key: string
+    name: string
+    order: number
     positions: Map<string, {
-      key: string;
-      title: string;
-      order: number;
-      members: EnterpriseOrganizationMember[];
-    }>;
-  }>();
+      key: string
+      title: string
+      order: number
+      members: EnterpriseOrganizationMember[]
+    }>
+  }>()
 
   for (const member of members) {
-    if (member.status !== 'active') continue;
+    if (member.status !== 'active') continue
     const configuredDepartment = member.departmentId
-      ? structure.find((department) => department.id === member.departmentId)
-      : undefined;
+      ? structure.find(department => department.id === member.departmentId)
+      : undefined
     const departmentName = member.department?.trim()
       || configuredDepartment?.name.trim()
-      || '未分配部门';
-    let department = departments.get(departmentName);
+      || '未分配部门'
+    let department = departments.get(departmentName)
     if (!department) {
       department = {
         key: member.departmentId || `department:${departmentName}`,
@@ -94,11 +94,11 @@ function groupEnterpriseMembersForDisplay(
           ?? configuredDepartments.get(departmentName)
           ?? Number.MAX_SAFE_INTEGER,
         positions: new Map(),
-      };
-      departments.set(departmentName, department);
+      }
+      departments.set(departmentName, department)
     }
-    const title = enterpriseMemberPositionTitle(member);
-    let position = department.positions.get(title);
+    const title = enterpriseMemberPositionTitle(member)
+    let position = department.positions.get(title)
     if (!position) {
       position = {
         key: member.positionId || `position:${departmentName}:${title}`,
@@ -106,10 +106,10 @@ function groupEnterpriseMembersForDisplay(
         order: configuredPositions.get(`${departmentName}\u0000${title}`)
           ?? Number.MAX_SAFE_INTEGER,
         members: [],
-      };
-      department.positions.set(title, position);
+      }
+      department.positions.set(title, position)
     }
-    position.members.push(member);
+    position.members.push(member)
   }
 
   return [...departments.values()]
@@ -117,7 +117,7 @@ function groupEnterpriseMembersForDisplay(
       left.order - right.order
       || left.name.localeCompare(right.name, 'zh-CN')
     ))
-    .map((department) => ({
+    .map(department => ({
       key: department.key,
       name: department.name,
       memberCount: [...department.positions.values()].reduce(
@@ -129,12 +129,12 @@ function groupEnterpriseMembersForDisplay(
           left.order - right.order
           || left.title.localeCompare(right.title, 'zh-CN')
         ))
-        .map((position) => ({
+        .map(position => ({
           key: position.key,
           title: position.title,
           members: [...position.members].sort(compareEnterpriseMembers),
         })),
-    }));
+    }))
 }
 
 export function OrganizationTree({
@@ -147,132 +147,132 @@ export function OrganizationTree({
   directChatOpenRequest,
   onMessageRead,
 }: {
-  workspace: ProductWorkspaceSnapshot | null;
-  schedules?: readonly ScheduleItemInfo[];
-  enterpriseAccount?: EnterpriseAccount;
-  openRequest?: number;
-  refreshRevision?: number;
-  unreadCounts?: EnterpriseUnreadCounts;
-  directChatOpenRequest?: EnterpriseDirectChatOpenRequest;
-  onMessageRead?: (peerAccountId: string) => void;
+  workspace: ProductWorkspaceSnapshot | null
+  schedules?: readonly ScheduleItemInfo[]
+  enterpriseAccount?: EnterpriseAccount
+  openRequest?: number
+  refreshRevision?: number
+  unreadCounts?: EnterpriseUnreadCounts
+  directChatOpenRequest?: EnterpriseDirectChatOpenRequest
+  onMessageRead?: (peerAccountId: string) => void
 }): React.JSX.Element | null {
-  const [open, setOpen] = useState(true);
-  const [orgView, setOrgView] = useState<EnterpriseOrganizationView | null>(null);
-  const [orgLoading, setOrgLoading] = useState(false);
-  const [orgError, setOrgError] = useState<string | null>(null);
-  const [orgSyncedAt, setOrgSyncedAt] = useState<Date | null>(null);
-  const [manualRefreshRequest, setManualRefreshRequest] = useState(0);
-  const [chatMembers, setChatMembers] = useState<EnterpriseOrganizationView['members']>([]);
-  const handledDirectChatOpenRequest = useRef(0);
-  const hasLocalEnterpriseWorkspace = workspace?.context.edition === 'enterprise';
-  const hasAuthenticatedOrganization = isAuthenticatedEnterpriseAccount(enterpriseAccount);
+  const [open, setOpen] = useState(true)
+  const [orgView, setOrgView] = useState<EnterpriseOrganizationView | null>(null)
+  const [orgLoading, setOrgLoading] = useState(false)
+  const [orgError, setOrgError] = useState<string | null>(null)
+  const [orgSyncedAt, setOrgSyncedAt] = useState<Date | null>(null)
+  const [manualRefreshRequest, setManualRefreshRequest] = useState(0)
+  const [chatMembers, setChatMembers] = useState<EnterpriseOrganizationView['members']>([])
+  const handledDirectChatOpenRequest = useRef(0)
+  const hasLocalEnterpriseWorkspace = workspace?.context.edition === 'enterprise'
+  const hasAuthenticatedOrganization = isAuthenticatedEnterpriseAccount(enterpriseAccount)
   const organization = hasLocalEnterpriseWorkspace && !hasAuthenticatedOrganization
     ? workspace?.managerWorkspace?.organization
-    : undefined;
+    : undefined
 
   // ── 聚合未读计数 ──
   const totalOrgUnread = useMemo(() => {
-    let total = 0;
+    let total = 0
     for (const [key, count] of Object.entries(unreadCounts)) {
-      if (key.startsWith('enterprise:message:') && count > 0) total += count;
+      if (key.startsWith('enterprise:message:') && count > 0) total += count
     }
-    return total;
-  }, [unreadCounts]);
+    return total
+  }, [unreadCounts])
 
   // 追踪未读变化用于触发父级闪烁（不清除已存在的高亮）
-  const prevTotalUnread = useRef(totalOrgUnread);
-  const [orgToggleAttention, setOrgToggleAttention] = useState(false);
+  const prevTotalUnread = useRef(totalOrgUnread)
+  const [orgToggleAttention, setOrgToggleAttention] = useState(false)
   useEffect(() => {
     if (totalOrgUnread > prevTotalUnread.current && !open) {
-      setOrgToggleAttention(true);
-      const timer = window.setTimeout(() => setOrgToggleAttention(false), 3000);
-      prevTotalUnread.current = totalOrgUnread;
-      return () => window.clearTimeout(timer);
+      setOrgToggleAttention(true)
+      const timer = window.setTimeout(() => setOrgToggleAttention(false), 3000)
+      prevTotalUnread.current = totalOrgUnread
+      return () => window.clearTimeout(timer)
     }
-    prevTotalUnread.current = totalOrgUnread;
-  }, [totalOrgUnread, open]);
+    prevTotalUnread.current = totalOrgUnread
+  }, [totalOrgUnread, open])
   const currentOrganizationDepartment = orgView?.members.find(
-    (member) => member.id === enterpriseAccount?.id && member.status === 'active',
-  )?.department || enterpriseAccount?.department || '未分配部门';
+    member => member.id === enterpriseAccount?.id && member.status === 'active',
+  )?.department || enterpriseAccount?.department || '未分配部门'
   const chatMemberByWorkspaceKey = useMemo(() => {
-    const result = new Map<string, EnterpriseOrganizationView['members'][number]>();
+    const result = new Map<string, EnterpriseOrganizationView['members'][number]>()
     for (const member of orgView?.members ?? []) {
-      if (member.status !== 'active') continue;
-      if (member.id === enterpriseAccount?.id) continue;
-      result.set(normalizeChatKey(member.id), member);
-      result.set(normalizeChatKey(member.username), member);
-      result.set(normalizeChatKey(member.name), member);
+      if (member.status !== 'active') continue
+      if (member.id === enterpriseAccount?.id) continue
+      result.set(normalizeChatKey(member.id), member)
+      result.set(normalizeChatKey(member.username), member)
+      result.set(normalizeChatKey(member.name), member)
     }
-    return result;
-  }, [enterpriseAccount?.id, orgView?.members]);
+    return result
+  }, [enterpriseAccount?.id, orgView?.members])
   const openDirectChat = useCallback((member: EnterpriseOrganizationView['members'][number]): void => {
-    onMessageRead?.(member.id);
-    setChatMembers((current) => [
-      ...current.filter((candidate) => candidate.id !== member.id),
+    onMessageRead?.(member.id)
+    setChatMembers(current => [
+      ...current.filter(candidate => candidate.id !== member.id),
       member,
-    ]);
-  }, [onMessageRead]);
+    ])
+  }, [onMessageRead])
   const activateDirectChat = useCallback((memberId: string): void => {
     setChatMembers((current) => {
-      const activeIndex = current.findIndex((candidate) => candidate.id === memberId);
-      if (activeIndex < 0 || activeIndex === current.length - 1) return current;
-      const activeMember = current[activeIndex]!;
+      const activeIndex = current.findIndex(candidate => candidate.id === memberId)
+      if (activeIndex < 0 || activeIndex === current.length - 1) return current
+      const activeMember = current[activeIndex]!
       return [
         ...current.slice(0, activeIndex),
         ...current.slice(activeIndex + 1),
         activeMember,
-      ];
+      ]
     });
-  }, []);
+  }, [])
   const positionById = useMemo(
-    () => new Map(organization?.positions.map((item) => [item.id, item]) ?? []),
+    () => new Map(organization?.positions.map(item => [item.id, item]) ?? []),
     [organization?.positions],
-  );
+  )
   const childrenByParent = useMemo(() => {
-    const result = new Map<string, string[]>();
+    const result = new Map<string, string[]>()
     for (const item of organization?.companies ?? []) {
-      if (!item.parentCompanyId) continue;
-      result.set(item.parentCompanyId, [...(result.get(item.parentCompanyId) ?? []), item.id]);
+      if (!item.parentCompanyId) continue
+      result.set(item.parentCompanyId, [...(result.get(item.parentCompanyId) ?? []), item.id])
     }
-    return result;
-  }, [organization?.companies]);
+    return result
+  }, [organization?.companies])
 
   useEffect(() => {
-    if (openRequest > 0) setOpen(true);
-  }, [openRequest]);
+    if (openRequest > 0) setOpen(true)
+  }, [openRequest])
 
   useEffect(() => {
-    if (!hasAuthenticatedOrganization) return;
+    if (!hasAuthenticatedOrganization) return
 
-    let cancelled = false;
+    let cancelled = false
     const loadOrganization = async (showLoading: boolean): Promise<void> => {
       if (showLoading) {
-        setOrgLoading(true);
-        setOrgView(null);
+        setOrgLoading(true)
+        setOrgView(null)
       }
       try {
-        const view = await window.clawmaster.enterpriseOrganizationView();
-        if (cancelled) return;
-        setOrgView(view);
-        setOrgSyncedAt(new Date());
-        setOrgError(null);
+        const view = await window.clawmaster.enterpriseOrganizationView()
+        if (cancelled) return
+        setOrgView(view)
+        setOrgSyncedAt(new Date())
+        setOrgError(null)
       } catch (error: unknown) {
-        if (cancelled) return;
-        const message = error instanceof Error ? error.message : String(error);
-        setOrgError(`组织信息加载失败：${message}`);
+        if (cancelled) return
+        const message = error instanceof Error ? error.message : String(error)
+        setOrgError(`组织信息加载失败：${message}`)
       } finally {
-        if (!cancelled) setOrgLoading(false);
+        if (!cancelled) setOrgLoading(false)
       }
-    };
+    }
 
-    void loadOrganization(true);
+    void loadOrganization(true)
     const stopPolling = startNonOverlappingPoll(
       () => loadOrganization(false), ORGANIZATION_REFRESH_MS, { runImmediately: false },
-    );
+    )
 
     return () => {
-      cancelled = true;
-      stopPolling();
+      cancelled = true
+      stopPolling()
     };
   }, [
     hasAuthenticatedOrganization,
@@ -280,23 +280,23 @@ export function OrganizationTree({
     enterpriseAccount?.updatedAt,
     refreshRevision,
     manualRefreshRequest,
-  ]);
+  ])
 
   useEffect(() => {
-    if (!directChatOpenRequest) return;
-    if (handledDirectChatOpenRequest.current === directChatOpenRequest.requestId) return;
-    const member = orgView?.members.find((candidate) => (
+    if (!directChatOpenRequest) return
+    if (handledDirectChatOpenRequest.current === directChatOpenRequest.requestId) return
+    const member = orgView?.members.find(candidate => (
       candidate.id === directChatOpenRequest.peerAccountId
       && candidate.id !== enterpriseAccount?.id
       && candidate.status === 'active'
-    ));
-    if (!member) return;
-    handledDirectChatOpenRequest.current = directChatOpenRequest.requestId;
-    setOpen(true);
-    openDirectChat(member);
-  }, [directChatOpenRequest, enterpriseAccount?.id, openDirectChat, orgView?.members]);
+    ))
+    if (!member) return
+    handledDirectChatOpenRequest.current = directChatOpenRequest.requestId
+    setOpen(true)
+    openDirectChat(member)
+  }, [directChatOpenRequest, enterpriseAccount?.id, openDirectChat, orgView?.members])
 
-  if (!hasLocalEnterpriseWorkspace && !hasAuthenticatedOrganization) return null;
+  if (!hasLocalEnterpriseWorkspace && !hasAuthenticatedOrganization) return null
 
   return (
     <section className="claw-orgtree" aria-label="企业组织架构">
@@ -306,7 +306,7 @@ export function OrganizationTree({
           'claw-orgtree__toggle'
           + (orgToggleAttention ? ' is-attention' : '')
         }
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen(value => !value)}
         aria-expanded={open}
       >
         <span className="claw-orgtree__company">企业组织</span>
@@ -341,21 +341,21 @@ export function OrganizationTree({
                 members={orgView.members}
                 syncedAt={orgSyncedAt}
                 refreshing={orgLoading}
-                onRefresh={() => setManualRefreshRequest((value) => value + 1)}
+                onRefresh={() => setManualRefreshRequest(value => value + 1)}
               />
               {groupEnterpriseMembersForDisplay(
                 orgView.members,
                 orgView.structure,
               ).map((department) => {
-                  // 聚合该部门下所有成员的未读总数
-                  const deptUnread = department.positions.reduce(
-                    (sum, pos) => sum + pos.members.reduce(
-                      (s, m) => s + (unreadCounts[`enterprise:message:${m.id}`] ?? 0),
-                      0,
-                    ),
+                // 聚合该部门下所有成员的未读总数
+                const deptUnread = department.positions.reduce(
+                  (sum, pos) => sum + pos.members.reduce(
+                    (s, m) => s + (unreadCounts[`enterprise:message:${m.id}`] ?? 0),
                     0,
-                  );
-                  return (
+                  ),
+                  0,
+                );
+                return (
                   <DepartmentSection
                     key={department.key}
                     name={department.name}
@@ -363,13 +363,13 @@ export function OrganizationTree({
                     unreadCount={deptUnread}
                     defaultExpanded={department.name === currentOrganizationDepartment}
                   >
-                    {department.positions.map((position) => (
+                    {department.positions.map(position => (
                       <OrganizationPositionGroup
                         key={position.key}
                         title={position.title}
                         memberCount={position.members.length}
                       >
-                        {position.members.map((member) => (
+                        {position.members.map(member => (
                           member.id === enterpriseAccount?.id ? (
                             <div
                               key={member.id}
@@ -386,7 +386,7 @@ export function OrganizationTree({
                               className="claw-orgtree__member claw-orgtree__member-button"
                               aria-label={`与${member.name}对话，${position.title}`}
                               onClick={() => {
-                                openDirectChat(member);
+                                openDirectChat(member)
                               }}
                             >
                               <MemberIdentity member={member} />
@@ -401,8 +401,8 @@ export function OrganizationTree({
                       </OrganizationPositionGroup>
                     ))}
                   </DepartmentSection>
-                  );
-                })}
+                );
+              })}
             </div>
           ) : orgLoading ? (
             <div className="claw-orgtree__vacant">正在加载组织信息…</div>
@@ -425,22 +425,22 @@ export function OrganizationTree({
           stackOrder={50 + index}
           onActivate={() => activateDirectChat(member.id)}
           onMessageRead={onMessageRead}
-          onClose={() => setChatMembers((current) => (
-            current.filter((candidate) => candidate.id !== member.id)
+          onClose={() => setChatMembers(current => (
+            current.filter(candidate => candidate.id !== member.id)
           ))}
         />
       ))}
     </section>
-  );
+  )
 }
 
 function directChatInitialPosition(index: number): { left: number; top: number } {
-  const cascade = (index % 7) * DIRECT_CHAT_CASCADE_PX;
-  const compact = typeof window !== 'undefined' && window.innerWidth <= 760;
+  const cascade = (index % 7) * DIRECT_CHAT_CASCADE_PX
+  const compact = typeof window !== 'undefined' && window.innerWidth <= 760
   return {
     left: (compact ? 12 : 232) + cascade,
     top: (compact ? 12 : 48) + cascade,
-  };
+  }
 }
 
 function OrganizationPresenceSummary({
@@ -449,16 +449,16 @@ function OrganizationPresenceSummary({
   refreshing,
   onRefresh,
 }: {
-  members: EnterpriseOrganizationView['members'];
-  syncedAt: Date | null;
-  refreshing: boolean;
-  onRefresh: () => void;
+  members: EnterpriseOrganizationView['members']
+  syncedAt: Date | null
+  refreshing: boolean
+  onRefresh: () => void
 }): React.JSX.Element {
-  const activeMembers = members.filter((member) => member.status === 'active');
-  const onlineCount = activeMembers.filter((member) => member.clawmasterOnline).length;
-  const knownPresenceCount = activeMembers.filter((member) =>
+  const activeMembers = members.filter(member => member.status === 'active')
+  const onlineCount = activeMembers.filter(member => member.clawmasterOnline).length
+  const knownPresenceCount = activeMembers.filter(member =>
     member.clawmasterOnline !== undefined || member.clawmasterLastSeenAt !== undefined,
-  ).length;
+  ).length
   return (
     <div className="claw-orgtree__presence-summary" aria-label="ClawMaster 在线状态">
       <span>
@@ -481,7 +481,7 @@ function OrganizationPresenceSummary({
         {refreshing ? '同步中' : '刷新'}
       </button>
     </div>
-  );
+  )
 }
 
 function compareEnterpriseMembers(
@@ -489,79 +489,79 @@ function compareEnterpriseMembers(
   b: EnterpriseOrganizationView['members'][number],
 ): number {
   // 管理员/管理层在各层级置顶
-  const adminRank = Number(Boolean(b.isAdmin)) - Number(Boolean(a.isAdmin));
-  if (adminRank !== 0) return adminRank;
+  const adminRank = Number(Boolean(b.isAdmin)) - Number(Boolean(a.isAdmin))
+  if (adminRank !== 0) return adminRank
   // 在线成员优先
-  const onlineRank = Number(Boolean(b.clawmasterOnline)) - Number(Boolean(a.clawmasterOnline));
-  if (onlineRank !== 0) return onlineRank;
+  const onlineRank = Number(Boolean(b.clawmasterOnline)) - Number(Boolean(a.clawmasterOnline))
+  if (onlineRank !== 0) return onlineRank
   // 最近活跃成员优先
-  const unreadRank = Number(Boolean(b.clawmasterLastSeenAt)) - Number(Boolean(a.clawmasterLastSeenAt));
-  if (unreadRank !== 0) return unreadRank;
-  return a.name.localeCompare(b.name, 'zh-CN');
+  const unreadRank = Number(Boolean(b.clawmasterLastSeenAt)) - Number(Boolean(a.clawmasterLastSeenAt))
+  if (unreadRank !== 0) return unreadRank
+  return a.name.localeCompare(b.name, 'zh-CN')
 }
 
 function formatSyncedAt(date: Date): string {
   return `同步 ${date.toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
-  })}`;
+  })}`
 }
 
 export function parseDirectMessageTimestamp(value: string): Date {
-  const trimmed = value.trim();
+  const trimmed = value.trim()
   const normalized = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(
     trimmed,
   )
     ? `${trimmed.replace(' ', 'T')}Z`
-    : trimmed;
-  return new Date(normalized);
+    : trimmed
+  return new Date(normalized)
 }
 
 function formatDirectMessageTime(value: string): string {
-  const date = parseDirectMessageTimestamp(value);
-  if (Number.isNaN(date.getTime())) return '';
+  const date = parseDirectMessageTimestamp(value)
+  if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleString('zh-CN', {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  });
+  })
 }
 
 function memberInitials(name: string): string {
-  const clean = name.trim();
-  if (!clean) return 'OT';
-  const chars = Array.from(clean);
-  return chars.slice(0, 2).join('').toUpperCase();
+  const clean = name.trim()
+  if (!clean) return 'OT'
+  const chars = Array.from(clean)
+  return chars.slice(0, 2).join('').toUpperCase()
 }
 
-const DIRECT_MESSAGE_MAX_ATTACHMENTS = 6;
-const DIRECT_MESSAGE_MAX_FILE_BYTES = 10 * 1024 * 1024;
-const DIRECT_MESSAGE_MAX_TOTAL_BYTES = 20 * 1024 * 1024;
+const DIRECT_MESSAGE_MAX_ATTACHMENTS = 6
+const DIRECT_MESSAGE_MAX_FILE_BYTES = 10 * 1024 * 1024
+const DIRECT_MESSAGE_MAX_TOTAL_BYTES = 20 * 1024 * 1024
 const DIRECT_MESSAGE_FILE_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp',
   'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
   'txt', 'log', 'csv', 'json', 'xml', 'md', 'zip',
-]);
+])
 
 function directAttachmentExtension(fileName: string): string {
-  const index = fileName.lastIndexOf('.');
-  return index >= 0 ? fileName.slice(index + 1).trim().toLowerCase() : '';
+  const index = fileName.lastIndexOf('.')
+  return index >= 0 ? fileName.slice(index + 1).trim().toLowerCase() : ''
 }
 
 function directAttachmentTypeLabel(fileName: string, mimeType: string): string {
-  if (mimeType.startsWith('image/')) return '图片';
-  const extension = directAttachmentExtension(fileName);
-  if (extension === 'pdf') return 'PDF';
-  if (extension === 'doc' || extension === 'docx') return 'Word';
-  if (extension === 'xls' || extension === 'xlsx' || extension === 'csv') return 'Excel';
-  if (extension === 'ppt' || extension === 'pptx') return 'PPT';
-  return extension ? extension.toUpperCase() : '文件';
+  if (mimeType.startsWith('image/')) return '图片'
+  const extension = directAttachmentExtension(fileName)
+  if (extension === 'pdf') return 'PDF'
+  if (extension === 'doc' || extension === 'docx') return 'Word'
+  if (extension === 'xls' || extension === 'xlsx' || extension === 'csv') return 'Excel'
+  if (extension === 'ppt' || extension === 'pptx') return 'PPT'
+  return extension ? extension.toUpperCase() : '文件'
 }
 
 function directAttachmentMimeType(fileName: string): string {
-  const extension = directAttachmentExtension(fileName);
+  const extension = directAttachmentExtension(fileName)
   const map: Record<string, string> = {
     png: 'image/png',
     jpg: 'image/jpeg',
@@ -583,33 +583,33 @@ function directAttachmentMimeType(fileName: string): string {
     xml: 'application/xml',
     md: 'text/markdown',
     zip: 'application/zip',
-  };
-  return map[extension] || 'application/octet-stream';
+  }
+  return map[extension] || 'application/octet-stream'
 }
 
 function formatDirectAttachmentSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0) + ' MB';
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0) + ' MB'
 }
 
 function normalizeDirectAttachment(
   attachment: EnterpriseDirectMessageAttachmentUpload,
 ): EnterpriseDirectMessageAttachmentUpload {
-  const fileName = attachment.fileName.trim();
-  const extension = directAttachmentExtension(fileName);
+  const fileName = attachment.fileName.trim()
+  const extension = directAttachmentExtension(fileName)
   if (!fileName || !DIRECT_MESSAGE_FILE_EXTENSIONS.has(extension)) {
-    throw new Error('暂不支持该文件格式，请选择图片、Word、PDF、Excel、PPT 或常用文本文件');
+    throw new Error('暂不支持该文件格式，请选择图片、Word、PDF、Excel、PPT 或常用文本文件')
   }
   if (
     !Number.isInteger(attachment.size)
     || attachment.size < 0
     || attachment.size > DIRECT_MESSAGE_MAX_FILE_BYTES
   ) {
-    throw new Error('单个附件不能超过 10 MB');
+    throw new Error('单个附件不能超过 10 MB')
   }
   if (!attachment.data && !attachment.sourcePath) {
-    throw new Error('附件内容为空');
+    throw new Error('附件内容为空')
   }
   return {
     fileName,
@@ -620,74 +620,74 @@ function normalizeDirectAttachment(
       ? { previewUrl: attachment.previewUrl }
       : {}),
     mimeType: directAttachmentMimeType(fileName),
-  };
+  }
 }
 
 async function browserFileToDirectAttachment(
   file: File,
 ): Promise<EnterpriseDirectMessageAttachmentUpload> {
   if (file.size > DIRECT_MESSAGE_MAX_FILE_BYTES) {
-    throw new Error(file.name + ' 超过 10 MB');
+    throw new Error(file.name + ' 超过 10 MB')
   }
-  const sourcePath = await window.clawmaster.authorizeFileForAttachment(file);
+  const sourcePath = await window.clawmaster.authorizeFileForAttachment(file)
   const attachment = normalizeDirectAttachment({
     fileName: file.name,
     mimeType: file.type,
     size: file.size,
     sourcePath,
-  });
+  })
   return file.type.startsWith('image/')
     ? { ...attachment, previewUrl: URL.createObjectURL(file) }
-    : attachment;
+    : attachment
 }
 
 function revokeDirectAttachmentPreview(
   attachment: EnterpriseDirectMessageAttachmentUpload,
 ): void {
   if (attachment.previewUrl?.startsWith('blob:')) {
-    URL.revokeObjectURL(attachment.previewUrl);
+    URL.revokeObjectURL(attachment.previewUrl)
   }
 }
 
 function DirectMessageAttachmentCard({
   attachment,
 }: {
-  attachment: EnterpriseDirectMessageAttachment;
+  attachment: EnterpriseDirectMessageAttachment
 }): React.JSX.Element {
-  const [download, setDownload] = useState<EnterpriseDirectMessageAttachmentDownload | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [attachmentError, setAttachmentError] = useState('');
-  const image = attachment.mimeType.startsWith('image/');
+  const [download, setDownload] = useState<EnterpriseDirectMessageAttachmentDownload | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [attachmentError, setAttachmentError] = useState('')
+  const image = attachment.mimeType.startsWith('image/')
 
   const readAttachment = useCallback(async (): Promise<EnterpriseDirectMessageAttachmentDownload> => {
-    if (download) return download;
-    setLoading(true);
-    setAttachmentError('');
+    if (download) return download
+    setLoading(true)
+    setAttachmentError('')
     try {
-      const next = await window.clawmaster.enterpriseMessageAttachmentRead(attachment.id);
-      setDownload(next);
-      return next;
+      const next = await window.clawmaster.enterpriseMessageAttachmentRead(attachment.id)
+      setDownload(next)
+      return next
     } catch (reason) {
-      const message = reason instanceof Error ? reason.message : String(reason);
-      setAttachmentError(message);
-      throw reason;
+      const message = reason instanceof Error ? reason.message : String(reason)
+      setAttachmentError(message)
+      throw reason
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [attachment.id, download]);
+  }, [attachment.id, download])
 
   const handleOpen = async (): Promise<void> => {
     try {
-      const next = await readAttachment();
-      const href = `data:${next.mimeType};base64,${next.data}`;
-      const link = document.createElement('a');
-      link.href = href;
-      link.download = next.fileName;
-      link.rel = 'noopener';
-      link.click();
+      const next = await readAttachment()
+      const href = `data:${next.mimeType};base64,${next.data}`
+      const link = document.createElement('a')
+      link.href = href
+      link.download = next.fileName
+      link.rel = 'noopener'
+      link.click()
     } catch {
     }
-  };
+  }
 
   return (
     <div className="claw-direct-chat__attachment-card">
@@ -725,7 +725,7 @@ function DirectMessageAttachmentCard({
         </button>
       </span>
     </div>
-  );
+  )
 }
 
 export function DirectMessagePanel({
@@ -738,280 +738,280 @@ export function DirectMessagePanel({
   onMessageRead,
   onClose,
 }: {
-  member: EnterpriseOrganizationView['members'][number];
-  currentAccount?: EnterpriseAccount;
-  schedules?: readonly ScheduleItemInfo[];
-  initialPosition: { left: number; top: number };
-  stackOrder: number;
-  onActivate: () => void;
-  onMessageRead?: (peerAccountId: string) => void;
-  onClose: () => void;
+  member: EnterpriseOrganizationView['members'][number]
+  currentAccount?: EnterpriseAccount
+  schedules?: readonly ScheduleItemInfo[]
+  initialPosition: { left: number; top: number }
+  stackOrder: number
+  onActivate: () => void
+  onMessageRead?: (peerAccountId: string) => void
+  onClose: () => void
 }): React.JSX.Element {
-  const [messages, setMessages] = useState<EnterpriseDirectMessage[]>([]);
-  const [draft, setDraft] = useState('');
-  const [attachments, setAttachments] = useState<EnterpriseDirectMessageAttachmentUpload[]>([]);
-  const [sending, setSending] = useState(false);
-  const [attaching, setAttaching] = useState(false);
-  const [attachmentError, setAttachmentError] = useState('');
-  const [error, setError] = useState('');
-  const [securityNotice, setSecurityNotice] = useState('');
-  const [resettingSecurity, setResettingSecurity] = useState(false);
-  const [askingOwnClawMaster, setAskingOwnClawMaster] = useState(false);
-  const [askingPeerClawMaster, setAskingPeerClawMaster] = useState(false);
-  const [collaborationMenuOpen, setCollaborationMenuOpen] = useState(false);
-  const [consultOpen, setConsultOpen] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [minimized, setMinimized] = useState(false);
-  const [maximized, setMaximized] = useState(false);
-  const [position, setPosition] = useState(initialPosition);
+  const [messages, setMessages] = useState<EnterpriseDirectMessage[]>([])
+  const [draft, setDraft] = useState('')
+  const [attachments, setAttachments] = useState<EnterpriseDirectMessageAttachmentUpload[]>([])
+  const [sending, setSending] = useState(false)
+  const [attaching, setAttaching] = useState(false)
+  const [attachmentError, setAttachmentError] = useState('')
+  const [error, setError] = useState('')
+  const [securityNotice, setSecurityNotice] = useState('')
+  const [resettingSecurity, setResettingSecurity] = useState(false)
+  const [askingOwnClawMaster, setAskingOwnClawMaster] = useState(false)
+  const [askingPeerClawMaster, setAskingPeerClawMaster] = useState(false)
+  const [collaborationMenuOpen, setCollaborationMenuOpen] = useState(false)
+  const [consultOpen, setConsultOpen] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [minimized, setMinimized] = useState(false)
+  const [maximized, setMaximized] = useState(false)
+  const [position, setPosition] = useState(initialPosition)
   const dragState = useRef<{
-    pointerId: number;
-    clientX: number;
-    clientY: number;
-    left: number;
-    top: number;
-  } | null>(null);
-  const messagesEnd = useRef<HTMLDivElement | null>(null);
-  const scrollPending = useRef(true);
-  const knownMessageIds = useRef<Set<string> | null>(null);
-  const fileInput = useRef<HTMLInputElement | null>(null);
-  const pendingAttachments = useRef(attachments);
+    pointerId: number
+    clientX: number
+    clientY: number
+    left: number
+    top: number
+  } | null>(null)
+  const messagesEnd = useRef<HTMLDivElement | null>(null)
+  const scrollPending = useRef(true)
+  const knownMessageIds = useRef<Set<string> | null>(null)
+  const fileInput = useRef<HTMLInputElement | null>(null)
+  const pendingAttachments = useRef(attachments)
 
   useEffect(() => {
-    pendingAttachments.current = attachments;
-  }, [attachments]);
+    pendingAttachments.current = attachments
+  }, [attachments])
 
   useEffect(
     () => () => {
-      pendingAttachments.current.forEach(revokeDirectAttachmentPreview);
+      pendingAttachments.current.forEach(revokeDirectAttachmentPreview)
     },
     [],
-  );
+  )
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent): void => {
-      if (!(event.target instanceof Element)) return;
+      if (!(event.target instanceof Element)) return
       if (!event.target.closest('.claw-direct-chat__a2a-menu')) {
-        setCollaborationMenuOpen(false);
+        setCollaborationMenuOpen(false)
       }
-    };
-    document.addEventListener('pointerdown', handleClickOutside);
-    return () => document.removeEventListener('pointerdown', handleClickOutside);
-  }, []);
+    }
+    document.addEventListener('pointerdown', handleClickOutside)
+    return () => document.removeEventListener('pointerdown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
-    let active = true;
+    let active = true
     const load = async (): Promise<void> => {
       try {
-        const next = await window.clawmaster.enterpriseMessagesList(member.id);
+        const next = await window.clawmaster.enterpriseMessagesList(member.id)
         if (active) {
-          const previousIds = knownMessageIds.current;
+          const previousIds = knownMessageIds.current
           const hasNewMessage = previousIds === null
-            || next.some((message) => !previousIds.has(message.id));
-          if (hasNewMessage) scrollPending.current = true;
+            || next.some(message => !previousIds.has(message.id))
+          if (hasNewMessage) scrollPending.current = true
           setMessages((current) => {
             const unchanged = current.length === next.length
               && current.every((message, index) => {
-                const candidate = next[index];
+                const candidate = next[index]
                 return candidate
                   && message.id === candidate.id
                   && message.content === candidate.content
                   && message.readAt === candidate.readAt
                   && message.createdAt === candidate.createdAt
-                  && (message.attachments?.length ?? 0) === (candidate.attachments?.length ?? 0);
+                  && (message.attachments?.length ?? 0) === (candidate.attachments?.length ?? 0)
               });
-            return unchanged ? current : next;
+            return unchanged ? current : next
           });
-          setError('');
-          knownMessageIds.current = new Set(next.map((message) => message.id));
+          setError('')
+          knownMessageIds.current = new Set(next.map(message => message.id))
           if (
             previousIds
-            && next.some((message) => (
+            && next.some(message => (
               message.senderAccountId === member.id && !previousIds.has(message.id)
             ))
           ) {
-            onMessageRead?.(member.id);
+            onMessageRead?.(member.id)
           }
         }
       } catch (reason) {
-        if (active) setError(reason instanceof Error ? reason.message : String(reason));
+        if (active) setError(reason instanceof Error ? reason.message : String(reason))
       }
-    };
-    void load();
-    const stopPolling = startNonOverlappingPoll(() => load(), 2_000, { runImmediately: false });
+    }
+    void load()
+    const stopPolling = startNonOverlappingPoll(() => load(), 2_000, { runImmediately: false })
     return () => {
-      active = false;
-      stopPolling();
+      active = false
+      stopPolling()
     };
-  }, [member.id, onMessageRead]);
+  }, [member.id, onMessageRead])
 
   useEffect(() => {
-    if (messages.length === 0 || !scrollPending.current) return;
-    scrollPending.current = false;
-    messagesEnd.current?.scrollIntoView?.({ block: 'end' });
-  }, [messages]);
+    if (messages.length === 0 || !scrollPending.current) return
+    scrollPending.current = false
+    messagesEnd.current?.scrollIntoView?.({ block: 'end' })
+  }, [messages])
 
   const appendAttachments = (
     candidates: readonly EnterpriseDirectMessageAttachmentUpload[],
   ): void => {
-    const next = [...attachments];
-    const keys = new Set(next.map((item) => item.fileName + ':' + item.size));
-    let totalBytes = next.reduce((sum, item) => sum + item.size, 0);
-    let firstError = '';
+    const next = [...attachments]
+    const keys = new Set(next.map(item => item.fileName + ':' + item.size))
+    let totalBytes = next.reduce((sum, item) => sum + item.size, 0)
+    let firstError = ''
     for (const candidate of candidates) {
       try {
-        const normalized = normalizeDirectAttachment(candidate);
-        const key = normalized.fileName + ':' + normalized.size;
+        const normalized = normalizeDirectAttachment(candidate)
+        const key = normalized.fileName + ':' + normalized.size
         if (keys.has(key)) {
-          revokeDirectAttachmentPreview(normalized);
+          revokeDirectAttachmentPreview(normalized)
           continue;
         }
         if (next.length >= DIRECT_MESSAGE_MAX_ATTACHMENTS) {
-          revokeDirectAttachmentPreview(normalized);
-          firstError ||= '每条消息最多发送 6 个附件';
+          revokeDirectAttachmentPreview(normalized)
+          firstError ||= '每条消息最多发送 6 个附件'
           break;
         }
         if (totalBytes + normalized.size > DIRECT_MESSAGE_MAX_TOTAL_BYTES) {
-          revokeDirectAttachmentPreview(normalized);
-          firstError ||= '每条消息的附件总大小不能超过 20 MB';
+          revokeDirectAttachmentPreview(normalized)
+          firstError ||= '每条消息的附件总大小不能超过 20 MB'
           continue;
         }
-        next.push(normalized);
-        keys.add(key);
-        totalBytes += normalized.size;
+        next.push(normalized)
+        keys.add(key)
+        totalBytes += normalized.size
       } catch (reason) {
-        firstError ||= reason instanceof Error ? reason.message : String(reason);
+        firstError ||= reason instanceof Error ? reason.message : String(reason)
       }
     }
-    setAttachments(next);
-    setAttachmentError(firstError);
+    setAttachments(next)
+    setAttachmentError(firstError)
   };
 
   const addBrowserFiles = async (files: readonly File[]): Promise<void> => {
-    if (files.length === 0) return;
-    setAttaching(true);
+    if (files.length === 0) return
+    setAttaching(true)
     try {
-      const loaded = await Promise.all(files.map((file) => browserFileToDirectAttachment(file)));
-      appendAttachments(loaded);
+      const loaded = await Promise.all(files.map(file => browserFileToDirectAttachment(file)))
+      appendAttachments(loaded)
     } catch (reason) {
-      setAttachmentError(reason instanceof Error ? reason.message : String(reason));
+      setAttachmentError(reason instanceof Error ? reason.message : String(reason))
     } finally {
-      setAttaching(false);
+      setAttaching(false)
     }
-  };
+  }
 
   const pickAttachments = async (): Promise<void> => {
-    setAttaching(true);
+    setAttaching(true)
     try {
-      const paths = await window.clawmaster.selectFiles();
-      if (paths.length === 0) return;
-      const picked = await Promise.all(paths.map((filePath) => window.clawmaster.readFilePath(filePath)));
-      appendAttachments(picked);
+      const paths = await window.clawmaster.selectFiles()
+      if (paths.length === 0) return
+      const picked = await Promise.all(paths.map(filePath => window.clawmaster.readFilePath(filePath)))
+      appendAttachments(picked)
     } catch (reason) {
-      const message = reason instanceof Error ? reason.message : String(reason);
-      if (message !== 'cancelled') setAttachmentError(message);
+      const message = reason instanceof Error ? reason.message : String(reason)
+      if (message !== 'cancelled') setAttachmentError(message)
     } finally {
-      setAttaching(false);
+      setAttaching(false)
     }
-  };
+  }
 
   const buildTranscriptContext = (): string => {
     const transcript = messages.slice(-20).map((message) => {
-      const speaker = message.senderAccountId === member.id ? member.name : '我';
-      const createdAt = formatDirectMessageTime(message.createdAt || '') || '未知时间';
-      const files = (message.attachments || []).map((item) => item.fileName).filter(Boolean);
-      const fileSummary = files.length > 0 ? ' [附件：' + files.join('、') + ']' : '';
-      return '- ' + createdAt + ' ' + speaker + ': ' + message.content + fileSummary;
-    }).join('\n');
+      const speaker = message.senderAccountId === member.id ? member.name : '我'
+      const createdAt = formatDirectMessageTime(message.createdAt || '') || '未知时间'
+      const files = (message.attachments || []).map(item => item.fileName).filter(Boolean)
+      const fileSummary = files.length > 0 ? ' [附件：' + files.join('、') + ']' : ''
+      return '- ' + createdAt + ' ' + speaker + ': ' + message.content + fileSummary
+    }).join('\n')
     return [
       '当前是在企业一对一聊天窗口中询问自己的 ClawMaster；本次回答会发送给聊天对方可见。',
       '请结合当前聊天记录和我本机 ClawMaster 已获授权的资料回答，不要编造。',
       '',
       '当前聊天记录：',
       transcript || '（当前还没有可用聊天记录）',
-    ].join('\n');
+    ].join('\n')
   };
 
   const askClawMaster = async (question?: string) => {
-    const cleanQuestion = (question?.trim() || draft.trim()).slice(0, 1200);
-    if (!cleanQuestion || askingOwnClawMaster || attachments.length > 0) return;
-    setAskingOwnClawMaster(true);
+    const cleanQuestion = (question?.trim() || draft.trim()).slice(0, 1200)
+    if (!cleanQuestion || askingOwnClawMaster || attachments.length > 0) return
+    setAskingOwnClawMaster(true)
     try {
       const answer = await askLocalPeerClawMaster({
         question: cleanQuestion,
         workContext: buildTranscriptContext(),
         requestId: 'own-a2a-' + crypto.randomUUID(),
         clientMessageId: 'own-a2a-message-' + crypto.randomUUID(),
-      });
+      })
       const content = [
         '我问了自己的 ClawMaster（基于：我的 ClawMaster 可用资料）：' + cleanQuestion,
         '',
         'ClawMaster：',
         answer,
-      ].join('\n');
-      const message = await window.clawmaster.enterpriseMessageSend(member.id, content);
-      scrollPending.current = true;
-      setMessages((current) => [...current, message]);
-      setDraft('');
-      setError('');
+      ].join('\n')
+      const message = await window.clawmaster.enterpriseMessageSend(member.id, content)
+      scrollPending.current = true
+      setMessages(current => [...current, message])
+      setDraft('')
+      setError('')
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
-      setAskingOwnClawMaster(false);
+      setAskingOwnClawMaster(false)
     }
-  };
+  }
 
   const askPeerClawMaster = async (question?: string) => {
-    if (attachments.length > 0) return;
-    const content = buildAtoaRequest(question?.trim() || draft.trim());
-    setAskingPeerClawMaster(true);
+    if (attachments.length > 0) return
+    const content = buildAtoaRequest(question?.trim() || draft.trim())
+    setAskingPeerClawMaster(true)
     try {
-      const message = await window.clawmaster.enterpriseMessageSend(member.id, content);
-      scrollPending.current = true;
-      setMessages((current) => [...current, message]);
-      setDraft('');
-      setError('');
+      const message = await window.clawmaster.enterpriseMessageSend(member.id, content)
+      scrollPending.current = true
+      setMessages(current => [...current, message])
+      setDraft('')
+      setError('')
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
-      setAskingPeerClawMaster(false);
+      setAskingPeerClawMaster(false)
     }
-  };
+  }
 
   const send = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const content = draft.trim();
-    if ((!content && attachments.length === 0) || sending || attaching) return;
+    event.preventDefault()
+    const content = draft.trim()
+    if ((!content && attachments.length === 0) || sending || attaching) return
     if (attachments.length === 0) {
-      const clawmasterShortcut = content.match(/^@clawmaster(?:\s+|$)([\s\S]*)$/i);
+      const clawmasterShortcut = content.match(/^@clawmaster(?:\s+|$)([\s\S]*)$/i)
       if (clawmasterShortcut) {
-        await askClawMaster(clawmasterShortcut[1] || undefined);
+        await askClawMaster(clawmasterShortcut[1] || undefined)
         return;
       }
-      const peerClawMasterShortcut = content.match(/^@peer-clawmaster(?:\s+|$)([\s\S]*)$/i);
+      const peerClawMasterShortcut = content.match(/^@peer-clawmaster(?:\s+|$)([\s\S]*)$/i)
       if (peerClawMasterShortcut) {
-        await askPeerClawMaster(peerClawMasterShortcut[1] || undefined);
+        await askPeerClawMaster(peerClawMasterShortcut[1] || undefined)
         return;
       }
     }
-    setSending(true);
+    setSending(true)
     try {
       const message = attachments.length > 0
         ? await window.clawmaster.enterpriseMessageSend(member.id, content, attachments)
-        : await window.clawmaster.enterpriseMessageSend(member.id, content);
-      scrollPending.current = true;
-      setMessages((current) => [...current, message]);
-      setDraft('');
-      attachments.forEach(revokeDirectAttachmentPreview);
-      setAttachments([]);
-      setAttachmentError('');
-      setError('');
+        : await window.clawmaster.enterpriseMessageSend(member.id, content)
+      scrollPending.current = true
+      setMessages(current => [...current, message])
+      setDraft('')
+      attachments.forEach(revokeDirectAttachmentPreview)
+      setAttachments([])
+      setAttachmentError('')
+      setError('')
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
-      setSending(false);
+      setSending(false)
     }
-  };
+  }
 
   const resetMessageSecurity = async (): Promise<void> => {
     if (
@@ -1020,69 +1020,69 @@ export function DirectMessagePanel({
         '将为当前私聊建立新的加密会话。旧消息仍保留，但新会话需要双方设备重新同步。是否继续？',
       )
     ) {
-      return;
+      return
     }
-    setResettingSecurity(true);
+    setResettingSecurity(true)
     try {
-      await window.clawmaster.enterpriseMessageSecurityReset(member.id);
-      setSecurityNotice('加密会话已重置，后续消息将使用新的安全状态。');
-      setError('');
+      await window.clawmaster.enterpriseMessageSecurityReset(member.id)
+      setSecurityNotice('加密会话已重置，后续消息将使用新的安全状态。')
+      setError('')
     } catch (reason) {
-      setSecurityNotice('');
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setSecurityNotice('')
+      setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
-      setResettingSecurity(false);
+      setResettingSecurity(false)
     }
-  };
+  }
 
-  const subtitle = [member.department, member.role].filter(Boolean).join(' · ') || member.username;
-  const presenceLabel = member.clawmasterOnline ? '在线' : member.clawmasterLastSeenAt ? '最近在线' : '离线';
+  const subtitle = [member.department, member.role].filter(Boolean).join(' · ') || member.username
+  const presenceLabel = member.clawmasterOnline ? '在线' : member.clawmasterLastSeenAt ? '最近在线' : '离线'
   const canSend = (draft.trim().length > 0 || attachments.length > 0)
     && !sending
-    && !attaching;
+    && !attaching
   const usesMls = messages.some(
-    (message) => message.e2eeProtocol === 'mls10-openmls-0.8',
-  );
+    message => message.e2eeProtocol === 'mls10-openmls-0.8',
+  )
   const panelClassName = [
     'claw-direct-chat',
     minimized ? 'is-minimized' : '',
     maximized ? 'is-maximized' : '',
-  ].filter(Boolean).join(' ');
+  ].filter(Boolean).join(' ')
 
   const beginDrag = (event: React.PointerEvent<HTMLElement>): void => {
     if (
       event.button !== 0
       || maximized
       || (event.target as Element).closest('button')
-    ) return;
+    ) return
     dragState.current = {
       pointerId: event.pointerId,
       clientX: event.clientX,
       clientY: event.clientY,
       left: position.left,
       top: position.top,
-    };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
   };
 
   const continueDrag = (event: React.PointerEvent<HTMLElement>): void => {
-    const drag = dragState.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    const nextLeft = drag.left + event.clientX - drag.clientX;
-    const nextTop = drag.top + event.clientY - drag.clientY;
+    const drag = dragState.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const nextLeft = drag.left + event.clientX - drag.clientX
+    const nextTop = drag.top + event.clientY - drag.clientY
     setPosition({
       left: Math.max(0, Math.min(nextLeft, Math.max(0, window.innerWidth - 160))),
       top: Math.max(0, Math.min(nextTop, Math.max(0, window.innerHeight - 48))),
-    });
+    })
   };
 
   const endDrag = (event: React.PointerEvent<HTMLElement>): void => {
-    if (dragState.current?.pointerId !== event.pointerId) return;
-    dragState.current = null;
+    if (dragState.current?.pointerId !== event.pointerId) return
+    dragState.current = null
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+      event.currentTarget.releasePointerCapture(event.pointerId)
     }
-  };
+  }
 
   return (
     <div
@@ -1103,9 +1103,9 @@ export function DirectMessagePanel({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         onDoubleClick={(event) => {
-          if ((event.target as Element).closest('button')) return;
-          setMinimized(false);
-          setMaximized((value) => !value);
+          if ((event.target as Element).closest('button')) return
+          setMinimized(false)
+          setMaximized(value => !value)
         }}
       >
         <div className="claw-direct-chat__identity">
@@ -1121,8 +1121,8 @@ export function DirectMessagePanel({
             type="button"
             className="claw-direct-chat__icon"
             onClick={() => {
-              setMaximized(false);
-              setMinimized((value) => !value);
+              setMaximized(false)
+              setMinimized(value => !value)
             }}
             aria-label={minimized ? '展开聊天' : '最小化聊天'}
             title={minimized ? '展开聊天' : '最小化聊天'}
@@ -1133,8 +1133,8 @@ export function DirectMessagePanel({
             type="button"
             className="claw-direct-chat__icon"
             onClick={() => {
-              setMinimized(false);
-              setMaximized((value) => !value);
+              setMinimized(false)
+              setMaximized(value => !value)
             }}
             aria-label={maximized ? '还原聊天' : '最大化聊天'}
             title={maximized ? '还原聊天' : '最大化聊天'}
@@ -1189,7 +1189,7 @@ export function DirectMessagePanel({
               className="claw-direct-chat__plus"
               aria-label="更多 ClawMaster 协作"
               aria-expanded={collaborationMenuOpen}
-              onClick={() => setCollaborationMenuOpen((value) => !value)}
+              onClick={() => setCollaborationMenuOpen(value => !value)}
             >
               <IconPlus size={15} />
             </button>
@@ -1199,8 +1199,8 @@ export function DirectMessagePanel({
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    setCollaborationMenuOpen(false);
-                    setConsultOpen(true);
+                    setCollaborationMenuOpen(false)
+                    setConsultOpen(true)
                   }}
                 >
                   <strong>双方 ClawMaster 协商</strong>
@@ -1225,9 +1225,9 @@ export function DirectMessagePanel({
             <span>可直接发送文字、图片、Word、PDF；需要整理上下文时可使用 ClawMaster 协作。</span>
           </div>
         ) : messages.map((message) => {
-          const mine = message.senderAccountId !== member.id;
-          const messageAttachments = message.attachments || [];
-          const content = displayDirectMessageContent(message.content);
+          const mine = message.senderAccountId !== member.id
+          const messageAttachments = message.attachments || []
+          const content = displayDirectMessageContent(message.content)
           return (
             <article
               key={message.id}
@@ -1242,13 +1242,13 @@ export function DirectMessagePanel({
               {content ? <div className="claw-direct-chat__bubble">{content}</div> : null}
               {messageAttachments.length > 0 ? (
                 <div className="claw-direct-chat__message-attachments">
-                  {messageAttachments.map((attachment) => (
+                  {messageAttachments.map(attachment => (
                     <DirectMessageAttachmentCard key={attachment.id} attachment={attachment} />
                   ))}
                 </div>
               ) : null}
             </article>
-          );
+          )
         })}
         <div ref={messagesEnd} className="claw-direct-chat__messages-end" aria-hidden="true" />
       </div>
@@ -1257,29 +1257,29 @@ export function DirectMessagePanel({
         className={'claw-direct-chat__composer' + (dragOver ? ' is-drag-over' : '')}
         onSubmit={send}
         onDragOver={(event) => {
-          event.preventDefault();
-          if (event.dataTransfer.types.includes('Files')) setDragOver(true);
+          event.preventDefault()
+          if (event.dataTransfer.types.includes('Files')) setDragOver(true)
         }}
         onDragLeave={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-            setDragOver(false);
+            setDragOver(false)
           }
         }}
         onDrop={(event) => {
-          event.preventDefault();
-          setDragOver(false);
-          void addBrowserFiles(Array.from(event.dataTransfer.files || []));
+          event.preventDefault()
+          setDragOver(false)
+          void addBrowserFiles(Array.from(event.dataTransfer.files || []))
         }}
       >
         {attachments.length > 0 || attaching || attachmentError ? (
           <div className="claw-direct-chat__pending-attachments">
             {attachments.map((attachment) => {
-              const key = attachment.fileName + ':' + attachment.size;
+              const key = attachment.fileName + ':' + attachment.size
               const preview = attachment.previewUrl ??
                 (attachment.data
                   ? `data:${attachment.mimeType};base64,${attachment.data}`
-                  : '');
-              const image = attachment.mimeType.startsWith('image/') && preview;
+                  : '')
+              const image = attachment.mimeType.startsWith('image/') && preview
               return (
                 <div className="claw-direct-chat__pending-attachment" key={key}>
                   {image ? (
@@ -1299,18 +1299,18 @@ export function DirectMessagePanel({
                   <button
                     type="button"
                     onClick={() => {
-                      revokeDirectAttachmentPreview(attachment);
-                      setAttachments((current) => current.filter(
-                        (item) => item.fileName + ':' + item.size !== key,
-                      ));
-                      setAttachmentError('');
+                      revokeDirectAttachmentPreview(attachment)
+                      setAttachments(current => current.filter(
+                        item => item.fileName + ':' + item.size !== key,
+                      ))
+                      setAttachmentError('')
                     }}
                     aria-label={'移除 ' + attachment.fileName}
                   >
                     ×
                   </button>
                 </div>
-              );
+              )
             })}
             {attaching ? <span className="claw-direct-chat__attachment-status">正在读取附件…</span> : null}
             {attachmentError ? (
@@ -1324,12 +1324,12 @@ export function DirectMessagePanel({
           value={draft}
           maxLength={4000}
           rows={3}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={event => setDraft(event.target.value)}
           onPaste={(event) => {
-            const files = Array.from(event.clipboardData.files || []);
+            const files = Array.from(event.clipboardData.files || [])
             if (files.length > 0) {
-              event.preventDefault();
-              void addBrowserFiles(files);
+              event.preventDefault()
+              void addBrowserFiles(files)
             }
           }}
           onKeyDown={(event) => {
@@ -1338,8 +1338,8 @@ export function DirectMessagePanel({
               && !event.shiftKey
               && !event.nativeEvent.isComposing
             ) {
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
+              event.preventDefault()
+              event.currentTarget.form?.requestSubmit()
             }
           }}
           placeholder={dragOver ? '松开发送这些文件' : '输入消息，或拖入 Word、PDF、图片'}
@@ -1374,9 +1374,9 @@ export function DirectMessagePanel({
           multiple
           hidden
           onChange={(event) => {
-            const files = Array.from(event.target.files || []);
-            event.currentTarget.value = '';
-            void addBrowserFiles(files);
+            const files = Array.from(event.target.files || [])
+            event.currentTarget.value = ''
+            void addBrowserFiles(files)
           }}
         />
       </form>
@@ -1388,28 +1388,28 @@ export function DirectMessagePanel({
           initialQuestion={draft}
           onClose={() => setConsultOpen(false)}
           onSent={(message) => {
-            setMessages((current) => [...current, message]);
-            setDraft('');
-            setError('');
+            setMessages(current => [...current, message])
+            setDraft('')
+            setError('')
           }}
         />
       ) : null}
     </div>
-  );
+  )
 }
 
 type Organization = NonNullable<
   ProductWorkspaceSnapshot['managerWorkspace']
->['organization'];
+>['organization']
 
 function OrganizationPositionGroup({
   title,
   memberCount,
   children,
 }: {
-  title: string;
-  memberCount: number;
-  children: React.ReactNode;
+  title: string
+  memberCount: number
+  children: React.ReactNode
 }): React.JSX.Element {
   return (
     <div className="claw-orgtree__position-group">
@@ -1419,7 +1419,7 @@ function OrganizationPositionGroup({
       </div>
       <div className="claw-orgtree__position-members">{children}</div>
     </div>
-  );
+  )
 }
 
 function MemberIdentity({ member }: { member: EnterpriseOrganizationMember }): React.JSX.Element {
@@ -1433,7 +1433,7 @@ function MemberIdentity({ member }: { member: EnterpriseOrganizationMember }): R
         <small>@{member.username}</small>
       </span>
     </span>
-  );
+  )
 }
 
 function DepartmentSection({
@@ -1443,26 +1443,26 @@ function DepartmentSection({
   defaultExpanded = false,
   children,
 }: {
-  name: string;
-  memberCount?: number;
+  name: string
+  memberCount?: number
   /** 该部门子树下所有成员的未读消息总数。 */
-  unreadCount?: number;
-  defaultExpanded?: boolean;
-  children: React.ReactNode;
+  unreadCount?: number
+  defaultExpanded?: boolean
+  children: React.ReactNode
 }): React.JSX.Element {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [expanded, setExpanded] = useState(defaultExpanded)
   // 追踪未读变化，在折叠态触发短暂闪烁
-  const prevUnread = useRef(unreadCount);
-  const [attention, setAttention] = useState(false);
+  const prevUnread = useRef(unreadCount)
+  const [attention, setAttention] = useState(false)
   useEffect(() => {
     if (unreadCount > prevUnread.current && !expanded) {
-      setAttention(true);
-      const timer = window.setTimeout(() => setAttention(false), 3000);
-      prevUnread.current = unreadCount;
-      return () => window.clearTimeout(timer);
+      setAttention(true)
+      const timer = window.setTimeout(() => setAttention(false), 3000)
+      prevUnread.current = unreadCount
+      return () => window.clearTimeout(timer)
     }
-    prevUnread.current = unreadCount;
-  }, [unreadCount, expanded]);
+    prevUnread.current = unreadCount
+  }, [unreadCount, expanded])
 
   return (
     <div className="claw-orgtree__department">
@@ -1474,7 +1474,7 @@ function DepartmentSection({
         }
         aria-label={name + (unreadCount > 0 ? `，${unreadCount} 条未读` : '')}
         aria-expanded={expanded}
-        onClick={() => setExpanded((value) => !value)}
+        onClick={() => setExpanded(value => !value)}
       >
         <IconChevronDown
           size={11}
@@ -1488,16 +1488,16 @@ function DepartmentSection({
       </button>
       {expanded ? children : null}
     </div>
-  );
+  )
 }
 
 function normalizeChatKey(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase();
+  return (value ?? '').trim().toLowerCase()
 }
 
 function UnreadBadge({ count }: { count: number }): React.JSX.Element | null {
-  if (count <= 0) return null;
-  const label = count > 99 ? '99+' : String(count);
+  if (count <= 0) return null
+  const label = count > 99 ? '99+' : String(count)
   return (
     <span
       className="claw-orgtree__unread"
@@ -1506,22 +1506,22 @@ function UnreadBadge({ count }: { count: number }): React.JSX.Element | null {
     >
       {label}
     </span>
-  );
+  )
 }
 
 function PresenceBadge({
   online,
   lastSeenAt,
 }: {
-  online?: boolean;
-  lastSeenAt?: string | null;
+  online?: boolean
+  lastSeenAt?: string | null
 }): React.JSX.Element | null {
-  if (online === undefined && lastSeenAt === undefined) return null;
-  const lastSeenMs = lastSeenAt ? Date.parse(lastSeenAt) : Number.NaN;
+  if (online === undefined && lastSeenAt === undefined) return null
+  const lastSeenMs = lastSeenAt ? Date.parse(lastSeenAt) : Number.NaN
   const recentlySeen = !online
     && Number.isFinite(lastSeenMs)
-    && Date.now() - lastSeenMs <= 5 * 60_000;
-  const label = online ? '在线' : recentlySeen ? '刚刚在线' : '离线';
+    && Date.now() - lastSeenMs <= 5 * 60_000
+  const label = online ? '在线' : recentlySeen ? '刚刚在线' : '离线'
   return (
     <span
       className={
@@ -1532,7 +1532,7 @@ function PresenceBadge({
     >
       {label}
     </span>
-  );
+  )
 }
 
 function CompanyBranch({
@@ -1545,19 +1545,19 @@ function CompanyBranch({
   unreadCounts,
   onOpenChat,
 }: {
-  companyId: string;
-  organization: Organization;
-  workspace: ProductWorkspaceSnapshot;
-  positionById: Map<string, Organization['positions'][number]>;
-  childrenByParent: Map<string, string[]>;
-  chatMemberByWorkspaceKey: Map<string, EnterpriseOrganizationView['members'][number]>;
-  unreadCounts: EnterpriseUnreadCounts;
-  onOpenChat: (member: EnterpriseOrganizationView['members'][number]) => void;
+  companyId: string
+  organization: Organization
+  workspace: ProductWorkspaceSnapshot
+  positionById: Map<string, Organization['positions'][number]>
+  childrenByParent: Map<string, string[]>
+  chatMemberByWorkspaceKey: Map<string, EnterpriseOrganizationView['members'][number]>
+  unreadCounts: EnterpriseUnreadCounts
+  onOpenChat: (member: EnterpriseOrganizationView['members'][number]) => void
 }): React.JSX.Element | null {
-  const company = organization.companies.find((item) => item.id === companyId);
-  if (!company) return null;
-  const departments = organization.departments.filter((item) => item.companyId === company.id);
-  const childIds = childrenByParent.get(company.id) ?? [];
+  const company = organization.companies.find(item => item.id === companyId)
+  if (!company) return null
+  const departments = organization.departments.filter(item => item.companyId === company.id)
+  const childIds = childrenByParent.get(company.id) ?? []
 
   return (
     <div className="claw-orgtree__company-branch">
@@ -1565,11 +1565,11 @@ function CompanyBranch({
       <div className="claw-orgtree__company-content">
         {departments.map((department) => {
           const members = workspace.members.filter(
-            (member) => member.companyId === company.id && member.departmentId === department.id,
-          );
+            member => member.companyId === company.id && member.departmentId === department.id,
+          )
           const positions = organization.positions.filter(
-            (position) => position.departmentId === department.id,
-          );
+            position => position.departmentId === department.id,
+          )
           return (
             <DepartmentSection
               key={department.id}
@@ -1579,13 +1579,13 @@ function CompanyBranch({
             >
               {members.map((member) => {
                 const chatMember = chatMemberByWorkspaceKey.get(normalizeChatKey(member.userId))
-                  ?? chatMemberByWorkspaceKey.get(normalizeChatKey(member.displayName));
+                  ?? chatMemberByWorkspaceKey.get(normalizeChatKey(member.displayName))
                 const content = (
                   <>
                     <span>{member.displayName}</span>
                     <span>{member.positionId ? positionById.get(member.positionId)?.title ?? '成员' : '成员'}</span>
                   </>
-                );
+                )
                 return chatMember ? (
                   <button
                     key={member.userId}
@@ -1604,22 +1604,22 @@ function CompanyBranch({
                   <div key={member.userId} className="claw-orgtree__member">
                     {content}
                   </div>
-                );
+                )
               })}
               {members.length === 0
-                ? positions.map((position) => (
-                    <div key={position.id} className="claw-orgtree__vacant">
-                      {position.title} · 待加入
-                    </div>
-                  ))
+                ? positions.map(position => (
+                  <div key={position.id} className="claw-orgtree__vacant">
+                    {position.title} · 待加入
+                  </div>
+                ))
                 : null}
             </DepartmentSection>
-          );
+          )
         })}
         {departments.length === 0 ? (
           <div className="claw-orgtree__vacant">组织详情等待企业服务同步</div>
         ) : null}
-        {childIds.map((childId) => (
+        {childIds.map(childId => (
           <CompanyBranch
             key={childId}
             companyId={childId}
@@ -1634,5 +1634,5 @@ function CompanyBranch({
         ))}
       </div>
     </div>
-  );
+  )
 }

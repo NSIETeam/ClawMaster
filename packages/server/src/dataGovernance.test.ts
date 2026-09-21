@@ -2,11 +2,11 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { Database, type EncryptedObjectStore } from './modules/data_platform/index.js';
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import { Database, type EncryptedObjectStore } from './modules/data_platform/index.js'
 import {
   DATA_GOVERNANCE_SCHEMA_CONTRIBUTOR,
   createPrivacyDeletionLedger,
@@ -17,17 +17,17 @@ import {
   recordCurrentLegalConsentInRepository,
   type DataGovernanceAccount,
   type DataGovernanceRepositoryStore,
-} from './modules/data_governance/index.js';
+} from './modules/data_governance/index.js'
 
-const temporaryDirectories: string[] = [];
+const temporaryDirectories: string[] = []
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
-    fs.rmSync(directory, { recursive: true, force: true });
+    fs.rmSync(directory, { recursive: true, force: true })
   }
-});
+})
 
 function createFixture() {
-  const database = new Database(':memory:');
+  const database = new Database(':memory:')
   database.exec(`
     PRAGMA foreign_keys = ON;
     CREATE TABLE organizations (id TEXT PRIMARY KEY);
@@ -123,72 +123,72 @@ function createFixture() {
     INSERT INTO knowledge_retention_evidence VALUES ('org-a','acc-a','尚未晋升的个人观察');
     INSERT INTO credit_transactions VALUES ('acc-a','王小明充值');
     INSERT INTO audit_logs VALUES ('emp-a','Account xiaoming logged in');
-  `);
-  DATA_GOVERNANCE_SCHEMA_CONTRIBUTOR.apply(database);
-  const deletedObjects: string[] = [];
-  const tombstones: Array<{ accountId: string; organizationId: string; requestedAtMs: number }> = [];
+  `)
+  DATA_GOVERNANCE_SCHEMA_CONTRIBUTOR.apply(database)
+  const deletedObjects: string[] = []
+  const tombstones: Array<{ accountId: string; organizationId: string; requestedAtMs: number }> = []
   const store: DataGovernanceRepositoryStore = {
     db: () => database,
     now: () => Date.parse('2026-07-29T10:00:00.000Z'),
     createId: () => 'request-a',
     createDeletionPasswordHash: () => 'deleted-hash',
     attachmentObjectStore: { delete: (key: string) => deletedObjects.push(key) } as unknown as EncryptedObjectStore,
-    appendDeletionTombstone: (entry) => tombstones.push(entry),
-  };
+    appendDeletionTombstone: entry => tombstones.push(entry),
+  }
   const account: DataGovernanceAccount = {
     id: 'acc-a', organizationId: 'org-a', accountType: 'enterprise', employeeId: 'emp-a',
     username: 'xiaoming', name: '王小明', isAdmin: false, status: 'active',
-  };
-  return { database, store, account, deletedObjects, tombstones };
+  }
+  return { database, store, account, deletedObjects, tombstones }
 }
 
 describe('data_governance consent, export and deletion', () => {
   it('records versioned consent and exports only account-readable fields', () => {
-    const fixture = createFixture();
+    const fixture = createFixture()
     recordCurrentLegalConsentInRepository(
       fixture.store,
       fixture.account,
       'settings',
       currentLegalDocumentReferences(),
-    );
+    )
     expect(getDataGovernanceProfileFromRepository(fixture.store, fixture.account))
-      .toMatchObject({ currentConsentComplete: true });
+      .toMatchObject({ currentConsentComplete: true })
     const exported = exportAccountDataFromRepository(fixture.store, fixture.account) as {
-      account: Record<string, unknown>;
-      messages: Array<{ content: string }>;
-    };
-    expect(exported.account.password_hash).toBeUndefined();
-    expect(exported.messages).toEqual([expect.objectContaining({ content: '私聊内容' })]);
+      account: Record<string, unknown>
+      messages: Array<{ content: string }>
+    }
+    expect(exported.account.password_hash).toBeUndefined()
+    expect(exported.messages).toEqual([expect.objectContaining({ content: '私聊内容' })])
   });
 
   it('deletes personal content, anonymizes business records and emits a receipt', () => {
-    const fixture = createFixture();
-    const receipt = deleteOwnAccountDataInRepository(fixture.store, fixture.account);
-    expect(receipt.deleted).toContain('本人私聊及附件');
-    expect(fixture.tombstones).toEqual([expect.objectContaining({ accountId: 'acc-a' })]);
-    expect(fixture.deletedObjects).toEqual(['aa/bb/object']);
-    const account = fixture.database.prepare('SELECT * FROM accounts WHERE id = ?').get('acc-a') as Record<string, unknown>;
-    expect(account).toMatchObject({ username: 'deleted_acc-a', phone: null, name: '已删除账号', status: 'disabled' });
-    expect(fixture.database.prepare('SELECT COUNT(*) AS count FROM direct_messages').get()).toEqual({ count: 0 });
-    expect(fixture.database.prepare('SELECT COUNT(*) AS count FROM account_sync_snapshots').get()).toEqual({ count: 0 });
+    const fixture = createFixture()
+    const receipt = deleteOwnAccountDataInRepository(fixture.store, fixture.account)
+    expect(receipt.deleted).toContain('本人私聊及附件')
+    expect(fixture.tombstones).toEqual([expect.objectContaining({ accountId: 'acc-a' })])
+    expect(fixture.deletedObjects).toEqual(['aa/bb/object'])
+    const account = fixture.database.prepare('SELECT * FROM accounts WHERE id = ?').get('acc-a') as Record<string, unknown>
+    expect(account).toMatchObject({ username: 'deleted_acc-a', phone: null, name: '已删除账号', status: 'disabled' })
+    expect(fixture.database.prepare('SELECT COUNT(*) AS count FROM direct_messages').get()).toEqual({ count: 0 })
+    expect(fixture.database.prepare('SELECT COUNT(*) AS count FROM account_sync_snapshots').get()).toEqual({ count: 0 })
     expect(fixture.database.prepare('SELECT contributor, contributor_account_id FROM knowledge').get())
-      .toEqual({ contributor: null, contributor_account_id: null });
+      .toEqual({ contributor: null, contributor_account_id: null })
     expect(fixture.database.prepare('SELECT COUNT(*) AS count FROM knowledge_retention_evidence').get())
-      .toEqual({ count: 0 });
-    const ticket = fixture.database.prepare('SELECT * FROM it_tickets WHERE id = ?').get('ticket-a') as { form_data: string; contact: string | null };
-    expect(ticket.contact).toBeNull();
-    expect(JSON.parse(ticket.form_data)).toEqual({ amountCny: '260', date: '2026-07-29', privacyScrubbed: true });
+      .toEqual({ count: 0 })
+    const ticket = fixture.database.prepare('SELECT * FROM it_tickets WHERE id = ?').get('ticket-a') as { form_data: string; contact: string | null }
+    expect(ticket.contact).toBeNull()
+    expect(JSON.parse(ticket.form_data)).toEqual({ amountCny: '260', date: '2026-07-29', privacyScrubbed: true })
   });
-});
+})
 
 describe('encrypted privacy deletion ledger', () => {
   it('survives database backup replacement without exposing account ids in plaintext', () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-privacy-ledger-'));
-    temporaryDirectories.push(directory);
-    const ledgerPath = path.join(directory, 'privacy-deletions.jsonl');
-    const ledger = createPrivacyDeletionLedger({ ledgerPath, keyPath: path.join(directory, 'privacy-deletions.key') });
-    ledger.append({ accountId: 'acc-secret', organizationId: 'org-secret', requestedAtMs: 123 });
-    expect(fs.readFileSync(ledgerPath, 'utf8')).not.toContain('acc-secret');
-    expect(ledger.list()).toEqual([{ accountId: 'acc-secret', organizationId: 'org-secret', requestedAtMs: 123 }]);
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-privacy-ledger-'))
+    temporaryDirectories.push(directory)
+    const ledgerPath = path.join(directory, 'privacy-deletions.jsonl')
+    const ledger = createPrivacyDeletionLedger({ ledgerPath, keyPath: path.join(directory, 'privacy-deletions.key') })
+    ledger.append({ accountId: 'acc-secret', organizationId: 'org-secret', requestedAtMs: 123 })
+    expect(fs.readFileSync(ledgerPath, 'utf8')).not.toContain('acc-secret')
+    expect(ledger.list()).toEqual([{ accountId: 'acc-secret', organizationId: 'org-secret', requestedAtMs: 123 }])
   });
-});
+})

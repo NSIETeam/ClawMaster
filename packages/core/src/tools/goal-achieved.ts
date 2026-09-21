@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Type } from '@google/genai';
-import { BaseTool, Icon, ToolResult } from './tools.js';
-import { Config } from '../config/config.js';
-import { SchemaValidator } from '../utils/schemaValidator.js';
-import { todoStore } from './todo-store.js';
-import { runGoalEvaluation } from '../agents/runGoalEvaluation.js';
+import { Type } from '@google/genai'
+import { BaseTool, Icon, ToolResult } from './tools.js'
+import { Config } from '../config/config.js'
+import { SchemaValidator } from '../utils/schemaValidator.js'
+import { todoStore } from './todo-store.js'
+import { runGoalEvaluation } from '../agents/runGoalEvaluation.js'
 
 /**
  * Parameters for the GoalAchievedTool.
@@ -24,7 +24,7 @@ export interface GoalAchievedParams {
    * No length floor is enforced (per design discussion: a length floor
    * doesn't guarantee quality and adds friction); content is trusted.
    */
-  reason: string;
+  reason: string
 }
 
 /**
@@ -83,7 +83,7 @@ export interface GoalAchievedParams {
  *   - summary: short label for the tool-call status row.
  */
 export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
-  static readonly Name: string = 'goal_achieved';
+  static readonly Name: string = 'goal_achieved'
 
   constructor(private readonly config: Config) {
     super(
@@ -102,7 +102,7 @@ export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
         },
         required: ['reason'],
       },
-    );
+    )
   }
 
   validateToolParams(params: GoalAchievedParams): string | null {
@@ -110,48 +110,48 @@ export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
       this.schema.parameters,
       params,
       GoalAchievedTool.Name,
-    );
+    )
     if (errors) {
-      return errors;
+      return errors
     }
     if (
       typeof params.reason !== 'string' ||
       params.reason.trim() === ''
     ) {
-      return 'Parameter "reason" must be a non-empty string explaining why the goal is complete.';
+      return 'Parameter "reason" must be a non-empty string explaining why the goal is complete.'
     }
-    return null;
+    return null
   }
 
   getDescription(params: GoalAchievedParams): string {
     // Truncate the reason for the tool-call status row to keep the UI tidy;
     // the full reason is preserved in returnDisplay below.
-    const r = (params.reason ?? '').trim();
-    const short = r.length > 60 ? `${r.slice(0, 60)}…` : r;
-    return `Mark goal achieved: ${short}`;
+    const r = (params.reason ?? '').trim()
+    const short = r.length > 60 ? `${r.slice(0, 60)}…` : r
+    return `Mark goal achieved: ${short}`
   }
 
   async execute(
     params: GoalAchievedParams,
     _signal: AbortSignal,
   ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
+    const validationError = this.validateToolParams(params)
     if (validationError) {
       return {
         llmContent: `Error: Invalid parameters provided. Reason: ${validationError}`,
         returnDisplay: `Parameter validation failed: ${validationError}`,
-      };
+      }
     }
 
-    const reason = params.reason.trim();
+    const reason = params.reason.trim()
 
-    let client = null;
+    let client = null
     try {
-      client = this.config.getClawMasterClient();
+      client = this.config.getClawMasterClient()
     } catch {
       // Swallow
     }
-    const activeGoalContext = client ? client.getGoalContext() : null;
+    const activeGoalContext = client ? client.getGoalContext() : null
 
     if (!activeGoalContext) {
       // Model called this without an active goal — graceful no-op so we
@@ -160,33 +160,33 @@ export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
       const noGoalMsg =
         '[goal_achieved] No active /goal mode was detected; this tool has no effect outside goal mode. ' +
         'Continue normal operation. If you intended to declare some other kind of task complete, ' +
-        'simply state it in prose — the goal_achieved tool is exclusively for /goal-mode contracts.';
+        'simply state it in prose — the goal_achieved tool is exclusively for /goal-mode contracts.'
       return {
         llmContent: noGoalMsg,
         returnDisplay: '⚠ goal_achieved called outside /goal mode — ignored.',
         summary: 'no active goal',
-      };
+      }
     }
 
     // 🎯 1) 引入独立评估器判定逻辑
-    let evaluationPassed = true;
-    let feedback = '';
+    let evaluationPassed = true
+    let feedback = ''
 
-    const cloudModels = typeof this.config.getCloudModels === 'function' ? (this.config.getCloudModels() || []) : [];
+    const cloudModels = typeof this.config.getCloudModels === 'function' ? (this.config.getCloudModels() || []) : []
     const isCloudAvailable = cloudModels.some(
-      m => m.name === 'deepseek-v4-flash' && m.available !== false
+      m => m.name === 'deepseek-v4-flash' && m.available !== false,
     );
-    const customModels = typeof this.config.getCustomModels === 'function' ? (this.config.getCustomModels() || []) : [];
+    const customModels = typeof this.config.getCustomModels === 'function' ? (this.config.getCustomModels() || []) : []
     const isCustomAvailable = customModels.some(
-      m => m.modelId === 'deepseek-v4-flash' && m.enabled !== false
+      m => m.modelId === 'deepseek-v4-flash' && m.enabled !== false,
     );
-    const isEvaluatorAvailable = isCloudAvailable || isCustomAvailable;
+    const isEvaluatorAvailable = isCloudAvailable || isCustomAvailable
 
     if (isEvaluatorAvailable && client) {
       try {
-        const contentGenerator = client.getContentGenerator();
-        const chat = client.getChat();
-        const snapshot = chat ? chat.cacheSafeParams.get() : null;
+        const contentGenerator = client.getContentGenerator()
+        const chat = client.getChat()
+        const snapshot = chat ? chat.cacheSafeParams.get() : null
 
         const verdict = await runGoalEvaluation({
           contentGenerator,
@@ -196,25 +196,25 @@ export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
           reason,
           cacheSafeSnapshot: snapshot,
           signal: _signal,
-        });
+        })
 
         if (verdict.status === 'approved') {
-          evaluationPassed = true;
-          feedback = verdict.feedback;
+          evaluationPassed = true
+          feedback = verdict.feedback
         } else if (verdict.status === 'rejected') {
-          evaluationPassed = false;
-          feedback = verdict.feedback;
+          evaluationPassed = false
+          feedback = verdict.feedback
         } else {
           // A configured independent evaluator is a safety boundary. If it is
           // unavailable, only an explicit user /goal clear may release the contract.
-          console.warn(`[GoalAchievedTool] Evaluator run failed; keeping goal active: ${verdict.feedback}`);
-          evaluationPassed = false;
-          feedback = verdict.feedback || 'Independent evaluator was unavailable.';
+          console.warn(`[GoalAchievedTool] Evaluator run failed; keeping goal active: ${verdict.feedback}`)
+          evaluationPassed = false
+          feedback = verdict.feedback || 'Independent evaluator was unavailable.'
         }
       } catch (err) {
-        console.warn(`[GoalAchievedTool] Error during evaluation run; keeping goal active:`, err);
-        evaluationPassed = false;
-        feedback = err instanceof Error ? err.message : String(err);
+        console.warn('[GoalAchievedTool] Error during evaluation run; keeping goal active:', err)
+        evaluationPassed = false
+        feedback = err instanceof Error ? err.message : String(err)
       }
     }
 
@@ -232,7 +232,7 @@ export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
         '2. Read the supervisor feedback carefully to identify unmet requirements, missing verifications, or other gaps.',
         '3. Take corrective actions (e.g., write the missing files, fix the errors, or run tests to verify your implementation).',
         '4. Once you have fully resolved the feedback and verified everything, you may call the goal_achieved tool again with a new justification.',
-      ].join('\n');
+      ].join('\n')
 
       return {
         llmContent: rejectLlmContent,
@@ -241,14 +241,14 @@ export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
           feedback,
         },
         summary: 'goal completion rejected',
-      };
+      }
     }
 
     // 🎯 3) 评估通过或降级：清除 goal 上下文，退出 goal 模式
     try {
       if (client) {
-        client.clearGoalContext();
-        todoStore.clear(); // 🎯 妙计：当 Goal 完成时，自动清除悬挂的任务面板
+        client.clearGoalContext()
+        todoStore.clear() // 🎯 妙计：当 Goal 完成时，自动清除悬挂的任务面板
       }
     } catch {
       // Swallow
@@ -256,12 +256,12 @@ export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
 
     const llmAck =
       `[goal_achieved] Goal contract released. Reason recorded: ${reason}\n\n` +
-      `From this point onward:\n` +
-      `- The minimum-hours floor no longer applies.\n` +
-      `- The "no-stop" discipline no longer applies.\n` +
-      `- Subsequent context compressions will not re-inject the original goal prompt.\n` +
-      `- System safety rails (no rm -rf, no PowerShell, no batch-kill of node processes, etc.) STAY ON — those are independent of goal mode.\n\n` +
-      `Switch into normal conversational posture. Give the user a concise outcome summary (what completed, the result, and verification), then wait for the next instruction. Do not expose internal reasoning or dump raw logs.`;
+      'From this point onward:\n' +
+      '- The minimum-hours floor no longer applies.\n' +
+      '- The "no-stop" discipline no longer applies.\n' +
+      '- Subsequent context compressions will not re-inject the original goal prompt.\n' +
+      '- System safety rails (no rm -rf, no PowerShell, no batch-kill of node processes, etc.) STAY ON — those are independent of goal mode.\n\n' +
+      'Switch into normal conversational posture. Give the user a concise outcome summary (what completed, the result, and verification), then wait for the next instruction. Do not expose internal reasoning or dump raw logs.';
 
     return {
       llmContent: llmAck,
@@ -272,6 +272,6 @@ export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
       // warning string — it's a misuse signal, not a celebration.
       returnDisplay: { type: 'goal_achieved_display', reason },
       summary: 'goal achieved',
-    };
+    }
   }
 }

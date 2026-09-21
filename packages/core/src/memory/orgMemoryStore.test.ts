@@ -1,27 +1,27 @@
-import * as fs from 'fs/promises';
-import * as os from 'os';
-import * as path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { OrgMemoryStore } from './orgMemoryStore.js';
-import type { OrgMemoryRecord, ProjectRecord } from './orgMemoryTypes.js';
+import * as fs from 'fs/promises'
+import * as os from 'os'
+import * as path from 'path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { OrgMemoryStore } from './orgMemoryStore.js'
+import type { OrgMemoryRecord, ProjectRecord } from './orgMemoryTypes.js'
 
 describe('OrgMemoryStore', () => {
-  let dir: string;
-  let store: OrgMemoryStore;
+  let dir: string
+  let store: OrgMemoryStore
 
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-org-memory-'));
-    store = new OrgMemoryStore(dir);
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-org-memory-'))
+    store = new OrgMemoryStore(dir)
   });
 
   afterEach(async () => {
-    await fs.rm(dir, { recursive: true, force: true });
+    await fs.rm(dir, { recursive: true, force: true })
   });
 
   it('loads an empty store when no file exists', async () => {
-    const data = await store.load();
-    expect(data.projects).toEqual([]);
-    expect(data.memories).toEqual([]);
+    const data = await store.load()
+    expect(data.projects).toEqual([])
+    expect(data.memories).toEqual([])
   });
 
   it('persists project memory records locally', async () => {
@@ -39,7 +39,7 @@ describe('OrgMemoryStore', () => {
       assetRefs: [],
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    };
+    }
     const memory: OrgMemoryRecord = {
       id: 'memory-1',
       scope: 'project',
@@ -56,13 +56,13 @@ describe('OrgMemoryStore', () => {
       createdBy: 'user-1',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    };
+    }
 
-    await store.upsertProject(project);
-    await store.addMemory(memory);
+    await store.upsertProject(project)
+    await store.addMemory(memory)
 
-    const reloaded = new OrgMemoryStore(dir);
-    expect((await reloaded.load()).projects).toHaveLength(1);
-    expect(await reloaded.listProjectMemories('project-1')).toEqual([memory]);
+    const reloaded = new OrgMemoryStore(dir)
+    expect((await reloaded.load()).projects).toHaveLength(1)
+    expect(await reloaded.listProjectMemories('project-1')).toEqual([memory])
   });
-});
+})

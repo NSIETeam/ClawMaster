@@ -3,36 +3,36 @@
  * 设计目标：用户点击一次即可生成 zip；任何 secret 文件和明文密钥都不会进入包。
  */
 
-import * as fs from 'node:fs/promises';
-import * as os from 'node:os';
-import * as path from 'node:path';
-import JSZip from 'jszip';
-import { DoctorService, formatDoctorReport, type DoctorReport } from './doctor.js';
-import { redactSensitiveText } from '../utils/redaction.js';
+import * as fs from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import JSZip from 'jszip'
+import { DoctorService, formatDoctorReport, type DoctorReport } from './doctor.js'
+import { redactSensitiveText } from '../utils/redaction.js'
 
 export interface DiagnosticModelSummary {
-  displayName?: string;
-  provider?: string;
-  baseUrl?: string;
-  modelId?: string;
-  hasApiKey: boolean;
+  displayName?: string
+  provider?: string
+  baseUrl?: string
+  modelId?: string
+  hasApiKey: boolean
 }
 
 export interface DiagnosticBundleOptions {
-  homeDir?: string;
-  outputDir?: string;
-  models?: DiagnosticModelSummary[];
-  doctorReport?: DoctorReport;
-  extraLogPaths?: string[];
-  maxFiles?: number;
-  maxTotalBytes?: number;
+  homeDir?: string
+  outputDir?: string
+  models?: DiagnosticModelSummary[]
+  doctorReport?: DoctorReport
+  extraLogPaths?: string[]
+  maxFiles?: number
+  maxTotalBytes?: number
 }
 
 export interface DiagnosticBundleResult {
-  ok: boolean;
-  path: string;
-  fileCount: number;
-  message: string;
+  ok: boolean
+  path: string
+  fileCount: number
+  message: string
 }
 
 const SECRET_FILE_PARTS = [
@@ -42,23 +42,23 @@ const SECRET_FILE_PARTS = [
   'credential',
   'password',
   'app-secret',
-];
+]
 
 function isSecretPath(filePath: string): boolean {
-  const normalized = filePath.toLowerCase();
-  return SECRET_FILE_PARTS.some((part) => normalized.includes(part.toLowerCase()));
+  const normalized = filePath.toLowerCase()
+  return SECRET_FILE_PARTS.some(part => normalized.includes(part.toLowerCase()))
 }
 
 /** 只保留排障信息，移除常见 token/key/password 字段和疑似密钥值。 */
 export function redactDiagnosticText(input: string): string {
-  return redactSensitiveText(input);
+  return redactSensitiveText(input)
 }
 
 interface CollectionBudget {
-  fileCount: number;
-  totalBytes: number;
-  readonly maxFiles: number;
-  readonly maxTotalBytes: number;
+  fileCount: number
+  totalBytes: number
+  readonly maxFiles: number
+  readonly maxTotalBytes: number
 }
 
 async function addFile(
@@ -67,18 +67,18 @@ async function addFile(
   targetPath: string,
   budget: CollectionBudget,
 ): Promise<boolean> {
-  if (isSecretPath(sourcePath)) return false;
+  if (isSecretPath(sourcePath)) return false
   try {
-    const stat = await fs.lstat(sourcePath);
-    if (stat.isSymbolicLink() || !stat.isFile() || stat.size > 2 * 1024 * 1024) return false;
-    if (budget.fileCount >= budget.maxFiles || budget.totalBytes + stat.size > budget.maxTotalBytes) return false;
-    const content = await fs.readFile(sourcePath, 'utf8');
-    zip.file(targetPath, redactDiagnosticText(content));
-    budget.fileCount += 1;
-    budget.totalBytes += stat.size;
-    return true;
+    const stat = await fs.lstat(sourcePath)
+    if (stat.isSymbolicLink() || !stat.isFile() || stat.size > 2 * 1024 * 1024) return false
+    if (budget.fileCount >= budget.maxFiles || budget.totalBytes + stat.size > budget.maxTotalBytes) return false
+    const content = await fs.readFile(sourcePath, 'utf8')
+    zip.file(targetPath, redactDiagnosticText(content))
+    budget.fileCount += 1
+    budget.totalBytes += stat.size
+    return true
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -88,57 +88,57 @@ async function collectFiles(
   zip: JSZip,
   budget: CollectionBudget,
 ): Promise<number> {
-  let count = 0;
-  if (budget.fileCount >= budget.maxFiles || budget.totalBytes >= budget.maxTotalBytes) return 0;
+  let count = 0
+  if (budget.fileCount >= budget.maxFiles || budget.totalBytes >= budget.maxTotalBytes) return 0
   try {
-    const entries = await fs.readdir(root, { withFileTypes: true });
+    const entries = await fs.readdir(root, { withFileTypes: true })
     for (const entry of entries) {
-      if (budget.fileCount >= budget.maxFiles || budget.totalBytes >= budget.maxTotalBytes) break;
-      const source = path.join(root, entry.name);
-      if (entry.name === 'secrets' || isSecretPath(source)) continue;
-      if (entry.isSymbolicLink()) continue;
+      if (budget.fileCount >= budget.maxFiles || budget.totalBytes >= budget.maxTotalBytes) break
+      const source = path.join(root, entry.name)
+      if (entry.name === 'secrets' || isSecretPath(source)) continue
+      if (entry.isSymbolicLink()) continue
       if (entry.isDirectory()) {
-        count += await collectFiles(source, `${prefix}/${entry.name}`, zip, budget);
+        count += await collectFiles(source, `${prefix}/${entry.name}`, zip, budget)
       } else if (await addFile(zip, source, `${prefix}/${entry.name}`, budget)) {
-        count += 1;
+        count += 1
       }
     }
   } catch {
     // 日志目录不存在或无权限时跳过，不阻断诊断包生成。
   }
-  return count;
+  return count
 }
 
 export async function createDiagnosticBundle(options: DiagnosticBundleOptions = {}): Promise<DiagnosticBundleResult> {
-  const homeDir = options.homeDir ?? os.homedir();
-  const outputDir = options.outputDir ?? path.join(homeDir, 'Desktop');
-  const report = options.doctorReport ?? await new DoctorService().check();
-  const zip = new JSZip();
-  let fileCount = 0;
+  const homeDir = options.homeDir ?? os.homedir()
+  const outputDir = options.outputDir ?? path.join(homeDir, 'Desktop')
+  const report = options.doctorReport ?? await new DoctorService().check()
+  const zip = new JSZip()
+  let fileCount = 0
   const budget: CollectionBudget = {
     fileCount: 0,
     totalBytes: 0,
     maxFiles: Math.max(1, options.maxFiles ?? 200),
     maxTotalBytes: Math.max(1024, options.maxTotalBytes ?? 20 * 1024 * 1024),
-  };
+  }
 
-  let models = (options.models ?? []).map((model) => ({
+  let models = (options.models ?? []).map(model => ({
     displayName: model.displayName,
     provider: model.provider,
     baseUrl: model.baseUrl,
     modelId: model.modelId,
     hasApiKey: Boolean(model.hasApiKey),
-  }));
+  }))
   if (models.length === 0) {
     try {
-      const raw = JSON.parse(await fs.readFile(path.join(homeDir, '.clawmaster-user', 'custom-models.json'), 'utf8')) as { models?: Array<Record<string, unknown>> };
-      models = (raw.models ?? []).map((model) => ({
+      const raw = JSON.parse(await fs.readFile(path.join(homeDir, '.clawmaster-user', 'custom-models.json'), 'utf8')) as { models?: Array<Record<string, unknown>> }
+      models = (raw.models ?? []).map(model => ({
         displayName: typeof model.displayName === 'string' ? model.displayName : undefined,
         provider: typeof model.provider === 'string' ? model.provider : undefined,
         baseUrl: typeof model.baseUrl === 'string' ? model.baseUrl : undefined,
         modelId: typeof model.modelId === 'string' ? model.modelId : undefined,
         hasApiKey: Boolean(model.apiKey),
-      }));
+      }))
     } catch {
       // 未配置自定义模型时保留空列表。
     }
@@ -149,41 +149,41 @@ export async function createDiagnosticBundle(options: DiagnosticBundleOptions = 
     arch: process.arch,
     node: process.version,
     clawmasterVersion: process.env.CLAWMASTER_VERSION ?? 'unknown',
-  }, null, 2));
+  }, null, 2))
   zip.file(
     'model-config.json',
     redactDiagnosticText(JSON.stringify({ models }, null, 2)),
-  );
-  zip.file('dependency-report.txt', formatDoctorReport(report));
+  )
+  zip.file('dependency-report.txt', formatDoctorReport(report))
 
-  fileCount += await collectFiles(path.join(homeDir, '.clawmaster-user', 'logs'), 'clawmaster-user/logs', zip, budget);
-  fileCount += await collectFiles(path.join(homeDir, '.clawmaster-user', 'audit'), 'clawmaster-user/audit', zip, budget);
+  fileCount += await collectFiles(path.join(homeDir, '.clawmaster-user', 'logs'), 'clawmaster-user/logs', zip, budget)
+  fileCount += await collectFiles(path.join(homeDir, '.clawmaster-user', 'audit'), 'clawmaster-user/audit', zip, budget)
   const desktopLogCandidates = process.platform === 'darwin'
     ? [path.join(homeDir, 'Library', 'Logs', 'ClawMaster')]
     : process.platform === 'win32'
       ? [path.join(process.env.APPDATA ?? homeDir, 'ClawMaster', 'logs')]
-      : [path.join(homeDir, '.config', 'ClawMaster', 'logs')];
+      : [path.join(homeDir, '.config', 'ClawMaster', 'logs')]
   for (const logDir of desktopLogCandidates) {
-    fileCount += await collectFiles(logDir, 'desktop/logs', zip, budget);
+    fileCount += await collectFiles(logDir, 'desktop/logs', zip, budget)
   }
   for (const logPath of options.extraLogPaths ?? []) {
-    if (await addFile(zip, logPath, `extra/${path.basename(logPath)}`, budget)) fileCount += 1;
+    if (await addFile(zip, logPath, `extra/${path.basename(logPath)}`, budget)) fileCount += 1
   }
   if (await addFile(
     zip,
     path.join(homeDir, '.clawmaster-user', 'memory', 'knowledge-capture', 'status.json'),
     'runtime/knowledge-capture-status.json',
     budget,
-  )) fileCount += 1;
+  )) fileCount += 1
   zip.file('bundle-manifest.json', JSON.stringify({
     includedFiles: fileCount,
     includedSourceBytes: budget.totalBytes,
     limits: { maxFiles: budget.maxFiles, maxTotalBytes: budget.maxTotalBytes },
-  }, null, 2));
+  }, null, 2))
 
-  await fs.mkdir(outputDir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[.:]/g, '-');
-  const outputPath = path.join(outputDir, `clawmaster-diagnostic-${stamp}.zip`);
-  await fs.writeFile(outputPath, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
-  return { ok: true, path: outputPath, fileCount, message: `诊断包已生成：${outputPath}` };
+  await fs.mkdir(outputDir, { recursive: true })
+  const stamp = new Date().toISOString().replace(/[.:]/g, '-')
+  const outputPath = path.join(outputDir, `clawmaster-diagnostic-${stamp}.zip`)
+  await fs.writeFile(outputPath, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }))
+  return { ok: true, path: outputPath, fileCount, message: `诊断包已生成：${outputPath}` }
 }

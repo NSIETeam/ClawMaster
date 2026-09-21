@@ -154,5 +154,5 @@ $('resetRoom').addEventListener('click',resetRoom);
 resetRoom();if(token)load();else setLoggedIn(false);
 </script>
 </body>
-</html>`;
+</html>`
 }

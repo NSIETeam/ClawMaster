@@ -2,16 +2,16 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
-import { buildNodePostgresPoolConfig } from './nodePostgresPool.js';
+import { buildNodePostgresPoolConfig } from './nodePostgresPool.js'
 
 describe('node PostgreSQL pool configuration', () => {
   it('requires certificate verification by default and sets bounded timeouts', () => {
     const config = buildNodePostgresPoolConfig({
       connectionString: 'postgresql://clawmaster:secret@db.internal/clawmaster',
       environment: {},
-    });
+    })
 
     expect(config).toMatchObject({
       application_name: 'clawmaster-enterprise',
@@ -20,7 +20,7 @@ describe('node PostgreSQL pool configuration', () => {
       idleTimeoutMillis: 30_000,
       statement_timeout: 30_000,
       ssl: { rejectUnauthorized: true },
-    });
+    })
   });
 
   it('supports an explicit local-development TLS opt-out and pool sizing', () => {
@@ -32,15 +32,15 @@ describe('node PostgreSQL pool configuration', () => {
         CLAWMASTER_POSTGRES_CONNECT_TIMEOUT_MS: '2500',
         CLAWMASTER_POSTGRES_STATEMENT_TIMEOUT_MS: '8000',
       },
-    });
+    })
 
     expect(config).toMatchObject({
       max: 4,
       connectionTimeoutMillis: 2500,
       statement_timeout: 8000,
       ssl: false,
-    });
-    expect(String(config.connectionString)).not.toContain('sslmode');
+    })
+    expect(String(config.connectionString)).not.toContain('sslmode')
   });
 
   it('rejects unsafe or unbounded pool configuration', () => {
@@ -49,12 +49,12 @@ describe('node PostgreSQL pool configuration', () => {
         connectionString: 'postgresql://db.internal/clawmaster',
         environment: { CLAWMASTER_POSTGRES_SSL_MODE: 'trust-everything' },
       }),
-    ).toThrow(/SSL mode/i);
+    ).toThrow(/SSL mode/i)
     expect(() =>
       buildNodePostgresPoolConfig({
         connectionString: 'postgresql://db.internal/clawmaster',
         environment: { CLAWMASTER_POSTGRES_POOL_MAX: '0' },
       }),
-    ).toThrow(/POOL_MAX/i);
+    ).toThrow(/POOL_MAX/i)
   });
-});
+})

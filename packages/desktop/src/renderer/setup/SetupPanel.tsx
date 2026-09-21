@@ -20,11 +20,11 @@
  * 仍保留「复制 custom-models.json / 复制 CLI 命令」作为离线兜底路径（不依赖 server）。
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ModelInfo } from 'clawmaster-server';
-import { FeishuStatusBadge } from '../components/FeishuStatusBadge.js';
-import { GeneratedIcon } from '../components/GeneratedIcon.js';
-import { VoiceSettings } from '../components/VoiceSettings.js';
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import type { ModelInfo } from 'clawmaster-server'
+import { FeishuStatusBadge } from '../components/FeishuStatusBadge.js'
+import { GeneratedIcon } from '../components/GeneratedIcon.js'
+import { VoiceSettings } from '../components/VoiceSettings.js'
 import {
   ClawMasterCrown,
   IconCheck,
@@ -34,7 +34,7 @@ import {
   IconEyeOff,
   IconWarning,
   IconChevron,
-} from '../components/icons.js';
+} from '../components/icons.js'
 import {
   PROVIDER_PRESETS,
   PROVIDER_OPTIONS,
@@ -48,24 +48,24 @@ import {
   type SetupFormState,
   type SaveCustomModelPayload,
   vendorFromBaseUrl,
-} from './presets.js';
+} from './presets.js'
 
 export interface SetupPanelProps {
   /** server 已知的现有模型（get_models 回包），用于展示「已配置」态。 */
-  models: ModelInfo[];
+  models: ModelInfo[]
   /** 落盘进行中（已发帧、等 models_list / error 裁决）。 */
-  saving?: boolean;
+  saving?: boolean
   /** 落盘失败文案（save_failed）。null = 无错误。 */
-  saveError?: string | null;
+  saveError?: string | null
   /** 关闭面板。 */
-  onClose: () => void;
+  onClose: () => void
   /** 提交一个自定义模型（发 `save_custom_model` 帧，由上层裁决成功/失败）。 */
-  onSave: (payload: SaveCustomModelPayload) => void;
+  onSave: (payload: SaveCustomModelPayload) => void
   /** 删除一个已配置模型（发 `delete_custom_model` 帧；成功后 models_list 广播刷新列表）。 */
-  onDeleteModel?: (id: string) => void;
+  onDeleteModel?: (id: string) => void
 }
 
-const DEFAULT_PRESET = PROVIDER_PRESETS[0];
+const DEFAULT_PRESET = PROVIDER_PRESETS[0]
 
 function initialForm(): SetupFormState {
   return {
@@ -78,7 +78,7 @@ function initialForm(): SetupFormState {
     displayName: '',
     maxTokens: '',
     enabled: true,
-  };
+  }
 }
 
 export function SetupPanel({
@@ -89,16 +89,16 @@ export function SetupPanel({
   onSave,
   onDeleteModel,
 }: SetupPanelProps): React.JSX.Element {
-  const [form, setForm] = useState<SetupFormState>(initialForm);
+  const [form, setForm] = useState<SetupFormState>(initialForm)
   // 删除二次确认：记录「已点过一次删除」的模型 id，再点同一个才真删。
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [revealKey, setRevealKey] = useState(false);
-  const [copied, setCopied] = useState<'json' | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [revealKey, setRevealKey] = useState(false)
+  const [copied, setCopied] = useState<'json' | null>(null)
   /** 「离线兜底」高级块折叠态：默认收起（对新手是噪音），点击展开。 */
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   /** 「本地测试模式」块折叠态：默认收起；面向开发者，折叠对普通用户无干扰。 */
-  const [localTestOpen, setLocalTestOpen] = useState(false);
+  const [localTestOpen, setLocalTestOpen] = useState(false)
   /**
    * 本地测试代理地址（不落盘，仅当前会话生效）。
    * 用途：无需连接组织服务器，直接把 customProxyServerUrl 指向本机 localhost claw-server
@@ -113,75 +113,75 @@ export function SetupPanel({
    */
   const [localTestUrl, setLocalTestUrl] = useState<string>(() => {
     try {
-      return sessionStorage.getItem('clawmaster:local-test-url') || '';
+      return sessionStorage.getItem('clawmaster:local-test-url') || ''
     } catch {
-      return '';
+      return ''
     }
-  });
+  })
   const [localTestApplied, setLocalTestApplied] = useState<boolean>(() => {
     try {
-      return sessionStorage.getItem('clawmaster:local-test-applied') === '1';
+      return sessionStorage.getItem('clawmaster:local-test-applied') === '1'
     } catch {
-      return false;
+      return false
     }
-  });
-  const keyRef = useRef<HTMLInputElement>(null);
+  })
+  const keyRef = useRef<HTMLInputElement>(null)
 
-  const preset = findPreset(form.presetId) ?? DEFAULT_PRESET;
+  const preset = findPreset(form.presetId) ?? DEFAULT_PRESET
 
   // ── 飞书连接状态 + 一键启停（真实通路）──
   // 状态由 FeishuStatusBadge 轮询驱动（main 真查 server /health → adapter 守护
   // 状态），长文案承接它上抛的结果。启停按钮真调 server 运行期端点
   // （POST /feishu/start|stop，经 preload→main），结果原样展示，不谎报。
-  const [fsStatus, setFsStatus] = useState<string>('正在查询飞书连接状态…');
-  const [fsRunning, setFsRunning] = useState<boolean>(false);
-  const [fsBusy, setFsBusy] = useState<boolean>(false);
+  const [fsStatus, setFsStatus] = useState<string>('正在查询飞书连接状态…')
+  const [fsRunning, setFsRunning] = useState<boolean>(false)
+  const [fsBusy, setFsBusy] = useState<boolean>(false)
 
   /** 一键启停：running 时停止（之后不自动重连），否则启动/恢复守护。 */
   const toggleFeishu = async (): Promise<void> => {
-    if (fsBusy) return;
-    setFsBusy(true);
+    if (fsBusy) return
+    setFsBusy(true)
     try {
       const res = fsRunning
         ? await window.clawmaster?.feishuStop()
-        : await window.clawmaster?.feishuStart();
-      if (res?.text) setFsStatus(res.text);
+        : await window.clawmaster?.feishuStart()
+      if (res?.text) setFsStatus(res.text)
       // running 不在这里猜——由徽标下一轮轮询的真实 /health 驱动更新。
     } catch (e) {
       setFsStatus(
         `飞书操作失败：${e instanceof Error ? e.message : String(e)}`,
-      );
+      )
     } finally {
-      setFsBusy(false);
+      setFsBusy(false)
     }
-  };
+  }
 
-  const errors = useMemo(() => validateForm(form), [form]);
-  const valid = Object.keys(errors).length === 0;
-  const cfg = useMemo(() => buildConfig(form), [form]);
+  const errors = useMemo(() => validateForm(form), [form])
+  const valid = Object.keys(errors).length === 0
+  const cfg = useMemo(() => buildConfig(form), [form])
 
   // Esc 关闭。
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onClose()
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   // 打开设置页即把焦点落到 API key 输入框（向导核心动作）。
   // 页面化后不再需要遮罩焦点陷阱 / inert 隐藏兄弟节点。
   useEffect(() => {
-    keyRef.current?.focus();
-  }, []);
+    keyRef.current?.focus()
+  }, [])
 
   const patch = (next: Partial<SetupFormState>): void => {
-    setForm((f) => ({ ...f, ...next }));
+    setForm(f => ({ ...f, ...next }))
   };
 
   const selectPreset = (id: string): void => {
-    const p = findPreset(id);
-    if (!p) return;
+    const p = findPreset(id)
+    if (!p) return
     patch({
       presetId: id,
       provider: p.provider,
@@ -190,13 +190,13 @@ export function SetupPanel({
       // 换供应商 → 清空已选模型（不同家的模型 id 不通用）。
       selectedModels: [],
       modelId: '',
-    });
+    })
   };
 
   const startEdit = (model: ModelInfo): void => {
     const matched = PROVIDER_PRESETS.find(
-      (p) => p.baseUrl && p.baseUrl.replace(/\/+$/, '') === (model.baseUrl ?? '').replace(/\/+$/, ''),
-    );
+      p => p.baseUrl && p.baseUrl.replace(/\/+$/, '') === (model.baseUrl ?? '').replace(/\/+$/, ''),
+    )
     setForm({
       presetId: matched?.id ?? 'custom',
       provider: model.provider as CustomModelProvider,
@@ -208,75 +208,75 @@ export function SetupPanel({
       replaceId: model.id,
       maxTokens: model.maxTokens ? String(model.maxTokens) : '',
       enabled: model.enabled !== false,
-    });
-    setTouched({});
-    setRevealKey(false);
+    })
+    setTouched({})
+    setRevealKey(false)
   };
 
   const cancelEdit = (): void => {
-    setForm(initialForm());
-    setTouched({});
+    setForm(initialForm())
+    setTouched({})
   };
 
   /** 勾选 / 取消一个示例模型（进出 selectedModels）。 */
   const toggleModel = (id: string): void => {
-    setForm((f) => ({
+    setForm(f => ({
       ...f,
       selectedModels: f.selectedModels.includes(id)
-        ? f.selectedModels.filter((m) => m !== id)
+        ? f.selectedModels.filter(m => m !== id)
         : [...f.selectedModels, id],
-    }));
-    markTouched('modelId');
+    }))
+    markTouched('modelId')
   };
 
   /** 把输入框里的自定义模型 id 加入已选集合，并清空输入框。 */
   const addTypedModel = (): void => {
-    const id = form.modelId.trim();
-    if (!id) return;
-    setForm((f) => ({
+    const id = form.modelId.trim()
+    if (!id) return
+    setForm(f => ({
       ...f,
       modelId: '',
       selectedModels: f.selectedModels.includes(id)
         ? f.selectedModels
         : [...f.selectedModels, id],
-    }));
-    markTouched('modelId');
+    }))
+    markTouched('modelId')
   };
 
   const markTouched = (field: string): void => {
-    setTouched((t) => ({ ...t, [field]: true }));
+    setTouched(t => ({ ...t, [field]: true }))
   };
 
   // 粘贴：input 原生即支持 Cmd/Ctrl+V；额外提供「从剪贴板粘贴」按钮兜底
   // （某些环境右键菜单缺失时）。
   const pasteKey = async (): Promise<void> => {
     try {
-      const text = await navigator.clipboard.readText();
+      const text = await navigator.clipboard.readText()
       if (text) {
-        patch({ apiKey: text.trim() });
-        markTouched('apiKey');
+        patch({ apiKey: text.trim() })
+        markTouched('apiKey')
       }
     } catch {
       // 剪贴板权限被拒：聚焦输入框让用户手动 Cmd+V。
-      keyRef.current?.focus();
+      keyRef.current?.focus()
     }
-  };
+  }
 
   const copyJson = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(buildModelsFileJson(cfg));
-      setCopied('json');
-      window.setTimeout(() => setCopied(null), 1600);
+      await navigator.clipboard.writeText(buildModelsFileJson(cfg))
+      setCopied('json')
+      window.setTimeout(() => setCopied(null), 1600)
     } catch {
       // 复制失败静默；用户仍可手动选中文本框。
     }
-  };
+  }
 
   const openConsole = (): void => {
     if (preset.keyConsoleUrl) {
-      void window.clawmaster?.openExternal?.(preset.keyConsoleUrl);
+      void window.clawmaster?.openExternal?.(preset.keyConsoleUrl)
     }
-  };
+  }
 
   const submit = (): void => {
     setTouched({
@@ -284,41 +284,41 @@ export function SetupPanel({
       baseUrl: true,
       apiKey: true,
       displayName: true,
-    });
-    if (!valid || saving) return;
+    })
+    if (!valid || saving) return
     // 按固定契约发 `save_custom_model` 帧；成功/失败由上层监听 models_list / error 裁决。
-    onSave(buildSavePayload(form));
+    onSave(buildSavePayload(form))
   };
 
   /** 应用本地测试地址：通知 app→server 用 customProxyServerUrl 郤盖默认连接。 */
   const applyLocalTestUrl = (): void => {
-    const url = localTestUrl.trim().replace(/\/+$/, '');
-    if (!url || !/^https?:\/\//i.test(url)) return;
+    const url = localTestUrl.trim().replace(/\/+$/, '')
+    if (!url || !/^https?:\/\//i.test(url)) return
     try {
-      sessionStorage.setItem('clawmaster:local-test-url', url);
-      sessionStorage.setItem('clawmaster:local-test-applied', '1');
+      sessionStorage.setItem('clawmaster:local-test-url', url)
+      sessionStorage.setItem('clawmaster:local-test-applied', '1')
     } catch {
       /* storage 不可用时静默 */
     }
-    setLocalTestApplied(true);
+    setLocalTestApplied(true)
     // 通过 IPC 通知主进程把 customProxyServerUrl 和 CLAWMASTER_SERVER_URL 郤盖到 localTestUrl
-    void window.clawmaster?.setLocalTestUrl?.(url);
+    void window.clawmaster?.setLocalTestUrl?.(url)
   };
 
   /** 清除本地测试：恢复默认连接。 */
   const clearLocalTestUrl = (): void => {
     try {
-      sessionStorage.removeItem('clawmaster:local-test-url');
-      sessionStorage.removeItem('clawmaster:local-test-applied');
+      sessionStorage.removeItem('clawmaster:local-test-url')
+      sessionStorage.removeItem('clawmaster:local-test-applied')
     } catch {
       /* storage 不可用时静默 */
     }
-    setLocalTestApplied(false);
-    void window.clawmaster?.setLocalTestUrl?.('');
+    setLocalTestApplied(false)
+    void window.clawmaster?.setLocalTestUrl?.('')
   };
 
   const showErr = (field: string): string | undefined =>
-    touched[field] ? errors[field] : undefined;
+    touched[field] ? errors[field] : undefined
 
   return (
     <section className="claw-setup-page" aria-label="配置你的模型">
@@ -350,7 +350,7 @@ export function SetupPanel({
               <span className="claw-setup__existing-dot" aria-hidden />
               已配置 {models.length} 个模型
             </div>
-            {models.map((m) => (
+            {models.map(m => (
               <div key={m.id} className="claw-setup__modelrow">
                 <span className="claw-setup__modelname">{m.displayName}</span>
                 {/* 厂商按接入域名识别；provider 只是协议名（全是 openai 的观感问题）。 */}
@@ -374,10 +374,10 @@ export function SetupPanel({
                     }
                     onClick={() => {
                       if (confirmDeleteId === m.id) {
-                        setConfirmDeleteId(null);
-                        onDeleteModel(m.id);
+                        setConfirmDeleteId(null)
+                        onDeleteModel(m.id)
                       } else {
-                        setConfirmDeleteId(m.id);
+                        setConfirmDeleteId(m.id)
                       }
                     }}
                     onBlur={() => setConfirmDeleteId(null)}
@@ -394,7 +394,7 @@ export function SetupPanel({
           {/* —— 供应商预设 —— */}
           <label className="claw-setup__label">供应商</label>
           <div className="claw-setup__presets">
-            {PROVIDER_PRESETS.map((p) => (
+            {PROVIDER_PRESETS.map(p => (
               <button
                 key={p.id}
                 type="button"
@@ -419,11 +419,11 @@ export function SetupPanel({
               <select
                 className="claw-setup__select"
                 value={form.provider}
-                onChange={(e) =>
+                onChange={e =>
                   patch({ provider: e.target.value as CustomModelProvider })
                 }
               >
-                {PROVIDER_OPTIONS.map((o) => (
+                {PROVIDER_OPTIONS.map(o => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -450,7 +450,7 @@ export function SetupPanel({
             spellCheck={false}
             autoCapitalize="off"
             autoCorrect="off"
-            onChange={(e) => patch({ baseUrl: e.target.value })}
+            onChange={e => patch({ baseUrl: e.target.value })}
             onBlur={() => markTouched('baseUrl')}
           />
           {showErr('baseUrl') ? (
@@ -485,13 +485,13 @@ export function SetupPanel({
               autoCapitalize="off"
               autoCorrect="off"
               autoComplete="off"
-              onChange={(e) => patch({ apiKey: e.target.value })}
+              onChange={e => patch({ apiKey: e.target.value })}
               onBlur={() => markTouched('apiKey')}
             />
             <button
               type="button"
               className="claw-setup__iconbtn claw-setup__iconbtn--icon"
-              onClick={() => setRevealKey((v) => !v)}
+              onClick={() => setRevealKey(v => !v)}
               aria-label={revealKey ? '隐藏' : '显示'}
               title={revealKey ? '隐藏' : '显示'}
             >
@@ -526,7 +526,7 @@ export function SetupPanel({
           {preset.exampleModels.length > 0 ? (
             <div className="claw-setup__examples">
               {preset.exampleModels.map((m) => {
-                const on = form.selectedModels.includes(m);
+                const on = form.selectedModels.includes(m)
                 return (
                   <button
                     key={m}
@@ -539,7 +539,7 @@ export function SetupPanel({
                     {on ? <IconCheck size={11} /> : <span aria-hidden>+</span>}
                     <span>{m}</span>
                   </button>
-                );
+                )
               })}
             </div>
           ) : null}
@@ -556,11 +556,11 @@ export function SetupPanel({
               spellCheck={false}
               autoCapitalize="off"
               autoCorrect="off"
-              onChange={(e) => patch({ modelId: e.target.value })}
+              onChange={e => patch({ modelId: e.target.value })}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addTypedModel();
+                  e.preventDefault()
+                  addTypedModel()
                 }
               }}
               onBlur={() => markTouched('modelId')}
@@ -578,7 +578,7 @@ export function SetupPanel({
           {/* 已选模型 chips（可删） */}
           {form.selectedModels.length > 0 ? (
             <div className="claw-setup__chosen">
-              {form.selectedModels.map((m) => (
+              {form.selectedModels.map(m => (
                 <span key={m} className="claw-setup__chosen-chip">
                   {m}
                   <button
@@ -607,7 +607,7 @@ export function SetupPanel({
                 value={form.displayName}
                 placeholder={cfg.displayName || '在模型菜单里怎么称呼它'}
                 spellCheck={false}
-                onChange={(e) => patch({ displayName: e.target.value })}
+                onChange={e => patch({ displayName: e.target.value })}
               />
             </>
           ) : (
@@ -624,13 +624,13 @@ export function SetupPanel({
             min="1"
             value={form.maxTokens}
             placeholder="例如 128000"
-            onChange={(e) => patch({ maxTokens: e.target.value })}
+            onChange={e => patch({ maxTokens: e.target.value })}
           />
           <label className="claw-setup__toggleline">
             <input
               type="checkbox"
               checked={form.enabled}
-              onChange={(e) => patch({ enabled: e.target.checked })}
+              onChange={e => patch({ enabled: e.target.checked })}
             />
             启用这个模型
           </label>
@@ -655,8 +655,8 @@ export function SetupPanel({
             <span>飞书双向控制与常驻守护</span>
             <FeishuStatusBadge
               onStatus={(res) => {
-                setFsStatus(res.text);
-                setFsRunning(res.running);
+                setFsStatus(res.text)
+                setFsRunning(res.running)
               }}
             />
           </label>
@@ -691,7 +691,7 @@ export function SetupPanel({
           <button
             type="button"
             className="claw-setup__advanced-toggle"
-            onClick={() => setLocalTestOpen((v) => !v)}
+            onClick={() => setLocalTestOpen(v => !v)}
             aria-expanded={localTestOpen}
           >
             <IconChevron
@@ -738,11 +738,11 @@ export function SetupPanel({
                   autoCapitalize="off"
                   autoCorrect="off"
                   onChange={(e) => {
-                    setLocalTestUrl(e.target.value);
-                    if (localTestApplied) setLocalTestApplied(false);
+                    setLocalTestUrl(e.target.value)
+                    if (localTestApplied) setLocalTestApplied(false)
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); applyLocalTestUrl(); }
+                    if (e.key === 'Enter') { e.preventDefault(); applyLocalTestUrl() }
                   }}
                   style={{ flex: 1, fontSize: '12px' }}
                 />
@@ -785,7 +785,7 @@ export function SetupPanel({
           <button
             type="button"
             className="claw-setup__advanced-toggle"
-            onClick={() => setAdvancedOpen((v) => !v)}
+            onClick={() => setAdvancedOpen(v => !v)}
             aria-expanded={advancedOpen}
           >
             <IconChevron
@@ -834,13 +834,13 @@ export function SetupPanel({
             type="button"
             className="claw-setup__btn"
             onClick={() => {
-              const code = prompt('请输入豁免码：');
+              const code = prompt('请输入豁免码：')
               if (code === 'CLAWMASTER-DEV-2026') {
-                try { localStorage.setItem('clawmaster_exempt_code', code); } catch {}
-                alert('豁免码验证成功！即将跳过配置直接使用。');
-                window.location.reload();
+                try { localStorage.setItem('clawmaster_exempt_code', code) } catch {}
+                alert('豁免码验证成功！即将跳过配置直接使用。')
+                window.location.reload()
               } else if (code) {
-                alert('豁免码无效。');
+                alert('豁免码无效。')
               }
             }}
             title="使用豁免码跳过配置"
@@ -868,5 +868,5 @@ export function SetupPanel({
         </footer>
       </div>
     </section>
-  );
+  )
 }

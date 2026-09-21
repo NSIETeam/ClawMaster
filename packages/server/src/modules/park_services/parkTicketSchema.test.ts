@@ -2,20 +2,20 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
 import {
   applyDatabaseSchemaContributors,
   Database,
-} from '../data_platform/index.js';
+} from '../data_platform/index.js'
 import {
   createParkTicketSchemaContributor,
   migrateLegacyParkTicketEvents,
-} from './parkTicketSchema.js';
+} from './parkTicketSchema.js'
 
 const contributor = createParkTicketSchemaContributor({
   defaultOrganizationId: 'org-default',
-});
+})
 
 function createPrerequisites(database: Database): void {
   database.exec(`
@@ -33,7 +33,7 @@ function createPrerequisites(database: Database): void {
     VALUES ('account-creator'), ('account-handler');
     INSERT INTO parks (id, admin_organization_id)
     VALUES ('park-a', 'org-admin');
-  `);
+  `)
 }
 
 function insertTicket(database: Database, id = 'ticket-a'): void {
@@ -48,16 +48,16 @@ function insertTicket(database: Database, id = 'ticket-a'): void {
       '{"roomNumber":"A-101"}', '已转交',
       '2026-08-01 01:00:00', '2026-08-01 02:00:00'
     );
-  `);
+  `)
 }
 
 describe('park ticket schema contributor', () => {
   it('is idempotent and preserves ticket workflow, delivery, and notification data', () => {
-    const database = new Database(':memory:');
+    const database = new Database(':memory:')
     try {
-      createPrerequisites(database);
-      applyDatabaseSchemaContributors(database, [contributor]);
-      insertTicket(database);
+      createPrerequisites(database)
+      applyDatabaseSchemaContributors(database, [contributor])
+      insertTicket(database)
       database.exec(`
         INSERT INTO park_application_sequences
           (park_id, date_key, last_sequence, updated_at)
@@ -82,9 +82,9 @@ describe('park ticket schema contributor', () => {
           'notification-a', 'org-tenant', 'ticket-a', 'account-handler',
           'feishu', 'ticket_transferred', 'sent', 'delivered', '2026-08-01'
         );
-      `);
+      `)
 
-      applyDatabaseSchemaContributors(database, [contributor]);
+      applyDatabaseSchemaContributors(database, [contributor])
 
       expect(
         database
@@ -111,7 +111,7 @@ describe('park ticket schema contributor', () => {
         channel: 'feishu',
         notification_status: 'sent',
         detail: 'delivered',
-      });
+      })
       expect(
         database
           .prepare(
@@ -133,16 +133,16 @@ describe('park ticket schema contributor', () => {
         { name: 'idx_ticket_events_ticket_created' },
         { name: 'idx_ticket_notifications_recipient' },
         { name: 'idx_ticket_notifications_ticket' },
-      ]);
+      ])
     } finally {
-      database.close();
+      database.close()
     }
-  });
+  })
 
   it('upgrades legacy ticket tables without losing history', () => {
-    const database = new Database(':memory:');
+    const database = new Database(':memory:')
     try {
-      createPrerequisites(database);
+      createPrerequisites(database)
       database.exec(`
         CREATE TABLE it_tickets (
           id TEXT PRIMARY KEY,
@@ -207,11 +207,11 @@ describe('park ticket schema contributor', () => {
           'legacy-notification', 'legacy-ticket', 'account-handler', 'clawmaster',
           'created', 'sent', 'legacy detail', '2026-07-01'
         );
-      `);
+      `)
 
-      migrateLegacyParkTicketEvents(database);
-      applyDatabaseSchemaContributors(database, [contributor]);
-      applyDatabaseSchemaContributors(database, [contributor]);
+      migrateLegacyParkTicketEvents(database)
+      applyDatabaseSchemaContributors(database, [contributor])
+      applyDatabaseSchemaContributors(database, [contributor])
 
       expect(
         database
@@ -226,7 +226,7 @@ describe('park ticket schema contributor', () => {
         service_id: 'repair',
         status: '待接单',
         creator_update_read_at: '2026-07-02',
-      });
+      })
       expect(
         database
           .prepare(
@@ -234,7 +234,7 @@ describe('park ticket schema contributor', () => {
              WHERE id = 'legacy-event'`,
           )
           .get(),
-      ).toEqual({ action: 'created', status_after: 'open' });
+      ).toEqual({ action: 'created', status_after: 'open' })
       expect(
         database
           .prepare(
@@ -249,21 +249,21 @@ describe('park ticket schema contributor', () => {
         delivery_organization_id: 'org-default',
         notification_organization_id: 'org-default',
         detail: 'legacy detail',
-      });
+      })
       const eventTable = database
         .prepare(
           "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ticket_events'",
         )
-        .get() as { sql: string };
-      expect(eventTable.sql).toContain("'transfer'");
-      expect(eventTable.sql).toContain("'release'");
+        .get() as { sql: string }
+      expect(eventTable.sql).toContain("'transfer'")
+      expect(eventTable.sql).toContain("'release'")
       const ticketColumns = new Set(
         (
           database
             .prepare('PRAGMA table_info(it_tickets)')
             .all() as Array<{ name: string }>
-        ).map((column) => column.name),
-      );
+        ).map(column => column.name),
+      )
       expect(ticketColumns).toEqual(
         expect.objectContaining(
           new Set([
@@ -273,16 +273,16 @@ describe('park ticket schema contributor', () => {
             'released_by_account_id',
           ]),
         ),
-      );
+      )
     } finally {
-      database.close();
+      database.close()
     }
-  });
+  })
 
   it('upgrades a ticket_events table that already has transfer but not release', () => {
-    const database = new Database(':memory:');
+    const database = new Database(':memory:')
     try {
-      createPrerequisites(database);
+      createPrerequisites(database)
       database.exec(`
         CREATE TABLE ticket_events (
           id TEXT PRIMARY KEY,
@@ -298,28 +298,28 @@ describe('park ticket schema contributor', () => {
           response_text TEXT,
           created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
-      `);
+      `)
 
-      migrateLegacyParkTicketEvents(database);
-      applyDatabaseSchemaContributors(database, [contributor]);
+      migrateLegacyParkTicketEvents(database)
+      applyDatabaseSchemaContributors(database, [contributor])
 
       const eventTable = database
         .prepare(
           "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ticket_events'",
         )
-        .get() as { sql: string };
-      expect(eventTable.sql).toContain("'transfer'");
-      expect(eventTable.sql).toContain("'release'");
+        .get() as { sql: string }
+      expect(eventTable.sql).toContain("'transfer'")
+      expect(eventTable.sql).toContain("'release'")
     } finally {
-      database.close();
+      database.close()
     }
-  });
+  })
 
   it('backfills stable park application numbers and sequence counters', () => {
-    const database = new Database(':memory:');
+    const database = new Database(':memory:')
     try {
-      createPrerequisites(database);
-      applyDatabaseSchemaContributors(database, [contributor]);
+      createPrerequisites(database)
+      applyDatabaseSchemaContributors(database, [contributor])
       database.exec(`
         INSERT INTO it_tickets (
           id, organization_id, park_id, created_by_account_id, service_id,
@@ -331,10 +331,10 @@ describe('park ticket schema contributor', () => {
           ('ticket-second', 'org-tenant', 'park-a', 'account-creator', 'parking',
            'Second', 'Second', '[]', '待接单',
            '2026-07-28 17:00:00', '2026-07-28 17:00:00');
-      `);
+      `)
 
-      applyDatabaseSchemaContributors(database, [contributor]);
-      applyDatabaseSchemaContributors(database, [contributor]);
+      applyDatabaseSchemaContributors(database, [contributor])
+      applyDatabaseSchemaContributors(database, [contributor])
 
       expect(
         database
@@ -346,7 +346,7 @@ describe('park ticket schema contributor', () => {
       ).toEqual([
         { id: 'ticket-first', application_number: '20260729001' },
         { id: 'ticket-second', application_number: '20260729002' },
-      ]);
+      ])
       expect(
         database
           .prepare(
@@ -354,18 +354,18 @@ describe('park ticket schema contributor', () => {
              WHERE park_id = 'park-a'`,
           )
           .get(),
-      ).toEqual({ date_key: '20260729', last_sequence: 2 });
+      ).toEqual({ date_key: '20260729', last_sequence: 2 })
     } finally {
-      database.close();
+      database.close()
     }
-  });
+  })
 
   it('enforces constraints and cascades ticket-owned records', () => {
-    const database = new Database(':memory:');
+    const database = new Database(':memory:')
     try {
-      createPrerequisites(database);
-      applyDatabaseSchemaContributors(database, [contributor]);
-      insertTicket(database);
+      createPrerequisites(database)
+      applyDatabaseSchemaContributors(database, [contributor])
+      insertTicket(database)
 
       expect(() =>
         database.exec(`
@@ -373,14 +373,14 @@ describe('park ticket schema contributor', () => {
             (park_id, date_key, last_sequence)
           VALUES ('park-a', '2026081', 1);
         `),
-      ).toThrow(/CHECK constraint failed/);
+      ).toThrow(/CHECK constraint failed/)
       expect(() =>
         database.exec(`
           INSERT INTO ticket_events (
             id, organization_id, ticket_id, action, status_after
           ) VALUES ('invalid-event', 'org-tenant', 'ticket-a', 'delete', 'x');
         `),
-      ).toThrow(/CHECK constraint failed/);
+      ).toThrow(/CHECK constraint failed/)
       expect(() =>
         database.exec(`
           INSERT INTO ticket_notifications (
@@ -391,7 +391,7 @@ describe('park ticket schema contributor', () => {
             'account-handler', 'email', 'created', 'sent'
           );
         `),
-      ).toThrow(/CHECK constraint failed/);
+      ).toThrow(/CHECK constraint failed/)
 
       database.exec(`
         INSERT INTO ticket_events (
@@ -408,7 +408,7 @@ describe('park ticket schema contributor', () => {
           'clawmaster', 'created', 'sent'
         );
         DELETE FROM it_tickets WHERE id = 'ticket-a';
-      `);
+      `)
       for (const table of [
         'ticket_events',
         'ticket_deliveries',
@@ -416,18 +416,18 @@ describe('park ticket schema contributor', () => {
       ]) {
         expect(
           database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get(),
-        ).toEqual({ count: 0 });
+        ).toEqual({ count: 0 })
       }
     } finally {
-      database.close();
+      database.close()
     }
-  });
+  })
 
   it('rejects unsafe default organization ids', () => {
     expect(() =>
       createParkTicketSchemaContributor({
         defaultOrganizationId: "org'; DROP TABLE it_tickets; --",
       }),
-    ).toThrow('Invalid default organization id for park ticket schema');
+    ).toThrow('Invalid default organization id for park ticket schema')
   });
-});
+})

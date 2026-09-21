@@ -16,39 +16,39 @@
  */
 
 // Note: Using console.log instead of logger to avoid dependency issues
-import { getActiveProxyServerUrl } from '../config/proxyConfig.js';
-import { getSessionId } from '../utils/session.js';
-import { getUserAgent } from '../utils/userAgent.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { getActiveProxyServerUrl } from '../config/proxyConfig.js'
+import { getSessionId } from '../utils/session.js'
+import { getUserAgent } from '../utils/userAgent.js'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 
 export interface ProxyAuthConfig {
-  proxyServerUrl: string;
-  userInfo?: FeishuUserInfo;
-  cliVersion?: string;
+  proxyServerUrl: string
+  userInfo?: FeishuUserInfo
+  cliVersion?: string
 }
 
 export interface JWTTokenData {
-  accessToken: string;
-  refreshToken?: string;
-  expiresIn: number;
-  expiresAt: number;
-  savedAt: string;
+  accessToken: string
+  refreshToken?: string
+  expiresIn: number
+  expiresAt: number
+  savedAt: string
 }
 
 export interface FeishuUserInfo {
-  openId: string;
-  userId: string;
-  name: string;
-  enName?: string;
-  email?: string;
-  avatar?: string;
+  openId: string
+  userId: string
+  name: string
+  enName?: string
+  email?: string
+  avatar?: string
 }
 
 export interface UsageStats {
-  totalCreditsConsumed: number;
-  lastUpdated: string;
+  totalCreditsConsumed: number
+  lastUpdated: string
 }
 
 /**
@@ -56,27 +56,27 @@ export interface UsageStats {
  * 针对 10+ 天有效期的 token，提前 3 天发起刷新
  * 这符合业界最佳实践，避免用户离线后 token 过期
  */
-const TOKEN_REFRESH_THRESHOLD_SECONDS = 259200; // 3 天
+const TOKEN_REFRESH_THRESHOLD_SECONDS = 259200 // 3 天
 
 export class ProxyAuthManager {
-  private static instance: ProxyAuthManager | null = null;
-  private config: ProxyAuthConfig;
-  private userInfo: FeishuUserInfo | null = null;
-  private jwtTokenData: JWTTokenData | null = null;
-  private usageStats: UsageStats = { totalCreditsConsumed: 0, lastUpdated: new Date().toISOString() };
-  private userInfoFilePath: string;
-  private jwtTokenFilePath: string;
-  private usageStatsFilePath: string;
-  private refreshPromise: Promise<string> | null = null;
-  private cliVersion: string = 'unknown';
-  private periodicStatusCheckIntervalId: NodeJS.Timeout | null = null;
-  private onLoginSuccessCallbacks: Array<() => void> = [];
+  private static instance: ProxyAuthManager | null = null
+  private config: ProxyAuthConfig
+  private userInfo: FeishuUserInfo | null = null
+  private jwtTokenData: JWTTokenData | null = null
+  private usageStats: UsageStats = { totalCreditsConsumed: 0, lastUpdated: new Date().toISOString() }
+  private userInfoFilePath: string
+  private jwtTokenFilePath: string
+  private usageStatsFilePath: string
+  private refreshPromise: Promise<string> | null = null
+  private cliVersion: string = 'unknown'
+  private periodicStatusCheckIntervalId: NodeJS.Timeout | null = null
+  private onLoginSuccessCallbacks: Array<() => void> = []
 
   /**
    * 获取CLI版本号
    */
   private getCliVersion(): string {
-    return this.cliVersion;
+    return this.cliVersion
   }
 
   /**
@@ -85,29 +85,29 @@ export class ProxyAuthManager {
    * 格式: ClawMaster/<client>/<version> (<platform>; <arch>)
    */
   private getUserAgent(): string {
-    return getUserAgent(this.cliVersion);
+    return getUserAgent(this.cliVersion)
   }
 
   /**
    * 格式化时间间隔为人类可读的字符串
    */
   private formatTimeRemaining(milliseconds: number): string {
-    if (milliseconds <= 0) return '已过期';
+    if (milliseconds <= 0) return '已过期'
 
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const days = Math.floor(totalSeconds / (24 * 3600));
-    const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+    const totalSeconds = Math.floor(milliseconds / 1000)
+    const days = Math.floor(totalSeconds / (24 * 3600))
+    const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
 
     if (days > 0) {
-      return `${days}天${hours}小时${minutes}分钟`;
+      return `${days}天${hours}小时${minutes}分钟`
     } else if (hours > 0) {
-      return `${hours}小时${minutes}分钟${seconds}秒`;
+      return `${hours}小时${minutes}分钟${seconds}秒`
     } else if (minutes > 0) {
-      return `${minutes}分钟${seconds}秒`;
+      return `${minutes}分钟${seconds}秒`
     } else {
-      return `${seconds}秒`;
+      return `${seconds}秒`
     }
   }
 
@@ -122,7 +122,7 @@ export class ProxyAuthManager {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: false
+      hour12: false,
     });
   }
 
@@ -130,32 +130,32 @@ export class ProxyAuthManager {
     // 用户信息存储路径
 
     if ((process.env.CLAWMASTER_SERVER_URL ?? process.env.CLAWMASTER_SERVER_URL)?.includes('localhost')) {
-      this.userInfoFilePath = path.join(os.homedir(), '.clawmaster-user', 'user-info-dev.json');
-      this.jwtTokenFilePath = path.join(os.homedir(), '.clawmaster-user', 'jwt-token-dev.json');
-      this.usageStatsFilePath = path.join(os.homedir(), '.clawmaster-user', 'usage-stats-dev.json');
+      this.userInfoFilePath = path.join(os.homedir(), '.clawmaster-user', 'user-info-dev.json')
+      this.jwtTokenFilePath = path.join(os.homedir(), '.clawmaster-user', 'jwt-token-dev.json')
+      this.usageStatsFilePath = path.join(os.homedir(), '.clawmaster-user', 'usage-stats-dev.json')
     } else {
-      this.userInfoFilePath = path.join(os.homedir(), '.clawmaster-user', 'user-info.json');
-      this.jwtTokenFilePath = path.join(os.homedir(), '.clawmaster-user', 'jwt-token.json');
-      this.usageStatsFilePath = path.join(os.homedir(), '.clawmaster-user', 'usage-stats.json');
+      this.userInfoFilePath = path.join(os.homedir(), '.clawmaster-user', 'user-info.json')
+      this.jwtTokenFilePath = path.join(os.homedir(), '.clawmaster-user', 'jwt-token.json')
+      this.usageStatsFilePath = path.join(os.homedir(), '.clawmaster-user', 'usage-stats.json')
     }
 
 
     // 尝试从环境变量获取CLI版本
     // VSCode 插件会设置为 "VSCode-x.x.x" 格式
     // CLI 会设置为 "x.x.x" 格式
-    this.cliVersion = process.env.CLI_VERSION || 'unknown';
+    this.cliVersion = process.env.CLI_VERSION || 'unknown'
 
     this.config = {
       proxyServerUrl: getActiveProxyServerUrl(),
-    };
+    }
 
     // 启动时加载本地用户信息和JWT token
-    this.loadUserInfo();
-    this.loadJwtToken();
-    this.loadUsageStats();
+    this.loadUserInfo()
+    this.loadJwtToken()
+    this.loadUsageStats()
 
     // 启动定期状态检查（每10分钟打印一次状态）
-    this.startPeriodicStatusCheck();
+    this.startPeriodicStatusCheck()
   }
 
   /**
@@ -165,19 +165,19 @@ export class ProxyAuthManager {
   private startPeriodicStatusCheck(): void {
     this.periodicStatusCheckIntervalId = setInterval(() => {
       if (this.jwtTokenData) {
-        const now = Date.now();
-        const timeRemaining = this.jwtTokenData.expiresAt - now;
-        const timeRemainingFormatted = this.formatTimeRemaining(timeRemaining);
-        const expiresAtFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt);
+        const now = Date.now()
+        const timeRemaining = this.jwtTokenData.expiresAt - now
+        const timeRemainingFormatted = this.formatTimeRemaining(timeRemaining)
+        const expiresAtFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt)
 
         if (timeRemaining > 0) {
-          const nextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000);
-          if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] 📊 Periodic status check - Credential remaining: ${timeRemainingFormatted} (until ${expiresAtFormatted}), next renewal: ${nextRefreshFormatted}`);
+          const nextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000)
+          if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] 📊 Periodic status check - Credential remaining: ${timeRemainingFormatted} (until ${expiresAtFormatted}), next renewal: ${nextRefreshFormatted}`)
         } else {
-          if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] ⚠️  Periodic status check - Credential expired at: ${expiresAtFormatted}`);
+          if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] ⚠️  Periodic status check - Credential expired at: ${expiresAtFormatted}`)
         }
       }
-    }, 10 * 60 * 1000); // 每10分钟检查一次
+    }, 10 * 60 * 1000) // 每10分钟检查一次
   }
 
   /**
@@ -185,9 +185,9 @@ export class ProxyAuthManager {
    */
   static getInstance(): ProxyAuthManager {
     if (!ProxyAuthManager.instance) {
-      ProxyAuthManager.instance = new ProxyAuthManager();
+      ProxyAuthManager.instance = new ProxyAuthManager()
     }
-    return ProxyAuthManager.instance;
+    return ProxyAuthManager.instance
   }
 
   /**
@@ -196,13 +196,13 @@ export class ProxyAuthManager {
   private loadUserInfo(): void {
     try {
       if (fs.existsSync(this.userInfoFilePath)) {
-        const data = fs.readFileSync(this.userInfoFilePath, 'utf8');
-        this.userInfo = JSON.parse(data);
+        const data = fs.readFileSync(this.userInfoFilePath, 'utf8')
+        this.userInfo = JSON.parse(data)
         // 用户信息已加载，不再打印欢迎信息（由 WelcomeScreen 组件显示）
       }
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to load user info from local file:', error);
-      this.userInfo = null;
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.warn('[Login Check] Failed to load user info from local file:', error)
+      this.userInfo = null
     }
   }
 
@@ -212,15 +212,15 @@ export class ProxyAuthManager {
   private saveUserInfo(): void {
     try {
       // 确保目录存在
-      const dir = path.dirname(this.userInfoFilePath);
+      const dir = path.dirname(this.userInfoFilePath)
       if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(dir, { recursive: true })
       }
 
-      fs.writeFileSync(this.userInfoFilePath, JSON.stringify(this.userInfo, null, 2));
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] User info saved to local file');
+      fs.writeFileSync(this.userInfoFilePath, JSON.stringify(this.userInfo, null, 2))
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log('[Login Check] User info saved to local file')
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Failed to save user info:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.error('[Login Check] Failed to save user info:', error)
     }
   }
 
@@ -230,24 +230,24 @@ export class ProxyAuthManager {
   private loadJwtToken(): void {
     try {
       if (fs.existsSync(this.jwtTokenFilePath)) {
-        const data = fs.readFileSync(this.jwtTokenFilePath, 'utf8');
-        this.jwtTokenData = JSON.parse(data) as JWTTokenData;
+        const data = fs.readFileSync(this.jwtTokenFilePath, 'utf8')
+        this.jwtTokenData = JSON.parse(data) as JWTTokenData
 
         // 检查token是否过期
         if (this.isTokenExpired()) {
-          this.jwtTokenData = null;
+          this.jwtTokenData = null
         } else {
           // 简化：只在即将过期时提醒
           if (this.isTokenNearExpiry(300)) {
-            console.log(`⚠️  Access credential expiring soon, auto-renewal in progress`);
+            console.log('⚠️  Access credential expiring soon, auto-renewal in progress');
           }
         }
       } else {
-        if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] No stored access credential found, authentication required');
+        if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log('[Login Check] No stored access credential found, authentication required')
       }
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to load access credential from local file:', error);
-      this.jwtTokenData = null;
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.warn('[Login Check] Failed to load access credential from local file:', error)
+      this.jwtTokenData = null
     }
   }
 
@@ -257,19 +257,19 @@ export class ProxyAuthManager {
   private saveJwtToken(): void {
     try {
       if (!this.jwtTokenData) {
-        return;
+        return
       }
 
       // 确保目录存在
-      const dir = path.dirname(this.jwtTokenFilePath);
+      const dir = path.dirname(this.jwtTokenFilePath)
       if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(dir, { recursive: true })
       }
 
-      fs.writeFileSync(this.jwtTokenFilePath, JSON.stringify(this.jwtTokenData, null, 2));
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Access credential data saved to local file');
+      fs.writeFileSync(this.jwtTokenFilePath, JSON.stringify(this.jwtTokenData, null, 2))
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log('[Login Check] Access credential data saved to local file')
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Failed to save access credential:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.error('[Login Check] Failed to save access credential:', error)
     }
   }
 
@@ -279,12 +279,12 @@ export class ProxyAuthManager {
   private loadUsageStats(): void {
     try {
       if (fs.existsSync(this.usageStatsFilePath)) {
-        const data = fs.readFileSync(this.usageStatsFilePath, 'utf8');
-        this.usageStats = JSON.parse(data);
+        const data = fs.readFileSync(this.usageStatsFilePath, 'utf8')
+        this.usageStats = JSON.parse(data)
       }
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to load usage stats from local file:', error);
-      this.usageStats = { totalCreditsConsumed: 0, lastUpdated: new Date().toISOString() };
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.warn('[Login Check] Failed to load usage stats from local file:', error)
+      this.usageStats = { totalCreditsConsumed: 0, lastUpdated: new Date().toISOString() }
     }
   }
 
@@ -294,15 +294,15 @@ export class ProxyAuthManager {
   private saveUsageStats(): void {
     try {
       // 确保目录存在
-      const dir = path.dirname(this.usageStatsFilePath);
+      const dir = path.dirname(this.usageStatsFilePath)
       if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(dir, { recursive: true })
       }
 
-      fs.writeFileSync(this.usageStatsFilePath, JSON.stringify(this.usageStats, null, 2));
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Usage stats saved to local file');
+      fs.writeFileSync(this.usageStatsFilePath, JSON.stringify(this.usageStats, null, 2))
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log('[Login Check] Usage stats saved to local file')
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Failed to save usage stats:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.error('[Login Check] Failed to save usage stats:', error)
     }
   }
 
@@ -311,19 +311,19 @@ export class ProxyAuthManager {
    * @param credits 消耗的积分
    */
   updateUsageStats(credits: number): void {
-    if (credits <= 0) return;
+    if (credits <= 0) return
 
-    this.usageStats.totalCreditsConsumed += credits;
-    this.usageStats.lastUpdated = new Date().toISOString();
-    this.saveUsageStats();
-    console.log(`[Usage Stats] Updated total credits consumed: ${this.usageStats.totalCreditsConsumed} (+${credits})`);
+    this.usageStats.totalCreditsConsumed += credits
+    this.usageStats.lastUpdated = new Date().toISOString()
+    this.saveUsageStats()
+    console.log(`[Usage Stats] Updated total credits consumed: ${this.usageStats.totalCreditsConsumed} (+${credits})`)
   }
 
   /**
    * 获取使用统计
    */
   getUsageStats(): UsageStats {
-    return { ...this.usageStats };
+    return { ...this.usageStats }
   }
 
   /**
@@ -332,28 +332,28 @@ export class ProxyAuthManager {
    * @returns token 状态信息
    */
   checkStartupTokenStatus(): {
-    hasToken: boolean;
-    isExpired: boolean;
-    expiresAt: number | null;
-    hasRefreshToken: boolean;
+    hasToken: boolean
+    isExpired: boolean
+    expiresAt: number | null
+    hasRefreshToken: boolean
   } {
     if (!this.jwtTokenData) {
       return {
         hasToken: false,
         isExpired: true,
         expiresAt: null,
-        hasRefreshToken: false
+        hasRefreshToken: false,
       };
     }
 
-    const now = Date.now();
-    const isExpired = now >= this.jwtTokenData.expiresAt;
+    const now = Date.now()
+    const isExpired = now >= this.jwtTokenData.expiresAt
 
     return {
       hasToken: true,
       isExpired,
       expiresAt: this.jwtTokenData.expiresAt,
-      hasRefreshToken: !!this.jwtTokenData.refreshToken
+      hasRefreshToken: !!this.jwtTokenData.refreshToken,
     };
   }
 
@@ -361,21 +361,21 @@ export class ProxyAuthManager {
    * 配置代理认证
    */
   configure(config: Partial<ProxyAuthConfig>): void {
-    this.config = { ...this.config, ...config };
+    this.config = { ...this.config, ...config }
 
     if (config.userInfo) {
-      this.userInfo = config.userInfo;
-      this.saveUserInfo();
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] User info configured: ${config.userInfo.name}`);
+      this.userInfo = config.userInfo
+      this.saveUserInfo()
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] User info configured: ${config.userInfo.name}`)
     }
 
     if (config.proxyServerUrl) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] Proxy server URL: ${config.proxyServerUrl}`);
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] Proxy server URL: ${config.proxyServerUrl}`)
     }
 
     if (config.cliVersion) {
-      this.cliVersion = config.cliVersion;
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] CLI version set: ${config.cliVersion}`);
+      this.cliVersion = config.cliVersion
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] CLI version set: ${config.cliVersion}`)
     }
   }
 
@@ -383,83 +383,83 @@ export class ProxyAuthManager {
    * 设置用户信息
    */
   setUserInfo(userInfo: FeishuUserInfo): void {
-    this.userInfo = userInfo;
-    this.saveUserInfo();
-    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] User info updated: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+    this.userInfo = userInfo
+    this.saveUserInfo()
+    if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] User info updated: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`)
 
     // 触发登录成功回调（例如刷新云端模型列表）
-    this.triggerLoginSuccessCallbacks();
+    this.triggerLoginSuccessCallbacks()
   }
 
   /**
    * 注册登录成功回调
    */
   onLoginSuccess(callback: () => void): void {
-    this.onLoginSuccessCallbacks.push(callback);
+    this.onLoginSuccessCallbacks.push(callback)
   }
 
   /**
    * 触发所有登录成功回调
    */
   private triggerLoginSuccessCallbacks(): void {
-    this.onLoginSuccessCallbacks.forEach(callback => {
+    this.onLoginSuccessCallbacks.forEach((callback) => {
       try {
-        callback();
+        callback()
       } catch (error) {
-        console.error('[ProxyAuthManager] Error in login success callback:', error);
+        console.error('[ProxyAuthManager] Error in login success callback:', error)
       }
-    });
+    })
   }
 
   /**
    * 设置CLI版本号
    */
   setCliVersion(version: string): void {
-    this.cliVersion = version;
-    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] CLI version updated: ${version}`);
+    this.cliVersion = version
+    if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] CLI version updated: ${version}`)
   }
 
   /**
    * 设置JWT token
    */
   setJwtToken(token: string): void {
-    const now = Date.now();
+    const now = Date.now()
     this.jwtTokenData = {
       accessToken: token,
       expiresIn: 900, // 默认15分钟
       expiresAt: now + 900 * 1000,
-      savedAt: new Date().toISOString()
+      savedAt: new Date().toISOString(),
     };
-    this.saveJwtToken();
-    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Access credential updated');
+    this.saveJwtToken()
+    if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log('[Login Check] Access credential updated')
   }
 
   /**
    * 设置JWT token数据（包含refresh token）
    */
   setJwtTokenData(tokenData: {
-    accessToken: string;
-    refreshToken?: string;
-    expiresIn: number;
+    accessToken: string
+    refreshToken?: string
+    expiresIn: number
   }): void {
-    const now = Date.now();
-    const expiresAt = now + tokenData.expiresIn * 1000;
+    const now = Date.now()
+    const expiresAt = now + tokenData.expiresIn * 1000
     this.jwtTokenData = {
       accessToken: tokenData.accessToken,
       refreshToken: tokenData.refreshToken,
       expiresIn: tokenData.expiresIn,
       expiresAt,
-      savedAt: new Date().toISOString()
+      savedAt: new Date().toISOString(),
     };
-    this.saveJwtToken();
+    this.saveJwtToken()
 
-    const timeRemainingFormatted = this.formatTimeRemaining(tokenData.expiresIn * 1000);
-    const expiresAtFormatted = this.formatAbsoluteTime(expiresAt);
-    const nextRefreshFormatted = this.formatAbsoluteTime(expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000);
-    const hasRefreshToken = !!tokenData.refreshToken;
-    const autoRenewal = hasRefreshToken ? ', will auto-renew' : ', manual login required';
+    const timeRemainingFormatted = this.formatTimeRemaining(tokenData.expiresIn * 1000)
+    const expiresAtFormatted = this.formatAbsoluteTime(expiresAt)
+    const nextRefreshFormatted = this.formatAbsoluteTime(expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000)
+    const hasRefreshToken = !!tokenData.refreshToken
+    const autoRenewal = hasRefreshToken ? ', will auto-renew' : ', manual login required'
 
-    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] Access credential updated - valid for: ${timeRemainingFormatted} (until ${expiresAtFormatted}), next renewal: ${nextRefreshFormatted}${autoRenewal}`);
+    if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] Access credential updated - valid for: ${timeRemainingFormatted} (until ${expiresAtFormatted}), next renewal: ${nextRefreshFormatted}${autoRenewal}`)
   }
 
   /**
@@ -467,27 +467,27 @@ export class ProxyAuthManager {
    */
   async getAccessToken(): Promise<string | null> {
     if (!this.jwtTokenData) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] No access credential available, authentication required');
-      return null;
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log('[Login Check] No access credential available, authentication required')
+      return null
     }
 
-    const now = Date.now();
-    const timeRemaining = this.jwtTokenData.expiresAt - now;
-    const timeRemainingFormatted = this.formatTimeRemaining(timeRemaining);
+    const now = Date.now()
+    const timeRemaining = this.jwtTokenData.expiresAt - now
+    const timeRemainingFormatted = this.formatTimeRemaining(timeRemaining)
 
     // 检查token是否即将过期（提前3天刷新的主要检查）
     if (this.isTokenNearExpiry()) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] Access credential expiring soon (remaining: ${timeRemainingFormatted}), starting auto-renewal...`);
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] Access credential expiring soon (remaining: ${timeRemainingFormatted}), starting auto-renewal...`)
       try {
-        const newToken = await this.refreshAccessToken();
-        return newToken;
+        const newToken = await this.refreshAccessToken()
+        return newToken
       } catch (error) {
-        if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Credential renewal failed:', error);
-        return null;
+        if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.error('[Login Check] Credential renewal failed:', error)
+        return null
       }
     }
 
-    return this.jwtTokenData.accessToken;
+    return this.jwtTokenData.accessToken
   }
 
   /**
@@ -495,9 +495,9 @@ export class ProxyAuthManager {
    */
   private isTokenExpired(): boolean {
     if (!this.jwtTokenData) {
-      return true;
+      return true
     }
-    return Date.now() >= this.jwtTokenData.expiresAt;
+    return Date.now() >= this.jwtTokenData.expiresAt
   }
 
   /**
@@ -507,18 +507,18 @@ export class ProxyAuthManager {
    */
   private isTokenNearExpiry(thresholdSeconds: number = TOKEN_REFRESH_THRESHOLD_SECONDS): boolean {
     if (!this.jwtTokenData) {
-      return true;
+      return true
     }
-    const timeToExpiry = this.jwtTokenData.expiresAt - Date.now();
-    const isNearExpiry = timeToExpiry <= (thresholdSeconds * 1000);
+    const timeToExpiry = this.jwtTokenData.expiresAt - Date.now()
+    const isNearExpiry = timeToExpiry <= (thresholdSeconds * 1000)
 
     // 调试日志：显示详细的时间计算
     if (isNearExpiry) {
-      const timeRemainingFormatted = this.formatTimeRemaining(timeToExpiry);
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] Credential expiry check: ${timeRemainingFormatted} remaining <= ${thresholdSeconds}s threshold, renewal needed: ${isNearExpiry}`);
+      const timeRemainingFormatted = this.formatTimeRemaining(timeToExpiry)
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] Credential expiry check: ${timeRemainingFormatted} remaining <= ${thresholdSeconds}s threshold, renewal needed: ${isNearExpiry}`)
     }
 
-    return isNearExpiry;
+    return isNearExpiry
   }
 
   /**
@@ -527,16 +527,16 @@ export class ProxyAuthManager {
   async refreshAccessToken(): Promise<string> {
     // 防止并发刷新
     if (this.refreshPromise) {
-      return await this.refreshPromise;
+      return await this.refreshPromise
     }
 
-    this.refreshPromise = this.performTokenRefresh();
+    this.refreshPromise = this.performTokenRefresh()
 
     try {
-      const newToken = await this.refreshPromise;
-      return newToken;
+      const newToken = await this.refreshPromise
+      return newToken
     } finally {
-      this.refreshPromise = null;
+      this.refreshPromise = null
     }
   }
 
@@ -545,62 +545,62 @@ export class ProxyAuthManager {
    */
   private async performTokenRefresh(): Promise<string> {
     if (!this.jwtTokenData?.refreshToken) {
-      throw new Error('No refresh token available');
+      throw new Error('No refresh token available')
     }
 
     try {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Refreshing access credential...');
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log('[Login Check] Refreshing access credential...')
 
       const response = await fetch(`${this.config.proxyServerUrl}/auth/jwt/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': this.getUserAgent()
+          'User-Agent': this.getUserAgent(),
         },
         body: JSON.stringify({
-          refreshToken: this.jwtTokenData.refreshToken
+          refreshToken: this.jwtTokenData.refreshToken,
         })
-      });
+      })
 
       if (!response.ok) {
         if (response.status === 401) {
           // 刷新令牌无效，清除所有令牌
-          this.clearTokens();
-          throw new Error('Refresh credential expired or invalid - authentication required');
+          this.clearTokens()
+          throw new Error('Refresh credential expired or invalid - authentication required')
         }
 
-        const errorText = await response.text();
-        throw new Error(`Credential refresh failed (${response.status}): ${errorText}`);
+        const errorText = await response.text()
+        throw new Error(`Credential refresh failed (${response.status}): ${errorText}`)
       }
 
-      const result = await response.json();
+      const result = await response.json()
 
       if (!result.success || !result.data?.accessToken) {
-        throw new Error('Invalid refresh response from server');
+        throw new Error('Invalid refresh response from server')
       }
 
       // 更新token数据
-      const now = Date.now();
-      const hasNewRefreshToken = !!result.data.refreshToken;
+      const now = Date.now()
+      const hasNewRefreshToken = !!result.data.refreshToken
       this.jwtTokenData = {
         accessToken: result.data.accessToken,
         refreshToken: result.data.refreshToken || this.jwtTokenData.refreshToken, // 优先使用服务端返回的新refresh token
         expiresIn: result.data.expiresIn || 900,
         expiresAt: now + (result.data.expiresIn || 900) * 1000,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
       };
 
-      this.saveJwtToken();
+      this.saveJwtToken()
 
-      const newTimeRemainingFormatted = this.formatTimeRemaining((result.data.expiresIn || 900) * 1000);
-      const newExpiresAtFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt);
-      const newNextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000);
+      const newTimeRemainingFormatted = this.formatTimeRemaining((result.data.expiresIn || 900) * 1000)
+      const newExpiresAtFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt)
+      const newNextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000)
 
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] ✅ Credential renewed successfully - valid for: ${newTimeRemainingFormatted} (until ${newExpiresAtFormatted}), next renewal: ${newNextRefreshFormatted}${hasNewRefreshToken ? ' (refresh credential updated)' : ' (reusing existing refresh credential)'}`);
-      return this.jwtTokenData.accessToken;
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log(`[Login Check] ✅ Credential renewed successfully - valid for: ${newTimeRemainingFormatted} (until ${newExpiresAtFormatted}), next renewal: ${newNextRefreshFormatted}${hasNewRefreshToken ? ' (refresh credential updated)' : ' (reusing existing refresh credential)'}`)
+      return this.jwtTokenData.accessToken
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Credential refresh error:', error);
-      throw error;
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.error('[Login Check] Credential refresh error:', error)
+      throw error
     }
   }
 
@@ -608,13 +608,13 @@ export class ProxyAuthManager {
    * 清除所有token
    */
   private clearTokens(): void {
-    this.jwtTokenData = null;
+    this.jwtTokenData = null
     try {
       if (fs.existsSync(this.jwtTokenFilePath)) {
-        fs.unlinkSync(this.jwtTokenFilePath);
+        fs.unlinkSync(this.jwtTokenFilePath)
       }
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to delete access credential file:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.warn('[Login Check] Failed to delete access credential file:', error)
     }
   }
 
@@ -622,7 +622,7 @@ export class ProxyAuthManager {
    * 获取代理服务器 URL
    */
   getProxyServerUrl(): string {
-    return this.config.proxyServerUrl;
+    return this.config.proxyServerUrl
   }
 
   /**
@@ -632,9 +632,9 @@ export class ProxyAuthManager {
    * @param sceneType 可选，调用方场景标识，注入到 X-ClawMaster-Scene header
    */
   async getUserHeaders(sceneType?: string): Promise<Record<string, string>> {
-    const token = await this.getAccessToken();
-    const cliVersion = this.getCliVersion();
-    const userAgent = this.getUserAgent();
+    const token = await this.getAccessToken()
+    const cliVersion = this.getCliVersion()
+    const userAgent = this.getUserAgent()
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -642,18 +642,18 @@ export class ProxyAuthManager {
       'User-Agent': userAgent,
       // 协议 v1.4.2：进程级 session id
       'X-Session-ID': getSessionId(),
-    };
+    }
 
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      headers['Authorization'] = `Bearer ${token}`
     }
 
     // 协议 v1.4.2：调用场景（inline_complete 不走此路径，由其链路自行设置）
     if (sceneType) {
-      headers['X-ClawMaster-Scene'] = sceneType;
+      headers['X-ClawMaster-Scene'] = sceneType
     }
 
-    return headers;
+    return headers
   }
 
   /**
@@ -662,8 +662,8 @@ export class ProxyAuthManager {
    * sceneType 不在此方法注入（sync 调用方无法预知场景，由异步路径处理）
    */
   getUserHeadersSync(): Record<string, string> {
-    const cliVersion = this.getCliVersion();
-    const userAgent = this.getUserAgent();
+    const cliVersion = this.getCliVersion()
+    const userAgent = this.getUserAgent()
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -671,45 +671,45 @@ export class ProxyAuthManager {
       'User-Agent': userAgent,
       // 协议 v1.4.2：进程级 session id
       'X-Session-ID': getSessionId(),
-    };
+    }
 
     // 使用当前的token（不进行刷新检查）
     if (this.jwtTokenData?.accessToken) {
-      headers['Authorization'] = `Bearer ${this.jwtTokenData.accessToken}`;
+      headers['Authorization'] = `Bearer ${this.jwtTokenData.accessToken}`
     }
 
-    return headers;
+    return headers
   }
 
   /**
    * 获取缓存的用户信息
    */
   getUserInfo(): FeishuUserInfo | null {
-    return this.userInfo;
+    return this.userInfo
   }
 
   /**
    * 检查是否已配置认证
    */
   isConfigured(): boolean {
-    return !!this.userInfo;
+    return !!this.userInfo
   }
 
   /**
    * 获取配置状态信息
    */
   getStatus(): {
-    configured: boolean;
-    proxyServerUrl: string;
-    hasUserInfo: boolean;
-    userInfo: FeishuUserInfo | null;
+    configured: boolean
+    proxyServerUrl: string
+    hasUserInfo: boolean
+    userInfo: FeishuUserInfo | null
   } {
     return {
       configured: this.isConfigured(),
       proxyServerUrl: this.config.proxyServerUrl,
       hasUserInfo: !!this.userInfo,
       userInfo: this.userInfo,
-    };
+    }
   }
 
   /**
@@ -717,68 +717,68 @@ export class ProxyAuthManager {
    * ⚠️ 关键：清理 periodicStatusCheckIntervalId 防止内存泄漏
    */
   clear(): void {
-    this.userInfo = null;
-    this.jwtTokenData = null;
+    this.userInfo = null
+    this.jwtTokenData = null
 
     // 🔑 清理定期检查的 interval
     if (this.periodicStatusCheckIntervalId !== null) {
-      clearInterval(this.periodicStatusCheckIntervalId);
-      this.periodicStatusCheckIntervalId = null;
+      clearInterval(this.periodicStatusCheckIntervalId)
+      this.periodicStatusCheckIntervalId = null
     }
 
     // 删除本地用户信息文件
     try {
       if (fs.existsSync(this.userInfoFilePath)) {
-        fs.unlinkSync(this.userInfoFilePath);
+        fs.unlinkSync(this.userInfoFilePath)
       }
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to delete user info file:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.warn('[Login Check] Failed to delete user info file:', error)
     }
 
     // 删除JWT token文件
     try {
       if (fs.existsSync(this.jwtTokenFilePath)) {
-        fs.unlinkSync(this.jwtTokenFilePath);
+        fs.unlinkSync(this.jwtTokenFilePath)
       }
     } catch (error) {
-      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to delete access credential file:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.warn('[Login Check] Failed to delete access credential file:', error)
     }
 
-    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Authentication cleared');
+    if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log('[Login Check] Authentication cleared')
   }
 }
 
 /**
  * 全局代理认证管理器实例
  */
-export const proxyAuthManager = ProxyAuthManager.getInstance();
+export const proxyAuthManager = ProxyAuthManager.getInstance()
 
 /**
  * 便捷函数：配置代理认证
  */
 export function configureProxyAuth(config: Partial<ProxyAuthConfig>): void {
-  proxyAuthManager.configure(config);
+  proxyAuthManager.configure(config)
 }
 
 /**
  * 便捷函数：设置用户信息
  */
 export function setUserInfo(userInfo: FeishuUserInfo): void {
-  proxyAuthManager.setUserInfo(userInfo);
+  proxyAuthManager.setUserInfo(userInfo)
 }
 
 /**
  * 便捷函数：设置CLI版本号
  */
 export function setCliVersion(version: string): void {
-  proxyAuthManager.setCliVersion(version);
+  proxyAuthManager.setCliVersion(version)
 }
 
 /**
  * 便捷函数：获取用户请求头（异步）
  */
 export async function getUserHeaders(): Promise<Record<string, string>> {
-  return await proxyAuthManager.getUserHeaders();
+  return await proxyAuthManager.getUserHeaders()
 }
 
 
@@ -786,5 +786,5 @@ export async function getUserHeaders(): Promise<Record<string, string>> {
  * 便捷函数：获取认证状态
  */
 export function getProxyAuthStatus(): ReturnType<ProxyAuthManager['getStatus']> {
-  return proxyAuthManager.getStatus();
+  return proxyAuthManager.getStatus()
 }

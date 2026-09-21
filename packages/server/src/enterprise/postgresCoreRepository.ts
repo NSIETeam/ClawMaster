@@ -12,7 +12,7 @@ import {
   randomBytes,
   randomUUID,
   verify,
-} from 'node:crypto';
+} from 'node:crypto'
 
 import {
   E2EE_ATTACHMENT_MAX_CIPHERTEXT_BYTES,
@@ -54,12 +54,12 @@ import {
   type MlsTransportEventType,
   type MlsTransportEventView,
   type PublishMlsKeyPackageInput,
-} from '../modules/collaboration/index.js';
+} from '../modules/collaboration/index.js'
 import {
   hashIdentitySecret,
   identitySecretMatches,
   isAcceptableAccountPassword,
-} from '../modules/identity_organization/index.js';
+} from '../modules/identity_organization/index.js'
 import {
   CURRENT_LEGAL_DOCUMENTS,
   dataGovernanceConfiguration,
@@ -67,309 +67,309 @@ import {
   legalDocumentHash,
   requireCurrentLegalDocumentReferences,
   type LegalDocumentReference,
-} from '../modules/data_governance/index.js';
+} from '../modules/data_governance/index.js'
 import type {
   PostgresClientLike,
   PostgresPoolLike,
-} from '../modules/data_platform/postgresDatabaseLifecycle.js';
-import type { AccountSyncEncryptionKeyProvider } from '../modules/personal_intelligence/index.js';
-import { createPostgresEnterpriseBusinessRepository } from './postgresBusinessRepository.js';
+} from '../modules/data_platform/postgresDatabaseLifecycle.js'
+import type { AccountSyncEncryptionKeyProvider } from '../modules/personal_intelligence/index.js'
+import { createPostgresEnterpriseBusinessRepository } from './postgresBusinessRepository.js'
 import {
   enforcePostgresEnterpriseSeatAdmission,
   PostgresEnterpriseLicenseAdmissionError,
   type PostgresLicenseSeatAdmission,
-} from './postgresLicenseSeatAdmission.js';
-import { createPostgresRegistrationRepository } from './postgresRegistrationRepository.js';
+} from './postgresLicenseSeatAdmission.js'
+import { createPostgresRegistrationRepository } from './postgresRegistrationRepository.js'
 
-const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
-const KEY_FINGERPRINT = /^[0-9a-f]{64}$/;
-const EMPTY_TRANSPARENCY_HASH = '0'.repeat(64);
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
-const LOGIN_FAILURE_LIMIT = 5;
-const LOGIN_BLOCK_SECONDS = 15 * 60;
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/
+const KEY_FINGERPRINT = /^[0-9a-f]{64}$/
+const EMPTY_TRANSPARENCY_HASH = '0'.repeat(64)
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1_000
+const LOGIN_FAILURE_LIMIT = 5
+const LOGIN_BLOCK_SECONDS = 15 * 60
 
 export interface PostgresEnterpriseOrganizationView {
-  id: string;
-  name: string;
-  slug: string;
-  type: 'personal' | 'enterprise' | 'park';
-  status: 'active' | 'disabled';
-  parkId: string | null;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  name: string
+  slug: string
+  type: 'personal' | 'enterprise' | 'park'
+  status: 'active' | 'disabled'
+  parkId: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface PostgresEnterpriseFeatures {
-  enterprise_tree: boolean;
-  direct_messages: boolean;
-  atoa: boolean;
-  park_services: boolean;
-  knowledge: boolean;
-  skill_market: boolean;
+  enterprise_tree: boolean
+  direct_messages: boolean
+  atoa: boolean
+  park_services: boolean
+  knowledge: boolean
+  skill_market: boolean
 }
 
 export interface PostgresEnterpriseAccountView {
-  id: string;
-  organizationId: string;
-  organizationName: string;
-  accountType: 'personal' | 'enterprise';
-  employeeId: string | null;
-  username: string;
-  phone: string | null;
-  feishuOpenId: string | null;
-  name: string;
-  role: string | null;
-  department: string | null;
-  departmentId: string | null;
-  positionId: string | null;
-  positionTitle: string | null;
-  avatarUrl: string | null;
-  isAdmin: boolean;
-  status: 'active' | 'disabled';
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  organizationId: string
+  organizationName: string
+  accountType: 'personal' | 'enterprise'
+  employeeId: string | null
+  username: string
+  phone: string | null
+  feishuOpenId: string | null
+  name: string
+  role: string | null
+  department: string | null
+  departmentId: string | null
+  positionId: string | null
+  positionTitle: string | null
+  avatarUrl: string | null
+  isAdmin: boolean
+  status: 'active' | 'disabled'
+  tags: string[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface CreatePostgresEnterpriseAccountInput {
-  id?: string;
-  organizationId?: string;
-  accountType?: 'personal' | 'enterprise';
-  username: string;
-  password: string;
-  name: string;
-  phone?: string | null;
-  feishuOpenId?: string | null;
-  employeeId?: string | null;
-  role?: string | null;
-  department?: string | null;
-  departmentId?: string | null;
-  positionId?: string | null;
-  positionTitle?: string | null;
-  avatarUrl?: string | null;
-  isAdmin?: boolean;
-  status?: 'active' | 'disabled';
-  tags?: readonly string[];
-  licenseSeatAdmission?: PostgresLicenseSeatAdmission;
-  bootstrapFirstAdministrator?: boolean;
+  id?: string
+  organizationId?: string
+  accountType?: 'personal' | 'enterprise'
+  username: string
+  password: string
+  name: string
+  phone?: string | null
+  feishuOpenId?: string | null
+  employeeId?: string | null
+  role?: string | null
+  department?: string | null
+  departmentId?: string | null
+  positionId?: string | null
+  positionTitle?: string | null
+  avatarUrl?: string | null
+  isAdmin?: boolean
+  status?: 'active' | 'disabled'
+  tags?: readonly string[]
+  licenseSeatAdmission?: PostgresLicenseSeatAdmission
+  bootstrapFirstAdministrator?: boolean
 }
 
 export interface UpdatePostgresEnterpriseAccountInput {
-  organizationId: string;
-  accountId: string;
-  username?: string;
-  password?: string;
-  name?: string;
-  phone?: string | null;
-  feishuOpenId?: string | null;
-  role?: string | null;
-  department?: string | null;
-  departmentId?: string | null;
-  positionId?: string | null;
-  positionTitle?: string | null;
-  avatarUrl?: string | null;
-  isAdmin?: boolean;
-  status?: 'active' | 'disabled';
-  tags?: readonly string[];
-  licenseSeatAdmission?: PostgresLicenseSeatAdmission;
+  organizationId: string
+  accountId: string
+  username?: string
+  password?: string
+  name?: string
+  phone?: string | null
+  feishuOpenId?: string | null
+  role?: string | null
+  department?: string | null
+  departmentId?: string | null
+  positionId?: string | null
+  positionTitle?: string | null
+  avatarUrl?: string | null
+  isAdmin?: boolean
+  status?: 'active' | 'disabled'
+  tags?: readonly string[]
+  licenseSeatAdmission?: PostgresLicenseSeatAdmission
 }
 
 export interface PostgresOrganizationStructureView {
   departments: Array<{
-    id: string;
-    name: string;
+    id: string
+    name: string
     positions: Array<{
-      id: string;
-      title: string;
-      roleMapping: string | null;
-    }>;
-  }>;
+      id: string
+      title: string
+      roleMapping: string | null
+    }>
+  }>
 }
 
 export interface PostgresEnterpriseAuditRecord {
-  id: number;
-  organizationId: string;
-  action: string;
-  actorEmployeeId: string | null;
-  detail: Record<string, unknown>;
-  createdAt: string;
+  id: number
+  organizationId: string
+  action: string
+  actorEmployeeId: string | null
+  detail: Record<string, unknown>
+  createdAt: string
 }
 
 export interface PostgresE2eeAttachmentReferenceInput {
-  id: string;
-  nonce: string;
-  ciphertextBytes: number;
-  ciphertextSha256: string;
+  id: string
+  nonce: string
+  ciphertextBytes: number
+  ciphertextSha256: string
 }
 
 export type SendPostgresE2eeDirectMessageInput =
   SendE2eeDirectMessageInput & {
-    attachmentReferences?: PostgresE2eeAttachmentReferenceInput[];
-  };
+    attachmentReferences?: PostgresE2eeAttachmentReferenceInput[]
+  }
 
 export interface PostgresE2eeAttachmentAuthority {
-  message: E2eeDirectMessageView;
-  attachment: PostgresE2eeAttachmentReferenceInput;
+  message: E2eeDirectMessageView
+  attachment: PostgresE2eeAttachmentReferenceInput
 }
 
 export interface PostgresUnboundAttachmentObject {
-  id: string;
-  organizationId: string;
-  key: string;
-  ciphertextBytes: number;
+  id: string
+  organizationId: string
+  key: string
+  ciphertextBytes: number
 }
 
 interface OrganizationRow extends Record<string, unknown> {
-  id: string;
-  name: string;
-  slug: string;
-  type: 'personal' | 'enterprise' | 'park';
-  status: 'active' | 'disabled';
-  park_id: string | null;
-  created_at: Date | string;
-  updated_at: Date | string;
+  id: string
+  name: string
+  slug: string
+  type: 'personal' | 'enterprise' | 'park'
+  status: 'active' | 'disabled'
+  park_id: string | null
+  created_at: Date | string
+  updated_at: Date | string
 }
 
 interface AccountRow extends Record<string, unknown> {
-  id: string;
-  organization_id: string;
-  organization_name: string;
-  account_type: 'personal' | 'enterprise';
-  employee_id: string | null;
-  username: string;
-  phone: string | null;
-  feishu_open_id: string | null;
-  password_hash: string;
-  name: string;
-  role: string | null;
-  department: string | null;
-  department_id: string | null;
-  position_id: string | null;
-  position_title: string | null;
-  avatar_url: string | null;
-  is_admin: boolean;
-  status: 'active' | 'disabled';
-  tags: string[] | null;
-  created_at: Date | string;
-  updated_at: Date | string;
+  id: string
+  organization_id: string
+  organization_name: string
+  account_type: 'personal' | 'enterprise'
+  employee_id: string | null
+  username: string
+  phone: string | null
+  feishu_open_id: string | null
+  password_hash: string
+  name: string
+  role: string | null
+  department: string | null
+  department_id: string | null
+  position_id: string | null
+  position_title: string | null
+  avatar_url: string | null
+  is_admin: boolean
+  status: 'active' | 'disabled'
+  tags: string[] | null
+  created_at: Date | string
+  updated_at: Date | string
 }
 
 interface DeviceRow extends Record<string, unknown> {
-  organization_id: string;
-  account_id: string;
-  device_id: string;
-  device_name: string;
-  identity_signing_public_key: string;
-  device_exchange_public_key: string;
-  key_fingerprint: string;
-  approval_state: 'pending' | 'approved';
-  approved_by_device_id: string | null;
-  approved_at: Date | string | null;
-  created_at: Date | string;
-  last_seen_at: Date | string;
-  revoked_at: Date | string | null;
+  organization_id: string
+  account_id: string
+  device_id: string
+  device_name: string
+  identity_signing_public_key: string
+  device_exchange_public_key: string
+  key_fingerprint: string
+  approval_state: 'pending' | 'approved'
+  approved_by_device_id: string | null
+  approved_at: Date | string | null
+  created_at: Date | string
+  last_seen_at: Date | string
+  revoked_at: Date | string | null
 }
 
 interface TransparencyRow extends Record<string, unknown> {
-  sequence: number | string;
-  account_id: string;
-  device_id: string;
-  event: E2eeKeyTransparencyEvent;
-  key_fingerprint: string;
-  actor_device_id: string | null;
-  previous_hash: string;
-  entry_hash: string;
-  created_at: Date | string;
+  sequence: number | string
+  account_id: string
+  device_id: string
+  event: E2eeKeyTransparencyEvent
+  key_fingerprint: string
+  actor_device_id: string | null
+  previous_hash: string
+  entry_hash: string
+  created_at: Date | string
 }
 
 interface MessageRow extends Record<string, unknown> {
-  id: string;
-  organization_id: string;
-  sender_account_id: string;
-  recipient_account_id: string;
-  content_type: 'message' | 'atoa_request' | 'atoa_response';
-  e2ee_protocol_version: number;
-  e2ee_sender_device_id: string;
-  e2ee_ciphertext: string;
-  e2ee_nonce: string;
-  e2ee_signature: string;
-  e2ee_envelopes: E2eeMessageEnvelope[] | string;
-  in_reply_to_message_id: string | null;
-  sender_identity_signing_public_key: string;
-  created_at: Date | string;
-  read_at: Date | string | null;
+  id: string
+  organization_id: string
+  sender_account_id: string
+  recipient_account_id: string
+  content_type: 'message' | 'atoa_request' | 'atoa_response'
+  e2ee_protocol_version: number
+  e2ee_sender_device_id: string
+  e2ee_ciphertext: string
+  e2ee_nonce: string
+  e2ee_signature: string
+  e2ee_envelopes: E2eeMessageEnvelope[] | string
+  in_reply_to_message_id: string | null
+  sender_identity_signing_public_key: string
+  created_at: Date | string
+  read_at: Date | string | null
   attachment_refs:
     | Array<{ id: string; ciphertextSize: number | string; nonce: string }>
-    | string;
+    | string
 }
 
 interface MlsKeyPackageRow extends Record<string, unknown> {
-  key_package_reference: string;
-  account_id: string;
-  device_id: string;
-  ciphersuite: typeof MLS_CIPHERSUITE;
-  key_package: string;
-  created_at: Date | string;
-  claimed_at: Date | string | null;
-  claimed_by_account_id: string | null;
-  claimed_by_device_id: string | null;
-  welcome_event_id: string | null;
-  expires_at: Date | string;
+  key_package_reference: string
+  account_id: string
+  device_id: string
+  ciphersuite: typeof MLS_CIPHERSUITE
+  key_package: string
+  created_at: Date | string
+  claimed_at: Date | string | null
+  claimed_by_account_id: string | null
+  claimed_by_device_id: string | null
+  welcome_event_id: string | null
+  expires_at: Date | string
 }
 
 interface MlsConversationRow extends Record<string, unknown> {
-  conversation_id: string;
-  participant_a_account_id: string;
-  participant_b_account_id: string;
-  group_id: string;
-  current_epoch: number | string;
-  active_generation: number | string;
-  retention_floor_sequence: number | string;
+  conversation_id: string
+  participant_a_account_id: string
+  participant_b_account_id: string
+  group_id: string
+  current_epoch: number | string
+  active_generation: number | string
+  retention_floor_sequence: number | string
 }
 
 interface MlsGroupSessionRow extends Record<string, unknown> {
-  organization_id: string;
-  conversation_id: string;
-  generation: number | string;
-  group_id: string;
-  current_epoch: number | string;
-  status: 'active' | 'retired';
-  created_at: Date | string;
-  retired_at: Date | string | null;
-  reset_by_account_id: string | null;
-  reset_by_device_id: string | null;
-  reset_event_id: string | null;
+  organization_id: string
+  conversation_id: string
+  generation: number | string
+  group_id: string
+  current_epoch: number | string
+  status: 'active' | 'retired'
+  created_at: Date | string
+  retired_at: Date | string | null
+  reset_by_account_id: string | null
+  reset_by_device_id: string | null
+  reset_event_id: string | null
 }
 
 interface MlsEventRow extends Record<string, unknown> {
-  sequence: number | string;
-  id: string;
-  conversation_id: string;
-  session_generation: number | string;
-  sender_account_id: string;
-  sender_device_id: string;
-  recipient_account_id: string | null;
-  recipient_device_id: string | null;
-  event_type: MlsTransportEventType;
-  epoch: number | string;
-  group_id: string;
-  payload: string;
-  key_package_reference: string | null;
-  created_at: Date | string;
-  expires_at: Date | string;
+  sequence: number | string
+  id: string
+  conversation_id: string
+  session_generation: number | string
+  sender_account_id: string
+  sender_device_id: string
+  recipient_account_id: string | null
+  recipient_device_id: string | null
+  event_type: MlsTransportEventType
+  epoch: number | string
+  group_id: string
+  payload: string
+  key_package_reference: string | null
+  created_at: Date | string
+  expires_at: Date | string
 }
 
-type Queryable = Pick<PostgresPoolLike, 'query'> | Pick<PostgresClientLike, 'query'>;
+type Queryable = Pick<PostgresPoolLike, 'query'> | Pick<PostgresClientLike, 'query'>
 
 function iso(value: Date | string | null): string | null {
-  if (value === null) return null;
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  if (value === null) return null
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString()
 }
 
 function requiredIdentifier(value: string, label: string): string {
-  const normalized = value.trim();
-  if (!IDENTIFIER.test(normalized)) throw new Error(`${label} is invalid`);
-  return normalized;
+  const normalized = value.trim()
+  if (!IDENTIFIER.test(normalized)) throw new Error(`${label} is invalid`)
+  return normalized
 }
 
 function optionalText(
@@ -377,39 +377,39 @@ function optionalText(
   label: string,
   maximumLength = 2_000,
 ): string | null {
-  const normalized = value?.trim() || null;
+  const normalized = value?.trim() || null
   if (normalized && normalized.length > maximumLength) {
-    throw new Error(`${label} is too long`);
+    throw new Error(`${label} is too long`)
   }
-  return normalized;
+  return normalized
 }
 
 function normalizeUsername(value: string): string {
-  const normalized = value.trim().toLocaleLowerCase('en-US');
+  const normalized = value.trim().toLocaleLowerCase('en-US')
   if (!/^[a-z0-9][a-z0-9._-]{1,79}$/.test(normalized)) {
-    throw new Error('username is invalid');
+    throw new Error('username is invalid')
   }
-  return normalized;
+  return normalized
 }
 
 export function normalizePostgresEnterprisePhone(value: string): string {
-  let digits = value.trim().replace(/[^\d]/g, '');
-  if (digits.startsWith('0086')) digits = digits.slice(4);
-  else if (digits.startsWith('86') && digits.length === 13) digits = digits.slice(2);
-  if (!/^1[3-9]\d{9}$/.test(digits)) throw new Error('phone is invalid');
-  return `+86${digits}`;
+  let digits = value.trim().replace(/[^\d]/g, '')
+  if (digits.startsWith('0086')) digits = digits.slice(4)
+  else if (digits.startsWith('86') && digits.length === 13) digits = digits.slice(2)
+  if (!/^1[3-9]\d{9}$/.test(digits)) throw new Error('phone is invalid')
+  return `+86${digits}`
 }
 
 function normalizeOptionalPhone(value: string | null | undefined): string | null {
-  return value?.trim() ? normalizePostgresEnterprisePhone(value) : null;
+  return value?.trim() ? normalizePostgresEnterprisePhone(value) : null
 }
 
 function normalizeTags(values: readonly string[] | undefined): string[] {
   const tags = (values ?? [])
-    .map((value) => value.trim())
-    .filter(Boolean);
-  if (tags.some((tag) => tag.length > 80)) throw new Error('account tag is too long');
-  return [...new Set(tags)].sort((left, right) => left.localeCompare(right));
+    .map(value => value.trim())
+    .filter(Boolean)
+  if (tags.some(tag => tag.length > 80)) throw new Error('account tag is too long')
+  return [...new Set(tags)].sort((left, right) => left.localeCompare(right))
 }
 
 function requireCanonicalBase64(
@@ -417,47 +417,47 @@ function requireCanonicalBase64(
   label: string,
   maximumBytes: number,
 ): Buffer {
-  const normalized = value.trim();
-  const decoded = Buffer.from(normalized, 'base64');
+  const normalized = value.trim()
+  const decoded = Buffer.from(normalized, 'base64')
   if (
     !normalized ||
     decoded.length === 0 ||
     decoded.length > maximumBytes ||
     decoded.toString('base64') !== normalized
   ) {
-    throw new Error(`${label} is invalid`);
+    throw new Error(`${label} is invalid`)
   }
-  return decoded;
+  return decoded
 }
 
 function requireNonce(value: string, label: string): string {
   if (requireCanonicalBase64(value, label, 12).length !== 12) {
-    throw new Error(`${label} must be 12 bytes`);
+    throw new Error(`${label} must be 12 bytes`)
   }
-  return value;
+  return value
 }
 
 function normalizeAttachmentReference(
   value: PostgresE2eeAttachmentReferenceInput,
 ): PostgresE2eeAttachmentReferenceInput {
-  const ciphertextBytes = Number(value.ciphertextBytes);
+  const ciphertextBytes = Number(value.ciphertextBytes)
   if (
     !Number.isSafeInteger(ciphertextBytes) ||
     ciphertextBytes <= 16 ||
     ciphertextBytes > E2EE_ATTACHMENT_MAX_CIPHERTEXT_BYTES
   ) {
-    throw new Error('attachment ciphertext size is invalid');
+    throw new Error('attachment ciphertext size is invalid')
   }
-  const ciphertextSha256 = value.ciphertextSha256.trim().toLowerCase();
+  const ciphertextSha256 = value.ciphertextSha256.trim().toLowerCase()
   if (!/^[0-9a-f]{64}$/u.test(ciphertextSha256)) {
-    throw new Error('attachment ciphertext checksum is invalid');
+    throw new Error('attachment ciphertext checksum is invalid')
   }
   return {
     id: requiredIdentifier(value.id, 'attachment id'),
     nonce: requireNonce(value.nonce, 'attachment nonce'),
     ciphertextBytes,
     ciphertextSha256,
-  };
+  }
 }
 
 function requirePublicKey(
@@ -466,11 +466,11 @@ function requirePublicKey(
   label: string,
 ): string {
   try {
-    const key = createPublicKey(value);
-    if (key.asymmetricKeyType !== expectedType) throw new Error('wrong type');
-    return key.export({ type: 'spki', format: 'pem' }).toString();
+    const key = createPublicKey(value)
+    if (key.asymmetricKeyType !== expectedType) throw new Error('wrong type')
+    return key.export({ type: 'spki', format: 'pem' }).toString()
   } catch {
-    throw new Error(`${label} must be a valid ${expectedType} public key`);
+    throw new Error(`${label} must be a valid ${expectedType} public key`)
   }
 }
 
@@ -496,7 +496,7 @@ function accountView(row: AccountRow): PostgresEnterpriseAccountView {
     tags: Array.isArray(row.tags) ? row.tags : [],
     createdAt: iso(row.created_at)!,
     updatedAt: iso(row.updated_at)!,
-  };
+  }
 }
 
 function organizationView(row: OrganizationRow): PostgresEnterpriseOrganizationView {
@@ -509,7 +509,7 @@ function organizationView(row: OrganizationRow): PostgresEnterpriseOrganizationV
     parkId: row.park_id,
     createdAt: iso(row.created_at)!,
     updatedAt: iso(row.updated_at)!,
-  };
+  }
 }
 
 function deviceView(row: DeviceRow): E2eeDeviceView {
@@ -526,7 +526,7 @@ function deviceView(row: DeviceRow): E2eeDeviceView {
     createdAt: iso(row.created_at)!,
     lastSeenAt: iso(row.last_seen_at)!,
     revokedAt: iso(row.revoked_at),
-  };
+  }
 }
 
 function transparencyEntry(row: TransparencyRow): E2eeKeyTransparencyEntry {
@@ -540,18 +540,18 @@ function transparencyEntry(row: TransparencyRow): E2eeKeyTransparencyEntry {
     previousHash: row.previous_hash,
     entryHash: row.entry_hash,
     createdAt: iso(row.created_at)!,
-  };
+  }
 }
 
 function parseEnvelopes(value: E2eeMessageEnvelope[] | string): E2eeMessageEnvelope[] {
-  const parsed = typeof value === 'string' ? (JSON.parse(value) as unknown) : value;
-  if (!Array.isArray(parsed)) throw new Error('stored E2EE envelopes are invalid');
-  return parsed as E2eeMessageEnvelope[];
+  const parsed = typeof value === 'string' ? (JSON.parse(value) as unknown) : value
+  if (!Array.isArray(parsed)) throw new Error('stored E2EE envelopes are invalid')
+  return parsed as E2eeMessageEnvelope[]
 }
 
 function messageView(row: MessageRow): E2eeDirectMessageView {
   if (Number(row.e2ee_protocol_version) !== E2EE_PROTOCOL_VERSION) {
-    throw new Error('stored E2EE protocol version is unsupported');
+    throw new Error('stored E2EE protocol version is unsupported')
   }
   return {
     id: row.id,
@@ -572,33 +572,33 @@ function messageView(row: MessageRow): E2eeDirectMessageView {
       const parsed =
         typeof row.attachment_refs === 'string'
           ? (JSON.parse(row.attachment_refs) as unknown)
-          : row.attachment_refs;
+          : row.attachment_refs
       if (!Array.isArray(parsed)) {
-        throw new Error('stored E2EE attachment references are invalid');
+        throw new Error('stored E2EE attachment references are invalid')
       }
       return parsed.map((value) => {
         const reference = value as {
-          id?: unknown;
-          ciphertextSize?: unknown;
-          nonce?: unknown;
-        };
-        const ciphertextSize = Number(reference.ciphertextSize);
+          id?: unknown
+          ciphertextSize?: unknown
+          nonce?: unknown
+        }
+        const ciphertextSize = Number(reference.ciphertextSize)
         if (
           typeof reference.id !== 'string' ||
           !Number.isSafeInteger(ciphertextSize) ||
           ciphertextSize <= 16 ||
           typeof reference.nonce !== 'string'
         ) {
-          throw new Error('stored E2EE attachment reference is invalid');
+          throw new Error('stored E2EE attachment reference is invalid')
         }
         return {
           id: reference.id,
           ciphertextSize,
           nonce: reference.nonce,
-        };
+        }
       });
     })(),
-  };
+  }
 }
 
 function mlsKeyPackageView(row: MlsKeyPackageRow): MlsKeyPackageView {
@@ -611,7 +611,7 @@ function mlsKeyPackageView(row: MlsKeyPackageRow): MlsKeyPackageView {
     createdAt: iso(row.created_at)!,
     claimedAt: iso(row.claimed_at),
     expiresAt: iso(row.expires_at)!,
-  };
+  }
 }
 
 function mlsEventView(row: MlsEventRow): MlsTransportEventView {
@@ -631,22 +631,22 @@ function mlsEventView(row: MlsEventRow): MlsTransportEventView {
     keyPackageReference: row.key_package_reference,
     createdAt: iso(row.created_at)!,
     expiresAt: iso(row.expires_at)!,
-  };
+  }
 }
 
 function postgresMlsEventMatches(
   row: MlsEventRow,
   input: {
-    conversationId: string;
-    senderAccountId: string;
-    senderDeviceId: string;
-    recipientAccountId: string | null;
-    recipientDeviceId: string | null;
-    eventType: MlsTransportEventType;
-    epoch: number;
-    groupId: string;
-    payload: string;
-    keyPackageReference: string | null;
+    conversationId: string
+    senderAccountId: string
+    senderDeviceId: string
+    recipientAccountId: string | null
+    recipientDeviceId: string | null
+    eventType: MlsTransportEventType
+    epoch: number
+    groupId: string
+    payload: string
+    keyPackageReference: string | null
   },
 ): boolean {
   return (
@@ -660,30 +660,30 @@ function postgresMlsEventMatches(
     row.group_id === input.groupId &&
     row.payload === input.payload &&
     row.key_package_reference === input.keyPackageReference
-  );
+  )
 }
 
 async function transaction<T>(pool: PostgresPoolLike, operation: (client: PostgresClientLike) => Promise<T>): Promise<T> {
-  const client = await pool.connect();
-  let active = false;
+  const client = await pool.connect()
+  let active = false
   try {
-    await client.query('BEGIN');
-    active = true;
-    const result = await operation(client);
-    await client.query('COMMIT');
-    active = false;
-    return result;
+    await client.query('BEGIN')
+    active = true
+    const result = await operation(client)
+    await client.query('COMMIT')
+    active = false
+    return result
   } catch (error) {
     if (active) {
       try {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK')
       } catch {
         // Preserve the domain or PostgreSQL error.
       }
     }
-    throw error;
+    throw error
   } finally {
-    client.release();
+    client.release()
   }
 }
 
@@ -694,7 +694,7 @@ SELECT a.*, o.name AS organization_name,
 FROM accounts AS a
 JOIN organizations AS o ON o.id = a.organization_id
 LEFT JOIN account_tags AS t
-  ON t.account_id = a.id AND t.organization_id = a.organization_id`;
+  ON t.account_id = a.id AND t.organization_id = a.organization_id`
 
 const MESSAGE_SELECT = `
 SELECT m.*, d.identity_signing_public_key AS sender_identity_signing_public_key,
@@ -711,7 +711,7 @@ FROM direct_messages AS m
 JOIN e2ee_devices AS d
   ON d.organization_id = m.organization_id
  AND d.account_id = m.sender_account_id
- AND d.device_id = m.e2ee_sender_device_id`;
+ AND d.device_id = m.e2ee_sender_device_id`
 
 async function accountByCondition(
   database: Queryable,
@@ -721,51 +721,51 @@ async function accountByCondition(
   const result = await database.query<AccountRow>(
     `${ACCOUNT_SELECT}\nWHERE ${condition}\nGROUP BY a.id, o.name`,
     values,
-  );
-  return result.rows[0] ?? null;
+  )
+  return result.rows[0] ?? null
 }
 
 function transparencyHash(input: {
-  sequence: number;
-  organizationId: string;
-  accountId: string;
-  deviceId: string;
-  event: E2eeKeyTransparencyEvent;
-  keyFingerprint: string;
-  actorDeviceId: string | null;
-  previousHash: string;
-  createdAt: string;
+  sequence: number
+  organizationId: string
+  accountId: string
+  deviceId: string
+  event: E2eeKeyTransparencyEvent
+  keyFingerprint: string
+  actorDeviceId: string | null
+  previousHash: string
+  createdAt: string
 }): string {
   return createHash('sha256')
     .update('clawmaster:e2ee-key-transparency:v1\n')
     .update(JSON.stringify(input))
-    .digest('hex');
+    .digest('hex')
 }
 
 async function appendTransparencyEntry(
   database: PostgresClientLike,
   input: {
-    organizationId: string;
-    accountId: string;
-    deviceId: string;
-    event: E2eeKeyTransparencyEvent;
-    keyFingerprint: string;
-    actorDeviceId: string | null;
+    organizationId: string
+    accountId: string
+    deviceId: string
+    event: E2eeKeyTransparencyEvent
+    keyFingerprint: string
+    actorDeviceId: string | null
   },
 ): Promise<E2eeKeyTransparencyEntry> {
   await database.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
     `${input.organizationId}:${input.accountId}:e2ee-transparency`,
-  ]);
+  ])
   const previousResult = await database.query<TransparencyRow>(
     `SELECT * FROM e2ee_key_transparency_log
      WHERE organization_id = $1 AND account_id = $2
      ORDER BY sequence DESC LIMIT 1`,
     [input.organizationId, input.accountId],
-  );
-  const previous = previousResult.rows[0];
-  const sequence = Number(previous?.sequence ?? 0) + 1;
-  const previousHash = previous?.entry_hash ?? EMPTY_TRANSPARENCY_HASH;
-  const createdAt = new Date().toISOString();
+  )
+  const previous = previousResult.rows[0]
+  const sequence = Number(previous?.sequence ?? 0) + 1
+  const previousHash = previous?.entry_hash ?? EMPTY_TRANSPARENCY_HASH
+  const createdAt = new Date().toISOString()
   const entryHash = transparencyHash({
     sequence,
     organizationId: input.organizationId,
@@ -776,7 +776,7 @@ async function appendTransparencyEntry(
     actorDeviceId: input.actorDeviceId,
     previousHash,
     createdAt,
-  });
+  })
   const result = await database.query<TransparencyRow>(
     `INSERT INTO e2ee_key_transparency_log
        (organization_id, sequence, account_id, device_id, event,
@@ -795,41 +795,41 @@ async function appendTransparencyEntry(
       entryHash,
       createdAt,
     ],
-  );
-  return transparencyEntry(result.rows[0]!);
+  )
+  return transparencyEntry(result.rows[0]!)
 }
 
 export function createPostgresEnterpriseCoreRepository(input: {
-  pool: PostgresPoolLike;
-  defaultOrganizationId?: string;
-  sessionTtlMs?: number;
-  now?: () => number;
-  mlsResourcePolicy?: Partial<MlsResourceGovernancePolicy>;
-  accountSyncKeyProvider?: AccountSyncEncryptionKeyProvider;
+  pool: PostgresPoolLike
+  defaultOrganizationId?: string
+  sessionTtlMs?: number
+  now?: () => number
+  mlsResourcePolicy?: Partial<MlsResourceGovernancePolicy>
+  accountSyncKeyProvider?: AccountSyncEncryptionKeyProvider
 }) {
-  const defaultOrganizationId = input.defaultOrganizationId?.trim() || 'org_default';
-  const sessionTtlMs = input.sessionTtlMs ?? SESSION_TTL_MS;
+  const defaultOrganizationId = input.defaultOrganizationId?.trim() || 'org_default'
+  const sessionTtlMs = input.sessionTtlMs ?? SESSION_TTL_MS
   if (!Number.isSafeInteger(sessionTtlMs) || sessionTtlMs < 60_000) {
-    throw new Error('PostgreSQL enterprise session TTL is invalid');
+    throw new Error('PostgreSQL enterprise session TTL is invalid')
   }
   const mlsResourcePolicy = resolveMlsResourceGovernancePolicy(
     input.mlsResourcePolicy,
-  );
+  )
 
   function mlsNow(): { milliseconds: number; iso: string } {
-    const milliseconds = (input.now ?? Date.now)();
+    const milliseconds = (input.now ?? Date.now)()
     if (!Number.isSafeInteger(milliseconds) || milliseconds < 0) {
-      throw new Error('MLS resource clock is invalid');
+      throw new Error('MLS resource clock is invalid')
     }
-    return { milliseconds, iso: new Date(milliseconds).toISOString() };
+    return { milliseconds, iso: new Date(milliseconds).toISOString() }
   }
 
   async function getOrganization(id: string): Promise<PostgresEnterpriseOrganizationView | null> {
     const result = await input.pool.query<OrganizationRow>(
       'SELECT * FROM organizations WHERE id = $1',
       [requiredIdentifier(id, 'organization id')],
-    );
-    return result.rows[0] ? organizationView(result.rows[0]) : null;
+    )
+    return result.rows[0] ? organizationView(result.rows[0]) : null
   }
 
   async function getAccount(
@@ -844,8 +844,8 @@ export function createPostgresEnterpriseCoreRepository(input: {
       organizationId
         ? [requiredIdentifier(id, 'account id'), requiredIdentifier(organizationId, 'organization id')]
         : [requiredIdentifier(id, 'account id')],
-    );
-    return row ? accountView(row) : null;
+    )
+    return row ? accountView(row) : null
   }
 
   async function listAccounts(organizationId: string): Promise<PostgresEnterpriseAccountView[]> {
@@ -854,8 +854,8 @@ export function createPostgresEnterpriseCoreRepository(input: {
        WHERE a.organization_id = $1 AND a.deleted_at IS NULL
        GROUP BY a.id, o.name ORDER BY a.name, a.id`,
       [requiredIdentifier(organizationId, 'organization id')],
-    );
-    return result.rows.map(accountView);
+    )
+    return result.rows.map(accountView)
   }
 
   async function logAudit(
@@ -865,9 +865,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
     detail: Record<string, unknown>,
     database: Queryable = input.pool,
   ): Promise<void> {
-    const normalizedAction = action.trim();
+    const normalizedAction = action.trim()
     if (!normalizedAction || normalizedAction.length > 120) {
-      throw new Error('audit action is invalid');
+      throw new Error('audit action is invalid')
     }
     await database.query(
       `INSERT INTO audit_logs (organization_id, action, actor_employee_id, detail)
@@ -878,31 +878,31 @@ export function createPostgresEnterpriseCoreRepository(input: {
         actorEmployeeId,
         JSON.stringify(detail),
       ],
-    );
+    )
   }
 
   async function createAccount(
     raw: CreatePostgresEnterpriseAccountInput,
   ): Promise<PostgresEnterpriseAccountView> {
     if (!isAcceptableAccountPassword(raw.password)) {
-      throw new Error('account password does not meet security requirements');
+      throw new Error('account password does not meet security requirements')
     }
-    const id = requiredIdentifier(raw.id ?? `acc_${randomUUID()}`, 'account id');
+    const id = requiredIdentifier(raw.id ?? `acc_${randomUUID()}`, 'account id')
     const organizationId = requiredIdentifier(
       raw.organizationId ?? defaultOrganizationId,
       'organization id',
-    );
-    const username = normalizeUsername(raw.username);
-    const name = raw.name.trim();
-    if (!name || name.length > 120) throw new Error('account name is invalid');
-    const tags = normalizeTags(raw.tags);
+    )
+    const username = normalizeUsername(raw.username)
+    const name = raw.name.trim()
+    if (!name || name.length > 120) throw new Error('account name is invalid')
+    const tags = normalizeTags(raw.tags)
     await transaction(input.pool, async (client) => {
       const organization = await client.query<OrganizationRow>(
         `SELECT * FROM organizations
          WHERE id = $1 AND status = 'active' FOR UPDATE`,
         [organizationId],
-      );
-      if (!organization.rows[0]) throw new Error('organization is unavailable');
+      )
+      if (!organization.rows[0]) throw new Error('organization is unavailable')
       if (
         (raw.accountType ?? 'enterprise') === 'enterprise' &&
         (raw.status ?? 'active') === 'active'
@@ -912,7 +912,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
             client,
             organizationId,
             raw.licenseSeatAdmission,
-          );
+          )
         } else if (
           raw.bootstrapFirstAdministrator === true &&
           raw.isAdmin === true
@@ -923,12 +923,12 @@ export function createPostgresEnterpriseCoreRepository(input: {
             `SELECT count(*)::integer AS count FROM accounts
              WHERE organization_id = $1 AND deleted_at IS NULL`,
             [organizationId],
-          );
+          )
           if (Number(accounts.rows[0]?.count ?? 0) !== 0) {
-            throw new PostgresEnterpriseLicenseAdmissionError();
+            throw new PostgresEnterpriseLicenseAdmissionError()
           }
         } else {
-          throw new PostgresEnterpriseLicenseAdmissionError();
+          throw new PostgresEnterpriseLicenseAdmissionError()
         }
       }
       await client.query(
@@ -957,26 +957,26 @@ export function createPostgresEnterpriseCoreRepository(input: {
           raw.isAdmin === true,
           raw.status ?? 'active',
         ],
-      );
+      )
       for (const tag of tags) {
         await client.query(
           `INSERT INTO account_tags (account_id, organization_id, tag)
            VALUES ($1, $2, $3)`,
           [id, organizationId, tag],
-        );
+        )
       }
-      await logAudit('account_created', organizationId, null, { accountId: id }, client);
+      await logAudit('account_created', organizationId, null, { accountId: id }, client)
     });
-    return (await getAccount(id, organizationId))!;
+    return (await getAccount(id, organizationId))!
   }
 
   async function updateAccount(
     raw: UpdatePostgresEnterpriseAccountInput,
   ): Promise<PostgresEnterpriseAccountView> {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
     if (raw.password !== undefined && !isAcceptableAccountPassword(raw.password)) {
-      throw new Error('account password does not meet security requirements');
+      throw new Error('account password does not meet security requirements')
     }
     await transaction(input.pool, async (client) => {
       const existing = await client.query<AccountRow>(
@@ -985,24 +985,24 @@ export function createPostgresEnterpriseCoreRepository(input: {
          WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
          FOR UPDATE`,
         [accountId, organizationId],
-      );
-      const row = existing.rows[0];
-      if (!row) throw new Error('account not found');
-      const nextAdmin = raw.isAdmin ?? row.is_admin;
-      const nextStatus = raw.status ?? row.status;
+      )
+      const row = existing.rows[0]
+      if (!row) throw new Error('account not found')
+      const nextAdmin = raw.isAdmin ?? row.is_admin
+      const nextStatus = raw.status ?? row.status
       if (
         row.account_type === 'enterprise' &&
         row.status !== 'active' &&
         nextStatus === 'active'
       ) {
         if (!raw.licenseSeatAdmission) {
-          throw new PostgresEnterpriseLicenseAdmissionError();
+          throw new PostgresEnterpriseLicenseAdmissionError()
         }
         await enforcePostgresEnterpriseSeatAdmission(
           client,
           organizationId,
           raw.licenseSeatAdmission,
-        );
+        )
       }
       if (
         row.is_admin &&
@@ -1016,9 +1016,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
            WHERE organization_id = $1 AND is_admin = TRUE AND status = 'active'
              AND deleted_at IS NULL`,
           [organizationId],
-        );
+        )
         if (Number(administrators.rows[0]?.count ?? 0) <= 1) {
-          throw new Error('organization must retain one active administrator');
+          throw new Error('organization must retain one active administrator')
         }
       }
       await client.query(
@@ -1067,45 +1067,45 @@ export function createPostgresEnterpriseCoreRepository(input: {
           nextAdmin,
           nextStatus,
         ],
-      );
+      )
       if (raw.tags !== undefined) {
-        await client.query('DELETE FROM account_tags WHERE account_id = $1', [accountId]);
+        await client.query('DELETE FROM account_tags WHERE account_id = $1', [accountId])
         for (const tag of normalizeTags(raw.tags)) {
           await client.query(
             `INSERT INTO account_tags (account_id, organization_id, tag)
              VALUES ($1, $2, $3)`,
             [accountId, organizationId, tag],
-          );
+          )
         }
       }
-      await logAudit('account_updated', organizationId, null, { accountId }, client);
+      await logAudit('account_updated', organizationId, null, { accountId }, client)
     });
-    return (await getAccount(accountId, organizationId))!;
+    return (await getAccount(accountId, organizationId))!
   }
 
   async function deleteAccount(organizationIdValue: string, accountIdValue: string): Promise<boolean> {
-    const organizationId = requiredIdentifier(organizationIdValue, 'organization id');
-    const accountId = requiredIdentifier(accountIdValue, 'account id');
+    const organizationId = requiredIdentifier(organizationIdValue, 'organization id')
+    const accountId = requiredIdentifier(accountIdValue, 'account id')
     return transaction(input.pool, async (client) => {
       const existing = await client.query<{
-        is_admin: boolean;
-        status: 'active' | 'disabled';
+        is_admin: boolean
+        status: 'active' | 'disabled'
       } & Record<string, unknown>>(
         `SELECT is_admin, status FROM accounts
          WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL FOR UPDATE`,
         [accountId, organizationId],
-      );
-      const account = existing.rows[0];
-      if (!account) return false;
+      )
+      const account = existing.rows[0]
+      if (!account) return false
       if (account.is_admin && account.status === 'active') {
         const administrators = await client.query<{ count: number | string } & Record<string, unknown>>(
           `SELECT count(*)::integer AS count FROM accounts
            WHERE organization_id = $1 AND is_admin = TRUE AND status = 'active'
              AND deleted_at IS NULL`,
           [organizationId],
-        );
+        )
         if (Number(administrators.rows[0]?.count ?? 0) <= 1) {
-          throw new Error('organization must retain one active administrator');
+          throw new Error('organization must retain one active administrator')
         }
       }
       const deleted = await client.query(
@@ -1115,9 +1115,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
              password_hash = $3, updated_at = CURRENT_TIMESTAMP
          WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL`,
         [accountId, organizationId, hashIdentitySecret(randomBytes(32).toString('base64url'))],
-      );
-      await logAudit('account_deleted', organizationId, null, { accountId }, client);
-      return Number(deleted.rowCount ?? 0) === 1;
+      )
+      await logAudit('account_deleted', organizationId, null, { accountId }, client)
+      return Number(deleted.rowCount ?? 0) === 1
     });
   }
 
@@ -1125,29 +1125,29 @@ export function createPostgresEnterpriseCoreRepository(input: {
     identifier: string,
     password: string,
   ): Promise<PostgresEnterpriseAccountView | null> {
-    const normalized = identifier.trim();
+    const normalized = identifier.trim()
     const phone = normalized ? (() => {
       try {
-        return normalizePostgresEnterprisePhone(normalized);
+        return normalizePostgresEnterprisePhone(normalized)
       } catch {
-        return null;
+        return null
       }
-    })() : null;
+    })() : null
     const row = await accountByCondition(
       input.pool,
       `a.deleted_at IS NULL AND a.status = 'active'
        AND o.status = 'active'
        AND (lower(a.username) = lower($1) OR ($2::text IS NOT NULL AND a.phone = $2))`,
       [normalized, phone],
-    );
-    if (!row || !identitySecretMatches(password, row.password_hash)) return null;
-    return accountView(row);
+    )
+    if (!row || !identitySecretMatches(password, row.password_hash)) return null
+    return accountView(row)
   }
 
   function loginIdentityHash(identifier: string): string {
     return createHash('sha256')
       .update(identifier.trim().toLowerCase())
-      .digest('hex');
+      .digest('hex')
   }
 
   async function getLoginRetryAfter(identifier: string): Promise<number> {
@@ -1161,8 +1161,8 @@ export function createPostgresEnterpriseCoreRepository(input: {
        FROM auth_login_limits
        WHERE identity_hash = $1 AND blocked_until > CURRENT_TIMESTAMP`,
       [loginIdentityHash(identifier)],
-    );
-    return Math.max(0, Number(result.rows[0]?.retry_after_seconds ?? 0));
+    )
+    return Math.max(0, Number(result.rows[0]?.retry_after_seconds ?? 0))
   }
 
   async function recordLoginFailure(identifier: string): Promise<number> {
@@ -1198,35 +1198,35 @@ export function createPostgresEnterpriseCoreRepository(input: {
          ELSE NULL
        END AS retry_after_seconds`,
       [loginIdentityHash(identifier), LOGIN_FAILURE_LIMIT, LOGIN_BLOCK_SECONDS],
-    );
-    return Math.max(0, Number(result.rows[0]?.retry_after_seconds ?? 0));
+    )
+    return Math.max(0, Number(result.rows[0]?.retry_after_seconds ?? 0))
   }
 
   async function clearLoginFailures(identifier: string): Promise<void> {
     await input.pool.query(
       'DELETE FROM auth_login_limits WHERE identity_hash = $1',
       [loginIdentityHash(identifier)],
-    );
+    )
   }
 
   async function createAuthSession(accountIdValue: string) {
-    const accountId = requiredIdentifier(accountIdValue, 'account id');
-    const token = randomBytes(32).toString('base64url');
-    const tokenHash = createHash('sha256').update(token).digest('hex');
-    const expiresAt = new Date(Date.now() + sessionTtlMs).toISOString();
+    const accountId = requiredIdentifier(accountIdValue, 'account id')
+    const token = randomBytes(32).toString('base64url')
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+    const expiresAt = new Date(Date.now() + sessionTtlMs).toISOString()
     const result = await input.pool.query(
       `INSERT INTO auth_sessions (token_hash, account_id, expires_at)
        SELECT $1, id, $3::timestamptz FROM accounts
        WHERE id = $2 AND status = 'active' AND deleted_at IS NULL`,
       [tokenHash, accountId, expiresAt],
-    );
-    if (Number(result.rowCount ?? 0) !== 1) throw new Error('account is unavailable');
-    return { token, expiresAt };
+    )
+    if (Number(result.rowCount ?? 0) !== 1) throw new Error('account is unavailable')
+    return { token, expiresAt }
   }
 
   async function getAccountBySession(token: string): Promise<PostgresEnterpriseAccountView | null> {
-    if (!token.trim()) return null;
-    const tokenHash = createHash('sha256').update(token).digest('hex');
+    if (!token.trim()) return null
+    const tokenHash = createHash('sha256').update(token).digest('hex')
     const row = await accountByCondition(
       input.pool,
       `a.id = (
@@ -1235,25 +1235,25 @@ export function createPostgresEnterpriseCoreRepository(input: {
            AND s.expires_at > CURRENT_TIMESTAMP
        ) AND a.status = 'active' AND a.deleted_at IS NULL AND o.status = 'active'`,
       [tokenHash],
-    );
-    return row ? accountView(row) : null;
+    )
+    return row ? accountView(row) : null
   }
 
   async function revokeAuthSession(token: string): Promise<boolean> {
-    if (!token.trim()) return false;
-    const tokenHash = createHash('sha256').update(token).digest('hex');
+    if (!token.trim()) return false
+    const tokenHash = createHash('sha256').update(token).digest('hex')
     const result = await input.pool.query(
       `UPDATE auth_sessions SET revoked_at = CURRENT_TIMESTAMP
        WHERE token_hash = $1 AND revoked_at IS NULL`,
       [tokenHash],
-    );
-    return Number(result.rowCount ?? 0) === 1;
+    )
+    return Number(result.rowCount ?? 0) === 1
   }
 
   async function getOrganizationFeatures(
     organizationIdValue: string,
   ): Promise<PostgresEnterpriseFeatures> {
-    const organizationId = requiredIdentifier(organizationIdValue, 'organization id');
+    const organizationId = requiredIdentifier(organizationIdValue, 'organization id')
     const result = await input.pool.query<
       PostgresEnterpriseFeatures & Record<string, unknown>
     >(
@@ -1261,18 +1261,18 @@ export function createPostgresEnterpriseCoreRepository(input: {
               knowledge, skill_market
        FROM organization_features WHERE organization_id = $1`,
       [organizationId],
-    );
-    if (!result.rows[0]) throw new Error('organization features are unavailable');
-    return result.rows[0];
+    )
+    if (!result.rows[0]) throw new Error('organization features are unavailable')
+    return result.rows[0]
   }
 
   async function updateOrganizationFeatures(
     organizationIdValue: string,
     patch: Partial<PostgresEnterpriseFeatures>,
   ): Promise<PostgresEnterpriseFeatures> {
-    const organizationId = requiredIdentifier(organizationIdValue, 'organization id');
-    const current = await getOrganizationFeatures(organizationId);
-    const next = { ...current, ...patch };
+    const organizationId = requiredIdentifier(organizationIdValue, 'organization id')
+    const current = await getOrganizationFeatures(organizationId)
+    const next = { ...current, ...patch }
     await input.pool.query(
       `UPDATE organization_features SET
          enterprise_tree = $2, direct_messages = $3, atoa = $4,
@@ -1288,57 +1288,57 @@ export function createPostgresEnterpriseCoreRepository(input: {
         next.knowledge,
         next.skill_market,
       ],
-    );
-    await logAudit('organization_features_updated', organizationId, null, { features: next });
-    return next;
+    )
+    await logAudit('organization_features_updated', organizationId, null, { features: next })
+    return next
   }
 
   async function listOrganizationStructure(
     organizationIdValue: string,
   ): Promise<PostgresOrganizationStructureView> {
-    const organizationId = requiredIdentifier(organizationIdValue, 'organization id');
+    const organizationId = requiredIdentifier(organizationIdValue, 'organization id')
     const departments = await input.pool.query<
       { id: string; name: string } & Record<string, unknown>
     >(
       `SELECT id, name FROM organization_departments
        WHERE organization_id = $1 ORDER BY name, id`,
       [organizationId],
-    );
+    )
     const positions = await input.pool.query<
       {
-        id: string;
-        department_id: string;
-        title: string;
-        role_mapping: string | null;
+        id: string
+        department_id: string
+        title: string
+        role_mapping: string | null
       } & Record<string, unknown>
     >(
       `SELECT id, department_id, title, role_mapping FROM organization_positions
        WHERE organization_id = $1 ORDER BY title, id`,
       [organizationId],
-    );
+    )
     return {
-      departments: departments.rows.map((department) => ({
+      departments: departments.rows.map(department => ({
         id: department.id,
         name: department.name,
         positions: positions.rows
-          .filter((position) => position.department_id === department.id)
-          .map((position) => ({
+          .filter(position => position.department_id === department.id)
+          .map(position => ({
             id: position.id,
             title: position.title,
             roleMapping: position.role_mapping,
           })),
       })),
-    };
+    }
   }
 
   async function createOrganizationDepartment(raw: {
-    organizationId: string;
-    name: string;
+    organizationId: string
+    name: string
   }) {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const name = optionalText(raw.name, 'department name', 120);
-    if (!name) throw new Error('department name is required');
-    const id = `dept_${randomUUID()}`;
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const name = optionalText(raw.name, 'department name', 120)
+    if (!name) throw new Error('department name is required')
+    const id = `dept_${randomUUID()}`
     const result = await input.pool.query<
       { id: string; name: string; created_at: Date | string; updated_at: Date | string } &
         Record<string, unknown>
@@ -1347,28 +1347,28 @@ export function createPostgresEnterpriseCoreRepository(input: {
        VALUES ($1, $2, $3)
        RETURNING id, name, created_at, updated_at`,
       [id, organizationId, name],
-    );
+    )
     await logAudit('organization_department_created', organizationId, null, {
       departmentId: id,
-    });
-    const row = result.rows[0]!;
+    })
+    const row = result.rows[0]!
     return {
       id: row.id,
       name: row.name,
       createdAt: iso(row.created_at)!,
       updatedAt: iso(row.updated_at)!,
-    };
+    }
   }
 
   async function updateOrganizationDepartment(raw: {
-    organizationId: string;
-    departmentId: string;
-    name: string;
+    organizationId: string
+    departmentId: string
+    name: string
   }) {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const departmentId = requiredIdentifier(raw.departmentId, 'department id');
-    const name = optionalText(raw.name, 'department name', 120);
-    if (!name) throw new Error('department name is required');
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const departmentId = requiredIdentifier(raw.departmentId, 'department id')
+    const name = optionalText(raw.name, 'department name', 120)
+    if (!name) throw new Error('department name is required')
     const result = await input.pool.query<
       { id: string; name: string; created_at: Date | string; updated_at: Date | string } &
         Record<string, unknown>
@@ -1378,74 +1378,74 @@ export function createPostgresEnterpriseCoreRepository(input: {
        WHERE organization_id = $1 AND id = $2
        RETURNING id, name, created_at, updated_at`,
       [organizationId, departmentId, name],
-    );
-    if (!result.rows[0]) throw new Error('department not found');
+    )
+    if (!result.rows[0]) throw new Error('department not found')
     await input.pool.query(
       `UPDATE accounts SET department = $3, updated_at = CURRENT_TIMESTAMP
        WHERE organization_id = $1 AND department_id = $2 AND deleted_at IS NULL`,
       [organizationId, departmentId, name],
-    );
+    )
     await logAudit('organization_department_updated', organizationId, null, {
       departmentId,
-    });
-    const row = result.rows[0];
+    })
+    const row = result.rows[0]
     return {
       id: row.id,
       name: row.name,
       createdAt: iso(row.created_at)!,
       updatedAt: iso(row.updated_at)!,
-    };
+    }
   }
 
   async function deleteOrganizationDepartment(raw: {
-    organizationId: string;
-    departmentId: string;
+    organizationId: string
+    departmentId: string
   }): Promise<boolean> {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const departmentId = requiredIdentifier(raw.departmentId, 'department id');
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const departmentId = requiredIdentifier(raw.departmentId, 'department id')
     return transaction(input.pool, async (client) => {
       const assigned = await client.query<{ count: number | string } & Record<string, unknown>>(
         `SELECT count(*)::integer AS count FROM accounts
          WHERE organization_id = $1 AND department_id = $2 AND deleted_at IS NULL`,
         [organizationId, departmentId],
-      );
+      )
       if (Number(assigned.rows[0]?.count ?? 0) > 0) {
-        throw new Error('department still has assigned accounts');
+        throw new Error('department still has assigned accounts')
       }
       const deleted = await client.query(
         `DELETE FROM organization_departments
          WHERE organization_id = $1 AND id = $2`,
         [organizationId, departmentId],
-      );
+      )
       if (Number(deleted.rowCount ?? 0) === 1) {
         await logAudit('organization_department_deleted', organizationId, null, {
           departmentId,
-        }, client);
-        return true;
+        }, client)
+        return true
       }
-      return false;
+      return false
     });
   }
 
   async function createOrganizationPosition(raw: {
-    organizationId: string;
-    departmentId: string;
-    title: string;
-    roleMapping?: string | null;
+    organizationId: string
+    departmentId: string
+    title: string
+    roleMapping?: string | null
   }) {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const departmentId = requiredIdentifier(raw.departmentId, 'department id');
-    const title = optionalText(raw.title, 'position title', 120);
-    if (!title) throw new Error('position title is required');
-    const id = `pos_${randomUUID()}`;
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const departmentId = requiredIdentifier(raw.departmentId, 'department id')
+    const title = optionalText(raw.title, 'position title', 120)
+    if (!title) throw new Error('position title is required')
+    const id = `pos_${randomUUID()}`
     const result = await input.pool.query<
       {
-        id: string;
-        department_id: string;
-        title: string;
-        role_mapping: string | null;
-        created_at: Date | string;
-        updated_at: Date | string;
+        id: string
+        department_id: string
+        title: string
+        role_mapping: string | null
+        created_at: Date | string
+        updated_at: Date | string
       } & Record<string, unknown>
     >(
       `INSERT INTO organization_positions
@@ -1453,11 +1453,11 @@ export function createPostgresEnterpriseCoreRepository(input: {
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, department_id, title, role_mapping, created_at, updated_at`,
       [id, organizationId, departmentId, title, optionalText(raw.roleMapping, 'role mapping', 120)],
-    );
+    )
     await logAudit('organization_position_created', organizationId, null, {
       positionId: id,
-    });
-    const row = result.rows[0]!;
+    })
+    const row = result.rows[0]!
     return {
       id: row.id,
       departmentId: row.department_id,
@@ -1465,40 +1465,40 @@ export function createPostgresEnterpriseCoreRepository(input: {
       roleMapping: row.role_mapping,
       createdAt: iso(row.created_at)!,
       updatedAt: iso(row.updated_at)!,
-    };
+    }
   }
 
   async function updateOrganizationPosition(raw: {
-    organizationId: string;
-    positionId: string;
-    title?: string;
-    roleMapping?: string | null;
+    organizationId: string
+    positionId: string
+    title?: string
+    roleMapping?: string | null
   }) {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const positionId = requiredIdentifier(raw.positionId, 'position id');
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const positionId = requiredIdentifier(raw.positionId, 'position id')
     const current = await input.pool.query<
       { title: string; role_mapping: string | null } & Record<string, unknown>
     >(
       `SELECT title, role_mapping FROM organization_positions
        WHERE organization_id = $1 AND id = $2`,
       [organizationId, positionId],
-    );
-    if (!current.rows[0]) throw new Error('position not found');
+    )
+    if (!current.rows[0]) throw new Error('position not found')
     const title = raw.title === undefined
       ? current.rows[0].title
-      : optionalText(raw.title, 'position title', 120);
-    if (!title) throw new Error('position title is required');
+      : optionalText(raw.title, 'position title', 120)
+    if (!title) throw new Error('position title is required')
     const roleMapping = raw.roleMapping === undefined
       ? current.rows[0].role_mapping
-      : optionalText(raw.roleMapping, 'role mapping', 120);
+      : optionalText(raw.roleMapping, 'role mapping', 120)
     const result = await input.pool.query<
       {
-        id: string;
-        department_id: string;
-        title: string;
-        role_mapping: string | null;
-        created_at: Date | string;
-        updated_at: Date | string;
+        id: string
+        department_id: string
+        title: string
+        role_mapping: string | null
+        created_at: Date | string
+        updated_at: Date | string
       } & Record<string, unknown>
     >(
       `UPDATE organization_positions SET title = $3, role_mapping = $4,
@@ -1506,17 +1506,17 @@ export function createPostgresEnterpriseCoreRepository(input: {
        WHERE organization_id = $1 AND id = $2
        RETURNING id, department_id, title, role_mapping, created_at, updated_at`,
       [organizationId, positionId, title, roleMapping],
-    );
+    )
     await input.pool.query(
       `UPDATE accounts SET position_title = $3, role = COALESCE($4, role),
          updated_at = CURRENT_TIMESTAMP
        WHERE organization_id = $1 AND position_id = $2 AND deleted_at IS NULL`,
       [organizationId, positionId, title, roleMapping],
-    );
+    )
     await logAudit('organization_position_updated', organizationId, null, {
       positionId,
-    });
-    const row = result.rows[0]!;
+    })
+    const row = result.rows[0]!
     return {
       id: row.id,
       departmentId: row.department_id,
@@ -1524,36 +1524,36 @@ export function createPostgresEnterpriseCoreRepository(input: {
       roleMapping: row.role_mapping,
       createdAt: iso(row.created_at)!,
       updatedAt: iso(row.updated_at)!,
-    };
+    }
   }
 
   async function deleteOrganizationPosition(raw: {
-    organizationId: string;
-    positionId: string;
+    organizationId: string
+    positionId: string
   }): Promise<boolean> {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const positionId = requiredIdentifier(raw.positionId, 'position id');
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const positionId = requiredIdentifier(raw.positionId, 'position id')
     return transaction(input.pool, async (client) => {
       const assigned = await client.query<{ count: number | string } & Record<string, unknown>>(
         `SELECT count(*)::integer AS count FROM accounts
          WHERE organization_id = $1 AND position_id = $2 AND deleted_at IS NULL`,
         [organizationId, positionId],
-      );
+      )
       if (Number(assigned.rows[0]?.count ?? 0) > 0) {
-        throw new Error('position still has assigned accounts');
+        throw new Error('position still has assigned accounts')
       }
       const deleted = await client.query(
         `DELETE FROM organization_positions
          WHERE organization_id = $1 AND id = $2`,
         [organizationId, positionId],
-      );
+      )
       if (Number(deleted.rowCount ?? 0) === 1) {
         await logAudit('organization_position_deleted', organizationId, null, {
           positionId,
-        }, client);
-        return true;
+        }, client)
+        return true
       }
-      return false;
+      return false
     });
   }
 
@@ -1561,24 +1561,24 @@ export function createPostgresEnterpriseCoreRepository(input: {
     organizationIdValue: string,
     limitValue = 200,
   ): Promise<PostgresEnterpriseAuditRecord[]> {
-    const organizationId = requiredIdentifier(organizationIdValue, 'organization id');
-    const limit = Math.max(1, Math.min(1_000, Math.floor(limitValue)));
+    const organizationId = requiredIdentifier(organizationIdValue, 'organization id')
+    const limit = Math.max(1, Math.min(1_000, Math.floor(limitValue)))
     const result = await input.pool.query<
       {
-        id: number | string;
-        organization_id: string;
-        action: string;
-        actor_employee_id: string | null;
-        detail: Record<string, unknown> | string;
-        created_at: Date | string;
+        id: number | string
+        organization_id: string
+        action: string
+        actor_employee_id: string | null
+        detail: Record<string, unknown> | string
+        created_at: Date | string
       } & Record<string, unknown>
     >(
       `SELECT id, organization_id, action, actor_employee_id, detail, created_at
        FROM audit_logs WHERE organization_id = $1
        ORDER BY created_at DESC, id DESC LIMIT $2`,
       [organizationId, limit],
-    );
-    return result.rows.map((row) => ({
+    )
+    return result.rows.map(row => ({
       id: Number(row.id),
       organizationId: row.organization_id,
       action: row.action,
@@ -1588,59 +1588,59 @@ export function createPostgresEnterpriseCoreRepository(input: {
           ? (JSON.parse(row.detail) as Record<string, unknown>)
           : row.detail,
       createdAt: iso(row.created_at)!,
-    }));
+    }))
   }
 
   async function registerE2eeDevice(raw: E2eeDeviceRegistrationInput): Promise<E2eeDeviceView> {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const deviceId = requiredIdentifier(raw.deviceId, 'device id');
-    const deviceName = raw.deviceName.trim().slice(0, 120);
-    if (!deviceName) throw new Error('device name is required');
-    const signingKey = requirePublicKey(raw.identitySigningPublicKey, 'ed25519', 'identity signing public key');
-    const exchangeKey = requirePublicKey(raw.deviceExchangePublicKey, 'x25519', 'device exchange public key');
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const deviceId = requiredIdentifier(raw.deviceId, 'device id')
+    const deviceName = raw.deviceName.trim().slice(0, 120)
+    if (!deviceName) throw new Error('device name is required')
+    const signingKey = requirePublicKey(raw.identitySigningPublicKey, 'ed25519', 'identity signing public key')
+    const exchangeKey = requirePublicKey(raw.deviceExchangePublicKey, 'x25519', 'device exchange public key')
     const fingerprint = e2eeDeviceKeyFingerprint({
       identitySigningPublicKey: signingKey,
       deviceExchangePublicKey: exchangeKey,
-    });
+    })
     return transaction(input.pool, async (client) => {
       const account = await accountByCondition(
         client,
         `a.id = $1 AND a.organization_id = $2 AND a.status = 'active'
          AND a.deleted_at IS NULL AND o.status = 'active'`,
         [accountId, organizationId],
-      );
-      if (!account) throw new Error('device account is not active in organization');
+      )
+      if (!account) throw new Error('device account is not active in organization')
       const existing = await client.query<DeviceRow>(
         `SELECT * FROM e2ee_devices
          WHERE organization_id = $1 AND account_id = $2 AND device_id = $3
          FOR UPDATE`,
         [organizationId, accountId, deviceId],
-      );
+      )
       if (existing.rows[0]) {
-        const row = existing.rows[0];
+        const row = existing.rows[0]
         if (
           row.identity_signing_public_key !== signingKey ||
           row.device_exchange_public_key !== exchangeKey ||
           row.revoked_at !== null
         ) {
-          throw new Error('E2EE device id is already bound or revoked');
+          throw new Error('E2EE device id is already bound or revoked')
         }
         const refreshed = await client.query<DeviceRow>(
           `UPDATE e2ee_devices SET device_name = $4, last_seen_at = CURRENT_TIMESTAMP
            WHERE organization_id = $1 AND account_id = $2 AND device_id = $3
            RETURNING *`,
           [organizationId, accountId, deviceId, deviceName],
-        );
-        return deviceView(refreshed.rows[0]!);
+        )
+        return deviceView(refreshed.rows[0]!)
       }
       const approvedCount = await client.query<{ count: number | string } & Record<string, unknown>>(
         `SELECT count(*)::integer AS count FROM e2ee_devices
          WHERE organization_id = $1 AND account_id = $2
            AND approval_state = 'approved' AND revoked_at IS NULL`,
         [organizationId, accountId],
-      );
-      const firstDevice = Number(approvedCount.rows[0]?.count ?? 0) === 0;
+      )
+      const firstDevice = Number(approvedCount.rows[0]?.count ?? 0) === 0
       const inserted = await client.query<DeviceRow>(
         `INSERT INTO e2ee_devices
           (organization_id, account_id, device_id, device_name,
@@ -1660,7 +1660,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
           firstDevice ? 'approved' : 'pending',
           firstDevice ? deviceId : null,
         ],
-      );
+      )
       await appendTransparencyEntry(client, {
         organizationId,
         accountId,
@@ -1668,31 +1668,31 @@ export function createPostgresEnterpriseCoreRepository(input: {
         event: firstDevice ? 'bootstrap_approved' : 'registered_pending',
         keyFingerprint: fingerprint,
         actorDeviceId: firstDevice ? deviceId : null,
-      });
+      })
       await logAudit('e2ee_device_registered', organizationId, account.employee_id, {
         accountId,
         deviceId,
         approvalState: firstDevice ? 'approved' : 'pending',
-      }, client);
-      return deviceView(inserted.rows[0]!);
+      }, client)
+      return deviceView(inserted.rows[0]!)
     });
   }
 
   async function listE2eeDevices(raw: {
-    organizationId: string;
-    requesterAccountId: string;
-    accountIds?: string[];
-    includeRevoked?: boolean;
-    includePending?: boolean;
+    organizationId: string
+    requesterAccountId: string
+    accountIds?: string[]
+    includeRevoked?: boolean
+    includePending?: boolean
   }): Promise<E2eeDeviceView[]> {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const requesterAccountId = requiredIdentifier(raw.requesterAccountId, 'requester account id');
-    const accountIds = (raw.accountIds?.length ? raw.accountIds : [requesterAccountId]).map((id) =>
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const requesterAccountId = requiredIdentifier(raw.requesterAccountId, 'requester account id')
+    const accountIds = (raw.accountIds?.length ? raw.accountIds : [requesterAccountId]).map(id =>
       requiredIdentifier(id, 'account id'),
-    );
-    if (accountIds.some((id) => id !== requesterAccountId)) {
-      const requester = await getAccount(requesterAccountId, organizationId);
-      if (!requester) throw new Error('requester account is unavailable');
+    )
+    if (accountIds.some(id => id !== requesterAccountId)) {
+      const requester = await getAccount(requesterAccountId, organizationId)
+      if (!requester) throw new Error('requester account is unavailable')
     }
     const result = await input.pool.query<DeviceRow>(
       `SELECT * FROM e2ee_devices
@@ -1701,32 +1701,32 @@ export function createPostgresEnterpriseCoreRepository(input: {
          AND ($4::boolean OR approval_state = 'approved')
        ORDER BY account_id, created_at, device_id`,
       [organizationId, accountIds, raw.includeRevoked === true, raw.includePending === true],
-    );
-    return result.rows.map(deviceView);
+    )
+    return result.rows.map(deviceView)
   }
 
   async function approveE2eeDevice(raw: E2eeDeviceApprovalInput): Promise<E2eeDeviceView> {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const approverDeviceId = requiredIdentifier(raw.approverDeviceId, 'approver device id');
-    const targetDeviceId = requiredIdentifier(raw.targetDeviceId, 'target device id');
-    const targetKeyFingerprint = raw.targetKeyFingerprint.trim().toLowerCase();
-    if (!KEY_FINGERPRINT.test(targetKeyFingerprint)) throw new Error('E2EE device key fingerprint is invalid');
-    const signature = requireCanonicalBase64(raw.signature, 'device approval signature', 128);
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const approverDeviceId = requiredIdentifier(raw.approverDeviceId, 'approver device id')
+    const targetDeviceId = requiredIdentifier(raw.targetDeviceId, 'target device id')
+    const targetKeyFingerprint = raw.targetKeyFingerprint.trim().toLowerCase()
+    if (!KEY_FINGERPRINT.test(targetKeyFingerprint)) throw new Error('E2EE device key fingerprint is invalid')
+    const signature = requireCanonicalBase64(raw.signature, 'device approval signature', 128)
     return transaction(input.pool, async (client) => {
       const devices = await client.query<DeviceRow>(
         `SELECT * FROM e2ee_devices
          WHERE organization_id = $1 AND account_id = $2
            AND device_id = ANY($3::text[]) FOR UPDATE`,
         [organizationId, accountId, [approverDeviceId, targetDeviceId]],
-      );
-      const approver = devices.rows.find((device) => device.device_id === approverDeviceId);
-      const target = devices.rows.find((device) => device.device_id === targetDeviceId);
+      )
+      const approver = devices.rows.find(device => device.device_id === approverDeviceId)
+      const target = devices.rows.find(device => device.device_id === targetDeviceId)
       if (!approver || approver.approval_state !== 'approved' || approver.revoked_at) {
-        throw new Error('approver device is not active and approved');
+        throw new Error('approver device is not active and approved')
       }
-      if (!target || target.revoked_at) throw new Error('target device is unavailable');
-      if (target.key_fingerprint !== targetKeyFingerprint) throw new Error('target device fingerprint changed');
+      if (!target || target.revoked_at) throw new Error('target device is unavailable')
+      if (target.key_fingerprint !== targetKeyFingerprint) throw new Error('target device fingerprint changed')
       if (!verify(null, e2eeDeviceApprovalSignaturePayload({
         organizationId,
         accountId,
@@ -1734,7 +1734,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         targetDeviceId,
         targetKeyFingerprint,
       }), approver.identity_signing_public_key, signature)) {
-        throw new Error('device approval signature is invalid');
+        throw new Error('device approval signature is invalid')
       }
       if (target.approval_state !== 'approved') {
         await client.query(
@@ -1743,7 +1743,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
              last_seen_at = CURRENT_TIMESTAMP
            WHERE organization_id = $1 AND account_id = $2 AND device_id = $3`,
           [organizationId, accountId, targetDeviceId, approverDeviceId],
-        );
+        )
         await appendTransparencyEntry(client, {
           organizationId,
           accountId,
@@ -1751,30 +1751,30 @@ export function createPostgresEnterpriseCoreRepository(input: {
           event: 'approved',
           keyFingerprint: targetKeyFingerprint,
           actorDeviceId: approverDeviceId,
-        });
+        })
         await logAudit('e2ee_device_approved', organizationId, null, {
           accountId,
           approverDeviceId,
           targetDeviceId,
-        }, client);
+        }, client)
       }
       const updated = await client.query<DeviceRow>(
         `SELECT * FROM e2ee_devices
          WHERE organization_id = $1 AND account_id = $2 AND device_id = $3`,
         [organizationId, accountId, targetDeviceId],
-      );
-      return deviceView(updated.rows[0]!);
+      )
+      return deviceView(updated.rows[0]!)
     });
   }
 
   async function revokeE2eeDevice(raw: {
-    organizationId: string;
-    accountId: string;
-    deviceId: string;
+    organizationId: string
+    accountId: string
+    deviceId: string
   }): Promise<boolean> {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const deviceId = requiredIdentifier(raw.deviceId, 'device id');
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const deviceId = requiredIdentifier(raw.deviceId, 'device id')
     return transaction(input.pool, async (client) => {
       const result = await client.query<DeviceRow>(
         `UPDATE e2ee_devices SET revoked_at = CURRENT_TIMESTAMP,
@@ -1782,9 +1782,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
          WHERE organization_id = $1 AND account_id = $2 AND device_id = $3
            AND revoked_at IS NULL RETURNING *`,
         [organizationId, accountId, deviceId],
-      );
-      const row = result.rows[0];
-      if (!row) return false;
+      )
+      const row = result.rows[0]
+      if (!row) return false
       await appendTransparencyEntry(client, {
         organizationId,
         accountId,
@@ -1792,46 +1792,46 @@ export function createPostgresEnterpriseCoreRepository(input: {
         event: 'revoked',
         keyFingerprint: row.key_fingerprint,
         actorDeviceId: deviceId,
-      });
-      await logAudit('e2ee_device_revoked', organizationId, null, { accountId, deviceId }, client);
-      return true;
+      })
+      await logAudit('e2ee_device_revoked', organizationId, null, { accountId, deviceId }, client)
+      return true
     });
   }
 
   async function listE2eeKeyTransparency(raw: {
-    organizationId: string;
-    requesterAccountId: string;
-    accountId: string;
+    organizationId: string
+    requesterAccountId: string
+    accountId: string
   }): Promise<E2eeKeyTransparencyView> {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    requiredIdentifier(raw.requesterAccountId, 'requester account id');
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    requiredIdentifier(raw.requesterAccountId, 'requester account id')
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
     const result = await input.pool.query<TransparencyRow>(
       `SELECT * FROM e2ee_key_transparency_log
        WHERE organization_id = $1 AND account_id = $2 ORDER BY sequence`,
       [organizationId, accountId],
-    );
-    const entries = result.rows.map(transparencyEntry);
+    )
+    const entries = result.rows.map(transparencyEntry)
     return {
       accountId,
       headSequence: entries.at(-1)?.sequence ?? 0,
       headHash: entries.at(-1)?.entryHash ?? EMPTY_TRANSPARENCY_HASH,
       entries,
-    };
+    }
   }
 
   async function consumePostgresMlsRateLimit(input: {
-    client: PostgresClientLike;
-    organizationId: string;
-    accountId: string;
-    deviceId: string;
-    action: MlsResourceRateAction;
-    nowMs: number;
-    limit: number;
+    client: PostgresClientLike
+    organizationId: string
+    accountId: string
+    deviceId: string
+    action: MlsResourceRateAction
+    nowMs: number
+    limit: number
   }): Promise<void> {
     const bucketStartedAt = new Date(
       Math.floor(input.nowMs / (60 * 1_000)) * 60 * 1_000,
-    ).toISOString();
+    ).toISOString()
     const consumed = await input.client.query(
       `INSERT INTO mls_resource_rate_buckets
         (organization_id, account_id, device_id, action,
@@ -1851,26 +1851,26 @@ export function createPostgresEnterpriseCoreRepository(input: {
         bucketStartedAt,
         input.limit,
       ],
-    );
+    )
     if (!consumed.rows[0]) {
-      throw new Error(`MLS ${input.action} rate limit exceeded`);
+      throw new Error(`MLS ${input.action} rate limit exceeded`)
     }
   }
 
   async function enforcePostgresMlsKeyPackageInventory(input: {
-    client: PostgresClientLike;
-    organizationId: string;
-    deviceId: string;
-    now: string;
+    client: PostgresClientLike
+    organizationId: string
+    deviceId: string
+    now: string
   }): Promise<void> {
     await input.client.query(
-      `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
       [`${input.organizationId}:mls-key-package-inventory`],
-    );
+    )
     const inventory = await input.client.query<
       {
-        device_count: number | string;
-        organization_count: number | string;
+        device_count: number | string
+        organization_count: number | string
       } & Record<string, unknown>
     >(
       `SELECT
@@ -1880,40 +1880,40 @@ export function createPostgresEnterpriseCoreRepository(input: {
        WHERE organization_id = $1 AND claimed_at IS NULL
          AND expires_at > $3::timestamptz`,
       [input.organizationId, input.deviceId, input.now],
-    );
-    const row = inventory.rows[0];
+    )
+    const row = inventory.rows[0]
     if (
       !row ||
       Number(row.device_count) >=
         mlsResourcePolicy.maxUnclaimedKeyPackagesPerDevice
     ) {
-      throw new Error('MLS KeyPackage device inventory quota exceeded');
+      throw new Error('MLS KeyPackage device inventory quota exceeded')
     }
     if (
       Number(row.organization_count) >=
       mlsResourcePolicy.maxUnclaimedKeyPackagesPerOrganization
     ) {
-      throw new Error('MLS KeyPackage organization inventory quota exceeded');
+      throw new Error('MLS KeyPackage organization inventory quota exceeded')
     }
   }
 
   async function enforcePostgresMlsTransportEventInventory(input: {
-    client: PostgresClientLike;
-    organizationId: string;
-    conversationId: string;
-    payloadStorageBytes: number;
-    now: string;
+    client: PostgresClientLike
+    organizationId: string
+    conversationId: string
+    payloadStorageBytes: number
+    now: string
   }): Promise<void> {
     await input.client.query(
-      `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
       [`${input.organizationId}:mls-event-inventory`],
-    );
+    )
     const usage = await input.client.query<
       {
-        organization_count: number | string;
-        organization_bytes: number | string;
-        conversation_count: number | string;
-        conversation_bytes: number | string;
+        organization_count: number | string
+        organization_bytes: number | string
+        conversation_count: number | string
+        conversation_bytes: number | string
       } & Record<string, unknown>
     >(
       `SELECT
@@ -1927,8 +1927,8 @@ export function createPostgresEnterpriseCoreRepository(input: {
        FROM mls_transport_events
        WHERE organization_id = $1 AND expires_at > $3::timestamptz`,
       [input.organizationId, input.conversationId, input.now],
-    );
-    const row = usage.rows[0];
+    )
+    const row = usage.rows[0]
     if (
       !row ||
       Number(row.conversation_count) >=
@@ -1936,7 +1936,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
       Number(row.conversation_bytes) + input.payloadStorageBytes >
         mlsResourcePolicy.maxTransportEventBytesPerConversation
     ) {
-      throw new Error('MLS conversation event inventory quota exceeded');
+      throw new Error('MLS conversation event inventory quota exceeded')
     }
     if (
       Number(row.organization_count) >=
@@ -1944,7 +1944,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
       Number(row.organization_bytes) + input.payloadStorageBytes >
         mlsResourcePolicy.maxTransportEventBytesPerOrganization
     ) {
-      throw new Error('MLS organization event inventory quota exceeded');
+      throw new Error('MLS organization event inventory quota exceeded')
     }
   }
 
@@ -1963,9 +1963,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
          AND account.status = 'active' AND account.deleted_at IS NULL
          AND organization.status = 'active'`,
       [organizationId, [accountId, peerAccountId]],
-    );
-    if (new Set(participants.rows.map((row) => row.id)).size !== 2) {
-      throw new Error('MLS participant is not active in organization');
+    )
+    if (new Set(participants.rows.map(row => row.id)).size !== 2) {
+      throw new Error('MLS participant is not active in organization')
     }
   }
 
@@ -1980,9 +1980,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
        WHERE organization_id = $1 AND account_id = $2 AND device_id = $3
          AND approval_state = 'approved' AND revoked_at IS NULL`,
       [organizationId, accountId, deviceId],
-    );
+    )
     if (!device.rows[0])
-      throw new Error('MLS device is not active and approved');
+      throw new Error('MLS device is not active and approved')
   }
 
   async function publishMlsKeyPackage(
@@ -1991,26 +1991,26 @@ export function createPostgresEnterpriseCoreRepository(input: {
     const organizationId = requiredIdentifier(
       raw.organizationId,
       'organization id',
-    );
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const deviceId = requiredIdentifier(raw.deviceId, 'device id');
+    )
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const deviceId = requiredIdentifier(raw.deviceId, 'device id')
     if (raw.ciphersuite !== MLS_CIPHERSUITE) {
-      throw new Error('MLS ciphersuite is unsupported');
+      throw new Error('MLS ciphersuite is unsupported')
     }
     const keyPackage = requireMlsBase64(
       raw.keyPackage,
       'MLS KeyPackage',
       MLS_KEY_PACKAGE_MAX_BYTES,
-    );
+    )
     const reference = raw.reference
       ? requireMlsKeyPackageReference(raw.reference)
-      : mlsKeyPackageReference(keyPackage);
-    const now = mlsNow();
+      : mlsKeyPackageReference(keyPackage)
+    const now = mlsNow()
     return transaction(input.pool, async (client) => {
       await client.query(
-        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
         [`${organizationId}:mls-key-package:${reference}`],
-      );
+      )
       const account = await client.query(
         `SELECT account.id FROM accounts AS account
          JOIN organizations AS organization ON organization.id = account.organization_id
@@ -2018,23 +2018,23 @@ export function createPostgresEnterpriseCoreRepository(input: {
            AND account.status = 'active' AND account.deleted_at IS NULL
            AND organization.status = 'active'`,
         [organizationId, accountId],
-      );
+      )
       if (!account.rows[0]) {
-        throw new Error('MLS participant is not active in organization');
+        throw new Error('MLS participant is not active in organization')
       }
       await requirePostgresMlsDevice(
         client,
         organizationId,
         accountId,
         deviceId,
-      );
+      )
       const existing = await client.query<MlsKeyPackageRow>(
         `SELECT * FROM mls_key_packages
          WHERE organization_id = $1 AND key_package_reference = $2
          FOR UPDATE`,
         [organizationId, reference],
-      );
-      const row = existing.rows[0];
+      )
+      const row = existing.rows[0]
       if (row) {
         if (
           row.account_id !== accountId ||
@@ -2044,9 +2044,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
           row.claimed_at !== null ||
           iso(row.expires_at)! <= now.iso
         ) {
-          throw new Error('MLS KeyPackage reference conflict or reuse');
+          throw new Error('MLS KeyPackage reference conflict or reuse')
         }
-        return mlsKeyPackageView(row);
+        return mlsKeyPackageView(row)
       }
       await consumePostgresMlsRateLimit({
         client,
@@ -2056,13 +2056,13 @@ export function createPostgresEnterpriseCoreRepository(input: {
         action: 'key_package_publish',
         nowMs: now.milliseconds,
         limit: mlsResourcePolicy.keyPackagePublishesPerMinute,
-      });
+      })
       await enforcePostgresMlsKeyPackageInventory({
         client,
         organizationId,
         deviceId,
         now: now.iso,
-      });
+      })
       const inserted = await client.query<MlsKeyPackageRow>(
         `INSERT INTO mls_key_packages
           (organization_id, key_package_reference, account_id, device_id,
@@ -2080,22 +2080,22 @@ export function createPostgresEnterpriseCoreRepository(input: {
             now.milliseconds + mlsResourcePolicy.keyPackageTtlMs,
           ).toISOString(),
         ],
-      );
-      return mlsKeyPackageView(inserted.rows[0]!);
+      )
+      return mlsKeyPackageView(inserted.rows[0]!)
     });
   }
 
   async function listMlsKeyPackageInventory(raw: {
-    organizationId: string;
-    accountId: string;
-    deviceId: string;
+    organizationId: string
+    accountId: string
+    deviceId: string
   }): Promise<MlsKeyPackageInventoryEntry[]> {
     const organizationId = requiredIdentifier(
       raw.organizationId,
       'organization id',
-    );
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const deviceId = requiredIdentifier(raw.deviceId, 'device id');
+    )
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const deviceId = requiredIdentifier(raw.deviceId, 'device id')
     const account = await input.pool.query(
       `SELECT 1 FROM accounts AS account
        JOIN organizations AS organization
@@ -2104,20 +2104,20 @@ export function createPostgresEnterpriseCoreRepository(input: {
          AND account.status = 'active' AND account.deleted_at IS NULL
          AND organization.status = 'active'`,
       [organizationId, accountId],
-    );
+    )
     if (!account.rows[0]) {
-      throw new Error('MLS participant is not active in organization');
+      throw new Error('MLS participant is not active in organization')
     }
     await requirePostgresMlsDevice(
       input.pool,
       organizationId,
       accountId,
       deviceId,
-    );
+    )
     const inventory = await input.pool.query<
       {
-        key_package_reference: string;
-        expires_at: Date | string;
+        key_package_reference: string
+        expires_at: Date | string
       } & Record<string, unknown>
     >(
       `SELECT key_package_reference, expires_at
@@ -2127,29 +2127,29 @@ export function createPostgresEnterpriseCoreRepository(input: {
        ORDER BY key_package_reference
        LIMIT 101`,
       [organizationId, accountId, deviceId, mlsNow().iso],
-    );
+    )
     if (inventory.rows.length > 100) {
-      throw new Error('MLS KeyPackage inventory exceeds the safe response limit');
+      throw new Error('MLS KeyPackage inventory exceeds the safe response limit')
     }
-    return inventory.rows.map((row) => ({
+    return inventory.rows.map(row => ({
       reference: requireMlsKeyPackageReference(row.key_package_reference),
       expiresAt: iso(row.expires_at)!,
-    }));
+    }))
   }
 
   async function retireMlsKeyPackage(raw: {
-    organizationId: string;
-    accountId: string;
-    deviceId: string;
-    reference: string;
+    organizationId: string
+    accountId: string
+    deviceId: string
+    reference: string
   }): Promise<boolean> {
     const organizationId = requiredIdentifier(
       raw.organizationId,
       'organization id',
-    );
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const deviceId = requiredIdentifier(raw.deviceId, 'device id');
-    const reference = requireMlsKeyPackageReference(raw.reference);
+    )
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const deviceId = requiredIdentifier(raw.deviceId, 'device id')
+    const reference = requireMlsKeyPackageReference(raw.reference)
     return transaction(input.pool, async (client) => {
       const account = await client.query(
         `SELECT 1 FROM accounts AS account
@@ -2159,16 +2159,16 @@ export function createPostgresEnterpriseCoreRepository(input: {
            AND account.status = 'active' AND account.deleted_at IS NULL
            AND organization.status = 'active'`,
         [organizationId, accountId],
-      );
+      )
       if (!account.rows[0]) {
-        throw new Error('MLS participant is not active in organization');
+        throw new Error('MLS participant is not active in organization')
       }
       await requirePostgresMlsDevice(
         client,
         organizationId,
         accountId,
         deviceId,
-      );
+      )
       const existing = await client.query<
         { claimed_at: Date | string | null } & Record<string, unknown>
       >(
@@ -2177,16 +2177,16 @@ export function createPostgresEnterpriseCoreRepository(input: {
            AND key_package_reference = $4
          FOR UPDATE`,
         [organizationId, accountId, deviceId, reference],
-      );
-      if (!existing.rows[0]) return true;
-      if (existing.rows[0].claimed_at !== null) return false;
+      )
+      if (!existing.rows[0]) return true
+      if (existing.rows[0].claimed_at !== null) return false
       await client.query(
         `DELETE FROM mls_key_packages
          WHERE organization_id = $1 AND account_id = $2 AND device_id = $3
            AND key_package_reference = $4 AND claimed_at IS NULL`,
         [organizationId, accountId, deviceId, reference],
-      );
-      return true;
+      )
+      return true
     });
   }
 
@@ -2196,57 +2196,57 @@ export function createPostgresEnterpriseCoreRepository(input: {
     const organizationId = requiredIdentifier(
       raw.organizationId,
       'organization id',
-    );
+    )
     const requesterAccountId = requiredIdentifier(
       raw.requesterAccountId,
       'requester account id',
-    );
+    )
     const requesterDeviceId = requiredIdentifier(
       raw.requesterDeviceId,
       'requester device id',
-    );
+    )
     const recipientAccountId = requiredIdentifier(
       raw.recipientAccountId,
       'recipient account id',
-    );
+    )
     const recipientDeviceId = raw.recipientDeviceId
       ? requiredIdentifier(raw.recipientDeviceId, 'recipient device id')
-      : null;
+      : null
     const conversationPeerAccountId = requiredIdentifier(
       raw.conversationPeerAccountId ?? raw.recipientAccountId,
       'conversation peer account id',
-    );
+    )
     mlsDirectConversation({
       organizationId,
       accountId: requesterAccountId,
       peerAccountId: conversationPeerAccountId,
-    });
+    })
     if (
       recipientAccountId !== requesterAccountId &&
       recipientAccountId !== conversationPeerAccountId
     ) {
-      throw new Error('MLS KeyPackage recipient is outside the direct session');
+      throw new Error('MLS KeyPackage recipient is outside the direct session')
     }
     if (
       recipientAccountId === requesterAccountId &&
       recipientDeviceId === requesterDeviceId
     ) {
-      throw new Error('MLS KeyPackage requester cannot claim its own device');
+      throw new Error('MLS KeyPackage requester cannot claim its own device')
     }
-    const now = mlsNow();
+    const now = mlsNow()
     return transaction(input.pool, async (client) => {
       await requirePostgresMlsParticipants(
         client,
         organizationId,
         requesterAccountId,
         conversationPeerAccountId,
-      );
+      )
       await requirePostgresMlsDevice(
         client,
         organizationId,
         requesterAccountId,
         requesterDeviceId,
-      );
+      )
       const recoverable = await client.query<MlsKeyPackageRow>(
         `SELECT package.* FROM mls_key_packages AS package
          JOIN e2ee_devices AS device
@@ -2271,9 +2271,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
           requesterDeviceId,
           now.iso,
         ],
-      );
+      )
       if (recoverable.rows[0]) {
-        return mlsKeyPackageView(recoverable.rows[0]);
+        return mlsKeyPackageView(recoverable.rows[0])
       }
       const available = await client.query<MlsKeyPackageRow>(
         `SELECT package.* FROM mls_key_packages AS package
@@ -2289,9 +2289,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
          ORDER BY package.created_at, package.key_package_reference
          LIMIT 1 FOR UPDATE OF package SKIP LOCKED`,
         [organizationId, recipientAccountId, recipientDeviceId, now.iso],
-      );
-      const row = available.rows[0];
-      if (!row) return null;
+      )
+      const row = available.rows[0]
+      if (!row) return null
       const claimed = await client.query<MlsKeyPackageRow>(
         `UPDATE mls_key_packages
          SET claimed_at = CURRENT_TIMESTAMP, claimed_by_account_id = $3,
@@ -2308,8 +2308,8 @@ export function createPostgresEnterpriseCoreRepository(input: {
             now.milliseconds + mlsResourcePolicy.claimedKeyPackageTtlMs,
           ).toISOString(),
         ],
-      );
-      return claimed.rows[0] ? mlsKeyPackageView(claimed.rows[0]) : null;
+      )
+      return claimed.rows[0] ? mlsKeyPackageView(claimed.rows[0]) : null
     });
   }
 
@@ -2319,87 +2319,87 @@ export function createPostgresEnterpriseCoreRepository(input: {
     const organizationId = requiredIdentifier(
       raw.organizationId,
       'organization id',
-    );
+    )
     const senderAccountId = requiredIdentifier(
       raw.senderAccountId,
       'sender account id',
-    );
+    )
     const peerAccountId = requiredIdentifier(
       raw.peerAccountId,
       'peer account id',
-    );
+    )
     const senderDeviceId = requiredIdentifier(
       raw.senderDeviceId,
       'sender device id',
-    );
-    const eventId = requiredIdentifier(raw.eventId, 'MLS event id');
+    )
+    const eventId = requiredIdentifier(raw.eventId, 'MLS event id')
     if (!['welcome', 'commit', 'application'].includes(raw.eventType)) {
-      throw new Error('MLS event type is invalid');
+      throw new Error('MLS event type is invalid')
     }
-    const epoch = requireMlsEpoch(raw.epoch);
-    const groupId = requireMlsBase64(raw.groupId, 'MLS group id', 255);
+    const epoch = requireMlsEpoch(raw.epoch)
+    const groupId = requireMlsBase64(raw.groupId, 'MLS group id', 255)
     const rawPayload = requireMlsBase64(
       raw.payload,
       'MLS transport payload',
       MLS_TRANSPORT_PAYLOAD_MAX_BYTES,
-    );
+    )
     const hasSuppliedKeyPackageTarget =
-      raw.recipientDeviceId != null || raw.keyPackageReference != null;
+      raw.recipientDeviceId != null || raw.keyPackageReference != null
     if (
       (raw.recipientAccountId != null && !hasSuppliedKeyPackageTarget) ||
       (raw.recipientDeviceId == null) !== (raw.keyPackageReference == null) ||
       (raw.eventType === 'welcome' && !hasSuppliedKeyPackageTarget) ||
       (raw.eventType === 'application' && hasSuppliedKeyPackageTarget)
     ) {
-      throw new Error('MLS KeyPackage target binding is invalid');
+      throw new Error('MLS KeyPackage target binding is invalid')
     }
     const targetDeviceId = hasSuppliedKeyPackageTarget
       ? requiredIdentifier(raw.recipientDeviceId ?? '', 'recipient device id')
-      : null;
+      : null
     const targetKeyPackageReference = hasSuppliedKeyPackageTarget
       ? requireMlsKeyPackageReference(raw.keyPackageReference ?? '')
-      : null;
+      : null
     const targetAccountId = hasSuppliedKeyPackageTarget
       ? requiredIdentifier(
-          raw.recipientAccountId ?? peerAccountId,
-          'recipient account id',
-        )
-      : null;
+        raw.recipientAccountId ?? peerAccountId,
+        'recipient account id',
+      )
+      : null
     if (
       targetAccountId !== null &&
       targetAccountId !== senderAccountId &&
       targetAccountId !== peerAccountId
     ) {
-      throw new Error('MLS KeyPackage target is outside the direct session');
+      throw new Error('MLS KeyPackage target is outside the direct session')
     }
     if (
       targetAccountId === senderAccountId &&
       targetDeviceId === senderDeviceId
     ) {
-      throw new Error('MLS member addition cannot target the sender device');
+      throw new Error('MLS member addition cannot target the sender device')
     }
     const isMemberAddCommit =
-      raw.eventType === 'commit' && hasSuppliedKeyPackageTarget;
+      raw.eventType === 'commit' && hasSuppliedKeyPackageTarget
     const payload = isMemberAddCommit
       ? requireMlsBase64(
-          encodeMlsMemberAddCommitEnvelope({
-            commit: rawPayload,
-            recipientAccountId: targetAccountId!,
-            recipientDeviceId: targetDeviceId!,
-            keyPackageReference: targetKeyPackageReference!,
-            resetFromGroupId: raw.resetFromGroupId ?? null,
-          }),
-          'MLS member-add Commit envelope',
-          MLS_TRANSPORT_PAYLOAD_MAX_BYTES,
-        )
-      : rawPayload;
+        encodeMlsMemberAddCommitEnvelope({
+          commit: rawPayload,
+          recipientAccountId: targetAccountId!,
+          recipientDeviceId: targetDeviceId!,
+          keyPackageReference: targetKeyPackageReference!,
+          resetFromGroupId: raw.resetFromGroupId ?? null,
+        }),
+        'MLS member-add Commit envelope',
+        MLS_TRANSPORT_PAYLOAD_MAX_BYTES,
+      )
+      : rawPayload
     const recipientDeviceId =
-      raw.eventType === 'welcome' ? targetDeviceId : null;
+      raw.eventType === 'welcome' ? targetDeviceId : null
     const keyPackageReference =
-      raw.eventType === 'welcome' ? targetKeyPackageReference : null;
+      raw.eventType === 'welcome' ? targetKeyPackageReference : null
     const resetFromGroupId = raw.resetFromGroupId
       ? requireMlsBase64(raw.resetFromGroupId, 'MLS reset source group id', 255)
-      : null;
+      : null
     if (
       resetFromGroupId &&
       (raw.eventType !== 'commit' ||
@@ -2408,13 +2408,13 @@ export function createPostgresEnterpriseCoreRepository(input: {
     ) {
       throw new Error(
         'explicit MLS session reset requires an epoch 1 Commit for a new group',
-      );
+      )
     }
     const direct = mlsDirectConversation({
       organizationId,
       accountId: senderAccountId,
       peerAccountId,
-    });
+    })
     const normalized = {
       conversationId: direct.conversationId,
       senderAccountId,
@@ -2427,46 +2427,46 @@ export function createPostgresEnterpriseCoreRepository(input: {
       groupId,
       payload,
       keyPackageReference,
-    };
-    const now = mlsNow();
+    }
+    const now = mlsNow()
     return transaction(input.pool, async (client) => {
       await client.query(
-        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
         [`${organizationId}:mls-event:${eventId}`],
-      );
+      )
       await requirePostgresMlsParticipants(
         client,
         organizationId,
         senderAccountId,
         peerAccountId,
-      );
+      )
       await requirePostgresMlsDevice(
         client,
         organizationId,
         senderAccountId,
         senderDeviceId,
-      );
+      )
       const existing = await client.query<MlsEventRow>(
         `SELECT * FROM mls_transport_events
          WHERE organization_id = $1 AND id = $2 FOR UPDATE`,
         [organizationId, eventId],
-      );
+      )
       if (existing.rows[0]) {
         if (!postgresMlsEventMatches(existing.rows[0], normalized)) {
-          throw new Error('MLS event idempotency conflict');
+          throw new Error('MLS event idempotency conflict')
         }
         if (iso(existing.rows[0].expires_at)! <= now.iso) {
           throw new Error(
             'MLS event cursor expired; secure session reset required',
-          );
+          )
         }
-        return mlsEventView(existing.rows[0]);
+        return mlsEventView(existing.rows[0])
       }
 
       await client.query(
-        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
         [`${organizationId}:mls-conversation:${direct.conversationId}`],
-      );
+      )
       await consumePostgresMlsRateLimit({
         client,
         organizationId,
@@ -2475,27 +2475,27 @@ export function createPostgresEnterpriseCoreRepository(input: {
         action: 'transport_event_append',
         nowMs: now.milliseconds,
         limit: mlsResourcePolicy.transportEventsPerMinute,
-      });
+      })
       await enforcePostgresMlsTransportEventInventory({
         client,
         organizationId,
         conversationId: direct.conversationId,
         payloadStorageBytes: Buffer.byteLength(payload, 'utf8'),
         now: now.iso,
-      });
+      })
 
       const conversationResult = await client.query<MlsConversationRow>(
         `SELECT * FROM mls_conversations
          WHERE organization_id = $1 AND conversation_id = $2 FOR UPDATE`,
         [organizationId, direct.conversationId],
-      );
-      const conversation = conversationResult.rows[0];
-      let sessionGeneration = 1;
+      )
+      const conversation = conversationResult.rows[0]
+      let sessionGeneration = 1
       if (!conversation) {
         if (raw.eventType !== 'commit' || epoch !== 1 || resetFromGroupId) {
           throw new Error(
             'first MLS transport event must be the epoch 1 commit',
-          );
+          )
         }
         await client.query(
           `INSERT INTO mls_conversations
@@ -2510,33 +2510,33 @@ export function createPostgresEnterpriseCoreRepository(input: {
             direct.participantBAccountId,
             groupId,
           ],
-        );
+        )
         await client.query(
           `INSERT INTO mls_group_sessions
             (organization_id, conversation_id, generation, group_id,
              current_epoch, status, created_at)
            VALUES ($1, $2, 1, $3, 1, 'active', $4::timestamptz)`,
           [organizationId, direct.conversationId, groupId, now.iso],
-        );
+        )
       } else {
-        sessionGeneration = Number(conversation.active_generation);
+        sessionGeneration = Number(conversation.active_generation)
         if (conversation.group_id !== groupId) {
           if (raw.eventType !== 'commit' || epoch !== 1 || !resetFromGroupId) {
             throw new Error(
               'a new MLS group requires an explicit MLS session reset',
-            );
+            )
           }
           if (resetFromGroupId !== conversation.group_id) {
-            throw new Error('MLS reset source group is no longer active');
+            throw new Error('MLS reset source group is no longer active')
           }
           const reused = await client.query(
             `SELECT 1 FROM mls_group_sessions
              WHERE organization_id = $1 AND conversation_id = $2
                AND group_id = $3`,
             [organizationId, direct.conversationId, groupId],
-          );
+          )
           if (reused.rows[0]) {
-            throw new Error('MLS reset group id was already used');
+            throw new Error('MLS reset group id was already used')
           }
           const retired = await client.query<MlsGroupSessionRow>(
             `UPDATE mls_group_sessions
@@ -2545,11 +2545,11 @@ export function createPostgresEnterpriseCoreRepository(input: {
                AND generation = $3 AND status = 'active'
              RETURNING *`,
             [organizationId, direct.conversationId, sessionGeneration, now.iso],
-          );
+          )
           if (!retired.rows[0]) {
-            throw new Error('MLS active group session state is inconsistent');
+            throw new Error('MLS active group session state is inconsistent')
           }
-          sessionGeneration += 1;
+          sessionGeneration += 1
           await client.query(
             `UPDATE mls_conversations
              SET group_id = $3, current_epoch = 1,
@@ -2562,7 +2562,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
               sessionGeneration,
               now.iso,
             ],
-          );
+          )
           await client.query(
             `INSERT INTO mls_group_sessions
               (organization_id, conversation_id, generation, group_id,
@@ -2580,33 +2580,33 @@ export function createPostgresEnterpriseCoreRepository(input: {
               senderDeviceId,
               eventId,
             ],
-          );
+          )
         } else {
           if (resetFromGroupId) {
-            throw new Error('MLS reset target group must be new');
+            throw new Error('MLS reset target group must be new')
           }
           if (raw.eventType === 'commit') {
             if (epoch !== Number(conversation.current_epoch) + 1) {
-              throw new Error('MLS commit must advance to the next epoch');
+              throw new Error('MLS commit must advance to the next epoch')
             }
             await client.query(
               `UPDATE mls_conversations
                SET current_epoch = $3, updated_at = $4::timestamptz
                WHERE organization_id = $1 AND conversation_id = $2`,
               [organizationId, direct.conversationId, epoch, now.iso],
-            );
+            )
             const sessionUpdated = await client.query<MlsGroupSessionRow>(
               `UPDATE mls_group_sessions SET current_epoch = $4
                WHERE organization_id = $1 AND conversation_id = $2
                  AND generation = $3 AND status = 'active'
                RETURNING *`,
               [organizationId, direct.conversationId, sessionGeneration, epoch],
-            );
+            )
             if (!sessionUpdated.rows[0]) {
-              throw new Error('MLS active group session state is inconsistent');
+              throw new Error('MLS active group session state is inconsistent')
             }
           } else if (epoch !== Number(conversation.current_epoch)) {
-            throw new Error('MLS event must use the current epoch');
+            throw new Error('MLS event must use the current epoch')
           }
         }
       }
@@ -2617,14 +2617,14 @@ export function createPostgresEnterpriseCoreRepository(input: {
           organizationId,
           targetAccountId!,
           targetDeviceId!,
-        );
+        )
         const claimed = await client.query<MlsKeyPackageRow>(
           `SELECT * FROM mls_key_packages
            WHERE organization_id = $1 AND key_package_reference = $2
            FOR UPDATE`,
           [organizationId, targetKeyPackageReference],
-        );
-        const packageRow = claimed.rows[0];
+        )
+        const packageRow = claimed.rows[0]
         if (
           !packageRow ||
           packageRow.account_id !== targetAccountId ||
@@ -2639,7 +2639,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         ) {
           throw new Error(
             'MLS event does not match the verified KeyPackage claim for this device',
-          );
+          )
         }
         if (raw.eventType === 'welcome') {
           const membershipCommit = await client.query<MlsEventRow>(
@@ -2658,10 +2658,10 @@ export function createPostgresEnterpriseCoreRepository(input: {
               epoch,
               groupId,
             ],
-          );
+          )
           const envelope = membershipCommit.rows[0]
             ? parseMlsMemberAddCommitEnvelope(membershipCommit.rows[0].payload)
-            : null;
+            : null
           if (
             !envelope ||
             envelope.recipientDeviceId !== targetDeviceId ||
@@ -2670,7 +2670,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
           ) {
             throw new Error(
               'MLS Welcome is missing its verified membership Commit',
-            );
+            )
           }
         }
       }
@@ -2703,55 +2703,55 @@ export function createPostgresEnterpriseCoreRepository(input: {
             now.milliseconds + mlsResourcePolicy.transportEventTtlMs,
           ).toISOString(),
         ],
-      );
+      )
       if (isMemberAddCommit || raw.eventType === 'welcome') {
         await client.query(
           `UPDATE mls_key_packages SET welcome_event_id = $3
            WHERE organization_id = $1 AND key_package_reference = $2`,
           [organizationId, targetKeyPackageReference, eventId],
-        );
+        )
       }
-      return mlsEventView(inserted.rows[0]!);
+      return mlsEventView(inserted.rows[0]!)
     });
   }
 
   async function listMlsTransportEvents(raw: {
-    organizationId: string;
-    accountId: string;
-    peerAccountId: string;
-    afterSequence?: number;
-    limit?: number;
+    organizationId: string
+    accountId: string
+    peerAccountId: string
+    afterSequence?: number
+    limit?: number
   }): Promise<MlsTransportEventView[]> {
     const organizationId = requiredIdentifier(
       raw.organizationId,
       'organization id',
-    );
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
+    )
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
     const peerAccountId = requiredIdentifier(
       raw.peerAccountId,
       'peer account id',
-    );
-    const afterSequence = Math.max(0, Math.floor(raw.afterSequence ?? 0));
+    )
+    const afterSequence = Math.max(0, Math.floor(raw.afterSequence ?? 0))
     if (!Number.isSafeInteger(afterSequence)) {
-      throw new Error('MLS event sequence is invalid');
+      throw new Error('MLS event sequence is invalid')
     }
-    const limit = Math.max(1, Math.min(500, Math.floor(raw.limit ?? 100)));
+    const limit = Math.max(1, Math.min(500, Math.floor(raw.limit ?? 100)))
     const direct = mlsDirectConversation({
       organizationId,
       accountId,
       peerAccountId,
-    });
+    })
     await requirePostgresMlsParticipants(
       input.pool,
       organizationId,
       accountId,
       peerAccountId,
-    );
-    const now = mlsNow();
+    )
+    const now = mlsNow()
     const retention = await input.pool.query<
       {
-        retention_floor_sequence: number | string;
-        expired_floor_sequence: number | string;
+        retention_floor_sequence: number | string
+        expired_floor_sequence: number | string
       } & Record<string, unknown>
     >(
       `SELECT conversation.retention_floor_sequence,
@@ -2766,13 +2766,13 @@ export function createPostgresEnterpriseCoreRepository(input: {
          AND conversation.conversation_id = $2
        GROUP BY conversation.retention_floor_sequence`,
       [organizationId, direct.conversationId, now.iso],
-    );
+    )
     const retentionFloor = Math.max(
       Number(retention.rows[0]?.retention_floor_sequence ?? 0),
       Number(retention.rows[0]?.expired_floor_sequence ?? 0),
-    );
+    )
     if (afterSequence < retentionFloor) {
-      throw new Error('MLS event cursor expired; secure session reset required');
+      throw new Error('MLS event cursor expired; secure session reset required')
     }
     const events = await input.pool.query<MlsEventRow>(
       `SELECT event.* FROM mls_transport_events AS event
@@ -2795,8 +2795,8 @@ export function createPostgresEnterpriseCoreRepository(input: {
         accountId,
         limit,
       ],
-    );
-    return events.rows.map(mlsEventView);
+    )
+    return events.rows.map(mlsEventView)
   }
 
   async function getMlsAttachmentSession(
@@ -2805,42 +2805,42 @@ export function createPostgresEnterpriseCoreRepository(input: {
     const organizationId = requiredIdentifier(
       raw.organizationId,
       'organization id',
-    );
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
+    )
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
     const peerAccountId = requiredIdentifier(
       raw.peerAccountId,
       'peer account id',
-    );
-    const deviceId = requiredIdentifier(raw.deviceId, 'device id');
+    )
+    const deviceId = requiredIdentifier(raw.deviceId, 'device id')
     await requirePostgresMlsParticipants(
       input.pool,
       organizationId,
       accountId,
       peerAccountId,
-    );
+    )
     try {
       await requirePostgresMlsDevice(
         input.pool,
         organizationId,
         accountId,
         deviceId,
-      );
+      )
     } catch {
-      throw new Error('MLS attachment device binding is invalid');
+      throw new Error('MLS attachment device binding is invalid')
     }
     const direct = mlsDirectConversation({
       organizationId,
       accountId,
       peerAccountId,
-    });
+    })
     const conversation = await input.pool.query<
       {
-        conversation_id: string;
-        group_id: string;
-        current_epoch: number | string;
-        active_generation: number | string;
-        participant_a_account_id: string;
-        participant_b_account_id: string;
+        conversation_id: string
+        group_id: string
+        current_epoch: number | string
+        active_generation: number | string
+        participant_a_account_id: string
+        participant_b_account_id: string
       } & Record<string, unknown>
     >(
       `SELECT conversation_id, group_id, current_epoch, active_generation,
@@ -2848,9 +2848,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
        FROM mls_conversations
        WHERE organization_id = $1 AND conversation_id = $2`,
       [organizationId, direct.conversationId],
-    );
-    const row = conversation.rows[0];
-    if (!row) throw new Error('MLS attachment session is unavailable');
+    )
+    const row = conversation.rows[0]
+    if (!row) throw new Error('MLS attachment session is unavailable')
     const devices = await input.pool.query<
       { account_id: string; device_id: string } & Record<string, unknown>
     >(
@@ -2870,14 +2870,14 @@ export function createPostgresEnterpriseCoreRepository(input: {
         organizationId,
         [row.participant_a_account_id, row.participant_b_account_id],
       ],
-    );
+    )
     if (
       devices.rows.length < 2 ||
       devices.rows.length > 100 ||
-      !devices.rows.some((device) => device.account_id === accountId) ||
-      !devices.rows.some((device) => device.account_id === peerAccountId)
+      !devices.rows.some(device => device.account_id === accountId) ||
+      !devices.rows.some(device => device.account_id === peerAccountId)
     ) {
-      throw new Error('MLS attachment approved device roster is unavailable');
+      throw new Error('MLS attachment approved device roster is unavailable')
     }
     return {
       conversationId: row.conversation_id,
@@ -2888,32 +2888,32 @@ export function createPostgresEnterpriseCoreRepository(input: {
         row.participant_a_account_id,
         row.participant_b_account_id,
       ],
-      authorizedDevices: devices.rows.map((device) => ({
+      authorizedDevices: devices.rows.map(device => ({
         accountId: device.account_id,
         deviceId: device.device_id,
       })),
-    };
+    }
   }
 
   async function listMlsInboundConversationPeers(raw: {
-    organizationId: string;
-    accountId: string;
-    deviceId: string;
-    afterPeerAccountId?: string;
-    limit?: number;
+    organizationId: string
+    accountId: string
+    deviceId: string
+    afterPeerAccountId?: string
+    limit?: number
   }): Promise<string[]> {
     const organizationId = requiredIdentifier(
       raw.organizationId,
       'organization id',
-    );
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const deviceId = requiredIdentifier(raw.deviceId, 'device id');
+    )
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const deviceId = requiredIdentifier(raw.deviceId, 'device id')
     const afterPeerAccountId = raw.afterPeerAccountId
       ? requiredIdentifier(raw.afterPeerAccountId, 'peer account cursor')
-      : '';
-    const limit = raw.limit ?? 100;
+      : ''
+    const limit = raw.limit ?? 100
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500) {
-      throw new Error('MLS inbound conversation limit is invalid');
+      throw new Error('MLS inbound conversation limit is invalid')
     }
     const account = await input.pool.query(
       `SELECT 1 FROM accounts AS account
@@ -2923,16 +2923,16 @@ export function createPostgresEnterpriseCoreRepository(input: {
          AND account.status = 'active' AND account.deleted_at IS NULL
          AND organization.status = 'active'`,
       [organizationId, accountId],
-    );
+    )
     if (!account.rows[0]) {
-      throw new Error('MLS participant is not active in organization');
+      throw new Error('MLS participant is not active in organization')
     }
     await requirePostgresMlsDevice(
       input.pool,
       organizationId,
       accountId,
       deviceId,
-    );
+    )
     const peers = await input.pool.query<
       { peer_account_id: string } & Record<string, unknown>
     >(
@@ -2964,23 +2964,23 @@ export function createPostgresEnterpriseCoreRepository(input: {
         afterPeerAccountId,
         limit,
       ],
-    );
-    return peers.rows.map((row) =>
+    )
+    return peers.rows.map(row =>
       requiredIdentifier(row.peer_account_id, 'peer account id'),
-    );
+    )
   }
 
   async function cleanupExpiredMlsResources(
     raw: { before?: string; limit?: number } = {},
   ): Promise<MlsResourceCleanupResult> {
-    const parsedBefore = raw.before ? new Date(raw.before) : new Date(mlsNow().iso);
+    const parsedBefore = raw.before ? new Date(raw.before) : new Date(mlsNow().iso)
     if (Number.isNaN(parsedBefore.getTime())) {
-      throw new Error('MLS cleanup timestamp is invalid');
+      throw new Error('MLS cleanup timestamp is invalid')
     }
-    const before = parsedBefore.toISOString();
-    const limit = raw.limit ?? 500;
+    const before = parsedBefore.toISOString()
+    const limit = raw.limit ?? 500
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 5_000) {
-      throw new Error('MLS cleanup limit is invalid');
+      throw new Error('MLS cleanup limit is invalid')
     }
     return transaction(input.pool, async (client) => {
       const lease = await client.query<
@@ -2989,7 +2989,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         `SELECT pg_try_advisory_xact_lock(
            hashtextextended('clawmaster:mls-resource-cleanup:v1', 0)
          ) AS locked`,
-      );
+      )
       if (lease.rows[0]?.locked !== true) {
         return {
           eventsDeleted: 0,
@@ -2997,13 +2997,13 @@ export function createPostgresEnterpriseCoreRepository(input: {
           groupSessionsDeleted: 0,
           rateBucketsDeleted: 0,
           conversationsAdvanced: 0,
-        };
+        }
       }
       const expiredEvents = await client.query<
         {
-          sequence: number | string;
-          organization_id: string;
-          conversation_id: string;
+          sequence: number | string
+          organization_id: string
+          conversation_id: string
         } & Record<string, unknown>
       >(
         `SELECT sequence, organization_id, conversation_id
@@ -3011,13 +3011,13 @@ export function createPostgresEnterpriseCoreRepository(input: {
          WHERE expires_at <= $1::timestamptz
          ORDER BY sequence LIMIT $2 FOR UPDATE SKIP LOCKED`,
         [before, limit],
-      );
-      const floors = new Map<string, (typeof expiredEvents.rows)[number]>();
+      )
+      const floors = new Map<string, (typeof expiredEvents.rows)[number]>()
       for (const event of expiredEvents.rows) {
-        const key = `${event.organization_id}\n${event.conversation_id}`;
-        const current = floors.get(key);
+        const key = `${event.organization_id}\n${event.conversation_id}`
+        const current = floors.get(key)
         if (!current || Number(event.sequence) > Number(current.sequence)) {
-          floors.set(key, event);
+          floors.set(key, event)
         }
       }
       for (const floor of floors.values()) {
@@ -3028,16 +3028,16 @@ export function createPostgresEnterpriseCoreRepository(input: {
            )
            WHERE organization_id = $1 AND conversation_id = $2`,
           [floor.organization_id, floor.conversation_id, floor.sequence],
-        );
+        )
       }
-      let eventsDeleted = 0;
+      let eventsDeleted = 0
       if (expiredEvents.rows.length > 0) {
         const deleted = await client.query(
           `DELETE FROM mls_transport_events
            WHERE sequence = ANY($1::bigint[]) RETURNING sequence`,
-          [expiredEvents.rows.map((event) => String(event.sequence))],
-        );
-        eventsDeleted = deleted.rows.length;
+          [expiredEvents.rows.map(event => String(event.sequence))],
+        )
+        eventsDeleted = deleted.rows.length
       }
       const deletedGroupSessions = await client.query(
         `WITH candidates AS (
@@ -3062,7 +3062,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
            AND session.status = 'retired'
          RETURNING session.generation`,
         [before, limit],
-      );
+      )
       const deletedPackages = await client.query(
         `WITH candidates AS (
            SELECT package.organization_id, package.key_package_reference
@@ -3081,7 +3081,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
            AND package.key_package_reference = candidates.key_package_reference
          RETURNING package.key_package_reference`,
         [before, limit],
-      );
+      )
       const deletedRateBuckets = await client.query(
         `WITH candidates AS (
            SELECT ctid FROM mls_resource_rate_buckets
@@ -3091,40 +3091,40 @@ export function createPostgresEnterpriseCoreRepository(input: {
          DELETE FROM mls_resource_rate_buckets AS bucket USING candidates
          WHERE bucket.ctid = candidates.ctid RETURNING bucket.ctid`,
         [before, limit],
-      );
+      )
       return {
         eventsDeleted,
         keyPackagesDeleted: deletedPackages.rows.length,
         groupSessionsDeleted: deletedGroupSessions.rows.length,
         rateBucketsDeleted: deletedRateBuckets.rows.length,
         conversationsAdvanced: floors.size,
-      };
+      }
     });
   }
 
   async function sendE2eeDirectMessage(
     raw: SendPostgresE2eeDirectMessageInput,
   ): Promise<E2eeDirectMessageView> {
-    if (raw.protocolVersion !== E2EE_PROTOCOL_VERSION) throw new Error('E2EE protocol version is unsupported');
+    if (raw.protocolVersion !== E2EE_PROTOCOL_VERSION) throw new Error('E2EE protocol version is unsupported')
     if ((raw.attachments?.length ?? 0) > E2EE_ATTACHMENT_MAX_COUNT) {
-      throw new Error('a message can contain at most 6 encrypted attachments');
+      throw new Error('a message can contain at most 6 encrypted attachments')
     }
     if ((raw.attachments?.length ?? 0) > 0) {
       throw new Error(
         'clustered E2EE attachments must be uploaded before sending the message',
-      );
+      )
     }
     const attachmentReferences = (raw.attachmentReferences ?? []).map(
       normalizeAttachmentReference,
-    );
+    )
     if (attachmentReferences.length > E2EE_ATTACHMENT_MAX_COUNT) {
-      throw new Error('a message can contain at most 6 encrypted attachments');
+      throw new Error('a message can contain at most 6 encrypted attachments')
     }
     if (
-      new Set(attachmentReferences.map((reference) => reference.id)).size !==
+      new Set(attachmentReferences.map(reference => reference.id)).size !==
       attachmentReferences.length
     ) {
-      throw new Error('encrypted attachment ids must be unique');
+      throw new Error('encrypted attachment ids must be unique')
     }
     const normalized = {
       ...raw,
@@ -3143,7 +3143,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
       ).toString('base64'),
       nonce: requireNonce(raw.nonce, 'message nonce'),
       signature: requireCanonicalBase64(raw.signature, 'message signature', 128).toString('base64'),
-      envelopes: raw.envelopes.map((envelope) => ({
+      envelopes: raw.envelopes.map(envelope => ({
         accountId: requiredIdentifier(envelope.accountId, 'envelope account id'),
         deviceId: requiredIdentifier(envelope.deviceId, 'envelope device id'),
         ephemeralPublicKey: requirePublicKey(
@@ -3155,15 +3155,15 @@ export function createPostgresEnterpriseCoreRepository(input: {
         nonce: requireNonce(envelope.nonce, 'envelope nonce'),
       })),
       attachmentReferences,
-    };
+    }
     if (normalized.senderAccountId === normalized.recipientAccountId) {
-      throw new Error('sender and recipient must be different');
+      throw new Error('sender and recipient must be different')
     }
     if (!['message', 'atoa_request', 'atoa_response'].includes(normalized.contentType)) {
-      throw new Error('E2EE content type is invalid');
+      throw new Error('E2EE content type is invalid')
     }
     if ((normalized.contentType === 'atoa_response') !== Boolean(normalized.inReplyToMessageId)) {
-      throw new Error('A2A responses must reference exactly one request');
+      throw new Error('A2A responses must reference exactly one request')
     }
     return transaction(input.pool, async (client) => {
       const accounts = await client.query<{ id: string } & Record<string, unknown>>(
@@ -3171,16 +3171,16 @@ export function createPostgresEnterpriseCoreRepository(input: {
          WHERE a.organization_id = $1 AND a.id = ANY($2::text[])
            AND a.status = 'active' AND a.deleted_at IS NULL AND o.status = 'active'`,
         [normalized.organizationId, [normalized.senderAccountId, normalized.recipientAccountId]],
-      );
-      if (new Set(accounts.rows.map((row) => row.id)).size !== 2) {
-        throw new Error('message participant is not active in organization');
+      )
+      if (new Set(accounts.rows.map(row => row.id)).size !== 2) {
+        throw new Error('message participant is not active in organization')
       }
       if (normalized.attachmentReferences.length > 0) {
         const available = await client.query<
           {
-            id: string;
-            ciphertext_bytes: number | string;
-            ciphertext_sha256: string;
+            id: string
+            ciphertext_bytes: number | string
+            ciphertext_sha256: string
           } & Record<string, unknown>
         >(
           `SELECT object.id, object.ciphertext_bytes, object.ciphertext_sha256
@@ -3206,14 +3206,14 @@ export function createPostgresEnterpriseCoreRepository(input: {
             normalized.organizationId,
             normalized.senderAccountId,
             normalized.recipientAccountId,
-            normalized.attachmentReferences.map((reference) => reference.id),
+            normalized.attachmentReferences.map(reference => reference.id),
           ],
-        );
+        )
         const availableById = new Map(
-          available.rows.map((row) => [row.id, row] as const),
-        );
+          available.rows.map(row => [row.id, row] as const),
+        )
         for (const reference of normalized.attachmentReferences) {
-          const object = availableById.get(reference.id);
+          const object = availableById.get(reference.id)
           if (
             !object ||
             Number(object.ciphertext_bytes) !== reference.ciphertextBytes ||
@@ -3221,7 +3221,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
           ) {
             throw new Error(
               'attachment is unavailable or does not match its ciphertext metadata',
-            );
+            )
           }
         }
       }
@@ -3231,44 +3231,44 @@ export function createPostgresEnterpriseCoreRepository(input: {
            AND approval_state = 'approved' AND revoked_at IS NULL
          ORDER BY account_id, device_id`,
         [normalized.organizationId, [normalized.senderAccountId, normalized.recipientAccountId]],
-      );
+      )
       const senderDevice = devices.rows.find(
-        (device) =>
+        device =>
           device.account_id === normalized.senderAccountId &&
           device.device_id === normalized.senderDeviceId,
-      );
-      if (!senderDevice) throw new Error('sender E2EE device is not registered or was revoked');
-      if (!devices.rows.some((device) => device.account_id === normalized.recipientAccountId)) {
-        throw new Error('recipient has no active E2EE device');
+      )
+      if (!senderDevice) throw new Error('sender E2EE device is not registered or was revoked')
+      if (!devices.rows.some(device => device.account_id === normalized.recipientAccountId)) {
+        throw new Error('recipient has no active E2EE device')
       }
       const expectedEnvelopes = devices.rows
-        .map((device) => `${device.account_id}:${device.device_id}`)
-        .sort();
+        .map(device => `${device.account_id}:${device.device_id}`)
+        .sort()
       const actualEnvelopes = normalized.envelopes
-        .map((envelope) => `${envelope.accountId}:${envelope.deviceId}`)
-        .sort();
+        .map(envelope => `${envelope.accountId}:${envelope.deviceId}`)
+        .sort()
       if (
         new Set(actualEnvelopes).size !== actualEnvelopes.length ||
         JSON.stringify(actualEnvelopes) !== JSON.stringify(expectedEnvelopes)
       ) {
-        throw new Error('message key envelopes must cover every active participant device exactly once');
+        throw new Error('message key envelopes must cover every active participant device exactly once')
       }
       const {
         signature: _signature,
         attachmentReferences: _attachmentReferences,
         ...unsigned
-      } = normalized;
+      } = normalized
       const signaturePayload = e2eeMessageSignaturePayload({
         ...unsigned,
         attachments: [],
-      });
+      })
       if (!verify(
         null,
         signaturePayload,
         senderDevice.identity_signing_public_key,
         Buffer.from(normalized.signature, 'base64'),
       )) {
-        throw new Error('message signature is invalid');
+        throw new Error('message signature is invalid')
       }
       if (normalized.inReplyToMessageId) {
         const request = await client.query(
@@ -3282,8 +3282,8 @@ export function createPostgresEnterpriseCoreRepository(input: {
             normalized.recipientAccountId,
             normalized.senderAccountId,
           ],
-        );
-        if (!request.rows[0]) throw new Error('referenced A2A request does not exist');
+        )
+        if (!request.rows[0]) throw new Error('referenced A2A request does not exist')
       }
       await client.query(
         `INSERT INTO direct_messages
@@ -3305,7 +3305,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
           JSON.stringify(normalized.envelopes),
           normalized.inReplyToMessageId,
         ],
-      );
+      )
       for (const [ordinal, attachment] of normalized.attachmentReferences.entries()) {
         await client.query(
           `INSERT INTO direct_message_attachment_objects
@@ -3321,40 +3321,40 @@ export function createPostgresEnterpriseCoreRepository(input: {
             attachment.ciphertextBytes,
             attachment.ciphertextSha256,
           ],
-        );
+        )
       }
       if (normalized.inReplyToMessageId) {
         await client.query(
           `UPDATE direct_messages SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
            WHERE id = $1 AND organization_id = $2`,
           [normalized.inReplyToMessageId, normalized.organizationId],
-        );
+        )
       }
       const stored = await client.query<MessageRow>(
         `${MESSAGE_SELECT} WHERE m.id = $1`,
         [normalized.messageId],
-      );
-      return messageView(stored.rows[0]!);
+      )
+      return messageView(stored.rows[0]!)
     });
   }
 
   async function listE2eeDirectMessages(raw: {
-    organizationId: string;
-    accountId: string;
-    peerAccountId: string;
-    limit?: number;
+    organizationId: string
+    accountId: string
+    peerAccountId: string
+    limit?: number
   }): Promise<E2eeDirectMessageView[]> {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const peerAccountId = requiredIdentifier(raw.peerAccountId, 'peer account id');
-    const limit = Math.max(1, Math.min(200, Math.floor(raw.limit ?? 100)));
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const peerAccountId = requiredIdentifier(raw.peerAccountId, 'peer account id')
+    const limit = Math.max(1, Math.min(200, Math.floor(raw.limit ?? 100)))
     return transaction(input.pool, async (client) => {
       await client.query(
         `UPDATE direct_messages SET read_at = CURRENT_TIMESTAMP
          WHERE organization_id = $1 AND sender_account_id = $2
            AND recipient_account_id = $3 AND read_at IS NULL`,
         [organizationId, peerAccountId, accountId],
-      );
+      )
       const result = await client.query<MessageRow>(
         `${MESSAGE_SELECT}
          WHERE m.organization_id = $1
@@ -3363,22 +3363,22 @@ export function createPostgresEnterpriseCoreRepository(input: {
              OR (m.sender_account_id = $3 AND m.recipient_account_id = $2))
          ORDER BY m.created_at DESC, m.id DESC LIMIT $4`,
         [organizationId, accountId, peerAccountId, limit],
-      );
-      return result.rows.reverse().map(messageView);
+      )
+      return result.rows.reverse().map(messageView)
     });
   }
 
   async function getE2eeAttachmentAuthority(raw: {
-    organizationId: string;
-    accountId: string;
-    attachmentId: string;
+    organizationId: string
+    accountId: string
+    attachmentId: string
   }): Promise<PostgresE2eeAttachmentAuthority | null> {
     const organizationId = requiredIdentifier(
       raw.organizationId,
       'organization id',
-    );
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const attachmentId = requiredIdentifier(raw.attachmentId, 'attachment id');
+    )
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const attachmentId = requiredIdentifier(raw.attachmentId, 'attachment id')
     const result = await input.pool.query<MessageRow>(
       `${MESSAGE_SELECT}
        JOIN direct_message_attachment_objects AS requested_attachment
@@ -3398,15 +3398,15 @@ export function createPostgresEnterpriseCoreRepository(input: {
              AND requested_access.account_id = $3
          )`,
       [attachmentId, organizationId, accountId],
-    );
-    const row = result.rows[0];
-    if (!row) return null;
-    const message = messageView(row);
+    )
+    const row = result.rows[0]
+    if (!row) return null
+    const message = messageView(row)
     const reference = message.attachments.find(
-      (attachment) => attachment.id === attachmentId,
-    );
+      attachment => attachment.id === attachmentId,
+    )
     if (!reference) {
-      throw new Error('stored E2EE attachment reference is unavailable');
+      throw new Error('stored E2EE attachment reference is unavailable')
     }
     const object = await input.pool.query<
       { ciphertext_sha256: string } & Record<string, unknown>
@@ -3414,10 +3414,10 @@ export function createPostgresEnterpriseCoreRepository(input: {
       `SELECT ciphertext_sha256 FROM attachment_objects
        WHERE id = $1 AND organization_id = $2 AND state = 'available'`,
       [attachmentId, organizationId],
-    );
-    const checksum = object.rows[0]?.ciphertext_sha256;
+    )
+    const checksum = object.rows[0]?.ciphertext_sha256
     if (!checksum) {
-      throw new Error('stored E2EE attachment object is unavailable');
+      throw new Error('stored E2EE attachment object is unavailable')
     }
     return {
       message,
@@ -3427,24 +3427,24 @@ export function createPostgresEnterpriseCoreRepository(input: {
         ciphertextBytes: reference.ciphertextSize,
         ciphertextSha256: checksum,
       },
-    };
+    }
   }
 
   async function claimExpiredUnboundAttachments(raw: {
-    before: string;
-    limit?: number;
+    before: string
+    limit?: number
   }): Promise<PostgresUnboundAttachmentObject[]> {
-    const before = new Date(raw.before);
+    const before = new Date(raw.before)
     if (!Number.isFinite(before.getTime())) {
-      throw new Error('attachment cleanup cutoff is invalid');
+      throw new Error('attachment cleanup cutoff is invalid')
     }
-    const limit = Math.max(1, Math.min(500, Math.floor(raw.limit ?? 100)));
+    const limit = Math.max(1, Math.min(500, Math.floor(raw.limit ?? 100)))
     const result = await input.pool.query<
       {
-        id: string;
-        organization_id: string;
-        storage_key: string;
-        ciphertext_bytes: number | string;
+        id: string
+        organization_id: string
+        storage_key: string
+        ciphertext_bytes: number | string
       } & Record<string, unknown>
     >(
       `WITH candidates AS (
@@ -3473,13 +3473,13 @@ export function createPostgresEnterpriseCoreRepository(input: {
        RETURNING object.id, object.organization_id, object.storage_key,
                  object.ciphertext_bytes`,
       [before.toISOString(), limit],
-    );
-    return result.rows.map((row) => ({
+    )
+    return result.rows.map(row => ({
       id: row.id,
       organizationId: row.organization_id,
       key: row.storage_key,
       ciphertextBytes: Number(row.ciphertext_bytes),
-    }));
+    }))
   }
 
   async function completeExpiredUnboundAttachment(
@@ -3507,9 +3507,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
            )
          RETURNING organization_id, ciphertext_bytes`,
         [attachment.id, attachment.organizationId, attachment.key],
-      );
-      const row = failed.rows[0];
-      if (!row) throw new Error('unbound attachment cleanup claim was lost');
+      )
+      const row = failed.rows[0]
+      if (!row) throw new Error('unbound attachment cleanup claim was lost')
       const quota = await client.query(
         `UPDATE attachment_storage_quotas
          SET stored_bytes = stored_bytes - $2,
@@ -3517,27 +3517,27 @@ export function createPostgresEnterpriseCoreRepository(input: {
          WHERE organization_id = $1 AND stored_bytes >= $2
          RETURNING organization_id`,
         [row.organization_id, Number(row.ciphertext_bytes)],
-      );
+      )
       if (!quota.rows[0]) {
-        throw new Error('unbound attachment quota cleanup is inconsistent');
+        throw new Error('unbound attachment quota cleanup is inconsistent')
       }
-    });
+    })
   }
 
   async function listUnreadE2eeNotifications(raw: {
-    organizationId: string;
-    accountId: string;
-    limit?: number;
+    organizationId: string
+    accountId: string
+    limit?: number
   }) {
-    const organizationId = requiredIdentifier(raw.organizationId, 'organization id');
-    const accountId = requiredIdentifier(raw.accountId, 'account id');
-    const limit = Math.max(1, Math.min(200, Math.floor(raw.limit ?? 50)));
+    const organizationId = requiredIdentifier(raw.organizationId, 'organization id')
+    const accountId = requiredIdentifier(raw.accountId, 'account id')
+    const limit = Math.max(1, Math.min(200, Math.floor(raw.limit ?? 50)))
     const result = await input.pool.query<
       {
-        id: string;
-        sender_account_id: string;
-        content_type: 'message' | 'atoa_request' | 'atoa_response';
-        created_at: Date | string;
+        id: string
+        sender_account_id: string
+        content_type: 'message' | 'atoa_request' | 'atoa_response'
+        created_at: Date | string
       } & Record<string, unknown>
     >(
       `SELECT id, sender_account_id, content_type, created_at
@@ -3546,35 +3546,35 @@ export function createPostgresEnterpriseCoreRepository(input: {
          AND e2ee_protocol_version = 1 AND read_at IS NULL
        ORDER BY created_at DESC, id DESC LIMIT $3`,
       [organizationId, accountId, limit],
-    );
-    return result.rows.map((row) => ({
+    )
+    return result.rows.map(row => ({
       messageId: row.id,
       peerAccountId: row.sender_account_id,
       contentType: row.content_type,
       createdAt: iso(row.created_at)!,
-    }));
+    }))
   }
 
   async function readiness() {
     const result = await input.pool.query<{
-      schema_version: number | string;
-      organizations: number | string;
-      accounts: number | string;
+      schema_version: number | string
+      organizations: number | string
+      accounts: number | string
     } & Record<string, unknown>>(
       `SELECT
          COALESCE((SELECT max(version) FROM clawmaster_schema_migrations), 0)::integer AS schema_version,
          (SELECT count(*) FROM organizations)::integer AS organizations,
          (SELECT count(*) FROM accounts WHERE deleted_at IS NULL)::integer AS accounts`,
-    );
-    const row = result.rows[0];
-    if (!row) throw new Error('PostgreSQL enterprise repository readiness failed');
+    )
+    const row = result.rows[0]
+    if (!row) throw new Error('PostgreSQL enterprise repository readiness failed')
     return {
       ready: true as const,
       backend: 'postgresql' as const,
       schemaVersion: Number(row.schema_version),
       organizations: Number(row.organizations),
       accounts: Number(row.accounts),
-    };
+    }
   }
 
   async function getDataGovernanceProfile(
@@ -3582,30 +3582,30 @@ export function createPostgresEnterpriseCoreRepository(input: {
   ) {
     const accepted = account
       ? await input.pool.query<{
-          document_id: 'terms' | 'privacy';
-          document_version: string;
-          policy_hash: string;
-          accepted_at: Date | string;
-        } & Record<string, unknown>>(
-          `SELECT document_id, document_version, policy_hash, accepted_at
+        document_id: 'terms' | 'privacy'
+        document_version: string
+        policy_hash: string
+        accepted_at: Date | string
+      } & Record<string, unknown>>(
+        `SELECT document_id, document_version, policy_hash, accepted_at
            FROM legal_consents WHERE account_id = $1`,
-          [account.id],
-        )
-      : { rows: [] };
+        [account.id],
+      )
+      : { rows: [] }
     const documents = CURRENT_LEGAL_DOCUMENTS.map((document) => {
-      const hash = legalDocumentHash(document);
+      const hash = legalDocumentHash(document)
       const consent = accepted.rows.find(
-        (row) =>
+        row =>
           row.document_id === document.id &&
           row.document_version === document.version &&
           row.policy_hash === hash,
-      );
+      )
       return {
         ...document,
         hash,
         accepted: Boolean(consent),
         acceptedAt: consent ? new Date(consent.accepted_at).getTime() : null,
-      };
+      }
     });
     return {
       ...dataGovernanceConfiguration(),
@@ -3619,16 +3619,16 @@ export function createPostgresEnterpriseCoreRepository(input: {
         '向部署方隐私联系人投诉或咨询',
       ],
       currentConsentComplete: account
-        ? documents.every((document) => document.accepted)
+        ? documents.every(document => document.accepted)
         : false,
-    };
+    }
   }
 
   async function recordCurrentLegalConsent(
     account: PostgresEnterpriseAccountView,
     references: readonly LegalDocumentReference[],
   ): Promise<void> {
-    requireCurrentLegalDocumentReferences(references);
+    requireCurrentLegalDocumentReferences(references)
     await transaction(input.pool, async (client) => {
       for (const document of CURRENT_LEGAL_DOCUMENTS) {
         await client.query(
@@ -3647,9 +3647,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
             document.version,
             legalDocumentHash(document),
           ],
-        );
+        )
       }
-    });
+    })
   }
 
   async function exportAccountData(
@@ -3698,8 +3698,8 @@ export function createPostgresEnterpriseCoreRepository(input: {
            ORDER BY domain, resource_type, created_at, resource_id`,
           [account.id, account.organizationId],
         ),
-      ]);
-    const exportedAt = new Date().toISOString();
+      ])
+    const exportedAt = new Date().toISOString()
     const exported = {
       format: 'clawmaster-account-export-v1',
       exportedAt,
@@ -3711,7 +3711,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
       businessRecords: businessRecords.rows,
       securityNotice:
         'E2EE message bodies remain ciphertext; client private keys are not held by ClawMaster Server.',
-    };
+    }
     await business.createBusinessRecord({
       organizationId: account.organizationId,
       domain: 'data_governance',
@@ -3731,18 +3731,18 @@ export function createPostgresEnterpriseCoreRepository(input: {
           businessRecordCount: businessRecords.rows.length,
         },
       },
-    });
-    return exported;
+    })
+    return exported
   }
 
   async function deleteOwnAccountData(
     account: PostgresEnterpriseAccountView,
   ): Promise<{
-    accountId: string;
-    deletedAt: string;
-    mode: 'cryptographic_and_soft_delete';
+    accountId: string
+    deletedAt: string
+    mode: 'cryptographic_and_soft_delete'
   }> {
-    const deletedAt = new Date().toISOString();
+    const deletedAt = new Date().toISOString()
     await transaction(input.pool, async (client) => {
       const locked = await client.query<
         { is_admin: boolean; status: string } & Record<string, unknown>
@@ -3751,8 +3751,8 @@ export function createPostgresEnterpriseCoreRepository(input: {
          WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
          FOR UPDATE`,
         [account.id, account.organizationId],
-      );
-      if (!locked.rows[0]) throw new Error('account not found');
+      )
+      if (!locked.rows[0]) throw new Error('account not found')
       if (locked.rows[0].is_admin && locked.rows[0].status === 'active') {
         const administrators = await client.query<
           { count: number | string } & Record<string, unknown>
@@ -3761,9 +3761,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
            WHERE organization_id = $1 AND is_admin = TRUE AND status = 'active'
              AND deleted_at IS NULL`,
           [account.organizationId],
-        );
+        )
         if (Number(administrators.rows[0]?.count ?? 0) <= 1) {
-          throw new Error('organization must retain one active administrator');
+          throw new Error('organization must retain one active administrator')
         }
       }
 
@@ -3775,51 +3775,51 @@ export function createPostgresEnterpriseCoreRepository(input: {
              AND (sender_account_id = $1 OR recipient_account_id = $1)
          )`,
         [account.id, account.organizationId],
-      );
+      )
       await client.query(
         `DELETE FROM direct_messages
          WHERE organization_id = $2
            AND (sender_account_id = $1 OR recipient_account_id = $1)`,
         [account.id, account.organizationId],
-      );
+      )
       await client.query(
         `DELETE FROM mls_conversations
          WHERE organization_id = $2
            AND (participant_a_account_id = $1 OR participant_b_account_id = $1)`,
         [account.id, account.organizationId],
-      );
+      )
       await client.query(
         `DELETE FROM mls_key_packages
          WHERE organization_id = $2
            AND (account_id = $1 OR claimed_by_account_id = $1)`,
         [account.id, account.organizationId],
-      );
+      )
       await client.query(
         `DELETE FROM account_sync_snapshots
          WHERE organization_id = $2 AND account_id = $1`,
         [account.id, account.organizationId],
-      );
+      )
       await client.query(
         `DELETE FROM enterprise_business_records
          WHERE organization_id = $2 AND owner_account_id = $1`,
         [account.id, account.organizationId],
-      );
+      )
       await client.query(
         `UPDATE enterprise_business_events SET actor_account_id = NULL
          WHERE organization_id = $2 AND actor_account_id = $1`,
         [account.id, account.organizationId],
-      );
+      )
       await client.query(
         `DELETE FROM legal_consents
          WHERE organization_id = $2 AND account_id = $1`,
         [account.id, account.organizationId],
-      );
+      )
       await client.query(
         `DELETE FROM e2ee_devices
          WHERE organization_id = $2 AND account_id = $1`,
         [account.id, account.organizationId],
-      );
-      await client.query('DELETE FROM auth_sessions WHERE account_id = $1', [account.id]);
+      )
+      await client.query('DELETE FROM auth_sessions WHERE account_id = $1', [account.id])
       await client.query(
         `UPDATE accounts SET
            username = concat('deleted-', id), phone = NULL, feishu_open_id = NULL,
@@ -3834,7 +3834,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
           hashIdentitySecret(randomBytes(32).toString('base64url')),
           deletedAt,
         ],
-      );
+      )
       await client.query(
         `INSERT INTO enterprise_business_records
            (organization_id, domain, resource_type, resource_id,
@@ -3853,20 +3853,20 @@ export function createPostgresEnterpriseCoreRepository(input: {
           }),
           deletedAt,
         ],
-      );
+      )
       await logAudit(
         'privacy_account_deleted',
         account.organizationId,
         null,
         { accountId: account.id, deletedAt },
         client,
-      );
+      )
     });
     return {
       accountId: account.id,
       deletedAt,
       mode: 'cryptographic_and_soft_delete',
-    };
+    }
   }
 
   const registration = createPostgresRegistrationRepository({
@@ -3875,11 +3875,11 @@ export function createPostgresEnterpriseCoreRepository(input: {
     normalizePhone: normalizePostgresEnterprisePhone,
     getAccount,
     logAudit,
-  });
+  })
   const business = createPostgresEnterpriseBusinessRepository({
     pool: input.pool,
     accountSyncKeyProvider: input.accountSyncKeyProvider,
-  });
+  })
 
   return {
     defaultOrganizationId,
@@ -3934,9 +3934,9 @@ export function createPostgresEnterpriseCoreRepository(input: {
     listUnreadE2eeNotifications,
     ...business,
     ...registration,
-  };
+  }
 }
 
 export type PostgresEnterpriseCoreRepository = ReturnType<
   typeof createPostgresEnterpriseCoreRepository
->;
+>

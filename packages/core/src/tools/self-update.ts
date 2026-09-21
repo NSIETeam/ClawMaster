@@ -4,21 +4,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Type } from '@google/genai';
-import { spawn } from 'node:child_process';
-import { writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
-import { join } from 'node:path';
-import { BaseTool, Icon, ToolResult } from './tools.js';
-import { Config } from '../config/config.js';
+import { Type } from '@google/genai'
+import { spawn } from 'node:child_process'
+import { writeFileSync, mkdirSync, appendFileSync } from 'node:fs'
+import { tmpdir, homedir } from 'node:os'
+import { join } from 'node:path'
+import { BaseTool, Icon, ToolResult } from './tools.js'
+import { Config } from '../config/config.js'
 
 /**
  * 新品牌 npm 包名与全局命令名。
  * 自更新固定从 npm 拉取 latest，并以飞书常驻模式重新拉起。
  */
-export const SELF_UPDATE_PACKAGE = 'clawmaster-ai';
-export const SELF_UPDATE_RELAUNCH_COMMAND = 'clawmaster';
-export const SELF_UPDATE_RELAUNCH_ARGS = ['--feishu'];
+export const SELF_UPDATE_PACKAGE = 'clawmaster-ai'
+export const SELF_UPDATE_RELAUNCH_COMMAND = 'clawmaster'
+export const SELF_UPDATE_RELAUNCH_ARGS = ['--feishu']
 
 /**
  * 安装模式（三选一）：
@@ -29,21 +29,21 @@ export const SELF_UPDATE_RELAUNCH_ARGS = ['--feishu'];
 export type RelaunchInstallMode =
   | { type: 'none' }
   | { type: 'npm'; packageName: string }
-  | { type: 'tgz'; path: string };
+  | { type: 'tgz'; path: string }
 
 export interface BuildRelaunchScriptOptions {
   /** 父 CLI 进程 PID —— 外挂会轮询它消失后再操作，避免文件占用。 */
-  parentPid: number;
+  parentPid: number
   /** 安装模式。 */
-  install: RelaunchInstallMode;
+  install: RelaunchInstallMode
   /** 重新拉起的命令（全局 bin 名）。Windows 下通过 cmd.exe 执行，非 Windows 下通过 login shell 执行。 */
-  relaunchCommand: string;
+  relaunchCommand: string
   /** 重新拉起的参数。 */
-  relaunchArgs: string[];
+  relaunchArgs: string[]
   /** 外挂脚本自身的绝对路径（用于结束时自删）。 */
-  scriptPath: string;
+  scriptPath: string
   /** 重启日志路径。提供后 relaunch 的 stdout/stderr 会重定向到此文件，便于排障。 */
-  logPath?: string;
+  logPath?: string
 }
 
 /**
@@ -68,20 +68,20 @@ export function buildRelaunchScript(opts: BuildRelaunchScriptOptions): string {
     relaunchArgs,
     scriptPath,
     logPath,
-  } = opts;
+  } = opts
 
-  const PARENT_PID = JSON.stringify(parentPid);
-  const RELAUNCH_CMD = JSON.stringify(relaunchCommand);
-  const RELAUNCH_ARGS = JSON.stringify(relaunchArgs);
-  const SCRIPT_PATH = JSON.stringify(scriptPath);
-  const LOG_PATH = JSON.stringify(logPath ?? null);
+  const PARENT_PID = JSON.stringify(parentPid)
+  const RELAUNCH_CMD = JSON.stringify(relaunchCommand)
+  const RELAUNCH_ARGS = JSON.stringify(relaunchArgs)
+  const SCRIPT_PATH = JSON.stringify(scriptPath)
+  const LOG_PATH = JSON.stringify(logPath ?? null)
 
   // 依据安装模式，生成 npm install 的参数数组（或空表示跳过）。
-  let INSTALL_ARGS = 'null';
+  let INSTALL_ARGS = 'null'
   if (install.type === 'npm') {
-    INSTALL_ARGS = JSON.stringify(['install', '-g', `${install.packageName}@latest`]);
+    INSTALL_ARGS = JSON.stringify(['install', '-g', `${install.packageName}@latest`])
   } else if (install.type === 'tgz') {
-    INSTALL_ARGS = JSON.stringify(['install', '-g', install.path]);
+    INSTALL_ARGS = JSON.stringify(['install', '-g', install.path])
   }
 
   return `'use strict';
@@ -211,7 +211,7 @@ async function main() {
 }
 
 main();
-`;
+`
 }
 
 /**
@@ -228,20 +228,20 @@ main();
  * @returns 写出的脚本路径
  */
 export function launchRelaunchHelper(install: RelaunchInstallMode): string {
-  const parentPid = process.pid;
+  const parentPid = process.pid
   const scriptPath = join(
     tmpdir(),
     `clawmaster-relaunch-${parentPid}-${Date.now()}.js`,
-  );
+  )
 
   // 重启日志固定写到全局配置目录，便于排障。
-  let logPath: string | undefined;
+  let logPath: string | undefined
   try {
-    const logDir = join(homedir(), '.clawmaster-user');
-    mkdirSync(logDir, { recursive: true });
-    logPath = join(logDir, 'cli-debug.log');
+    const logDir = join(homedir(), '.clawmaster-user')
+    mkdirSync(logDir, { recursive: true })
+    logPath = join(logDir, 'cli-debug.log')
   } catch {
-    logPath = undefined;
+    logPath = undefined
   }
 
   if (logPath) {
@@ -252,7 +252,7 @@ export function launchRelaunchHelper(install: RelaunchInstallMode): string {
         `  - Parent PID: ${parentPid}\n` +
         `  - Install Mode: ${JSON.stringify(install)}\n` +
         `  - Platform: ${process.platform}\n` +
-        `  - Temp Script Path: ${scriptPath}\n`
+        `  - Temp Script Path: ${scriptPath}\n`,
       );
     } catch {
       // ignore
@@ -266,48 +266,48 @@ export function launchRelaunchHelper(install: RelaunchInstallMode): string {
     relaunchArgs: SELF_UPDATE_RELAUNCH_ARGS,
     scriptPath,
     logPath,
-  });
+  })
 
-  writeFileSync(scriptPath, scriptContent, 'utf8');
+  writeFileSync(scriptPath, scriptContent, 'utf8')
 
   // 用当前 node 可执行文件跑外挂（process.execPath 一定存在、跨平台）。
   const child = spawn(process.execPath, [scriptPath], {
     detached: true,
     stdio: 'ignore',
-  });
-  child.unref();
+  })
+  child.unref()
 
   if (logPath) {
     try {
       appendFileSync(
         logPath,
-        `[${new Date().toISOString()}] [Parent] Spawned helper (PID: ${child.pid || 'unknown'}). Exiting parent soon.\n`
+        `[${new Date().toISOString()}] [Parent] Spawned helper (PID: ${child.pid || 'unknown'}). Exiting parent soon.\n`,
       );
     } catch {
       // ignore
     }
   }
 
-  return scriptPath;
+  return scriptPath
 }
 
 /** action：更新并重启 / 仅重启。 */
-export type SelfUpdateAction = 'update_and_restart' | 'restart_only';
+export type SelfUpdateAction = 'update_and_restart' | 'restart_only'
 /** source：npm latest / 本地 tgz。 */
-export type SelfUpdateSource = 'npm' | 'local';
+export type SelfUpdateSource = 'npm' | 'local'
 
 /**
  * Params for SelfUpdateTool. 全部可选 —— 模型零参调用 = npm latest 更新并重启。
  */
 export interface SelfUpdateParams {
   /** 'update_and_restart'（默认）或 'restart_only'（仅重启进程，救卡死/换配置）。 */
-  action?: SelfUpdateAction;
+  action?: SelfUpdateAction
   /** 更新源：'npm'（默认，装 latest）或 'local'（装本地 tgz，需 sourcePath）。 */
-  source?: SelfUpdateSource;
+  source?: SelfUpdateSource
   /** 当 source='local' 时，本地 .tgz 的绝对路径。 */
-  sourcePath?: string;
+  sourcePath?: string
   /** 可选：触发原因（仅日志）。 */
-  reason?: string;
+  reason?: string
 }
 
 /**
@@ -319,13 +319,13 @@ export interface SelfUpdateParams {
  *   - source='local' + sourcePath=<abs .tgz>：安装某个本地 tgz 包并重启
  */
 export class SelfUpdateTool extends BaseTool<SelfUpdateParams, ToolResult> {
-  static readonly Name: string = 'self_update';
+  static readonly Name: string = 'self_update'
 
   /**
    * 优雅退出前的回调。cli 层注入后，SelfUpdateTool 在 process.exit(0) 前会调用它，
    * 给调用方一个中止 AI、关闭 WS 连接、清理队列的机会。
    */
-  static onBeforeRestart: (() => Promise<void>) | null = null;
+  static onBeforeRestart: (() => Promise<void>) | null = null
 
 
   constructor(_config: Config) {
@@ -373,7 +373,7 @@ export class SelfUpdateTool extends BaseTool<SelfUpdateParams, ToolResult> {
         },
         required: [],
       },
-    );
+    )
   }
 
   validateToolParams(params: SelfUpdateParams): string | null {
@@ -382,99 +382,99 @@ export class SelfUpdateTool extends BaseTool<SelfUpdateParams, ToolResult> {
       params.action !== 'update_and_restart' &&
       params.action !== 'restart_only'
     ) {
-      return `Invalid action "${params.action}". Must be "update_and_restart" or "restart_only".`;
+      return `Invalid action "${params.action}". Must be "update_and_restart" or "restart_only".`
     }
     if (
       params.source !== undefined &&
       params.source !== 'npm' &&
       params.source !== 'local'
     ) {
-      return `Invalid source "${params.source}". Must be "npm" or "local".`;
+      return `Invalid source "${params.source}". Must be "npm" or "local".`
     }
     // 仅当真的要安装（非 restart_only）且 source=local 时，才强制要求 sourcePath。
-    const isRestartOnly = params.action === 'restart_only';
+    const isRestartOnly = params.action === 'restart_only'
     if (!isRestartOnly && params.source === 'local') {
       if (!params.sourcePath || params.sourcePath.trim() === '') {
-        return 'source="local" requires "sourcePath" (absolute path to a .tgz file).';
+        return 'source="local" requires "sourcePath" (absolute path to a .tgz file).'
       }
     }
-    return null;
+    return null
   }
 
   getDescription(params: SelfUpdateParams): string {
-    if (params.action === 'restart_only') return 'Restart ClawMaster (Feishu mode)';
+    if (params.action === 'restart_only') return 'Restart ClawMaster (Feishu mode)'
     if (params.source === 'local') {
-      return `Install local package and restart: ${params.sourcePath ?? '(missing path)'}`;
+      return `Install local package and restart: ${params.sourcePath ?? '(missing path)'}`
     }
-    return 'Update ClawMaster to latest and restart (Feishu mode)';
+    return 'Update ClawMaster to latest and restart (Feishu mode)'
   }
 
   /** 把参数解析为底层安装模式。 */
   private resolveInstallMode(params: SelfUpdateParams): RelaunchInstallMode {
     if (params.action === 'restart_only') {
-      return { type: 'none' };
+      return { type: 'none' }
     }
     if (params.source === 'local' && params.sourcePath) {
-      return { type: 'tgz', path: params.sourcePath };
+      return { type: 'tgz', path: params.sourcePath }
     }
-    return { type: 'npm', packageName: SELF_UPDATE_PACKAGE };
+    return { type: 'npm', packageName: SELF_UPDATE_PACKAGE }
   }
 
   async execute(
     params: SelfUpdateParams,
     _signal: AbortSignal,
   ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
+    const validationError = this.validateToolParams(params)
     if (validationError) {
       return {
         llmContent: `Self-update input error: ${validationError}`,
         returnDisplay: `❌ 自更新参数错误：${validationError}`,
-      };
+      }
     }
 
-    const install = this.resolveInstallMode(params);
+    const install = this.resolveInstallMode(params)
 
     try {
-      launchRelaunchHelper(install);
+      launchRelaunchHelper(install)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = err instanceof Error ? err.message : String(err)
       return {
         llmContent: `Self-update failed: cannot start relaunch helper: ${msg}`,
         returnDisplay: `❌ 自更新失败：无法启动重启进程 (${msg})`,
-      };
+      }
     }
 
     // 安排当前进程退出。先执行优雅关闭回调（中止 AI、断开 WS 等），再延迟退出，
     // 给飞书侧充足时间完成消息投递确认。
-    const SHUTDOWN_DELAY_MS = 1500;
+    const SHUTDOWN_DELAY_MS = 1500
     setTimeout(async () => {
       try {
         if (SelfUpdateTool.onBeforeRestart) {
-          await SelfUpdateTool.onBeforeRestart();
+          await SelfUpdateTool.onBeforeRestart()
         }
       } catch {
         // 优雅关闭失败不应阻断重启
       }
-      process.exit(0);
-    }, SHUTDOWN_DELAY_MS).unref?.();
+      process.exit(0)
+    }, SHUTDOWN_DELAY_MS).unref?.()
 
     const actionText =
       install.type === 'none'
         ? 'restart (no install)'
         : install.type === 'tgz'
           ? `install local package "${install.path}" then restart`
-          : `install ${SELF_UPDATE_PACKAGE}@latest then restart`;
+          : `install ${SELF_UPDATE_PACKAGE}@latest then restart`
 
     const nonWinHint =
       process.platform !== 'win32'
         ? '根据您的操作系统限制，重启后将以后台进程（无界面）运行，使用 `ps -ef | grep clawmaster` 即可查看。'
-        : '';
+        : ''
     const displayText =
       install.type === 'none'
         ? `🔄 正在热重启，稍候我就回来。${nonWinHint}`
         : install.type === 'tgz'
           ? `🔄 正在安装本地包并重启：${install.path}，稍候我就回来。${nonWinHint}`
-          : `🔄 正在安装最新版并重启，稍候我就回来。${nonWinHint}`;
+          : `🔄 正在安装最新版并重启，稍候我就回来。${nonWinHint}`
 
     return {
       llmContent:
@@ -483,6 +483,6 @@ export class SelfUpdateTool extends BaseTool<SelfUpdateParams, ToolResult> {
         'Tell the user it is in progress and will be back shortly.',
       returnDisplay: displayText,
       summary: 'Self-update / restart triggered',
-    };
+    }
   }
 }

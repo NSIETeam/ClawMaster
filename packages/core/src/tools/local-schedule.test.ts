@@ -2,28 +2,28 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {
   LocalScheduleTool,
   createLocalSchedule,
   deleteLocalSchedule,
   listLocalSchedules,
   updateLocalSchedule,
-} from './local-schedule.js';
+} from './local-schedule.js'
 
-let tempDir: string;
+let tempDir: string
 
 beforeEach(() => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-schedule-'));
-  vi.stubEnv('CLAWMASTER_SCHEDULE_FILE', path.join(tempDir, 'schedules.json'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-schedule-'))
+  vi.stubEnv('CLAWMASTER_SCHEDULE_FILE', path.join(tempDir, 'schedules.json'))
 });
 
 afterEach(() => {
-  vi.unstubAllEnvs();
-  fs.rmSync(tempDir, { recursive: true, force: true });
+  vi.unstubAllEnvs()
+  fs.rmSync(tempDir, { recursive: true, force: true })
 });
 
 describe('本地日程数据层', () => {
@@ -34,17 +34,17 @@ describe('本地日程数据层', () => {
       endAt: '2026-07-12T02:00:00.000Z',
       source: 'clawmaster',
       reason: '调研报告已经完成，安排复盘',
-    });
+    })
 
-    expect(created.id).toBeTruthy();
+    expect(created.id).toBeTruthy()
     expect(listLocalSchedules('2026-07-12', 'Asia/Shanghai')).toEqual([
       expect.objectContaining({
         title: '竞品调研复盘',
         source: 'clawmaster',
         reason: '调研报告已经完成，安排复盘',
       }),
-    ]);
-    expect(listLocalSchedules('2026-07-11', 'Asia/Shanghai')).toEqual([]);
+    ])
+    expect(listLocalSchedules('2026-07-11', 'Asia/Shanghai')).toEqual([])
   });
 
   it('拒绝结束时间早于开始时间', () => {
@@ -55,7 +55,7 @@ describe('本地日程数据层', () => {
         endAt: '2026-07-12T01:00:00.000Z',
         source: 'user',
       }),
-    ).toThrow(/结束时间/);
+    ).toThrow(/结束时间/)
   });
 
   it('支持更新和删除，重复删除保持幂等', () => {
@@ -63,20 +63,20 @@ describe('本地日程数据层', () => {
       title: '初稿评审',
       startAt: '2026-07-12T01:30:00.000Z',
       source: 'user',
-    });
-    const updated = updateLocalSchedule(created.id, { title: '终稿评审' });
+    })
+    const updated = updateLocalSchedule(created.id, { title: '终稿评审' })
 
-    expect(updated.title).toBe('终稿评审');
-    expect(deleteLocalSchedule(created.id)).toBe(true);
-    expect(deleteLocalSchedule(created.id)).toBe(false);
+    expect(updated.title).toBe('终稿评审')
+    expect(deleteLocalSchedule(created.id)).toBe(true)
+    expect(deleteLocalSchedule(created.id)).toBe(false)
   });
-});
+})
 
 describe('local_schedule 工具', () => {
-  const config = {} as ConstructorParameters<typeof LocalScheduleTool>[0];
+  const config = {} as ConstructorParameters<typeof LocalScheduleTool>[0]
 
   it('ClawMaster 可自主创建日程，并返回结构化结果', async () => {
-    const tool = new LocalScheduleTool(config);
+    const tool = new LocalScheduleTool(config)
     const result = await tool.execute(
       {
         action: 'create',
@@ -86,24 +86,24 @@ describe('local_schedule 工具', () => {
         reason: '访谈前需要整理问题清单',
       },
       new AbortController().signal,
-    );
+    )
 
-    expect(result.llmContent).toContain('客户访谈准备');
+    expect(result.llmContent).toContain('客户访谈准备')
     expect(listLocalSchedules('2026-07-12', 'Asia/Shanghai')[0]).toMatchObject({
       source: 'clawmaster',
       reason: '访谈前需要整理问题清单',
-    });
+    })
   });
 
   it('list 不要求标题，create 缺少标题则校验失败', () => {
-    const tool = new LocalScheduleTool(config);
+    const tool = new LocalScheduleTool(config)
 
-    expect(tool.validateToolParams({ action: 'list', date: '2026-07-12' })).toBeNull();
+    expect(tool.validateToolParams({ action: 'list', date: '2026-07-12' })).toBeNull()
     expect(
       tool.validateToolParams({
         action: 'create',
         startAt: '2026-07-12T08:00:00+08:00',
       }),
-    ).toContain('title');
+    ).toContain('title')
   });
-});
+})

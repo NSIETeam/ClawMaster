@@ -16,11 +16,11 @@
  * 会话项因此从 <button> 改为 role=button 的 <div>：按钮不能嵌按钮/输入框（无效 HTML）。
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import type { SessionSummary } from 'clawmaster-server';
-import { computeNavBadgeCounts } from '../attentionCenter.js';
-import { ConfirmDialog } from './ConfirmDialog.js';
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import type { SessionSummary } from 'clawmaster-server'
+import { computeNavBadgeCounts } from '../attentionCenter.js'
+import { ConfirmDialog } from './ConfirmDialog.js'
 import {
   ClawMasterCrown,
   IconChevronDown,
@@ -37,96 +37,96 @@ import {
   IconBriefcaseBusiness,
   IconBuilding2,
   IconMoreHorizontal,
-} from './icons.js';
-import { LogoutConfirmDialog } from './LogoutConfirmDialog.js';
-import { JoinEnterpriseDialog } from './JoinEnterpriseDialog.js';
-import type { EnterpriseAccount } from '../../preload/index.js';
-import type { EnterpriseUnreadCounts } from '../enterpriseUnreadNotifications.js';
-import type { UiModePreferenceScope } from '../uiModePreference.js';
+} from './icons.js'
+import { LogoutConfirmDialog } from './LogoutConfirmDialog.js'
+import { JoinEnterpriseDialog } from './JoinEnterpriseDialog.js'
+import type { EnterpriseAccount } from '../../preload/index.js'
+import type { EnterpriseUnreadCounts } from '../enterpriseUnreadNotifications.js'
+import type { UiModePreferenceScope } from '../uiModePreference.js'
 import {
   groupSessionsForSidebar,
   readSessionListPreference,
   sessionListPreferenceStorageKey,
   writeSessionListPreference,
   type SessionListPreference,
-} from '../sessionListView.js';
+} from '../sessionListView.js'
 
-const GROUPING_MENU_WIDTH = 218;
-const GROUPING_MENU_VIEWPORT_MARGIN = 12;
-const GROUPING_MENU_TRIGGER_GAP = 4;
-const SESSION_MENU_WIDTH = 132;
-const SESSION_MENU_HEIGHT = 82;
-const SESSION_MENU_VIEWPORT_MARGIN = 8;
-const SESSION_MENU_TRIGGER_GAP = 4;
+const GROUPING_MENU_WIDTH = 218
+const GROUPING_MENU_VIEWPORT_MARGIN = 12
+const GROUPING_MENU_TRIGGER_GAP = 4
+const SESSION_MENU_WIDTH = 132
+const SESSION_MENU_HEIGHT = 82
+const SESSION_MENU_VIEWPORT_MARGIN = 8
+const SESSION_MENU_TRIGGER_GAP = 4
 
 function getGroupingMenuPosition(rect: DOMRect): { top: number; left: number } {
   const maxLeft = Math.max(
     GROUPING_MENU_VIEWPORT_MARGIN,
     window.innerWidth - GROUPING_MENU_WIDTH - GROUPING_MENU_VIEWPORT_MARGIN,
-  );
+  )
   return {
     top: rect.bclawmasterm + GROUPING_MENU_TRIGGER_GAP,
     left: Math.min(Math.max(GROUPING_MENU_VIEWPORT_MARGIN, rect.left), maxLeft),
-  };
+  }
 }
 
 function getSessionMenuPosition(rect: DOMRect): { top: number; left: number } {
   const maxLeft = Math.max(
     SESSION_MENU_VIEWPORT_MARGIN,
     window.innerWidth - SESSION_MENU_WIDTH - SESSION_MENU_VIEWPORT_MARGIN,
-  );
-  const below = rect.bclawmasterm + SESSION_MENU_TRIGGER_GAP;
+  )
+  const below = rect.bclawmasterm + SESSION_MENU_TRIGGER_GAP
   const top = below + SESSION_MENU_HEIGHT <= window.innerHeight - SESSION_MENU_VIEWPORT_MARGIN
     ? below
     : Math.max(
       SESSION_MENU_VIEWPORT_MARGIN,
       rect.top - SESSION_MENU_HEIGHT - SESSION_MENU_TRIGGER_GAP,
-    );
+    )
   return {
     top,
     left: Math.min(
       Math.max(SESSION_MENU_VIEWPORT_MARGIN, rect.right - SESSION_MENU_WIDTH),
       maxLeft,
     ),
-  };
+  }
 }
 
 function formatTime(ts: number): string {
-  const d = new Date(ts);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
+  const d = new Date(ts)
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
 }
 
 interface SidebarProps {
-  sessions: SessionSummary[];
-  preferenceScope: UiModePreferenceScope;
-  activeSessionId: string | null;
+  sessions: SessionSummary[]
+  preferenceScope: UiModePreferenceScope
+  activeSessionId: string | null
   /** 当前是否停在「设置」页（高亮该入口）。 */
-  hubActive?: boolean;
+  hubActive?: boolean
   /** 当前主内容区视图，用于导航高亮。 */
-  activeView?: string;
-  accountManagementActive?: boolean;
+  activeView?: string
+  accountManagementActive?: boolean
   /** 静默检查发现新版 → 设置入口亮一个不打扰的小圆点（无弹窗）。 */
-  updateBadge?: boolean;
-  enterpriseAccount?: EnterpriseAccount;
+  updateBadge?: boolean
+  enterpriseAccount?: EnterpriseAccount
   /** Tauri 个人版：仅展示本机能力，不提供企业连接入口。 */
-  localOnly?: boolean;
-  enterpriseUnreadCounts?: EnterpriseUnreadCounts;
+  localOnly?: boolean
+  enterpriseUnreadCounts?: EnterpriseUnreadCounts
   /** 园区工单未读总数（待处理 + 有更新的申请）。 */
-  parkTicketUnreadCount?: number;
-  onSelect: (id: string) => void;
-  onNewChat: () => void;
-  onOpenHub: () => void;
-  onOpenAccounts?: () => void;
-  onNavigate?: (view: 'chat' | 'organization' | 'inbox' | 'work' | 'hub') => void;
-  onJoinEnterprise?: (input: { inviteCode: string }) => Promise<void>;
-  onLogout?: () => void | Promise<void>;
-  onViewAll: () => void;
-  onRename: (id: string, title: string) => void;
-  onDelete: (id: string) => void;
+  parkTicketUnreadCount?: number
+  onSelect: (id: string) => void
+  onNewChat: () => void
+  onOpenHub: () => void
+  onOpenAccounts?: () => void
+  onNavigate?: (view: 'chat' | 'organization' | 'inbox' | 'work' | 'hub') => void
+  onJoinEnterprise?: (input: { inviteCode: string }) => Promise<void>
+  onLogout?: () => void | Promise<void>
+  onViewAll: () => void
+  onRename: (id: string, title: string) => void
+  onDelete: (id: string) => void
   /** 未读会话 ID 列表（桌面通知闪烁点数据源）。 */
-  unreadSessions?: string[];
+  unreadSessions?: string[]
 }
 
 export function Sidebar({
@@ -152,157 +152,157 @@ export function Sidebar({
   onDelete,
   unreadSessions,
 }: SidebarProps): React.JSX.Element {
-  const [sessionsOpen, setSessionsOpen] = useState(true);
-  const [workspaceScrollbarActive, setWorkspaceScrollbarActive] = useState(false);
-  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
-  const [joinEnterpriseOpen, setJoinEnterpriseOpen] = useState(false);
-  const [logoutBusy, setLogoutBusy] = useState(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [groupingMenuOpen, setGroupingMenuOpen] = useState(false);
-  const [groupingMenuPosition, setGroupingMenuPosition] = useState({ top: 0, left: 0 });
-  const accountMenuRef = useRef<HTMLDivElement>(null);
-  const accountMenuTriggerRef = useRef<HTMLButtonElement>(null);
-  const accountMenuItemRef = useRef<HTMLButtonElement>(null);
-  const groupingMenuRef = useRef<HTMLDivElement>(null);
-  const groupingMenuSurfaceRef = useRef<HTMLDivElement>(null);
-  const groupingMenuTriggerRef = useRef<HTMLButtonElement>(null);
-  const groupingMenuItemRef = useRef<HTMLButtonElement>(null);
-  const workspaceScrollbarHideTimerRef = useRef<number | null>(null);
-  const preferenceKey = sessionListPreferenceStorageKey(preferenceScope);
+  const [sessionsOpen, setSessionsOpen] = useState(true)
+  const [workspaceScrollbarActive, setWorkspaceScrollbarActive] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
+  const [joinEnterpriseOpen, setJoinEnterpriseOpen] = useState(false)
+  const [logoutBusy, setLogoutBusy] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const [groupingMenuOpen, setGroupingMenuOpen] = useState(false)
+  const [groupingMenuPosition, setGroupingMenuPosition] = useState({ top: 0, left: 0 })
+  const accountMenuRef = useRef<HTMLDivElement>(null)
+  const accountMenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const accountMenuItemRef = useRef<HTMLButtonElement>(null)
+  const groupingMenuRef = useRef<HTMLDivElement>(null)
+  const groupingMenuSurfaceRef = useRef<HTMLDivElement>(null)
+  const groupingMenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const groupingMenuItemRef = useRef<HTMLButtonElement>(null)
+  const workspaceScrollbarHideTimerRef = useRef<number | null>(null)
+  const preferenceKey = sessionListPreferenceStorageKey(preferenceScope)
   const [preferenceState, setPreferenceState] = useState<{
-    key: string;
-    preference: SessionListPreference;
+    key: string
+    preference: SessionListPreference
   }>(() => ({
     key: preferenceKey,
     preference: readSessionListPreference(preferenceScope),
-  }));
+  }))
   const preference = preferenceState.key === preferenceKey
     ? preferenceState.preference
-    : readSessionListPreference(preferenceScope);
+    : readSessionListPreference(preferenceScope)
   const sessionGroups = useMemo(
     () => groupSessionsForSidebar(sessions, preference.mode),
     [preference.mode, sessions],
-  );
-  const sessionCount = sessions.length;
+  )
+  const sessionCount = sessions.length
   const collapsedWorkspaceKeys = useMemo(
     () => new Set(preference.collapsedWorkspaceKeys),
     [preference.collapsedWorkspaceKeys],
-  );
+  )
   const activeWorkspaceGroupKey = preference.mode === 'workspace'
-    ? sessionGroups.find((group) => group.sessions.some(
-      (session) => session.sessionId === activeSessionId,
+    ? sessionGroups.find(group => group.sessions.some(
+      session => session.sessionId === activeSessionId,
     ))?.key
-    : undefined;
+    : undefined
   const revealWorkspaceScrollbar = (): void => {
-    setWorkspaceScrollbarActive(true);
+    setWorkspaceScrollbarActive(true)
     if (workspaceScrollbarHideTimerRef.current !== null) {
-      window.clearTimeout(workspaceScrollbarHideTimerRef.current);
+      window.clearTimeout(workspaceScrollbarHideTimerRef.current)
     }
     workspaceScrollbarHideTimerRef.current = window.setTimeout(() => {
-      setWorkspaceScrollbarActive(false);
-      workspaceScrollbarHideTimerRef.current = null;
-    }, 900);
+      setWorkspaceScrollbarActive(false)
+      workspaceScrollbarHideTimerRef.current = null
+    }, 900)
   };
 
   const commitPreference = (next: SessionListPreference): void => {
-    setPreferenceState({ key: preferenceKey, preference: next });
-    writeSessionListPreference(preferenceScope, next);
+    setPreferenceState({ key: preferenceKey, preference: next })
+    writeSessionListPreference(preferenceScope, next)
   };
 
   useEffect(() => {
-    if (preferenceState.key === preferenceKey) return;
+    if (preferenceState.key === preferenceKey) return
     setPreferenceState({
       key: preferenceKey,
       preference: readSessionListPreference(preferenceScope),
-    });
-  }, [preferenceKey, preferenceScope, preferenceState.key]);
+    })
+  }, [preferenceKey, preferenceScope, preferenceState.key])
 
   useEffect(() => () => {
     if (workspaceScrollbarHideTimerRef.current !== null) {
-      window.clearTimeout(workspaceScrollbarHideTimerRef.current);
+      window.clearTimeout(workspaceScrollbarHideTimerRef.current)
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
     if (!activeWorkspaceGroupKey
-      || !preference.collapsedWorkspaceKeys.includes(activeWorkspaceGroupKey)) return;
+      || !preference.collapsedWorkspaceKeys.includes(activeWorkspaceGroupKey)) return
     commitPreference({
       ...preference,
       collapsedWorkspaceKeys: preference.collapsedWorkspaceKeys.filter(
-        (key) => key !== activeWorkspaceGroupKey,
+        key => key !== activeWorkspaceGroupKey,
       ),
-    });
+    })
     // 只在当前会话、工作目录组或模式变化时自动展开；用户之后仍可手动折叠。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSessionId, activeWorkspaceGroupKey, preference.mode, preferenceKey]);
+  }, [activeSessionId, activeWorkspaceGroupKey, preference.mode, preferenceKey])
 
   useEffect(() => {
-    if (!accountMenuOpen) return;
-    accountMenuItemRef.current?.focus();
+    if (!accountMenuOpen) return
+    accountMenuItemRef.current?.focus()
 
     const onDocumentMouseDown = (event: MouseEvent): void => {
       if (!accountMenuRef.current?.contains(event.target as Node)) {
-        setAccountMenuOpen(false);
+        setAccountMenuOpen(false)
       }
-    };
+    }
     const onDocumentKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return;
-      setAccountMenuOpen(false);
-      accountMenuTriggerRef.current?.focus();
+      if (event.key !== 'Escape') return
+      setAccountMenuOpen(false)
+      accountMenuTriggerRef.current?.focus()
     };
 
-    document.addEventListener('mousedown', onDocumentMouseDown);
-    document.addEventListener('keydown', onDocumentKeyDown);
+    document.addEventListener('mousedown', onDocumentMouseDown)
+    document.addEventListener('keydown', onDocumentKeyDown)
     return () => {
-      document.removeEventListener('mousedown', onDocumentMouseDown);
-      document.removeEventListener('keydown', onDocumentKeyDown);
+      document.removeEventListener('mousedown', onDocumentMouseDown)
+      document.removeEventListener('keydown', onDocumentKeyDown)
     };
-  }, [accountMenuOpen]);
+  }, [accountMenuOpen])
 
   useEffect(() => {
-    if (!groupingMenuOpen) return;
-    groupingMenuItemRef.current?.focus();
+    if (!groupingMenuOpen) return
+    groupingMenuItemRef.current?.focus()
 
     const onDocumentMouseDown = (event: MouseEvent): void => {
-      const target = event.target as Node;
+      const target = event.target as Node
       if (!groupingMenuRef.current?.contains(target)
         && !groupingMenuSurfaceRef.current?.contains(target)) {
-        setGroupingMenuOpen(false);
+        setGroupingMenuOpen(false)
       }
-    };
+    }
     const onDocumentKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return;
-      setGroupingMenuOpen(false);
-      groupingMenuTriggerRef.current?.focus();
+      if (event.key !== 'Escape') return
+      setGroupingMenuOpen(false)
+      groupingMenuTriggerRef.current?.focus()
     };
 
-    document.addEventListener('mousedown', onDocumentMouseDown);
-    document.addEventListener('keydown', onDocumentKeyDown);
+    document.addEventListener('mousedown', onDocumentMouseDown)
+    document.addEventListener('keydown', onDocumentKeyDown)
     const repositionMenu = (): void => {
-      const rect = groupingMenuTriggerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setGroupingMenuPosition(getGroupingMenuPosition(rect));
+      const rect = groupingMenuTriggerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      setGroupingMenuPosition(getGroupingMenuPosition(rect))
     };
-    window.addEventListener('resize', repositionMenu);
-    window.addEventListener('scroll', repositionMenu, true);
+    window.addEventListener('resize', repositionMenu)
+    window.addEventListener('scroll', repositionMenu, true)
     return () => {
-      document.removeEventListener('mousedown', onDocumentMouseDown);
-      document.removeEventListener('keydown', onDocumentKeyDown);
-      window.removeEventListener('resize', repositionMenu);
-      window.removeEventListener('scroll', repositionMenu, true);
+      document.removeEventListener('mousedown', onDocumentMouseDown)
+      document.removeEventListener('keydown', onDocumentKeyDown)
+      window.removeEventListener('resize', repositionMenu)
+      window.removeEventListener('scroll', repositionMenu, true)
     };
-  }, [groupingMenuOpen]);
+  }, [groupingMenuOpen])
 
   const toggleGroupingMenu = (): void => {
     if (groupingMenuOpen) {
-      setGroupingMenuOpen(false);
+      setGroupingMenuOpen(false)
       return;
     }
-    const rect = groupingMenuTriggerRef.current?.getBoundingClientRect();
+    const rect = groupingMenuTriggerRef.current?.getBoundingClientRect()
     if (rect) {
-      setGroupingMenuPosition(getGroupingMenuPosition(rect));
+      setGroupingMenuPosition(getGroupingMenuPosition(rect))
     }
-    setGroupingMenuOpen(true);
+    setGroupingMenuOpen(true)
   };
 
   return (
@@ -341,7 +341,7 @@ export function Sidebar({
             <button
               type="button"
               className="claw-conversations__toggle"
-              onClick={() => setSessionsOpen((value) => !value)}
+              onClick={() => setSessionsOpen(value => !value)}
               aria-expanded={sessionsOpen}
               aria-label={`任务（${sessionCount}）`}
             >
@@ -391,9 +391,9 @@ export function Sidebar({
                       aria-checked={preference.mode === mode}
                       className="claw-session-grouping__menuitem"
                       onClick={() => {
-                        commitPreference({ ...preference, mode });
-                        setGroupingMenuOpen(false);
-                        groupingMenuTriggerRef.current?.focus();
+                        commitPreference({ ...preference, mode })
+                        setGroupingMenuOpen(false)
+                        groupingMenuTriggerRef.current?.focus()
                       }}
                     >
                       <span>{label}</span>
@@ -412,10 +412,10 @@ export function Sidebar({
                 <div className="claw-group__label">暂无对话</div>
               ) : (
                 sessionGroups.map((group) => {
-                  const collapsed = group.collapsible && collapsedWorkspaceKeys.has(group.key);
+                  const collapsed = group.collapsible && collapsedWorkspaceKeys.has(group.key)
                   const groupUnreadCount = group.sessions.filter(
-                    (session) => unreadSessions?.includes(session.sessionId),
-                  ).length;
+                    session => unreadSessions?.includes(session.sessionId),
+                  ).length
                   return (
                     <div
                       key={group.key}
@@ -433,12 +433,12 @@ export function Sidebar({
                           title={group.fullPath}
                           onClick={() => {
                             const nextCollapsed = collapsed
-                              ? preference.collapsedWorkspaceKeys.filter((key) => key !== group.key)
-                              : [...preference.collapsedWorkspaceKeys, group.key];
+                              ? preference.collapsedWorkspaceKeys.filter(key => key !== group.key)
+                              : [...preference.collapsedWorkspaceKeys, group.key]
                             commitPreference({
                               ...preference,
                               collapsedWorkspaceKeys: nextCollapsed,
-                            });
+                            })
                           }}
                         >
                           <IconChevronDown
@@ -460,7 +460,7 @@ export function Sidebar({
                       ) : (
                         <div className="claw-group__label">{group.label}</div>
                       )}
-                      {!collapsed ? group.sessions.map((session) => (
+                      {!collapsed ? group.sessions.map(session => (
                         <SessionItem
                           key={session.sessionId}
                           session={session}
@@ -472,7 +472,7 @@ export function Sidebar({
                         />
                       )) : null}
                     </div>
-                  );
+                  )
                 })
               )}
             </div>
@@ -501,7 +501,7 @@ export function Sidebar({
               aria-label={`${enterpriseAccount.name}，${enterpriseAccount.department || '个人空间'}`}
               aria-haspopup="menu"
               aria-expanded={accountMenuOpen}
-              onClick={() => setAccountMenuOpen((open) => !open)}
+              onClick={() => setAccountMenuOpen(open => !open)}
             >
               <span className="claw-sidebar-account__avatar" aria-hidden>
                 <IconUserAvatar size={34} />
@@ -515,8 +515,8 @@ export function Sidebar({
               type="button"
               className={'claw-sidebar-account__settings' + (hubActive || activeView === 'hub' ? ' is-active' : '')}
               onClick={() => {
-                setAccountMenuOpen(false);
-                onOpenHub();
+                setAccountMenuOpen(false)
+                onOpenHub()
               }}
               aria-label="设置"
               aria-current={hubActive || activeView === 'hub' ? 'page' : undefined}
@@ -534,9 +534,9 @@ export function Sidebar({
                   className="claw-sidebar-account__menuitem claw-sidebar-account__menuitem--danger"
                   disabled={!onLogout}
                   onClick={() => {
-                    if (!onLogout) return;
-                    setAccountMenuOpen(false);
-                    setLogoutConfirmOpen(true);
+                    if (!onLogout) return
+                    setAccountMenuOpen(false)
+                    setLogoutConfirmOpen(true)
                   }}
                 >
                   <IconLogOut size={16} />
@@ -555,14 +555,14 @@ export function Sidebar({
           onCancel={() => setLogoutConfirmOpen(false)}
           onConfirm={() => {
             void (async () => {
-              setLogoutBusy(true);
+              setLogoutBusy(true)
               try {
-                await onLogout();
-                setLogoutConfirmOpen(false);
+                await onLogout()
+                setLogoutConfirmOpen(false)
               } finally {
-                setLogoutBusy(false);
+                setLogoutBusy(false)
               }
-            })();
+            })()
           }}
         />
       ) : null}
@@ -571,13 +571,13 @@ export function Sidebar({
           open={joinEnterpriseOpen}
           onCancel={() => setJoinEnterpriseOpen(false)}
           onConfirm={async (input) => {
-            await onJoinEnterprise(input);
-            setJoinEnterpriseOpen(false);
+            await onJoinEnterprise(input)
+            setJoinEnterpriseOpen(false)
           }}
         />
       ) : null}
     </aside>
-  );
+  )
 }
 
 function NavItems({
@@ -591,39 +591,39 @@ function NavItems({
   onOpenAccounts,
   enterpriseMode,
 }: {
-  activeView: string;
-  accountManagementActive: boolean;
-  enterpriseUnreadCounts: EnterpriseUnreadCounts;
-  parkTicketUnreadCount: number;
-  unreadSessions?: string[];
-  onNewChat: () => void;
-  onNavigate?: (view: 'chat' | 'organization' | 'inbox' | 'work' | 'hub') => void;
-  onOpenAccounts?: () => void;
-  enterpriseMode: boolean;
+  activeView: string
+  accountManagementActive: boolean
+  enterpriseUnreadCounts: EnterpriseUnreadCounts
+  parkTicketUnreadCount: number
+  unreadSessions?: string[]
+  onNewChat: () => void
+  onNavigate?: (view: 'chat' | 'organization' | 'inbox' | 'work' | 'hub') => void
+  onOpenAccounts?: () => void
+  enterpriseMode: boolean
 }): React.JSX.Element {
   const { inboxUnread, workUnread } = computeNavBadgeCounts(
     enterpriseUnreadCounts,
     { actionableCount: parkTicketUnreadCount, creatorUpdateCount: 0, latestTimestamp: '', latestPreview: '' },
     unreadSessions,
-  );
+  )
 
   // 追踪各入口的未读计数，变化时触发短暂 attention 动画。
-  const [attentionKeys, setAttentionKeys] = useState<Set<string>>(new Set());
-  const prevCounts = useRef<Record<string, number>>({ inbox: 0, work: 0 });
+  const [attentionKeys, setAttentionKeys] = useState<Set<string>>(new Set())
+  const prevCounts = useRef<Record<string, number>>({ inbox: 0, work: 0 })
 
   useEffect(() => {
-    const next: Record<string, number> = { inbox: inboxUnread, work: workUnread };
-    const prev = prevCounts.current;
-    const pulsed = new Set<string>();
+    const next: Record<string, number> = { inbox: inboxUnread, work: workUnread }
+    const prev = prevCounts.current
+    const pulsed = new Set<string>()
     for (const key of ['inbox', 'work'] as const) {
-      if (next[key] > prev[key]) pulsed.add(key);
+      if (next[key] > prev[key]) pulsed.add(key)
     }
-    if (pulsed.size === 0) return;
-    prevCounts.current = next;
-    setAttentionKeys(pulsed);
-    const timer = window.setTimeout(() => setAttentionKeys(new Set()), 3000);
-    return () => window.clearTimeout(timer);
-  }, [inboxUnread, workUnread]);
+    if (pulsed.size === 0) return
+    prevCounts.current = next
+    setAttentionKeys(pulsed)
+    const timer = window.setTimeout(() => setAttentionKeys(new Set()), 3000)
+    return () => window.clearTimeout(timer)
+  }, [inboxUnread, workUnread])
 
   const navItems = [
     { key: 'chat', label: '工作台', view: 'chat', unread: 0, icon: IconLayoutDashboard },
@@ -632,7 +632,7 @@ function NavItems({
       { key: 'inbox', label: '我的消息', view: 'inbox', unread: inboxUnread, icon: IconMessageCircle },
     ] as const : []),
     { key: 'work', label: '我的工作', view: 'work', unread: workUnread, icon: IconBriefcaseBusiness },
-  ] as const;
+  ] as const
 
   return (
     <nav className="claw-sidebar__nav" aria-label="主导航">
@@ -641,9 +641,9 @@ function NavItems({
         <span>新建对话</span>
       </button>
       {onNavigate ? navItems.map((item) => {
-        const isActive = activeView === item.view;
-        const hasAttention = attentionKeys.has(item.key) && !isActive;
-        const ItemIcon = item.icon;
+        const isActive = activeView === item.view
+        const hasAttention = attentionKeys.has(item.key) && !isActive
+        const ItemIcon = item.icon
         return (
           <button
             key={item.key}
@@ -668,7 +668,7 @@ function NavItems({
               </b>
             ) : null}
           </button>
-        );
+        )
       }) : null}
       {onOpenAccounts ? (
         <button
@@ -682,11 +682,11 @@ function NavItems({
         </button>
       ) : null}
     </nav>
-  );
+  )
 }
 
 /** 会话项本地交互态：普通 / 菜单打开 / 重命名中 / 删除确认中。 */
-type ItemMode = 'idle' | 'menu' | 'rename' | 'confirm';
+type ItemMode = 'idle' | 'menu' | 'rename' | 'confirm'
 
 function SessionItem({
   session,
@@ -696,78 +696,78 @@ function SessionItem({
   onRename,
   onDelete,
 }: {
-  session: SessionSummary;
-  active: boolean;
-  onSelect: (id: string) => void;
-  onRename: (id: string, title: string) => void;
-  onDelete: (id: string) => void;
-  unread?: boolean;
+  session: SessionSummary
+  active: boolean
+  onSelect: (id: string) => void
+  onRename: (id: string, title: string) => void
+  onDelete: (id: string) => void
+  unread?: boolean
 }): React.JSX.Element {
-  const [mode, setMode] = useState<ItemMode>('idle');
-  const [draft, setDraft] = useState(session.title);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const moreButtonRef = useRef<HTMLButtonElement>(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [mode, setMode] = useState<ItemMode>('idle')
+  const [draft, setDraft] = useState(session.title)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const moreButtonRef = useRef<HTMLButtonElement>(null)
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
 
   // 进入重命名态即聚焦并全选，让用户直接改写。
   useEffect(() => {
     if (mode === 'rename') {
-      const el = inputRef.current;
-      el?.focus();
-      el?.select();
+      const el = inputRef.current
+      el?.focus()
+      el?.select()
     }
-  }, [mode]);
+  }, [mode])
 
   // 菜单态打开时，点击本项之外则收起（回 idle），避免菜单悬挂。
   // 确认态由 ConfirmDialog 弹窗自己管开关（点遮罩/Esc/取消），不走这套外点收起——
   // 否则点弹窗卡片（在本项 DOM 之外）会被误判为外点而把弹窗关掉。
   useEffect(() => {
-    if (mode !== 'menu') return;
+    if (mode !== 'menu') return
     const onDoc = (e: MouseEvent): void => {
-      const target = e.target as Node;
+      const target = e.target as Node
       if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setMode('idle');
+        setMode('idle')
       }
-    };
+    }
     const updatePosition = (): void => {
-      const rect = moreButtonRef.current?.getBoundingClientRect();
-      if (rect) setMenuPosition(getSessionMenuPosition(rect));
+      const rect = moreButtonRef.current?.getBoundingClientRect()
+      if (rect) setMenuPosition(getSessionMenuPosition(rect))
     };
     const onKeyDown = (e: KeyboardEvent): void => {
-      if (e.key !== 'Escape') return;
-      setMode('idle');
-      moreButtonRef.current?.focus();
+      if (e.key !== 'Escape') return
+      setMode('idle')
+      moreButtonRef.current?.focus()
     };
-    updatePosition();
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKeyDown);
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
+    updatePosition()
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKeyDown)
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
     return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
     };
-  }, [mode]);
+  }, [mode])
 
   const startRename = (): void => {
-    setDraft(session.title);
-    setMode('rename');
+    setDraft(session.title)
+    setMode('rename')
   };
 
   const commitRename = (): void => {
-    const clean = draft.trim();
+    const clean = draft.trim()
     // 有变化且非空才提交；否则当作取消（回 idle）。
-    if (clean && clean !== session.title) onRename(session.sessionId, clean);
-    setMode('idle');
+    if (clean && clean !== session.title) onRename(session.sessionId, clean)
+    setMode('idle')
   };
 
   const cancelRename = (): void => {
-    setDraft(session.title);
-    setMode('idle');
+    setDraft(session.title)
+    setMode('idle')
   };
 
   // —— 重命名态：整行换成 inline 输入框 ——
@@ -782,21 +782,21 @@ function SessionItem({
           className="claw-session__renameinput"
           value={draft}
           maxLength={120}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={e => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              e.preventDefault();
-              commitRename();
+              e.preventDefault()
+              commitRename()
             } else if (e.key === 'Escape') {
-              e.preventDefault();
-              cancelRename();
+              e.preventDefault()
+              cancelRename()
             }
           }}
           onBlur={commitRename}
           aria-label="重命名会话"
         />
       </div>
-    );
+    )
   }
 
   return (
@@ -809,8 +809,8 @@ function SessionItem({
       onClick={() => onSelect(session.sessionId)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect(session.sessionId);
+          e.preventDefault()
+          onSelect(session.sessionId)
         }
       }}
     >
@@ -820,8 +820,8 @@ function SessionItem({
           className="claw-session__title"
           onDoubleClick={(e) => {
             // 双击标题直接进重命名（不触发选中冒泡）。
-            e.stopPropagation();
-            startRename();
+            e.stopPropagation()
+            startRename()
           }}
         >
           {session.title || '未命名对话'}
@@ -834,9 +834,9 @@ function SessionItem({
           title="更多操作"
           aria-label="更多操作"
           onClick={(e) => {
-            e.stopPropagation();
-            setMenuPosition(getSessionMenuPosition(e.currentTarget.getBoundingClientRect()));
-            setMode((m) => (m === 'menu' ? 'idle' : 'menu'));
+            e.stopPropagation()
+            setMenuPosition(getSessionMenuPosition(e.currentTarget.getBoundingClientRect()))
+            setMode(m => (m === 'menu' ? 'idle' : 'menu'))
           }}
         >
           <IconMoreHorizontal size={16} />
@@ -850,7 +850,7 @@ function SessionItem({
           role="menu"
           aria-label={`“${session.title || '未命名对话'}”操作`}
           style={{ top: menuPosition.top, left: menuPosition.left }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
         >
           <button
             type="button"
@@ -878,10 +878,10 @@ function SessionItem({
         message={`确定删除「${session.title || '未命名对话'}」吗？此操作不可撤销。`}
         onCancel={() => setMode('idle')}
         onConfirm={() => {
-          onDelete(session.sessionId);
-          setMode('idle');
+          onDelete(session.sessionId)
+          setMode('idle')
         }}
       />
     </div>
-  );
+  )
 }

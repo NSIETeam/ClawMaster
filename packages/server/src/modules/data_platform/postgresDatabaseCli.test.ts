@@ -2,34 +2,34 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   prepareEnterprisePostgres,
   safePostgresErrorMessage,
-} from './postgresDatabaseCli.js';
+} from './postgresDatabaseCli.js'
 import type {
   PostgresClientLike,
   PostgresPoolLike,
   PostgresQueryResult,
-} from './postgresDatabaseLifecycle.js';
+} from './postgresDatabaseLifecycle.js'
 
 class PreparedPool implements PostgresPoolLike, PostgresClientLike {
-  private schemaVersion = 0;
-  ended = 0;
+  private schemaVersion = 0
+  ended = 0
 
   async connect(): Promise<PostgresClientLike> {
-    return this;
+    return this
   }
 
   async query<Row extends Record<string, unknown> = Record<string, unknown>>(
     sql: string,
     values: readonly unknown[] = [],
   ): Promise<PostgresQueryResult<Row>> {
-    if (sql.includes('SELECT version, name, checksum')) return { rows: [] };
+    if (sql.includes('SELECT version, name, checksum')) return { rows: [] }
     if (sql.includes('INSERT INTO clawmaster_schema_migrations')) {
-      this.schemaVersion = Number(values[0]);
-      return { rows: [] };
+      this.schemaVersion = Number(values[0])
+      return { rows: [] }
     }
     if (sql.includes("current_setting('server_version_num')")) {
       return {
@@ -40,22 +40,22 @@ class PreparedPool implements PostgresPoolLike, PostgresClientLike {
             schema_version: this.schemaVersion,
           } as Row,
         ],
-      };
+      }
     }
-    return { rows: [] };
+    return { rows: [] }
   }
 
   release(): void {}
 
   async end(): Promise<void> {
-    this.ended += 1;
+    this.ended += 1
   }
 }
 
 describe('enterprise PostgreSQL preparation CLI', () => {
   it('prepares the migration control plane and only logs a redacted target', async () => {
-    const pool = new PreparedPool();
-    const log = vi.fn();
+    const pool = new PreparedPool()
+    const log = vi.fn()
 
     await expect(
       prepareEnterprisePostgres({
@@ -71,13 +71,13 @@ describe('enterprise PostgreSQL preparation CLI', () => {
       ready: true,
       backend: 'postgresql',
       schemaVersion: 3,
-    });
+    })
 
-    expect(pool.ended).toBe(1);
-    const output = String(log.mock.calls[0]?.[0]);
-    expect(output).toContain('db.internal:5432/clawmaster');
-    expect(output).not.toContain('super-secret');
-    expect(output).not.toContain('clawmaster@');
+    expect(pool.ended).toBe(1)
+    const output = String(log.mock.calls[0]?.[0])
+    expect(output).toContain('db.internal:5432/clawmaster')
+    expect(output).not.toContain('super-secret')
+    expect(output).not.toContain('clawmaster@')
   });
 
   it('refuses to run against the local SQLite topology', async () => {
@@ -85,22 +85,22 @@ describe('enterprise PostgreSQL preparation CLI', () => {
       prepareEnterprisePostgres({
         environment: {},
         poolFactory: () => {
-          throw new Error('pool must not be created');
+          throw new Error('pool must not be created')
         },
       }),
-    ).rejects.toThrow(/requires.*postgresql/i);
+    ).rejects.toThrow(/requires.*postgresql/i)
   });
 
   it('redacts credentials from driver errors', () => {
     const connectionString =
-      'postgresql://clawmaster:super-secret@db.internal:5432/clawmaster';
+      'postgresql://clawmaster:super-secret@db.internal:5432/clawmaster'
     const message = safePostgresErrorMessage(
       new Error(`connection failed for ${connectionString}: super-secret`),
       connectionString,
-    );
+    )
 
-    expect(message).not.toContain('super-secret');
-    expect(message).not.toContain('clawmaster@');
-    expect(message).toContain('[REDACTED]');
+    expect(message).not.toContain('super-secret')
+    expect(message).not.toContain('clawmaster@')
+    expect(message).toContain('[REDACTED]')
   });
-});
+})

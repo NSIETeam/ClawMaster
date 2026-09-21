@@ -9,8 +9,8 @@
  * - Dependency checking (YAML frontmatter)
  */
 
-import fs from 'fs-extra';
-import path from 'path';
+import fs from 'fs-extra'
+import path from 'path'
 import {
   Plugin,
   InstalledPluginInfo,
@@ -19,9 +19,9 @@ import {
   ValidationError,
   SkillType,
   PluginSource,
-} from './skill-types.js';
-import { SettingsManager, SkillsPaths } from './settings-manager.js';
-import { MarketplaceManager } from './marketplace-manager.js';
+} from './skill-types.js'
+import { SettingsManager, SkillsPaths } from './settings-manager.js'
+import { MarketplaceManager } from './marketplace-manager.js'
 
 /**
  * PluginInstaller - Plugin 生命周期管理器
@@ -49,78 +49,78 @@ export class PluginInstaller {
   async installPlugin(marketplaceId: string, pluginName: string): Promise<Plugin> {
     try {
       // 获取 Plugin 信息
-      const plugins = await this.marketplaceManager.getPlugins(marketplaceId);
-      const plugin = plugins.find((p) => p.name === pluginName);
+      const plugins = await this.marketplaceManager.getPlugins(marketplaceId)
+      const plugin = plugins.find(p => p.name === pluginName)
 
       if (!plugin) {
-        const availablePlugins = plugins.map((p) => `${p.name} (id: ${p.id})`).join(', ');
+        const availablePlugins = plugins.map(p => `${p.name} (id: ${p.id})`).join(', ')
         throw new PluginError(
           `Plugin "${pluginName}" not found in marketplace "${marketplaceId}"\n` +
           `Available plugins: ${availablePlugins || 'none'}`,
           SkillErrorCode.PLUGIN_NOT_FOUND,
-        );
+        )
       }
 
       // 检查是否已安装
-      const existingPlugin = await this.settingsManager.getInstalledPlugin(plugin.id);
+      const existingPlugin = await this.settingsManager.getInstalledPlugin(plugin.id)
       if (existingPlugin) {
         throw new PluginError(
           `Plugin ${plugin.id} is already installed`,
           SkillErrorCode.PLUGIN_ALREADY_INSTALLED,
-        );
+        )
       }
 
       // 🔑 关键修复：对于远程插件，先下载到 cache
       // 这样验证时才能找到 skillPaths
       if (this.isRemoteGitSource(plugin.source)) {
-        await this.ensureRemotePluginDownloaded(plugin, marketplaceId);
+        await this.ensureRemotePluginDownloaded(plugin, marketplaceId)
 
         // 重新获取插件信息（现在应该有 skillPaths 了）
-        const updatedPlugins = await this.marketplaceManager.getPlugins(marketplaceId);
-        const updatedPlugin = updatedPlugins.find((p) => p.name === pluginName);
+        const updatedPlugins = await this.marketplaceManager.getPlugins(marketplaceId)
+        const updatedPlugin = updatedPlugins.find(p => p.name === pluginName)
         if (updatedPlugin) {
-          Object.assign(plugin, updatedPlugin); // 更新插件信息
+          Object.assign(plugin, updatedPlugin) // 更新插件信息
         }
       }
 
       // 验证 Plugin 结构
-      await this.validatePlugin(plugin, marketplaceId);
+      await this.validatePlugin(plugin, marketplaceId)
 
       // 复制 Plugin 到个人目录（如果是 Git Marketplace）
-      const marketplace = await this.marketplaceManager.getMarketplace(marketplaceId);
+      const marketplace = await this.marketplaceManager.getMarketplace(marketplaceId)
       if (marketplace.source === 'git') {
-        await this.copyPluginToPersonalDir(plugin, marketplaceId);
+        await this.copyPluginToPersonalDir(plugin, marketplaceId)
       }
 
       // 确定插件的本地安装路径
-      let installPath: string;
+      let installPath: string
 
       // 判断是否为远程 Git source（使用缓存路径）
       if (this.isRemoteGitSource(plugin.source)) {
         // 远程插件：使用 cache 路径
-        const version = plugin.version || 'unknown';
-        installPath = SkillsPaths.getPluginCachePath(marketplaceId, plugin.name, version);
+        const version = plugin.version || 'unknown'
+        installPath = SkillsPaths.getPluginCachePath(marketplaceId, plugin.name, version)
       } else if (typeof plugin.source === 'string') {
         // 字符串：使用 source 作为相对路径
-        const pluginLocalPath = plugin.source;
+        const pluginLocalPath = plugin.source
         installPath = path.join(
           SkillsPaths.MARKETPLACE_ROOT,
           marketplaceId,
-          pluginLocalPath
+          pluginLocalPath,
         );
       } else {
         // 兜底：使用插件名
         installPath = path.join(
           SkillsPaths.MARKETPLACE_ROOT,
           marketplaceId,
-          plugin.name
+          plugin.name,
         );
       }
 
       // 判断是否为本地插件（基于 plugin.source 而非 marketplace.source）
       // 本地插件：source 为相对路径（如 './' 或 '../'）
       // 远程插件：source 为 object（github/git/url）
-      const isLocal = this.isLocalPluginSource(plugin.source);
+      const isLocal = this.isLocalPluginSource(plugin.source)
 
       // 记录已安装 Plugin
       const installedInfo: InstalledPluginInfo = {
@@ -134,27 +134,27 @@ export class PluginInstaller {
         skillCount: plugin.skillPaths.length,
         version: plugin.version || 'unknown', // 默认 'unknown'
         isLocal, // 本地插件标记
-      };
-      await this.settingsManager.addInstalledPlugin(installedInfo);
+      }
+      await this.settingsManager.addInstalledPlugin(installedInfo)
 
       // 启用 Plugin
-      await this.settingsManager.enablePlugin(plugin.id);
+      await this.settingsManager.enablePlugin(plugin.id)
 
       // 更新 Plugin 状态
-      plugin.installed = true;
-      plugin.enabled = true;
-      plugin.installedAt = new Date(installedInfo.installedAt);
+      plugin.installed = true
+      plugin.enabled = true
+      plugin.installedAt = new Date(installedInfo.installedAt)
 
-      return plugin;
+      return plugin
     } catch (error) {
       if (error instanceof PluginError) {
-        throw error;
+        throw error
       }
       throw new PluginError(
         `Failed to install plugin: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.PLUGIN_INSTALL_FAILED,
         { marketplaceId, pluginName, originalError: error },
-      );
+      )
     }
   }
 
@@ -165,26 +165,26 @@ export class PluginInstaller {
     marketplaceId: string,
     pluginNames: string[],
   ): Promise<Plugin[]> {
-    const results: Plugin[] = [];
-    const errors: Array<{ pluginName: string; error: Error }> = [];
+    const results: Plugin[] = []
+    const errors: Array<{ pluginName: string; error: Error }> = []
 
     for (const pluginName of pluginNames) {
       try {
-        const plugin = await this.installPlugin(marketplaceId, pluginName);
-        results.push(plugin);
+        const plugin = await this.installPlugin(marketplaceId, pluginName)
+        results.push(plugin)
       } catch (error) {
         errors.push({
           pluginName,
           error: error instanceof Error ? error : new Error(String(error)),
-        });
+        })
       }
     }
 
     if (errors.length > 0) {
-      console.warn('Some plugins failed to install:', errors);
+      console.warn('Some plugins failed to install:', errors)
     }
 
-    return results;
+    return results
   }
 
   // ============================================================================
@@ -197,33 +197,33 @@ export class PluginInstaller {
   async uninstallPlugin(pluginId: string, deleteFiles = false): Promise<void> {
     try {
       // 检查是否已安装
-      const installedPlugin = await this.settingsManager.getInstalledPlugin(pluginId);
+      const installedPlugin = await this.settingsManager.getInstalledPlugin(pluginId)
       if (!installedPlugin) {
         throw new PluginError(
           `Plugin ${pluginId} is not installed`,
           SkillErrorCode.PLUGIN_NOT_FOUND,
-        );
+        )
       }
 
       // 禁用 Plugin
-      await this.settingsManager.disablePlugin(pluginId);
+      await this.settingsManager.disablePlugin(pluginId)
 
       // 删除已安装记录
-      await this.settingsManager.removeInstalledPlugin(pluginId);
+      await this.settingsManager.removeInstalledPlugin(pluginId)
 
       // 删除个人目录副本（如果请求）
       if (deleteFiles) {
-        await this.deletePluginFromPersonalDir(pluginId);
+        await this.deletePluginFromPersonalDir(pluginId)
       }
     } catch (error) {
       if (error instanceof PluginError) {
-        throw error;
+        throw error
       }
       throw new PluginError(
         `Failed to uninstall plugin: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.UNKNOWN,
         { pluginId, originalError: error },
-      );
+      )
     }
   }
 
@@ -237,36 +237,36 @@ export class PluginInstaller {
   async enablePlugin(pluginId: string): Promise<void> {
     try {
       // 检查是否已安装
-      const installedPlugin = await this.settingsManager.getInstalledPlugin(pluginId);
+      const installedPlugin = await this.settingsManager.getInstalledPlugin(pluginId)
       if (!installedPlugin) {
         throw new PluginError(
           `Plugin ${pluginId} is not installed`,
           SkillErrorCode.PLUGIN_NOT_FOUND,
-        );
+        )
       }
 
       // 更新 settings.json
-      await this.settingsManager.enablePlugin(pluginId);
+      await this.settingsManager.enablePlugin(pluginId)
       try {
         // 更新 installed_plugins.json
-        await this.settingsManager.updateInstalledPlugin(pluginId, (info) => ({
+        await this.settingsManager.updateInstalledPlugin(pluginId, info => ({
           ...info,
           enabled: true,
-        }));
+        }))
       } catch (rollbackError) {
         // 第二次写入失败，回滚第一次写入
-        await this.settingsManager.disablePlugin(pluginId);
-        throw rollbackError;
+        await this.settingsManager.disablePlugin(pluginId)
+        throw rollbackError
       }
     } catch (error) {
       if (error instanceof PluginError) {
-        throw error;
+        throw error
       }
       throw new PluginError(
         `Failed to enable plugin: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.UNKNOWN,
         { pluginId, originalError: error },
-      );
+      )
     }
   }
 
@@ -276,36 +276,36 @@ export class PluginInstaller {
   async disablePlugin(pluginId: string): Promise<void> {
     try {
       // 检查是否已安装
-      const installedPlugin = await this.settingsManager.getInstalledPlugin(pluginId);
+      const installedPlugin = await this.settingsManager.getInstalledPlugin(pluginId)
       if (!installedPlugin) {
         throw new PluginError(
           `Plugin ${pluginId} is not installed`,
           SkillErrorCode.PLUGIN_NOT_FOUND,
-        );
+        )
       }
 
       // 更新 settings.json
-      await this.settingsManager.disablePlugin(pluginId);
+      await this.settingsManager.disablePlugin(pluginId)
       try {
         // 更新 installed_plugins.json
-        await this.settingsManager.updateInstalledPlugin(pluginId, (info) => ({
+        await this.settingsManager.updateInstalledPlugin(pluginId, info => ({
           ...info,
           enabled: false,
-        }));
+        }))
       } catch (rollbackError) {
         // 第二次写入失败，回滚第一次写入
-        await this.settingsManager.enablePlugin(pluginId);
-        throw rollbackError;
+        await this.settingsManager.enablePlugin(pluginId)
+        throw rollbackError
       }
     } catch (error) {
       if (error instanceof PluginError) {
-        throw error;
+        throw error
       }
       throw new PluginError(
         `Failed to disable plugin: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.UNKNOWN,
         { pluginId, originalError: error },
-      );
+      )
     }
   }
 
@@ -317,37 +317,37 @@ export class PluginInstaller {
    * 获取已安装 Plugin 列表
    */
   async getInstalledPlugins(): Promise<InstalledPluginInfo[]> {
-    return this.settingsManager.getInstalledPlugins();
+    return this.settingsManager.getInstalledPlugins()
   }
 
   /**
    * 获取已启用 Plugin 列表
    */
   async getEnabledPlugins(): Promise<InstalledPluginInfo[]> {
-    const installed = await this.getInstalledPlugins();
-    return installed.filter((p) => p.enabled);
+    const installed = await this.getInstalledPlugins()
+    return installed.filter(p => p.enabled)
   }
 
   /**
    * 获取 Plugin 信息
    */
   async getPluginInfo(pluginId: string): Promise<InstalledPluginInfo | null> {
-    return this.settingsManager.getInstalledPlugin(pluginId);
+    return this.settingsManager.getInstalledPlugin(pluginId)
   }
 
   /**
    * 检查 Plugin 是否已安装
    */
   async isPluginInstalled(pluginId: string): Promise<boolean> {
-    const plugin = await this.getPluginInfo(pluginId);
-    return plugin !== null;
+    const plugin = await this.getPluginInfo(pluginId)
+    return plugin !== null
   }
 
   /**
    * 检查 Plugin 是否已启用
    */
   async isPluginEnabled(pluginId: string): Promise<boolean> {
-    return this.settingsManager.isPluginEnabled(pluginId);
+    return this.settingsManager.isPluginEnabled(pluginId)
   }
 
   // ============================================================================
@@ -362,15 +362,15 @@ export class PluginInstaller {
   private isRemoteGitSource(source: string | PluginSource): boolean {
     if (typeof source === 'string') {
       // 字符串类型：相对路径不缓存
-      return false;
+      return false
     }
 
     if (typeof source === 'object' && source !== null) {
       // GitHub、Git、URL 都需要缓存
-      return source.source === 'github' || source.source === 'git' || source.source === 'url';
+      return source.source === 'github' || source.source === 'git' || source.source === 'url'
     }
 
-    return false;
+    return false
   }
 
   /**
@@ -381,11 +381,11 @@ export class PluginInstaller {
   private isLocalPluginSource(source: string | PluginSource): boolean {
     if (typeof source === 'string') {
       // 字符串类型：相对路径（./ 或 ../）为本地插件
-      return source.startsWith('./') || source.startsWith('../');
+      return source.startsWith('./') || source.startsWith('../')
     }
 
     // object 类型（github/git/url）都是远程插件
-    return false;
+    return false
   }
 
   // ============================================================================
@@ -399,19 +399,19 @@ export class PluginInstaller {
     // 验证必需字段
     if (!plugin.id || !plugin.name || !plugin.marketplaceId) {
       throw new ValidationError(
-        `Invalid plugin: missing required fields\n` +
+        'Invalid plugin: missing required fields\n' +
         `Plugin: ${JSON.stringify(plugin, null, 2)}`,
         {
           plugin,
           marketplaceId,
         },
-      );
+      )
     }
 
     // 验证 Skill 路径
     if (!plugin.skillPaths || plugin.skillPaths.length === 0) {
       throw new ValidationError(
-        `Invalid plugin: no skills found\n` +
+        'Invalid plugin: no skills found\n' +
         `Plugin ID: ${plugin.id}\n` +
         `Plugin Name: ${plugin.name}\n` +
         `Marketplace: ${marketplaceId}\n` +
@@ -421,123 +421,123 @@ export class PluginInstaller {
           plugin,
           marketplaceId,
         },
-      );
+      )
     }
 
     // 获取 Marketplace 路径
-    const marketplace = await this.marketplaceManager.getMarketplace(marketplaceId);
+    const marketplace = await this.marketplaceManager.getMarketplace(marketplaceId)
     const marketplacePath =
       marketplace.source === 'git'
         ? path.join(SkillsPaths.MARKETPLACE_ROOT, marketplaceId)
-        : marketplace.path!;
+        : marketplace.path!
 
     // 验证 Skill 路径是否存在
     // Use new items structure if available
     if (plugin.items && plugin.items.length > 0) {
       // 新增：递归检查命令/Agent 目录中是否包含可用文件
       const hasCommandOrAgentFiles = async (dirPath: string): Promise<boolean> => {
-        const entries = await fs.readdir(dirPath);
+        const entries = await fs.readdir(dirPath)
         for (const entry of entries) {
-          if (entry.startsWith('.')) continue;
-          const entryPath = path.join(dirPath, entry);
-          const entryStat = await fs.stat(entryPath);
+          if (entry.startsWith('.')) continue
+          const entryPath = path.join(dirPath, entry)
+          const entryStat = await fs.stat(entryPath)
           if (entryStat.isFile()) {
             if (
               entry.endsWith('.md') ||
               entry.endsWith('.py') ||
               entry.endsWith('.sh')
             ) {
-              return true;
+              return true
             }
           } else if (entryStat.isDirectory()) {
             if (await hasCommandOrAgentFiles(entryPath)) {
-              return true;
+              return true
             }
           }
         }
-        return false;
+        return false
       };
 
       // 新增：允许 skills/ 作为容器目录（子目录内含 SKILL.md）
       const hasNestedSkillDir = async (dirPath: string): Promise<boolean> => {
-        const entries = await fs.readdir(dirPath);
+        const entries = await fs.readdir(dirPath)
         for (const entry of entries) {
-          if (entry.startsWith('.')) continue;
-          const entryPath = path.join(dirPath, entry);
-          const entryStat = await fs.stat(entryPath);
+          if (entry.startsWith('.')) continue
+          const entryPath = path.join(dirPath, entry)
+          const entryStat = await fs.stat(entryPath)
           if (entryStat.isDirectory()) {
-            const skillFile = path.join(entryPath, 'SKILL.md');
+            const skillFile = path.join(entryPath, 'SKILL.md')
             if (await fs.pathExists(skillFile)) {
-              return true;
+              return true
             }
           }
         }
-        return false;
+        return false
       };
 
       for (const item of plugin.items) {
-        const fullPath = path.join(marketplacePath, item.path);
+        const fullPath = path.join(marketplacePath, item.path)
 
         // Check existence based on type
         if (item.type === SkillType.SKILL) {
           // Skills must be directories with SKILL.md
-          const skillFile = path.join(fullPath, 'SKILL.md');
+          const skillFile = path.join(fullPath, 'SKILL.md')
           if (await fs.pathExists(skillFile)) {
-            continue;
+            continue
           }
 
           // 新增：允许 skill 目录不存在时给出更明确的错误
-          const exists = await fs.pathExists(fullPath);
+          const exists = await fs.pathExists(fullPath)
           if (!exists) {
             throw new ValidationError(
               `Skill path not found: ${fullPath}`,
               { skillPath: item.path },
-            );
+            )
           }
 
           // 新增：防止 skill 指向文件
-          const stat = await fs.stat(fullPath);
+          const stat = await fs.stat(fullPath)
           if (!stat.isDirectory()) {
             throw new ValidationError(
               `Skill path is not a directory: ${fullPath}`,
               { skillPath: item.path },
-            );
+            )
           }
 
           // 新增：允许 skill 组目录（例如 skills/）
-          const hasNestedSkill = await hasNestedSkillDir(fullPath);
+          const hasNestedSkill = await hasNestedSkillDir(fullPath)
           if (!hasNestedSkill) {
             throw new ValidationError(
               `Skill file not found: ${skillFile}`,
               { skillPath: item.path },
-            );
+            )
           }
         } else {
           // Commands and Agents can be files or directories
           // If it's a file path (ends in .md), check file existence
           // If it's a directory, check for SKILL.md (legacy support)
-          const exists = await fs.pathExists(fullPath);
+          const exists = await fs.pathExists(fullPath)
           if (!exists) {
             throw new ValidationError(
               `Path not found: ${fullPath}`,
               { path: item.path },
-            );
+            )
           }
 
-          const stat = await fs.stat(fullPath);
+          const stat = await fs.stat(fullPath)
           if (stat.isDirectory()) {
-            const skillFile = path.join(fullPath, 'SKILL.md');
+            const skillFile = path.join(fullPath, 'SKILL.md')
             if (await fs.pathExists(skillFile)) {
-              continue;
+              continue
             }
 
             // 新增：目录需包含可用文件（md/py/sh）
-            const hasFiles = await hasCommandOrAgentFiles(fullPath);
+            const hasFiles = await hasCommandOrAgentFiles(fullPath)
             if (!hasFiles) {
               throw new ValidationError(
                 `Command/Agent directory contains no supported files: ${fullPath}`,
                 { path: item.path },
-              );
+              )
             }
           }
         }
@@ -545,14 +545,14 @@ export class PluginInstaller {
     } else {
       // Legacy validation
       for (const skillPath of plugin.skillPaths) {
-        const fullPath = path.join(marketplacePath, skillPath);
-        const skillFile = path.join(fullPath, 'SKILL.md');
+        const fullPath = path.join(marketplacePath, skillPath)
+        const skillFile = path.join(fullPath, 'SKILL.md')
 
         if (!(await fs.pathExists(skillFile))) {
           throw new ValidationError(
             `Skill file not found: ${skillFile}`,
             { skillPath },
-          );
+          )
         }
       }
     }
@@ -576,8 +576,8 @@ export class PluginInstaller {
   ): Promise<void> {
     try {
       // 个人 Skills 目录
-      const personalSkillsDir = SkillsPaths.SKILLS_ROOT;
-      await fs.ensureDir(personalSkillsDir);
+      const personalSkillsDir = SkillsPaths.SKILLS_ROOT
+      await fs.ensureDir(personalSkillsDir)
 
       // 注意：由于 Skills 设计为统一在 Marketplace 管理，
       // 这里实际上不需要复制文件，仅记录引用即可
@@ -594,7 +594,7 @@ export class PluginInstaller {
         `Failed to copy plugin to personal directory: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.FILE_WRITE_FAILED,
         { pluginId: plugin.id, originalError: error },
-      );
+      )
     }
   }
 
@@ -603,18 +603,18 @@ export class PluginInstaller {
    */
   private async deletePluginFromPersonalDir(pluginId: string): Promise<void> {
     try {
-      const [marketplaceId, pluginName] = pluginId.split(':');
-      const personalSkillsDir = SkillsPaths.SKILLS_ROOT;
+      const [marketplaceId, pluginName] = pluginId.split(':')
+      const personalSkillsDir = SkillsPaths.SKILLS_ROOT
       const targetPluginDir = path.join(
         personalSkillsDir,
         `${marketplaceId}_${pluginName}`,
-      );
+      )
 
       if (await fs.pathExists(targetPluginDir)) {
-        await fs.remove(targetPluginDir);
+        await fs.remove(targetPluginDir)
       }
     } catch (error) {
-      console.warn(`Failed to delete plugin from personal directory: ${error}`);
+      console.warn(`Failed to delete plugin from personal directory: ${error}`)
       // 不抛出错误，仅记录警告
     }
   }
@@ -629,47 +629,47 @@ export class PluginInstaller {
    */
   private async ensureRemotePluginDownloaded(
     plugin: Plugin,
-    marketplaceId: string
+    marketplaceId: string,
   ): Promise<void> {
     try {
-      const version = plugin.version || 'unknown';
-      const cachePath = SkillsPaths.getPluginCachePath(marketplaceId, plugin.name, version);
+      const version = plugin.version || 'unknown'
+      const cachePath = SkillsPaths.getPluginCachePath(marketplaceId, plugin.name, version)
 
       // 检查缓存是否已存在
       if (await fs.pathExists(cachePath)) {
-        console.log(`[PluginInstaller] Plugin already cached: ${cachePath}`);
+        console.log(`[PluginInstaller] Plugin already cached: ${cachePath}`)
         return;
       }
 
       // 提取 Git URL
-      const source = plugin.source as unknown as { source?: string; repo?: string; url?: string; ref?: string };
-      let gitUrl: string | null = null;
-      let ref: string | undefined = undefined;
+      const source = plugin.source as unknown as { source?: string; repo?: string; url?: string; ref?: string }
+      let gitUrl: string | null = null
+      let ref: string | undefined = undefined
 
       if (source.source === 'github') {
-        gitUrl = `https://github.com/${source.repo}.git`;
-        ref = source.ref;
+        gitUrl = `https://github.com/${source.repo}.git`
+        ref = source.ref
       } else if (source.source === 'git') {
-        gitUrl = source.url ?? null;
-        ref = source.ref;
+        gitUrl = source.url ?? null
+        ref = source.ref
       } else if (source.source === 'url') {
-        gitUrl = source.url ?? null;
+        gitUrl = source.url ?? null
       }
 
       if (!gitUrl) {
-        throw new Error(`Cannot extract Git URL from source: ${JSON.stringify(source)}`);
+        throw new Error(`Cannot extract Git URL from source: ${JSON.stringify(source)}`)
       }
 
       // 克隆到 cache
-      console.log(`[PluginInstaller] Downloading plugin ${plugin.name} from ${gitUrl}...`);
-      await this.clonePluginToCache(gitUrl, cachePath, ref);
-      console.log(`[PluginInstaller] Plugin downloaded successfully: ${cachePath}`);
+      console.log(`[PluginInstaller] Downloading plugin ${plugin.name} from ${gitUrl}...`)
+      await this.clonePluginToCache(gitUrl, cachePath, ref)
+      console.log(`[PluginInstaller] Plugin downloaded successfully: ${cachePath}`)
     } catch (error) {
       throw new PluginError(
         `Failed to download remote plugin: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.PLUGIN_INSTALL_FAILED,
         { pluginId: plugin.id, originalError: error },
-      );
+      )
     }
   }
 
@@ -679,21 +679,21 @@ export class PluginInstaller {
   private async clonePluginToCache(
     gitUrl: string,
     cachePath: string,
-    ref?: string
+    ref?: string,
   ): Promise<void> {
-    const { spawnSync } = await import('child_process');
+    const { spawnSync } = await import('child_process')
 
     try {
-      await fs.ensureDir(path.dirname(cachePath));
+      await fs.ensureDir(path.dirname(cachePath))
 
       // 构建 git clone 参数
-      const args: string[] = ['clone', '--depth', '1'];
+      const args: string[] = ['clone', '--depth', '1']
 
       if (ref) {
-        args.push('--branch', ref);
+        args.push('--branch', ref)
       }
 
-      args.push(gitUrl, cachePath);
+      args.push(gitUrl, cachePath)
 
       // 执行克隆
       const result = spawnSync('git', args, {
@@ -703,18 +703,18 @@ export class PluginInstaller {
           ...process.env,
           GIT_TERMINAL_PROMPT: '0', // 禁用交互式提示
         },
-      });
+      })
 
       if (result.status !== 0) {
-        const errorMsg = result.stderr || result.error?.message || 'Unknown error';
-        throw new Error(`Git clone failed: ${errorMsg}`);
+        const errorMsg = result.stderr || result.error?.message || 'Unknown error'
+        throw new Error(`Git clone failed: ${errorMsg}`)
       }
     } catch (error) {
       // 清理失败的缓存
       if (await fs.pathExists(cachePath)) {
-        await fs.remove(cachePath);
+        await fs.remove(cachePath)
       }
-      throw error;
+      throw error
     }
   }
 }

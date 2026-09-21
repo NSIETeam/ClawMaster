@@ -6,19 +6,19 @@
  * server or native host, not in a second frontend implementation.
  */
 
-type PreviewFrame = { type: string; payload: Record<string, unknown> };
-type PreviewWindow = { clawmaster?: unknown };
+type PreviewFrame = { type: string; payload: Record<string, unknown> }
+type PreviewWindow = { clawmaster?: unknown }
 
-export {};
+export {}
 
-const previewWindow = window as unknown as PreviewWindow;
+const previewWindow = window as unknown as PreviewWindow
 
 if (!previewWindow.clawmaster) {
-  const frameHandlers = new Set<(frame: PreviewFrame) => void>();
-  const connectionHandlers = new Set<(connected: boolean) => void>();
-  let connected = false;
-  let currentModel = 'preview-model';
-  let sessions = [makeSession('preview-session', '园区服务本地演示')];
+  const frameHandlers = new Set<(frame: PreviewFrame) => void>()
+  const connectionHandlers = new Set<(connected: boolean) => void>()
+  let connected = false
+  let currentModel = 'preview-model'
+  let sessions = [makeSession('preview-session', '园区服务本地演示')]
 
   const account = {
     id: 'browser-dev',
@@ -39,7 +39,7 @@ if (!previewWindow.clawmaster) {
     tags: ['园区管理员'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  };
+  }
 
   const parkServices = [
     ['renovation', '装修管理'],
@@ -58,7 +58,7 @@ if (!previewWindow.clawmaster) {
     enabled: true,
     config: {},
     updatedAt: new Date().toISOString(),
-  }));
+  }))
 
   function makeSession(sessionId: string, title: string): Record<string, unknown> {
     return {
@@ -69,11 +69,11 @@ if (!previewWindow.clawmaster) {
       messageCount: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    };
+    }
   }
 
   function emit(type: string, payload: Record<string, unknown>): void {
-    for (const handler of frameHandlers) handler({ type, payload });
+    for (const handler of frameHandlers) handler({ type, payload })
   }
 
   function emitModels(): void {
@@ -85,54 +85,54 @@ if (!previewWindow.clawmaster) {
         provider: 'openai',
         enabled: true,
       }],
-    });
+    })
   }
 
-  const noopSubscription = (): (() => void) => () => {};
-  const emptyList = (): Promise<never[]> => Promise.resolve([]);
+  const noopSubscription = (): (() => void) => () => {}
+  const emptyList = (): Promise<never[]> => Promise.resolve([])
   const unsupportedDocument = (): Promise<never> => Promise.reject(
     new Error('浏览器预览不读取本地文件，请在桌面版中打开。'),
-  );
+  )
 
   const bridge: Record<string, unknown> = {
     connect: async () => {
-      connected = true;
-      for (const handler of connectionHandlers) handler(true);
+      connected = true
+      for (const handler of connectionHandlers) handler(true)
       window.setTimeout(() => {
-        emit('sessions_list', { sessions });
-        emitModels();
-      }, 0);
-      return true;
+        emit('sessions_list', { sessions })
+        emitModels()
+      }, 0)
+      return true
     },
     onFrame: (handler: (frame: PreviewFrame) => void) => {
-      frameHandlers.add(handler);
-      return () => frameHandlers.delete(handler);
+      frameHandlers.add(handler)
+      return () => frameHandlers.delete(handler)
     },
     onConnectionChange: (handler: (state: boolean) => void) => {
-      connectionHandlers.add(handler);
-      handler(connected);
-      return () => connectionHandlers.delete(handler);
+      connectionHandlers.add(handler)
+      handler(connected)
+      return () => connectionHandlers.delete(handler)
     },
     send: (frame: { type?: string; payload?: Record<string, unknown> }) => {
-      const payload = frame.payload ?? {};
-      if (frame.type === 'list_sessions') emit('sessions_list', { sessions });
-      if (frame.type === 'get_models' || frame.type === 'list_models') emitModels();
+      const payload = frame.payload ?? {}
+      if (frame.type === 'list_sessions') emit('sessions_list', { sessions })
+      if (frame.type === 'get_models' || frame.type === 'list_models') emitModels()
       if (frame.type === 'get_history') {
-        emit('history', { sessionId: payload.sessionId, messages: [] });
+        emit('history', { sessionId: payload.sessionId, messages: [] })
       }
       if (frame.type === 'create_session') {
-        const session = makeSession(`preview-${Date.now()}`, String(payload.title ?? '新对话'));
-        sessions = [session, ...sessions];
-        emit('session_created', { session, clientRequestId: payload.clientRequestId });
+        const session = makeSession(`preview-${Date.now()}`, String(payload.title ?? '新对话'))
+        sessions = [session, ...sessions]
+        emit('session_created', { session, clientRequestId: payload.clientRequestId })
       }
       if (frame.type === 'set_model') {
-        currentModel = String(payload.model ?? currentModel);
-        emitModels();
+        currentModel = String(payload.model ?? currentModel)
+        emitModels()
       }
       if (frame.type === 'send_user_message') {
-        const sessionId = String(payload.sessionId ?? sessions[0]?.sessionId);
-        const messageId = `preview-answer-${Date.now()}`;
-        const text = '这是浏览器本地预览；正式任务由桌面运行时执行。';
+        const sessionId = String(payload.sessionId ?? sessions[0]?.sessionId)
+        const messageId = `preview-answer-${Date.now()}`
+        const text = '这是浏览器本地预览；正式任务由桌面运行时执行。'
         emit('message_start', {
           message: {
             id: messageId,
@@ -143,11 +143,11 @@ if (!previewWindow.clawmaster) {
             source: 'local',
             isStreaming: true,
           },
-        });
+        })
         window.setTimeout(() => {
-          emit('chat_chunk', { sessionId, messageId, delta: text });
-          emit('chat_complete', { sessionId, messageId, text, finishReason: 'stop' });
-        }, 0);
+          emit('chat_chunk', { sessionId, messageId, delta: text })
+          emit('chat_complete', { sessionId, messageId, text, finishReason: 'stop' })
+        }, 0)
       }
     },
 
@@ -232,13 +232,13 @@ if (!previewWindow.clawmaster) {
     onEnterpriseRegistrationIntent: noopSubscription,
     onEnterpriseSessionInvalidated: noopSubscription,
     onEnterpriseAccountUpdated: noopSubscription,
-  };
+  }
 
   previewWindow.clawmaster = new Proxy(bridge, {
     get(target, key) {
       return key in target
         ? target[key as string]
-        : () => Promise.resolve(null);
+        : () => Promise.resolve(null)
     },
-  });
+  })
 }

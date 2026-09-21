@@ -5,56 +5,56 @@
  * PostgreSQL promotion. S3 becomes authoritative only during promotion.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash } from 'node:crypto'
 
-import type { AttachmentObjectStore } from '../modules/data_platform/attachmentObjectStore.js';
+import type { AttachmentObjectStore } from '../modules/data_platform/attachmentObjectStore.js'
 import type {
   PostgresClientLike,
   PostgresPoolLike,
-} from '../modules/data_platform/postgresDatabaseLifecycle.js';
+} from '../modules/data_platform/postgresDatabaseLifecycle.js'
 import {
   loadVerifiedSqliteImportTable,
   type DecodedSqliteImportRow,
-} from './postgresImportStaging.js';
+} from './postgresImportStaging.js'
 
-const ATTACHMENT_IMPORT_LOCK_KEY = 0x4f545441;
-const MAX_E2EE_PLAINTEXT_BYTES = 10 * 1024 * 1024;
+const ATTACHMENT_IMPORT_LOCK_KEY = 0x4f545441
+const MAX_E2EE_PLAINTEXT_BYTES = 10 * 1024 * 1024
 
 interface ImportRunRow extends Record<string, unknown> {
-  id: string;
-  state: string;
+  id: string
+  state: string
 }
 
 interface PreparedAttachmentRow extends Record<string, unknown> {
-  attachment_id: string;
-  state: string;
-  ciphertext_bytes: number | string;
-  ciphertext_sha256: string;
-  s3_storage_key: string | null;
+  attachment_id: string
+  state: string
+  ciphertext_bytes: number | string
+  ciphertext_sha256: string
+  s3_storage_key: string | null
 }
 
 interface AttachmentPlan {
-  id: string;
-  messageId: string;
-  organizationId: string;
-  senderAccountId: string;
-  recipientAccountId: string;
-  ordinal: number;
-  plaintextBytes: number;
-  nonce: string;
-  sourceBackend: 'sqlite' | 'encrypted-filesystem';
-  sourceStorageKey: string | null;
-  inlineCiphertext: Buffer | null;
-  createdAt: string;
+  id: string
+  messageId: string
+  organizationId: string
+  senderAccountId: string
+  recipientAccountId: string
+  ordinal: number
+  plaintextBytes: number
+  nonce: string
+  sourceBackend: 'sqlite' | 'encrypted-filesystem'
+  sourceStorageKey: string | null
+  inlineCiphertext: Buffer | null
+  createdAt: string
 }
 
 export interface SqliteAttachmentImportResult {
-  runId: string;
-  state: 'planned' | 'prepared';
-  total: number;
-  alreadyPrepared: number;
-  prepared: number;
-  pending: number;
+  runId: string
+  state: 'planned' | 'prepared'
+  total: number
+  alreadyPrepared: number
+  prepared: number
+  pending: number
 }
 
 function identifier(value: unknown, label: string): string {
@@ -62,9 +62,9 @@ function identifier(value: unknown, label: string): string {
     typeof value !== 'string' ||
     !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/u.test(value)
   ) {
-    throw new Error(`SQLite attachment import ${label} is invalid`);
+    throw new Error(`SQLite attachment import ${label} is invalid`)
   }
-  return value;
+  return value
 }
 
 function integer(
@@ -73,73 +73,73 @@ function integer(
   minimum: number,
   maximum: number,
 ): number {
-  const parsed = Number(value);
+  const parsed = Number(value)
   if (
     !Number.isSafeInteger(parsed) ||
     parsed < minimum ||
     parsed > maximum
   ) {
-    throw new Error(`SQLite attachment import ${label} is invalid`);
+    throw new Error(`SQLite attachment import ${label} is invalid`)
   }
-  return parsed;
+  return parsed
 }
 
 function timestamp(value: unknown, label: string): string {
   if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`SQLite attachment import ${label} is invalid`);
+    throw new Error(`SQLite attachment import ${label} is invalid`)
   }
   const normalized =
     value.endsWith('Z') || /[+-]\d\d:\d\d$/u.test(value)
       ? value
-      : `${value.replace(' ', 'T')}Z`;
-  const parsed = new Date(normalized);
+      : `${value.replace(' ', 'T')}Z`
+  const parsed = new Date(normalized)
   if (Number.isNaN(parsed.getTime())) {
-    throw new Error(`SQLite attachment import ${label} is invalid`);
+    throw new Error(`SQLite attachment import ${label} is invalid`)
   }
-  return parsed.toISOString();
+  return parsed.toISOString()
 }
 
 function canonicalNonce(value: unknown): string {
   if (typeof value !== 'string' || !value.trim()) {
-    throw new Error('SQLite attachment import E2EE nonce is invalid');
+    throw new Error('SQLite attachment import E2EE nonce is invalid')
   }
-  const normalized = value.trim();
-  const decoded = Buffer.from(normalized, 'base64');
+  const normalized = value.trim()
+  const decoded = Buffer.from(normalized, 'base64')
   if (
     decoded.length !== 12 ||
     decoded.toString('base64').replace(/=+$/u, '') !==
       normalized.replace(/=+$/u, '')
   ) {
-    throw new Error('SQLite attachment import E2EE nonce is invalid');
+    throw new Error('SQLite attachment import E2EE nonce is invalid')
   }
-  return decoded.toString('base64');
+  return decoded.toString('base64')
 }
 
 function sourceBackend(
   value: unknown,
 ): 'sqlite' | 'encrypted-filesystem' {
   if (value !== 'sqlite' && value !== 'encrypted-filesystem') {
-    throw new Error('SQLite attachment import source backend is unsupported');
+    throw new Error('SQLite attachment import source backend is unsupported')
   }
-  return value;
+  return value
 }
 
 function messageIndex(rows: DecodedSqliteImportRow[]) {
   const messages = new Map<
     string,
     {
-      organizationId: string;
-      senderAccountId: string;
-      recipientAccountId: string;
+      organizationId: string
+      senderAccountId: string
+      recipientAccountId: string
     }
-  >();
+  >()
   for (const row of rows) {
-    const id = identifier(row.id, 'message id');
+    const id = identifier(row.id, 'message id')
     if (messages.has(id)) {
-      throw new Error('SQLite attachment import contains duplicate messages');
+      throw new Error('SQLite attachment import contains duplicate messages')
     }
     if (Number(row.e2ee_protocol_version) !== 1) {
-      continue;
+      continue
     }
     messages.set(id, {
       organizationId: identifier(row.organization_id, 'organization id'),
@@ -148,58 +148,58 @@ function messageIndex(rows: DecodedSqliteImportRow[]) {
         row.recipient_account_id,
         'recipient account id',
       ),
-    });
+    })
   }
-  return messages;
+  return messages
 }
 
 function attachmentPlans(input: {
-  attachmentRows: DecodedSqliteImportRow[];
-  messageRows: DecodedSqliteImportRow[];
+  attachmentRows: DecodedSqliteImportRow[]
+  messageRows: DecodedSqliteImportRow[]
 }): AttachmentPlan[] {
-  const messages = messageIndex(input.messageRows);
-  const ids = new Set<string>();
-  const positions = new Set<string>();
+  const messages = messageIndex(input.messageRows)
+  const ids = new Set<string>()
+  const positions = new Set<string>()
   return input.attachmentRows.map((row) => {
-    const id = identifier(row.id, 'attachment id');
-    const messageId = identifier(row.message_id, 'message id');
-    const organizationId = identifier(row.organization_id, 'organization id');
-    const message = messages.get(messageId);
+    const id = identifier(row.id, 'attachment id')
+    const messageId = identifier(row.message_id, 'message id')
+    const organizationId = identifier(row.organization_id, 'organization id')
+    const message = messages.get(messageId)
     if (!message) {
       throw new Error(
         'SQLite attachment import only supports attachments from E2EE messages',
-      );
+      )
     }
     if (message.organizationId !== organizationId) {
-      throw new Error('SQLite attachment import tenant metadata is inconsistent');
+      throw new Error('SQLite attachment import tenant metadata is inconsistent')
     }
-    const ordinal = integer(row.ordinal, 'attachment ordinal', 0, 5);
+    const ordinal = integer(row.ordinal, 'attachment ordinal', 0, 5)
     if (ids.has(id) || positions.has(`${messageId}\0${ordinal}`)) {
-      throw new Error('SQLite attachment import contains duplicate attachments');
+      throw new Error('SQLite attachment import contains duplicate attachments')
     }
-    ids.add(id);
-    positions.add(`${messageId}\0${ordinal}`);
+    ids.add(id)
+    positions.add(`${messageId}\0${ordinal}`)
     const plaintextBytes = integer(
       row.byte_size,
       'attachment byte size',
       1,
       MAX_E2EE_PLAINTEXT_BYTES,
-    );
-    const backend = sourceBackend(row.storage_backend);
+    )
+    const backend = sourceBackend(row.storage_backend)
     const storageKey =
       typeof row.storage_key === 'string' && row.storage_key.trim()
         ? row.storage_key.trim()
-        : null;
+        : null
     if (backend === 'encrypted-filesystem' && !storageKey) {
-      throw new Error('SQLite attachment import source object key is missing');
+      throw new Error('SQLite attachment import source object key is missing')
     }
     const inlineCiphertext = Buffer.isBuffer(row.content)
       ? Buffer.from(row.content)
       : row.content instanceof Uint8Array
         ? Buffer.from(row.content)
-        : null;
+        : null
     if (backend === 'sqlite' && !inlineCiphertext) {
-      throw new Error('SQLite attachment import inline ciphertext is missing');
+      throw new Error('SQLite attachment import inline ciphertext is missing')
     }
     return {
       id,
@@ -214,62 +214,62 @@ function attachmentPlans(input: {
       sourceStorageKey: backend === 'encrypted-filesystem' ? storageKey : null,
       inlineCiphertext: backend === 'sqlite' ? inlineCiphertext : null,
       createdAt: timestamp(row.created_at, 'attachment created_at'),
-    };
+    }
   });
 }
 
 function sha256(ciphertext: Buffer): string {
-  return createHash('sha256').update(ciphertext).digest('hex');
+  return createHash('sha256').update(ciphertext).digest('hex')
 }
 
 function assertCiphertext(plan: AttachmentPlan, ciphertext: Buffer): string {
   if (ciphertext.length !== plan.plaintextBytes + 16) {
-    throw new Error('SQLite attachment import ciphertext size is inconsistent');
+    throw new Error('SQLite attachment import ciphertext size is inconsistent')
   }
-  return sha256(ciphertext);
+  return sha256(ciphertext)
 }
 
 async function verifyS3Object(input: {
-  store: AttachmentObjectStore;
-  key: string;
-  ciphertextBytes: number;
-  ciphertextSha256: string;
+  store: AttachmentObjectStore
+  key: string
+  ciphertextBytes: number
+  ciphertextSha256: string
 }): Promise<void> {
-  const head = await input.store.headObject(input.key);
+  const head = await input.store.headObject(input.key)
   if (
     head.backend !== 's3' ||
     head.ciphertextBytes !== input.ciphertextBytes ||
     head.ciphertextSha256 !== input.ciphertextSha256
   ) {
-    throw new Error('SQLite attachment import S3 metadata verification failed');
+    throw new Error('SQLite attachment import S3 metadata verification failed')
   }
-  const downloaded = await input.store.getCiphertext(input.key);
+  const downloaded = await input.store.getCiphertext(input.key)
   if (
     downloaded.length !== input.ciphertextBytes ||
     sha256(downloaded) !== input.ciphertextSha256
   ) {
-    throw new Error('SQLite attachment import S3 ciphertext verification failed');
+    throw new Error('SQLite attachment import S3 ciphertext verification failed')
   }
 }
 
 function failureCode(error: unknown): string {
-  const message = error instanceof Error ? error.message : '';
-  if (/source|inline|ciphertext size/i.test(message)) return 'source_invalid';
+  const message = error instanceof Error ? error.message : ''
+  if (/source|inline|ciphertext size/i.test(message)) return 'source_invalid'
   if (/verification|checksum|metadata/i.test(message)) {
-    return 'integrity_verification_failed';
+    return 'integrity_verification_failed'
   }
-  return 'object_store_failed';
+  return 'object_store_failed'
 }
 
 async function recordPreparation(input: {
-  client: PostgresClientLike;
-  runId: string;
-  plan: AttachmentPlan;
-  ciphertextBytes: number;
-  ciphertextSha256: string;
-  s3StorageKey: string | null;
-  state: 'verified' | 'failed';
-  failureCode: string | null;
+  client: PostgresClientLike
+  runId: string
+  plan: AttachmentPlan
+  ciphertextBytes: number
+  ciphertextSha256: string
+  s3StorageKey: string | null
+  state: 'verified' | 'failed'
+  failureCode: string | null
 }): Promise<void> {
   await input.client.query(
     `INSERT INTO clawmaster_sqlite_import_attachment_objects
@@ -313,35 +313,35 @@ async function recordPreparation(input: {
       input.failureCode,
       input.plan.createdAt,
     ],
-  );
+  )
 }
 
 export async function prepareSqliteAttachmentImport(input: {
-  pool: PostgresPoolLike;
-  runId: string;
-  objectStore: AttachmentObjectStore;
-  dryRun?: boolean;
-  readLegacyCiphertext?: (key: string) => Promise<Buffer>;
+  pool: PostgresPoolLike
+  runId: string
+  objectStore: AttachmentObjectStore
+  dryRun?: boolean
+  readLegacyCiphertext?: (key: string) => Promise<Buffer>
 }): Promise<SqliteAttachmentImportResult> {
-  const runId = identifier(input.runId, 'run id');
+  const runId = identifier(input.runId, 'run id')
   if (input.objectStore.backend !== 's3') {
-    throw new Error('SQLite attachment import requires an S3 object store');
+    throw new Error('SQLite attachment import requires an S3 object store')
   }
-  const client = await input.pool.connect();
-  let locked = false;
+  const client = await input.pool.connect()
+  let locked = false
   try {
     const run = await client.query<ImportRunRow>(
       'SELECT id, state FROM clawmaster_sqlite_import_runs WHERE id = $1',
       [runId],
-    );
+    )
     if (!run.rows[0] || run.rows[0].state !== 'verified') {
-      throw new Error('SQLite attachment import run is missing or not verified');
+      throw new Error('SQLite attachment import run is missing or not verified')
     }
     if (!input.dryRun) {
       await client.query('SELECT pg_advisory_lock($1::bigint)', [
         ATTACHMENT_IMPORT_LOCK_KEY,
-      ]);
-      locked = true;
+      ])
+      locked = true
     }
     const [attachmentRows, messageRows, preparedResult] = await Promise.all([
       loadVerifiedSqliteImportTable(
@@ -357,22 +357,22 @@ export async function prepareSqliteAttachmentImport(input: {
          WHERE run_id = $1`,
         [runId],
       ),
-    ]);
-    const plans = attachmentPlans({ attachmentRows, messageRows });
-    const planIds = new Set(plans.map((plan) => plan.id));
+    ])
+    const plans = attachmentPlans({ attachmentRows, messageRows })
+    const planIds = new Set(plans.map(plan => plan.id))
     if (
-      preparedResult.rows.some((row) => !planIds.has(row.attachment_id))
+      preparedResult.rows.some(row => !planIds.has(row.attachment_id))
     ) {
       throw new Error(
         'SQLite attachment import preparation contains an unknown attachment',
-      );
+      )
     }
     const preparedById = new Map(
-      preparedResult.rows.map((row) => [row.attachment_id, row] as const),
-    );
+      preparedResult.rows.map(row => [row.attachment_id, row] as const),
+    )
     const plannedPrepared = plans.filter(
-      (plan) => preparedById.get(plan.id)?.state === 'verified',
-    ).length;
+      plan => preparedById.get(plan.id)?.state === 'verified',
+    ).length
     if (input.dryRun) {
       return {
         runId,
@@ -381,13 +381,13 @@ export async function prepareSqliteAttachmentImport(input: {
         alreadyPrepared: plannedPrepared,
         prepared: 0,
         pending: plans.length - plannedPrepared,
-      };
+      }
     }
 
-    let alreadyPrepared = 0;
-    let prepared = 0;
+    let alreadyPrepared = 0
+    let prepared = 0
     for (const plan of plans) {
-      const previous = preparedById.get(plan.id);
+      const previous = preparedById.get(plan.id)
       if (
         previous?.state === 'verified' &&
         previous.s3_storage_key &&
@@ -399,43 +399,43 @@ export async function prepareSqliteAttachmentImport(input: {
             key: previous.s3_storage_key,
             ciphertextBytes: Number(previous.ciphertext_bytes),
             ciphertextSha256: previous.ciphertext_sha256,
-          });
-          alreadyPrepared += 1;
+          })
+          alreadyPrepared += 1
           continue;
         } catch {
           try {
-            await input.objectStore.deleteObject(previous.s3_storage_key);
+            await input.objectStore.deleteObject(previous.s3_storage_key)
           } catch {
             // A later S3 orphan sweep handles an unreachable prior object.
           }
         }
       }
 
-      let uploadedKey: string | null = null;
-      let digest = '0'.repeat(64);
+      let uploadedKey: string | null = null
+      let digest = '0'.repeat(64)
       try {
         const source =
           plan.sourceBackend === 'sqlite'
             ? Buffer.from(plan.inlineCiphertext!)
-            : await input.readLegacyCiphertext?.(plan.sourceStorageKey!);
+            : await input.readLegacyCiphertext?.(plan.sourceStorageKey!)
         if (!source) {
           throw new Error(
             'SQLite attachment import legacy source reader is required',
-          );
+          )
         }
-        digest = assertCiphertext(plan, source);
+        digest = assertCiphertext(plan, source)
         const uploaded = await input.objectStore.putCiphertext({
           ciphertext: source,
           ciphertextSha256: digest,
           encryption: 'e2ee-client-v1',
-        });
-        uploadedKey = uploaded.key;
+        })
+        uploadedKey = uploaded.key
         await verifyS3Object({
           store: input.objectStore,
           key: uploaded.key,
           ciphertextBytes: source.length,
           ciphertextSha256: digest,
-        });
+        })
         await recordPreparation({
           client,
           runId,
@@ -445,12 +445,12 @@ export async function prepareSqliteAttachmentImport(input: {
           s3StorageKey: uploaded.key,
           state: 'verified',
           failureCode: null,
-        });
-        prepared += 1;
+        })
+        prepared += 1
       } catch (error) {
         if (uploadedKey) {
           try {
-            await input.objectStore.deleteObject(uploadedKey);
+            await input.objectStore.deleteObject(uploadedKey)
           } catch {
             // The S3 orphan sweep provides a second cleanup path.
           }
@@ -464,8 +464,8 @@ export async function prepareSqliteAttachmentImport(input: {
           s3StorageKey: null,
           state: 'failed',
           failureCode: failureCode(error),
-        });
-        throw error;
+        })
+        throw error
       }
     }
     return {
@@ -475,17 +475,17 @@ export async function prepareSqliteAttachmentImport(input: {
       alreadyPrepared,
       prepared,
       pending: plans.length - alreadyPrepared - prepared,
-    };
+    }
   } finally {
     if (locked) {
       try {
         await client.query('SELECT pg_advisory_unlock($1::bigint)', [
           ATTACHMENT_IMPORT_LOCK_KEY,
-        ]);
+        ])
       } catch {
         // Releasing the PostgreSQL session below also releases the lock.
       }
     }
-    client.release();
+    client.release()
   }
 }

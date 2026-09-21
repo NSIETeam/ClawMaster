@@ -154,5 +154,5 @@ async function load(){
 document.getElementById('dashboardTokenForm').addEventListener('submit',event=>{event.preventDefault();const value=document.getElementById('dashboardToken').value.trim();if(!value)return;TOKEN=value;sessionStorage.setItem(KEY,TOKEN);document.getElementById('dashboardToken').value='';load()});
 load();setInterval(()=>{if(TOKEN)load()},10000);
 </script>
-</body></html>`;
+</body></html>`
 }

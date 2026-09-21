@@ -2,35 +2,35 @@
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ServerResponse } from 'node:http';
+import type { ServerResponse } from 'node:http'
 
-type PublicInvitePageState = 'active' | 'not-found' | 'unavailable';
+type PublicInvitePageState = 'active' | 'not-found' | 'unavailable'
 
 function escapeHTML(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
+  return value.replace(/[&<>"']/g, character => ({
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
     "'": '&#39;',
-  })[character]!);
+  })[character]!)
 }
 
 function renderPublicInvitePage(state: PublicInvitePageState, code?: string, serverUrl?: string): string {
-  const isActive = state === 'active' && Boolean(code);
+  const isActive = state === 'active' && Boolean(code)
   const title = isActive
     ? '加入企业，打开 ClawMaster'
-    : state === 'unavailable' ? '引入链接已失效' : '引入链接不存在';
+    : state === 'unavailable' ? '引入链接已失效' : '引入链接不存在'
   const description = isActive
     ? '点击下方按钮打开 ClawMaster。企业邀请码已经随链接准备好，你仍需完成姓名、手机号与短信验证。'
     : state === 'unavailable'
       ? '企业引入链接仅在生成后的 7 天内有效，换新后旧链接也会立即停止使用。'
-      : '请检查地址是否完整，或联系企业管理员重新发送一条引入链接。';
-  const safeCode = code ? escapeHTML(code) : '';
+      : '请检查地址是否完整，或联系企业管理员重新发送一条引入链接。'
+  const safeCode = code ? escapeHTML(code) : ''
   const deepLink = code
     ? escapeHTML('clawmaster://enterprise/join?invite=' + encodeURIComponent(code) +
       (serverUrl ? '&server=' + encodeURIComponent(serverUrl) : ''))
-    : '';
+    : ''
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -100,7 +100,7 @@ function renderPublicInvitePage(state: PublicInvitePageState, code?: string, ser
     </div>
   </main>
 </body>
-</html>`;
+</html>`
 }
 
 export function sendPublicInvitePage(
@@ -111,7 +111,7 @@ export function sendPublicInvitePage(
 ): void {
   const state: PublicInvitePageState = status === 200
     ? 'active'
-    : status === 410 ? 'unavailable' : 'not-found';
+    : status === 410 ? 'unavailable' : 'not-found'
   res.writeHead(status, {
     'Content-Type': 'text/html; charset=utf-8',
     'Cache-Control': 'no-store',
@@ -121,6 +121,6 @@ export function sendPublicInvitePage(
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
     'Cross-Origin-Opener-Policy': 'same-origin',
-  });
-  res.end(renderPublicInvitePage(state, status === 200 ? code : undefined, serverUrl));
+  })
+  res.end(renderPublicInvitePage(state, status === 200 ? code : undefined, serverUrl))
 }

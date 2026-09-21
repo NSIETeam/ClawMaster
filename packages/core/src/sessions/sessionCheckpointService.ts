@@ -13,58 +13,58 @@
  *   格式：{sessionId}.cp.json — 单个会话的最新检查点
  */
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { homedir } from 'os';
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import { homedir } from 'os'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export interface SessionCheckpoint {
-  sessionId: string;
+  sessionId: string
   /** 检查点时间戳 ISO */
-  timestamp: string;
+  timestamp: string
   /** 会话标题 */
-  title: string;
+  title: string
   /** 会话话题标签 */
-  topics: string[];
+  topics: string[]
   /** 任务摘要：最后一段有意义的用户任务 */
-  lastTaskSummary: string;
+  lastTaskSummary: string
   /** 对话轮次 */
-  turnCount: number;
+  turnCount: number
   /** 上下文摘要（压缩前生成） */
-  contextSummary: string;
+  contextSummary: string
   /** 是否处于压缩状态 */
-  wasCompressed: boolean;
+  wasCompressed: boolean
   /** 最后活跃时间 */
-  lastActiveAt: string;
+  lastActiveAt: string
   /** 项目路径 */
-  projectRoot?: string;
+  projectRoot?: string
   /** 飞书 chatId */
-  feishuChatId?: string;
+  feishuChatId?: string
   /** 渠道 */
-  channel: string;
+  channel: string
 }
 
 export interface CheckpointStatus {
   /** 检查点总数 */
-  totalCheckpoints: number;
+  totalCheckpoints: number
   /** 最近检查点 */
-  latest: SessionCheckpoint | null;
+  latest: SessionCheckpoint | null
   /** 是否存在未完成任务 */
-  hasPendingTask: boolean;
+  hasPendingTask: boolean
   /** 未完成任务摘要 */
-  pendingTaskSummary: string | null;
+  pendingTaskSummary: string | null
 }
 
 export interface ResumeResult {
   /** 是否成功恢复 */
-  resumed: boolean;
+  resumed: boolean
   /** 检查点 */
-  checkpoint: SessionCheckpoint | null;
+  checkpoint: SessionCheckpoint | null
   /** 恢复摘要 */
-  summary: string;
+  summary: string
 }
 
 // ---------------------------------------------------------------------------
@@ -72,10 +72,10 @@ export interface ResumeResult {
 // ---------------------------------------------------------------------------
 
 export class SessionCheckpointService {
-  private readonly checkpointsDir: string;
+  private readonly checkpointsDir: string
   constructor(baseDir?: string) {
-    const dir = baseDir || process.env.CLAWMASTER_USER_DIR || path.join(homedir(), '.clawmaster-user');
-    this.checkpointsDir = path.join(dir, 'checkpoints');
+    const dir = baseDir || process.env.CLAWMASTER_USER_DIR || path.join(homedir(), '.clawmaster-user')
+    this.checkpointsDir = path.join(dir, 'checkpoints')
   }
 
   // ── 1. save ──────────────────────────────────────────────────────────
@@ -88,13 +88,13 @@ export class SessionCheckpointService {
     const full: SessionCheckpoint = {
       ...checkpoint,
       timestamp: new Date().toISOString(),
-    };
+    }
 
-    await fs.mkdir(this.checkpointsDir, { recursive: true });
-    const filePath = path.join(this.checkpointsDir, `${checkpoint.sessionId}.cp.json`);
-    await fs.writeFile(filePath, JSON.stringify(full, null, 2), 'utf-8');
+    await fs.mkdir(this.checkpointsDir, { recursive: true })
+    const filePath = path.join(this.checkpointsDir, `${checkpoint.sessionId}.cp.json`)
+    await fs.writeFile(filePath, JSON.stringify(full, null, 2), 'utf-8')
 
-    return full;
+    return full
   }
 
   // ── 2. load ──────────────────────────────────────────────────────────
@@ -105,11 +105,11 @@ export class SessionCheckpointService {
    */
   async load(sessionId: string): Promise<SessionCheckpoint | null> {
     try {
-      const filePath = path.join(this.checkpointsDir, `${sessionId}.cp.json`);
-      const raw = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(raw) as SessionCheckpoint;
+      const filePath = path.join(this.checkpointsDir, `${sessionId}.cp.json`)
+      const raw = await fs.readFile(filePath, 'utf-8')
+      return JSON.parse(raw) as SessionCheckpoint
     } catch {
-      return null;
+      return null
     }
   }
 
@@ -120,19 +120,19 @@ export class SessionCheckpointService {
    */
   async listAll(): Promise<SessionCheckpoint[]> {
     try {
-      const files = await fs.readdir(this.checkpointsDir);
-      const checkpoints: SessionCheckpoint[] = [];
+      const files = await fs.readdir(this.checkpointsDir)
+      const checkpoints: SessionCheckpoint[] = []
 
       for (const file of files) {
-        if (!file.endsWith('.cp.json')) continue;
+        if (!file.endsWith('.cp.json')) continue
         try {
           const raw = await fs.readFile(
             path.join(this.checkpointsDir, file),
             'utf-8',
-          );
-          const cp = JSON.parse(raw) as SessionCheckpoint;
+          )
+          const cp = JSON.parse(raw) as SessionCheckpoint
           if (cp.sessionId && cp.timestamp) {
-            checkpoints.push(cp);
+            checkpoints.push(cp)
           }
         } catch {
           // 坏文件跳过
@@ -141,9 +141,9 @@ export class SessionCheckpointService {
 
       return checkpoints.sort(
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-      );
+      )
     } catch {
-      return [];
+      return []
     }
   }
 
@@ -153,7 +153,7 @@ export class SessionCheckpointService {
    * 获取检查点总览状态。
    */
   async status(): Promise<CheckpointStatus> {
-    const all = await this.listAll();
+    const all = await this.listAll()
 
     return {
       totalCheckpoints: all.length,
@@ -162,32 +162,32 @@ export class SessionCheckpointService {
       pendingTaskSummary: all.length > 0
         ? this.getPendingTaskSummary(all[0])
         : null,
-    };
+    }
   }
 
   /**
    * 格式化状态为人类可读文本。
    */
   async formatStatus(): Promise<string> {
-    const s = await this.status();
-    const lines: string[] = [];
-    lines.push('💾 Checkpoint Status');
-    lines.push(`  Total checkpoints: ${s.totalCheckpoints}`);
+    const s = await this.status()
+    const lines: string[] = []
+    lines.push('💾 Checkpoint Status')
+    lines.push(`  Total checkpoints: ${s.totalCheckpoints}`)
 
     if (s.latest) {
-      lines.push(`  Latest: ${s.latest.timestamp}`);
-      lines.push(`    Session: ${s.latest.title || s.latest.sessionId.slice(0, 8)}`);
-      lines.push(`    Last task: ${s.latest.lastTaskSummary || '(none)'}`);
-      lines.push(`    Turns: ${s.latest.turnCount}`);
+      lines.push(`  Latest: ${s.latest.timestamp}`)
+      lines.push(`    Session: ${s.latest.title || s.latest.sessionId.slice(0, 8)}`)
+      lines.push(`    Last task: ${s.latest.lastTaskSummary || '(none)'}`)
+      lines.push(`    Turns: ${s.latest.turnCount}`)
     }
 
     if (s.hasPendingTask) {
-      lines.push(`  ⚠️  Pending task detected: ${s.pendingTaskSummary}`);
+      lines.push(`  ⚠️  Pending task detected: ${s.pendingTaskSummary}`)
     } else {
-      lines.push('  ✅ No pending tasks');
+      lines.push('  ✅ No pending tasks')
     }
 
-    return lines.join('\n');
+    return lines.join('\n')
   }
 
   // ── 5. delete ────────────────────────────────────────────────────────
@@ -197,11 +197,11 @@ export class SessionCheckpointService {
    */
   async delete(sessionId: string): Promise<boolean> {
     try {
-      const filePath = path.join(this.checkpointsDir, `${sessionId}.cp.json`);
-      await fs.unlink(filePath);
-      return true;
+      const filePath = path.join(this.checkpointsDir, `${sessionId}.cp.json`)
+      await fs.unlink(filePath)
+      return true
     } catch {
-      return false;
+      return false
     }
   }
 
@@ -211,18 +211,18 @@ export class SessionCheckpointService {
    * 清除超过 maxAgeDays 天的旧检查点。
    */
   async cleanExpired(maxAgeDays: number = 30): Promise<number> {
-    const all = await this.listAll();
-    const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
-    let cleaned = 0;
+    const all = await this.listAll()
+    const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000
+    let cleaned = 0
 
     for (const cp of all) {
       if (new Date(cp.timestamp).getTime() < cutoff) {
-        await this.delete(cp.sessionId);
+        await this.delete(cp.sessionId)
         cleaned++;
       }
     }
 
-    return cleaned;
+    return cleaned
   }
 
   // ── Internal helpers ──────────────────────────────────────────────────
@@ -232,9 +232,9 @@ export class SessionCheckpointService {
    * 规则：最后活跃时间 > 30 分钟前、turnCount > 0
    */
   private isStalled(cp: SessionCheckpoint): boolean {
-    const lastActive = new Date(cp.lastActiveAt).getTime();
-    const minutesSinceActive = (Date.now() - lastActive) / 60000;
-    return cp.turnCount > 0 && minutesSinceActive > 30;
+    const lastActive = new Date(cp.lastActiveAt).getTime()
+    const minutesSinceActive = (Date.now() - lastActive) / 60000
+    return cp.turnCount > 0 && minutesSinceActive > 30
   }
 
   /**
@@ -242,13 +242,13 @@ export class SessionCheckpointService {
    */
   private getPendingTaskSummary(cp: SessionCheckpoint): string | null {
     if (cp.lastTaskSummary && cp.lastTaskSummary.length > 0) {
-      return cp.lastTaskSummary;
+      return cp.lastTaskSummary
     }
     if (cp.contextSummary && cp.contextSummary.length > 0) {
-      const firstLine = cp.contextSummary.split('\n')[0];
-      return firstLine.slice(0, 200);
+      const firstLine = cp.contextSummary.split('\n')[0]
+      return firstLine.slice(0, 200)
     }
-    return null;
+    return null
   }
 }
 
@@ -256,15 +256,15 @@ export class SessionCheckpointService {
 // 全局单例
 // ---------------------------------------------------------------------------
 
-let globalCheckpointService: SessionCheckpointService | null = null;
+let globalCheckpointService: SessionCheckpointService | null = null
 
 export function getCheckpointService(): SessionCheckpointService {
   if (!globalCheckpointService) {
-    globalCheckpointService = new SessionCheckpointService();
+    globalCheckpointService = new SessionCheckpointService()
   }
-  return globalCheckpointService;
+  return globalCheckpointService
 }
 
 export function resetCheckpointService(): void {
-  globalCheckpointService = null;
+  globalCheckpointService = null
 }

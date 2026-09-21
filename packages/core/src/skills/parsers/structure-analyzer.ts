@@ -3,9 +3,9 @@
  * Copyright 2026 Felix
  * SPDX-License-Identifier: Apache-2.0
  */
-import path from 'path';
-import fs from 'fs-extra';
-import { PluginStructure } from '../models/unified.js';
+import path from 'path'
+import fs from 'fs-extra'
+import { PluginStructure } from '../models/unified.js'
 
 /**
  * 插件结构分析器
@@ -18,38 +18,38 @@ export class PluginStructureAnalyzer {
    * 分析插件结构
    */
   async analyze(): Promise<PluginStructure> {
-    const exists = async (p: string) => fs.pathExists(path.join(this.pluginDir, p));
+    const exists = async (p: string) => fs.pathExists(path.join(this.pluginDir, p))
     const isDir = async (p: string) => {
-      const fullPath = path.join(this.pluginDir, p);
-      return (await exists(p)) && (await fs.stat(fullPath)).isDirectory();
+      const fullPath = path.join(this.pluginDir, p)
+      return (await exists(p)) && (await fs.stat(fullPath)).isDirectory()
     };
 
     // 检查关键文件和目录
-    const hasPluginJson = await exists('plugin.json');
-    const hasClaudePluginDir = await isDir('.claude-plugin');
+    const hasPluginJson = await exists('plugin.json')
+    const hasClaudePluginDir = await isDir('.claude-plugin')
 
     // 检查组件目录
-    const hasAgents = await isDir('agents') || await isDir('.claude/agents');
-    const hasCommands = await isDir('commands') || await isDir('.claude/commands') || await isDir('.cursor/commands') || await isDir('.roo/commands');
-    const hasSkills = await isDir('skills') || await isDir('.claude/skills');
-    const hasHooks = await isDir('hooks') || await isDir('.claude/hooks');
-    const hasScripts = await isDir('scripts') || await isDir('.claude/scripts');
+    const hasAgents = await isDir('agents') || await isDir('.claude/agents')
+    const hasCommands = await isDir('commands') || await isDir('.claude/commands') || await isDir('.cursor/commands') || await isDir('.roo/commands')
+    const hasSkills = await isDir('skills') || await isDir('.claude/skills')
+    const hasHooks = await isDir('hooks') || await isDir('.claude/hooks')
+    const hasScripts = await isDir('scripts') || await isDir('.claude/scripts')
 
     // 确定格式类型
-    let detectedFormat: 'claude-code' | 'clawmaster-code' | 'hybrid' | 'unknown' = 'unknown';
+    let detectedFormat: 'claude-code' | 'clawmaster-code' | 'hybrid' | 'unknown' = 'unknown'
 
     if (hasClaudePluginDir) {
       // 标准 Claude Code 格式 (带 .claude-plugin)
-      detectedFormat = 'claude-code';
+      detectedFormat = 'claude-code'
     } else if (hasPluginJson && (hasAgents || hasCommands) && !hasSkills) {
       // 隐式 Claude Code 格式 (如 plugin-dev)
-      detectedFormat = 'claude-code';
+      detectedFormat = 'claude-code'
     } else if (hasPluginJson && hasSkills && !hasAgents && !hasCommands) {
       // 传统 ClawMaster 格式
-      detectedFormat = 'clawmaster-code';
+      detectedFormat = 'clawmaster-code'
     } else if (hasPluginJson && (hasAgents || hasCommands) && hasSkills) {
       // 混合格式
-      detectedFormat = 'hybrid';
+      detectedFormat = 'hybrid'
     }
 
     return {
@@ -61,9 +61,9 @@ export class PluginStructureAnalyzer {
         commands: hasCommands,
         skills: hasSkills,
         hooks: hasHooks,
-        scripts: hasScripts
+        scripts: hasScripts,
       },
-      detectedFormat
+      detectedFormat,
     };
   }
 }

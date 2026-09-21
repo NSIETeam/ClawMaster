@@ -10,40 +10,40 @@
  * 4. 下次加载智能体画廊时自动出现
  */
 
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import type { Config } from '../config/config.js';
-import { SceneType, SceneManager } from '../core/sceneManager.js';
-import { getResponseText } from '../utils/partUtils.js';
-import { resolveAutoSkillSkillsDir } from './autoSkillGenerator.js';
+import * as path from 'path'
+import * as fs from 'fs/promises'
+import * as fsSync from 'fs'
+import type { Config } from '../config/config.js'
+import { SceneType, SceneManager } from '../core/sceneManager.js'
+import { getResponseText } from '../utils/partUtils.js'
+import { resolveAutoSkillSkillsDir } from './autoSkillGenerator.js'
 
 /** 自动化专家基础数据（存盘格式，不依赖桌面类型）。 */
 export interface AutoSkillProfileData {
-  id: string;
-  name: string;
-  tagline: string;
-  scope: 'personal' | 'base';
-  department: string | null;
-  skills: string[];
-  systemPrompt: string;
+  id: string
+  name: string
+  tagline: string
+  scope: 'personal' | 'base'
+  department: string | null
+  skills: string[]
+  systemPrompt: string
 }
 
 function profilePath(skillDir: string): string {
-  return path.join(skillDir, 'profile.json');
+  return path.join(skillDir, 'profile.json')
 }
 
 async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
-  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await fs.mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 })
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`
   try {
     await fs.writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, {
       encoding: 'utf8',
       mode: 0o600,
-    });
-    await fs.rename(tempPath, filePath);
+    })
+    await fs.rename(tempPath, filePath)
   } finally {
-    await fs.rm(tempPath, { force: true }).catch(() => undefined);
+    await fs.rm(tempPath, { force: true }).catch(() => undefined)
   }
 }
 
@@ -54,24 +54,24 @@ async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> 
 export async function generateProfilePipeline(
   skills: Array<{ skillName: string; skillDir: string; skillContent: string }>,
 ): Promise<void> {
-  const config = getGlobalConfig();
+  const config = getGlobalConfig()
   if (!config) {
-    console.warn('[AutoSkillProfile] Config not injected, using template fallback');
+    console.warn('[AutoSkillProfile] Config not injected, using template fallback')
     for (const s of skills) {
-      await writeJsonAtomic(profilePath(s.skillDir), templateProfile(s.skillName, s.skillContent));
+      await writeJsonAtomic(profilePath(s.skillDir), templateProfile(s.skillName, s.skillContent))
     }
-    return;
+    return
   }
 
   for (const { skillName, skillDir, skillContent } of skills) {
-    if (await fileExists(profilePath(skillDir))) continue; // Already has a profile
+    if (await fileExists(profilePath(skillDir))) continue // Already has a profile
     try {
-      const profile = await generateViaLLM(config, skillName, skillContent);
-      await writeJsonAtomic(profilePath(skillDir), profile);
-      console.log(`[AutoSkillProfile] Saved via LLM: ${profilePath(skillDir)}`);
+      const profile = await generateViaLLM(config, skillName, skillContent)
+      await writeJsonAtomic(profilePath(skillDir), profile)
+      console.log(`[AutoSkillProfile] Saved via LLM: ${profilePath(skillDir)}`)
     } catch (err) {
-      console.warn(`[AutoSkillProfile] LLM failed for "${skillName}", template fallback:`, (err as Error)?.message ?? String(err));
-      await writeJsonAtomic(profilePath(skillDir), templateProfile(skillName, skillContent));
+      console.warn(`[AutoSkillProfile] LLM failed for "${skillName}", template fallback:`, (err as Error)?.message ?? String(err))
+      await writeJsonAtomic(profilePath(skillDir), templateProfile(skillName, skillContent))
     }
   }
 }
@@ -84,8 +84,8 @@ async function generateViaLLM(
   skillName: string,
   skillContent: string,
 ): Promise<AutoSkillProfileData> {
-  const client = config.getClawMasterClient();
-  if (!client) throw new Error('LLM client unavailable');
+  const client = config.getClawMasterClient()
+  if (!client) throw new Error('LLM client unavailable')
 
   const prompt = [
     '你是一位 AI 产品设计师。为下面的 Skill 创建一个专家身份：',
@@ -102,30 +102,30 @@ async function generateViaLLM(
     '{"name":"专家名称","tagline":"简介","systemPrompt":"系统指令..."}',
     '```',
     '只输出 JSON，用中文。',
-  ].join('\n');
+  ].join('\n')
 
   const chat = await client.createTemporaryChat(
     SceneType.CHAT_CONVERSATION,
     SceneManager.getModelForScene(SceneType.CHAT_CONVERSATION),
     { type: 'sub', agentId: 'AutoProfileGenerator' },
     { emptySystemPrompt: true },
-  );
+  )
 
   const response = await chat.sendMessage(
     { message: prompt, config: { maxOutputTokens: 4096 } },
     `profile-${skillName}-${Date.now()}`,
     SceneType.CHAT_CONVERSATION,
-  );
+  )
 
-  const text = getResponseText(response)?.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-  if (!text) throw new Error('Empty LLM response');
+  const text = getResponseText(response)?.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
+  if (!text) throw new Error('Empty LLM response')
 
-  let parsed: { name?: string; tagline?: string; systemPrompt?: string };
+  let parsed: { name?: string; tagline?: string; systemPrompt?: string }
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(text)
   } catch {
-    const fb = text.indexOf('{'); const lb = text.lastIndexOf('}');
-    parsed = JSON.parse(text.slice(fb, lb + 1));
+    const fb = text.indexOf('{'); const lb = text.lastIndexOf('}')
+    parsed = JSON.parse(text.slice(fb, lb + 1))
   }
 
   return {
@@ -136,13 +136,13 @@ async function generateViaLLM(
     department: null,
     skills: [skillName],
     systemPrompt: parsed.systemPrompt || `你是专家"${skillName}"，按 Skill 流程完成任务。完成后输出汇总。`,
-  };
+  }
 }
 
 /** 纯模板回退（不需要 LLM）。 */
 function templateProfile(skillName: string, skillContent: string): AutoSkillProfileData {
-  const firstHeading = skillContent.split('\n').find(l => l.startsWith('# ') && !l.startsWith('## '));
-  const title = firstHeading?.replace(/^#\s*/, '').trim() || skillName;
+  const firstHeading = skillContent.split('\n').find(l => l.startsWith('# ') && !l.startsWith('## '))
+  const title = firstHeading?.replace(/^#\s*/, '').trim() || skillName
 
   return {
     id: `auto-skill-${skillName}`,
@@ -152,26 +152,26 @@ function templateProfile(skillName: string, skillContent: string): AutoSkillProf
     department: null,
     skills: [skillName],
     systemPrompt: `你是自动孵化的专家「${title}」。\n\n核心流程:\n\n${skillContent.slice(0, 1500)}\n\n完成后输出简短汇总。`,
-  };
+  }
 }
 
 // ── 全局 Config 注入 ──
-let globalConfig: Config | null = null;
-export function setAutoSkillConfigForProfile(config: Config): void { globalConfig = config; }
-function getGlobalConfig(): Config | null { return globalConfig; }
+let globalConfig: Config | null = null
+export function setAutoSkillConfigForProfile(config: Config): void { globalConfig = config }
+function getGlobalConfig(): Config | null { return globalConfig }
 
 // ── 加载所有自动专家 ──
 /** 扫描所有 Skill 目录中的 profile.json，返回专家列表。 */
 export function loadAutoGeneratedProfiles(): AutoSkillProfileData[] {
-  const skillsDir = resolveAutoSkillSkillsDir();
-  const result: AutoSkillProfileData[] = [];
+  const skillsDir = resolveAutoSkillSkillsDir()
+  const result: AutoSkillProfileData[] = []
   try {
-    if (!fsSync.existsSync(skillsDir)) return result;
+    if (!fsSync.existsSync(skillsDir)) return result
     for (const dirName of fsSync.readdirSync(skillsDir)) {
       try {
-        const pp = path.join(skillsDir, dirName, 'profile.json');
-        if (!fsSync.existsSync(pp)) continue;
-        const data = JSON.parse(fsSync.readFileSync(pp, 'utf8')) as Partial<AutoSkillProfileData>;
+        const pp = path.join(skillsDir, dirName, 'profile.json')
+        if (!fsSync.existsSync(pp)) continue
+        const data = JSON.parse(fsSync.readFileSync(pp, 'utf8')) as Partial<AutoSkillProfileData>
         if (data.id && data.name && data.systemPrompt) {
           result.push({
             id: data.id,
@@ -181,14 +181,14 @@ export function loadAutoGeneratedProfiles(): AutoSkillProfileData[] {
             department: data.department || null,
             skills: Array.isArray(data.skills) ? data.skills : [],
             systemPrompt: data.systemPrompt,
-          });
+          })
         }
       } catch { /* skip corrupt */ }
     }
   } catch { /* skip if dir missing */ }
-  return result;
+  return result
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
-  try { await fs.access(filePath); return true; } catch { return false; }
+  try { await fs.access(filePath); return true } catch { return false }
 }

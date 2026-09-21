@@ -2,23 +2,23 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { describe, expect, it, vi } from 'vitest';
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { describe, expect, it, vi } from 'vitest'
 import {
   handleDeploymentRoute,
   type DeploymentRouteServices,
-} from './deploymentRoutes.js';
+} from './deploymentRoutes.js'
 
 function routeInput(memberPrincipal: { organizationId: string } | null) {
   const resolveDeploymentUpdatePolicy = vi.fn(async () => ({
     status: 'not_configured' as const,
     reason: 'online_license_required' as const,
-  }));
-  const sendJSON = vi.fn();
+  }))
+  const sendJSON = vi.fn()
   const readBody = vi.fn(async () => ({
     distributionId: 'clawmaster-green',
     currentVersion: '1.9.10',
-  }));
+  }))
   return {
     resolveDeploymentUpdatePolicy,
     sendJSON,
@@ -35,29 +35,29 @@ function routeInput(memberPrincipal: { organizationId: string } | null) {
       readBody,
       sendJSON,
     },
-  };
+  }
 }
 
 describe('deployment update policy route', () => {
   it('requires an authenticated enterprise member', async () => {
-    const route = routeInput(null);
-    await expect(handleDeploymentRoute(route.input)).resolves.toBe(true);
-    expect(route.readBody).not.toHaveBeenCalled();
-    expect(route.resolveDeploymentUpdatePolicy).not.toHaveBeenCalled();
+    const route = routeInput(null)
+    await expect(handleDeploymentRoute(route.input)).resolves.toBe(true)
+    expect(route.readBody).not.toHaveBeenCalled()
+    expect(route.resolveDeploymentUpdatePolicy).not.toHaveBeenCalled()
     expect(route.sendJSON).toHaveBeenCalledWith(
       route.input.res,
       401,
       { error: 'member authentication required' },
-    );
+    )
   });
 
   it('forwards only the requested distribution and current version', async () => {
-    const route = routeInput({ organizationId: 'org_1' });
-    await expect(handleDeploymentRoute(route.input)).resolves.toBe(true);
+    const route = routeInput({ organizationId: 'org_1' })
+    await expect(handleDeploymentRoute(route.input)).resolves.toBe(true)
     expect(route.resolveDeploymentUpdatePolicy).toHaveBeenCalledWith({
       distributionId: 'clawmaster-green',
       currentVersion: '1.9.10',
-    });
+    })
     expect(route.sendJSON).toHaveBeenCalledWith(
       route.input.res,
       200,
@@ -65,13 +65,13 @@ describe('deployment update policy route', () => {
         status: 'not_configured',
         reason: 'online_license_required',
       },
-    );
+    )
   });
-});
+})
 
 describe('deployment operations security status route', () => {
   it('returns credential-free infrastructure, encryption and key-management posture', async () => {
-    const sendJSON = vi.fn();
+    const sendJSON = vi.fn()
     const operationsSecurity = {
       topology: {
         mode: 'local-offline',
@@ -91,13 +91,13 @@ describe('deployment operations security status route', () => {
         automaticRotation: 'not-configured',
         sseKms: 'not-configured',
       },
-    } as const;
+    } as const
     const services = {
       getPrivateDeploymentStatus: vi.fn(() => ({ license: { status: 'active' } })),
       getDataProtectionStatus: vi.fn(() => ({ backupCount: 2 })),
       getOperationsSecurityStatus: vi.fn(() => operationsSecurity),
-    } as unknown as DeploymentRouteServices;
-    const res = {} as ServerResponse;
+    } as unknown as DeploymentRouteServices
+    const res = {} as ServerResponse
 
     await expect(
       handleDeploymentRoute({
@@ -112,12 +112,12 @@ describe('deployment operations security status route', () => {
         readBody: vi.fn(),
         sendJSON,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(true)
 
     expect(sendJSON).toHaveBeenCalledWith(res, 200, {
       license: { status: 'active' },
       dataProtection: { backupCount: 2 },
       operationsSecurity,
-    });
+    })
   });
-});
+})

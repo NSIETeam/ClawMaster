@@ -23,10 +23,10 @@
  *                    | enough for the agent to continue reasoning   |
  */
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { homedir } from 'os';
-import { TurnState } from './turnStateMachine.js';
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import { homedir } from 'os'
+import { TurnState } from './turnStateMachine.js'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,47 +63,47 @@ export const TOOL_REPLAY_CLASSIFICATION: Readonly<Record<string, ToolReplayClass
   delete_file: ToolReplayClass.NEVER_REPLAYED,
   run_sql: ToolReplayClass.NEVER_REPLAYED,
   db_migration: ToolReplayClass.NEVER_REPLAYED,
-};
+}
 
 /** Default classification for tools not in the map. */
-export const DEFAULT_REPLAY_CLASS = ToolReplayClass.IDEMPOTENT;
+export const DEFAULT_REPLAY_CLASS = ToolReplayClass.IDEMPOTENT
 
 /**
  * Returns the replay classification for a tool.
  * Unknown tools default to IDEMPOTENT — conservative but safe.
  */
 export function classifyTool(toolName: string): ToolReplayClass {
-  return TOOL_REPLAY_CLASSIFICATION[toolName] ?? DEFAULT_REPLAY_CLASS;
+  return TOOL_REPLAY_CLASSIFICATION[toolName] ?? DEFAULT_REPLAY_CLASS
 }
 
 /** Record of a single completed tool execution. */
 export interface CompletedToolEntry {
   /** Tool name. */
-  name: string;
+  name: string
   /** Tool call ID (for dedup). */
-  callId: string;
+  callId: string
   /** When the tool completed (ISO). */
-  completedAt: string;
+  completedAt: string
   /** Result summary (truncated to 2KB for storage). */
-  resultSummary?: string;
+  resultSummary?: string
   /** Replay classification at the time of execution. */
-  replayClass: ToolReplayClass;
+  replayClass: ToolReplayClass
 }
 
 /** A turn checkpoint persisted to disk. */
 export interface TurnCheckpoint {
   /** Turn ID (unique per execution). */
-  turnId: string;
+  turnId: string
   /** Parent session ID. */
-  sessionId: string;
+  sessionId: string
   /** Current turn state machine state. */
-  state: TurnState;
+  state: TurnState
   /** Tools that have already been executed in this turn. */
-  completedTools: CompletedToolEntry[];
+  completedTools: CompletedToolEntry[]
   /** Last tool result summary (for agent context on resume). */
-  lastToolResult?: string;
+  lastToolResult?: string
   /** ISO timestamp of last write. */
-  timestamp: string;
+  timestamp: string
 }
 
 // ---------------------------------------------------------------------------
@@ -111,18 +111,18 @@ export interface TurnCheckpoint {
 // ---------------------------------------------------------------------------
 
 export class TurnCheckpointManager {
-  private readonly checkpointsDir: string;
+  private readonly checkpointsDir: string
   /** Preserve write order when several tool completions land in one clock tick. */
-  private lastSavedAtMs = 0;
+  private lastSavedAtMs = 0
 
   constructor(baseDir?: string) {
-    const dir = baseDir || process.env.CLAWMASTER_USER_DIR || path.join(homedir(), '.clawmaster-user');
-    this.checkpointsDir = path.join(dir, 'checkpoints');
+    const dir = baseDir || process.env.CLAWMASTER_USER_DIR || path.join(homedir(), '.clawmaster-user')
+    this.checkpointsDir = path.join(dir, 'checkpoints')
   }
 
   /** Filesystem path for a turn checkpoint file. */
   private filePath(turnId: string): string {
-    return path.join(this.checkpointsDir, `turn-${turnId}.json`);
+    return path.join(this.checkpointsDir, `turn-${turnId}.json`)
   }
 
   /**
@@ -130,12 +130,12 @@ export class TurnCheckpointManager {
    * Creates the checkpoints directory if it doesn't exist.
    */
   async save(checkpoint: TurnCheckpoint): Promise<void> {
-    await fs.mkdir(this.checkpointsDir, { recursive: true });
-    const timestampMs = Math.max(Date.now(), this.lastSavedAtMs + 1);
-    this.lastSavedAtMs = timestampMs;
-    checkpoint.timestamp = new Date(timestampMs).toISOString();
-    const file = this.filePath(checkpoint.turnId);
-    await fs.writeFile(file, JSON.stringify(checkpoint, null, 2), 'utf-8');
+    await fs.mkdir(this.checkpointsDir, { recursive: true })
+    const timestampMs = Math.max(Date.now(), this.lastSavedAtMs + 1)
+    this.lastSavedAtMs = timestampMs
+    checkpoint.timestamp = new Date(timestampMs).toISOString()
+    const file = this.filePath(checkpoint.turnId)
+    await fs.writeFile(file, JSON.stringify(checkpoint, null, 2), 'utf-8')
   }
 
   /**
@@ -143,17 +143,17 @@ export class TurnCheckpointManager {
    * Returns null if no checkpoint exists.
    */
   async load(sessionId: string): Promise<TurnCheckpoint | null> {
-    const incomplete = await this.listIncomplete();
+    const incomplete = await this.listIncomplete()
 
     // Filter to this session and pick the most recent one
     const sessionCheckpoints = incomplete
-      .filter((cp) => cp.sessionId === sessionId)
+      .filter(cp => cp.sessionId === sessionId)
       .sort(
         (a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-      );
+      )
 
-    return sessionCheckpoints.length > 0 ? sessionCheckpoints[0] : null;
+    return sessionCheckpoints.length > 0 ? sessionCheckpoints[0] : null
   }
 
   /**
@@ -161,8 +161,8 @@ export class TurnCheckpointManager {
    */
   async clear(turnId: string): Promise<void> {
     try {
-      const file = this.filePath(turnId);
-      await fs.unlink(file);
+      const file = this.filePath(turnId)
+      await fs.unlink(file)
     } catch {
       // Already gone — fine.
     }
@@ -174,31 +174,31 @@ export class TurnCheckpointManager {
    */
   async listIncomplete(): Promise<TurnCheckpoint[]> {
     try {
-      const files = await fs.readdir(this.checkpointsDir);
-      const checkpoints: TurnCheckpoint[] = [];
+      const files = await fs.readdir(this.checkpointsDir)
+      const checkpoints: TurnCheckpoint[] = []
 
       for (const file of files) {
-        if (!file.startsWith('turn-') || !file.endsWith('.json')) continue;
+        if (!file.startsWith('turn-') || !file.endsWith('.json')) continue
         try {
           const raw = await fs.readFile(
             path.join(this.checkpointsDir, file),
             'utf-8',
-          );
-          const cp = JSON.parse(raw) as TurnCheckpoint;
+          )
+          const cp = JSON.parse(raw) as TurnCheckpoint
 
           // Only keep truly incomplete turns (not COMPLETED / FAILED / CANCELLED)
           const terminalStates: TurnState[] = [
             TurnState.COMPLETED,
             TurnState.FAILED,
             TurnState.CANCELLED,
-          ];
+          ]
           if (
             cp.turnId &&
             cp.sessionId &&
             cp.state &&
             !terminalStates.includes(cp.state)
           ) {
-            checkpoints.push(cp);
+            checkpoints.push(cp)
           }
         } catch {
           // Corrupt file — skip.
@@ -208,9 +208,9 @@ export class TurnCheckpointManager {
       return checkpoints.sort(
         (a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-      );
+      )
     } catch {
-      return [];
+      return []
     }
   }
 
@@ -231,34 +231,34 @@ export class TurnCheckpointManager {
     callId: string,
   ): boolean {
     const completed = checkpoint.completedTools.find(
-      (t) => t.name === toolName && t.callId === callId,
-    );
-    if (!completed) return false;
+      t => t.name === toolName && t.callId === callId,
+    )
+    if (!completed) return false
 
-    return completed.replayClass === ToolReplayClass.NEVER_REPLAYED;
+    return completed.replayClass === ToolReplayClass.NEVER_REPLAYED
   }
 
   /**
    * Build a human-readable summary of an incomplete turn for the user.
    */
   static formatForRecovery(cp: TurnCheckpoint): string {
-    const lines: string[] = [];
-    lines.push(`Turn: ${cp.turnId.slice(0, 16)}...`);
-    lines.push(`  Session:  ${cp.sessionId.slice(0, 16)}...`);
-    lines.push(`  State:    ${cp.state}`);
-    lines.push(`  Timestamp: ${cp.timestamp}`);
-    lines.push(`  Completed tools (${cp.completedTools.length}):`);
+    const lines: string[] = []
+    lines.push(`Turn: ${cp.turnId.slice(0, 16)}...`)
+    lines.push(`  Session:  ${cp.sessionId.slice(0, 16)}...`)
+    lines.push(`  State:    ${cp.state}`)
+    lines.push(`  Timestamp: ${cp.timestamp}`)
+    lines.push(`  Completed tools (${cp.completedTools.length}):`)
     for (const tool of cp.completedTools) {
       const replayLabel =
         tool.replayClass === ToolReplayClass.NEVER_REPLAYED
           ? ' 🔒'
           : tool.replayClass === ToolReplayClass.IDEMPOTENT
             ? ' ♻️'
-            : '';
+            : ''
       lines.push(
         `    - ${tool.name} (${tool.callId.slice(0, 8)}...)${replayLabel}`,
-      );
+      )
     }
-    return lines.join('\n');
+    return lines.join('\n')
   }
 }

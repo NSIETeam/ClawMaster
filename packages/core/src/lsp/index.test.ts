@@ -4,60 +4,60 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as path from 'node:path';
-import * as os from 'node:os';
-import * as fs from 'node:fs';
-import * as fsp from 'node:fs/promises';
-import { PassThrough } from 'node:stream';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import * as path from 'node:path'
+import * as os from 'node:os'
+import * as fs from 'node:fs'
+import * as fsp from 'node:fs/promises'
+import { PassThrough } from 'node:stream'
 /* eslint-disable import/no-internal-modules -- test must mirror the production Node transport. */
 import {
   createMessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
-} from 'vscode-jsonrpc/node.js';
+} from 'vscode-jsonrpc/node.js'
 /* eslint-enable import/no-internal-modules */
-import { LSPManager } from './index.js';
+import { LSPManager } from './index.js'
 
 function createDuplexTransport() {
-  const clientToServer = new PassThrough();
-  const serverToClient = new PassThrough();
+  const clientToServer = new PassThrough()
+  const serverToClient = new PassThrough()
 
   const fakeProcess = {
     stdin: clientToServer,
     stdout: serverToClient,
     stderr: new PassThrough(),
-  };
+  }
 
   const serverConnection = createMessageConnection(
     new StreamMessageReader(clientToServer),
     new StreamMessageWriter(serverToClient),
-  );
+  )
 
-  return { fakeProcess, serverConnection };
+  return { fakeProcess, serverConnection }
 }
 
 describe('LSPManager robustness', () => {
-  let tempRootDir: string;
-  let pyFile: string;
+  let tempRootDir: string
+  let pyFile: string
 
   beforeEach(async () => {
-    tempRootDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'clawmaster-lsp-'));
-    pyFile = path.join(tempRootDir, 'a.py');
-    await fsp.writeFile(pyFile, 'x = 1\n', 'utf8');
+    tempRootDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'clawmaster-lsp-'))
+    pyFile = path.join(tempRootDir, 'a.py')
+    await fsp.writeFile(pyFile, 'x = 1\n', 'utf8')
   });
 
   afterEach(async () => {
-    vi.unstubAllEnvs();
+    vi.unstubAllEnvs()
     if (fs.existsSync(tempRootDir)) {
-      await fsp.rm(tempRootDir, { recursive: true, force: true });
+      await fsp.rm(tempRootDir, { recursive: true, force: true })
     }
-  });
+  })
 
   it('should not hang forever if a server never responds to a request (timeout)', async () => {
-    vi.stubEnv('CLAWMASTER_LSP_REQUEST_TIMEOUT_MS', '50');
+    vi.stubEnv('CLAWMASTER_LSP_REQUEST_TIMEOUT_MS', '50')
 
-    const manager = new LSPManager(tempRootDir);
+    const manager = new LSPManager(tempRootDir)
 
     const { fakeProcess, serverConnection } = createDuplexTransport();
 
@@ -70,26 +70,26 @@ describe('LSPManager robustness', () => {
         root: async () => tempRootDir,
         spawn: async () => ({ process: fakeProcess as unknown as import('node:child_process').ChildProcess }),
       },
-    ];
+    ]
 
-    serverConnection.onRequest('initialize', async () => ({ capabilities: {} }));
+    serverConnection.onRequest('initialize', async () => ({ capabilities: {} }))
 
     // Never resolve hover -> simulate server stuck.
     serverConnection.onRequest('textDocument/hover', async () => await new Promise(() => {
-        // intentionally never resolves
-      }));
+      // intentionally never resolves
+    }))
 
-    serverConnection.listen();
+    serverConnection.listen()
 
-    const t0 = Date.now();
-    const result = await manager.getHover(pyFile, 0, 0);
-    const elapsed = Date.now() - t0;
+    const t0 = Date.now()
+    const result = await manager.getHover(pyFile, 0, 0)
+    const elapsed = Date.now() - t0
 
     // The manager should return quickly with no results.
-    expect(elapsed).toBeLessThan(5000);
-    expect(result).toEqual([]);
+    expect(elapsed).toBeLessThan(5000)
+    expect(result).toEqual([])
 
-    await manager.shutdown();
-    serverConnection.dispose();
+    await manager.shutdown()
+    serverConnection.dispose()
   });
-});
+})

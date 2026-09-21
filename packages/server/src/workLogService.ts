@@ -4,62 +4,62 @@
  * 工作日志共享服务：不依赖 Electron/Tauri，所有桌面外壳经本机 Server 复用。
  */
 
-import * as fs from 'node:fs/promises';
-import { homedir } from 'node:os';
-import * as path from 'node:path';
+import * as fs from 'node:fs/promises'
+import { homedir } from 'node:os'
+import * as path from 'node:path'
 
 export interface StoredWorkLogEntry {
-  timestamp: string;
-  toolName: string;
-  action: string;
-  category: string;
-  success: boolean;
-  durationMs?: number;
-  details?: string;
-  userId?: string;
-  sessionId?: string;
-  entryType?: 'tool' | 'work_result';
-  taskTitle?: string;
-  userInput?: string;
+  timestamp: string
+  toolName: string
+  action: string
+  category: string
+  success: boolean
+  durationMs?: number
+  details?: string
+  userId?: string
+  sessionId?: string
+  entryType?: 'tool' | 'work_result'
+  taskTitle?: string
+  userInput?: string
 }
 
 export interface WorkLogDisplayEntry {
-  time: string;
-  category: string;
-  action: string;
-  success: boolean;
-  details?: string;
-  entryType: 'tool' | 'work_result';
-  taskTitle?: string;
+  time: string
+  category: string
+  action: string
+  success: boolean
+  details?: string
+  entryType: 'tool' | 'work_result'
+  taskTitle?: string
 }
 
 export interface WorkLogDay {
-  date: string;
-  entries: WorkLogDisplayEntry[];
+  date: string
+  entries: WorkLogDisplayEntry[]
 }
 
 export interface WorkLogSummary {
-  summary: string;
-  date: string;
-  totalActions: number;
-  workResults: number;
+  summary: string
+  date: string
+  totalActions: number
+  workResults: number
 }
 
 export interface WorkLogReportResult {
-  ok: boolean;
-  date: string;
-  title: string;
-  markdown: string;
-  html?: string;
-  path: string;
-  message: string;
+  ok: boolean
+  date: string
+  title: string
+  markdown: string
+  html?: string
+  path: string
+  message: string
 }
 
 export function resolveDefaultWorkLogRoot(): string {
-  const explicit = process.env['CLAWMASTER_WORKLOG_DIR']?.trim();
-  if (explicit) return explicit;
-  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
-  return path.join(userDir || path.join(homedir(), '.clawmaster-user'), 'memory', 'worklog');
+  const explicit = process.env['CLAWMASTER_WORKLOG_DIR']?.trim()
+  if (explicit) return explicit
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim()
+  return path.join(userDir || path.join(homedir(), '.clawmaster-user'), 'memory', 'worklog')
 }
 
 export class WorkLogService {
@@ -69,31 +69,31 @@ export class WorkLogService {
   ) {}
 
   async today(): Promise<WorkLogSummary> {
-    const date = localDateKey(this.now());
-    return summarizeWorkLog(date, await readWorkLogEntries(this.worklogRoot, date));
+    const date = localDateKey(this.now())
+    return summarizeWorkLog(date, await readWorkLogEntries(this.worklogRoot, date))
   }
 
   recent(days?: number): Promise<WorkLogDay[]> {
-    return readRecentWorkLogs(this.worklogRoot, days, this.now());
+    return readRecentWorkLogs(this.worklogRoot, days, this.now())
   }
 
   report(): Promise<WorkLogReportResult> {
-    return generateAndSaveWorkReport(this.worklogRoot, localDateKey(this.now()));
+    return generateAndSaveWorkReport(this.worklogRoot, localDateKey(this.now()))
   }
 }
 
 /** 与 UI 月历一致的本地日期键。 */
 export function localDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function localTime(timestamp: string): string {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return '--:--';
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return '--:--'
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
 export async function readWorkLogEntries(
@@ -104,19 +104,19 @@ export async function readWorkLogEntries(
     const raw = await fs.readFile(
       path.join(worklogRoot, 'daily', `${date}.jsonl`),
       'utf8',
-    );
-    const entries: StoredWorkLogEntry[] = [];
+    )
+    const entries: StoredWorkLogEntry[] = []
     for (const line of raw.split('\n')) {
-      if (!line.trim()) continue;
+      if (!line.trim()) continue
       try {
-        entries.push(JSON.parse(line) as StoredWorkLogEntry);
+        entries.push(JSON.parse(line) as StoredWorkLogEntry)
       } catch {
         // 单行损坏不应让整天日志变空。
       }
     }
-    return entries;
+    return entries
   } catch {
-    return [];
+    return []
   }
 }
 
@@ -125,21 +125,21 @@ export async function readRecentWorkLogs(
   days = 31,
   now = new Date(),
 ): Promise<WorkLogDay[]> {
-  const dayCount = Math.min(Math.max(Number(days) || 31, 1), 92);
-  const out: WorkLogDay[] = [];
+  const dayCount = Math.min(Math.max(Number(days) || 31, 1), 92)
+  const out: WorkLogDay[] = []
   for (let i = 0; i < dayCount; i++) {
     const localDay = new Date(
       now.getFullYear(),
       now.getMonth(),
       now.getDate() - i,
       12,
-    );
-    const date = localDateKey(localDay);
-    const entries = await readWorkLogEntries(worklogRoot, date);
-    if (entries.length === 0) continue;
+    )
+    const date = localDateKey(localDay)
+    const entries = await readWorkLogEntries(worklogRoot, date)
+    if (entries.length === 0) continue
     out.push({
       date,
-      entries: entries.map((entry) => ({
+      entries: entries.map(entry => ({
         time: localTime(entry.timestamp),
         category: entry.category || '未分类',
         action: entry.taskTitle || entry.action || '操作',
@@ -148,9 +148,9 @@ export async function readRecentWorkLogs(
         entryType: entry.entryType === 'work_result' ? 'work_result' : 'tool',
         taskTitle: entry.taskTitle,
       })),
-    });
+    })
   }
-  return out;
+  return out
 }
 
 export function summarizeWorkLog(
@@ -163,19 +163,19 @@ export function summarizeWorkLog(
       date,
       totalActions: 0,
       workResults: 0,
-    };
+    }
   }
 
   const workResults = entries.filter(
-    (entry) => entry.entryType === 'work_result',
-  );
-  const tools = entries.filter((entry) => entry.entryType !== 'work_result');
-  const successful = entries.filter((entry) => entry.success !== false).length;
-  const failed = entries.length - successful;
-  const categoryCounts = new Map<string, number>();
+    entry => entry.entryType === 'work_result',
+  )
+  const tools = entries.filter(entry => entry.entryType !== 'work_result')
+  const successful = entries.filter(entry => entry.success !== false).length
+  const failed = entries.length - successful
+  const categoryCounts = new Map<string, number>()
   for (const entry of entries) {
-    const category = entry.category || '未分类';
-    categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    const category = entry.category || '未分类'
+    categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1)
   }
 
   const lines = [
@@ -184,11 +184,11 @@ export function summarizeWorkLog(
     `工作成果：${workResults.length} 项`,
     `支撑操作：${tools.length} 次`,
     `成功：${successful}  失败：${failed}`,
-  ];
+  ]
   if (workResults.length > 0) {
-    lines.push('', '成果一览：');
+    lines.push('', '成果一览：')
     workResults.forEach((entry, index) => {
-      lines.push(`${index + 1}. ${entry.taskTitle || entry.action}`);
+      lines.push(`${index + 1}. ${entry.taskTitle || entry.action}`)
     });
   }
   lines.push(
@@ -197,22 +197,22 @@ export function summarizeWorkLog(
       .sort((a, b) => b[1] - a[1])
       .map(([category, count]) => `${category}:${count}`)
       .join(' | ')}`,
-  );
+  )
   return {
     summary: lines.join('\n'),
     date,
     totalActions: entries.length,
     workResults: workResults.length,
-  };
+  }
 }
 
 function reportTitle(entry: StoredWorkLogEntry | undefined): string {
   const raw = (entry?.taskTitle || entry?.action || '当日工作')
     .trim()
-    .replace(/^完成[：:]?\s*/, '');
-  if (raw.endsWith('报告')) return raw;
-  if (raw.includes('调研')) return `${raw}报告`;
-  return `${raw}工作报告`;
+    .replace(/^完成[：:]?\s*/, '')
+  if (raw.endsWith('报告')) return raw
+  if (raw.includes('调研')) return `${raw}报告`
+  return `${raw}工作报告`
 }
 
 function cleanText(text: string | undefined, fallback = '未记录'): string {
@@ -222,22 +222,22 @@ function cleanText(text: string | undefined, fallback = '未记录'): string {
       .replace(/[#>*_`~|[\]()]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim() || fallback
-  );
+  )
 }
 
 function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength - 1)}…`;
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength - 1)}…`
 }
 
 function extractFollowUps(results: StoredWorkLogEntry[]): string[] {
-  const candidates = results.flatMap((entry) =>
+  const candidates = results.flatMap(entry =>
     (entry.details || '')
       .split('\n')
-      .map((line) => line.replace(/^[-*\d.、\s]+/, '').trim())
-      .filter((line) => /待跟进|下一步|后续|TODO|未完成/i.test(line)),
-  );
-  return [...new Set(candidates)].slice(0, 8);
+      .map(line => line.replace(/^[-*\d.、\s]+/, '').trim())
+      .filter(line => /待跟进|下一步|后续|TODO|未完成/i.test(line)),
+  )
+  return [...new Set(candidates)].slice(0, 8)
 }
 
 function safeFileName(value: string): string {
@@ -245,7 +245,7 @@ function safeFileName(value: string): string {
     .replace(/[\\/:*?"<>|]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 80);
+    .slice(0, 80)
 }
 
 function escapeHtml(value: string): string {
@@ -254,7 +254,7 @@ function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/'/g, '&#39;')
 }
 
 function categoryLabel(category: string | undefined): string {
@@ -273,52 +273,52 @@ function categoryLabel(category: string | undefined): string {
     web: '网页检索',
     memory: '记忆沉淀',
     other: '其他',
-  };
-  return labels[category || ''] ?? category ?? '未分类';
+  }
+  return labels[category || ''] ?? category ?? '未分类'
 }
 
 function summarizeResults(results: StoredWorkLogEntry[]): string {
   if (results.length === 0) {
-    return '今天主要完成了一批支撑操作，暂未识别到明确的业务成果。';
+    return '今天主要完成了一批支撑操作，暂未识别到明确的业务成果。'
   }
   const topics = results
-    .map((entry) => cleanText(entry.taskTitle || entry.action, '工作事项'))
-    .filter(Boolean);
-  if (topics.length === 1) return `今天重点完成了“${topics[0]}”。`;
+    .map(entry => cleanText(entry.taskTitle || entry.action, '工作事项'))
+    .filter(Boolean)
+  if (topics.length === 1) return `今天重点完成了“${topics[0]}”。`
   return `今天围绕 ${topics
     .slice(0, 3)
-    .map((item) => `“${item}”`)
-    .join('、')} 等事项形成了 ${results.length} 项工作成果。`;
+    .map(item => `“${item}”`)
+    .join('、')} 等事项形成了 ${results.length} 项工作成果。`
 }
 
 function summarizeProcess(
   entries: StoredWorkLogEntry[],
   results: StoredWorkLogEntry[],
 ): string[] {
-  const tools = entries.filter((entry) => entry.entryType !== 'work_result');
-  const failed = entries.filter((entry) => entry.success === false).length;
-  const categories = new Map<string, number>();
+  const tools = entries.filter(entry => entry.entryType !== 'work_result')
+  const failed = entries.filter(entry => entry.success === false).length
+  const categories = new Map<string, number>()
   for (const entry of entries) {
-    const label = categoryLabel(entry.category);
-    categories.set(label, (categories.get(label) || 0) + 1);
+    const label = categoryLabel(entry.category)
+    categories.set(label, (categories.get(label) || 0) + 1)
   }
   const topCategories = [...categories.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([label, count]) => `${label} ${count} 次`);
+    .map(([label, count]) => `${label} ${count} 次`)
 
   const lines = [
     `共记录 ${entries.length} 条工作日志，其中成果 ${results.length} 项、支撑操作 ${tools.length} 次。`,
-  ];
+  ]
   if (topCategories.length > 0) {
-    lines.push(`主要工作类型集中在：${topCategories.join('、')}。`);
+    lines.push(`主要工作类型集中在：${topCategories.join('、')}。`)
   }
   lines.push(
     failed > 0
       ? `有 ${failed} 次操作未成功，后续可优先检查这些任务的前置条件或文件权限。`
       : '当天记录的操作整体执行顺利，未发现失败操作。',
-  );
-  return lines;
+  )
+  return lines
 }
 
 function buildReportMarkdown(
@@ -337,33 +337,33 @@ function buildReportMarkdown(
     '',
     summarizeResults(workResults),
     '',
-    ...summarizeProcess(entries, workResults).map((item) => `- ${item}`),
+    ...summarizeProcess(entries, workResults).map(item => `- ${item}`),
     '',
     '## 重点成果',
     '',
-  ];
+  ]
 
   reportEntries.slice(0, 8).forEach((entry, index) => {
     lines.push(
       `${index + 1}. **${cleanText(entry.taskTitle || entry.action, '工作事项')}**`,
       `   - 任务：${truncateText(cleanText(entry.userInput, '未记录原始任务'), 160)}`,
       `   - 摘要：${truncateText(cleanText(entry.details, '已完成相关处理'), 260)}`,
-    );
+    )
   });
   if (reportEntries.length > 8) {
-    lines.push(`- 另有 ${reportEntries.length - 8} 项记录已归档在当天工作日志中。`);
+    lines.push(`- 另有 ${reportEntries.length - 8} 项记录已归档在当天工作日志中。`)
   }
 
-  lines.push('', '## 后续事项', '');
-  const followUps = extractFollowUps(workResults);
-  if (followUps.length === 0) lines.push('- 暂未自动识别到明确待跟进事项。');
+  lines.push('', '## 后续事项', '')
+  const followUps = extractFollowUps(workResults)
+  if (followUps.length === 0) lines.push('- 暂未自动识别到明确待跟进事项。')
   else {
-    followUps.forEach((item) =>
+    followUps.forEach(item =>
       lines.push(`- ${truncateText(cleanText(item), 180)}`),
-    );
+    )
   }
-  lines.push('', '---', '由 ClawMaster 工作日志自动汇总。');
-  return lines.join('\n');
+  lines.push('', '---', '由 ClawMaster 工作日志自动汇总。')
+  return lines.join('\n')
 }
 
 function buildReportHtml(
@@ -373,24 +373,24 @@ function buildReportHtml(
   workResults: StoredWorkLogEntry[],
   reportEntries: StoredWorkLogEntry[],
 ): string {
-  const processItems = summarizeProcess(entries, workResults);
-  const followUps = extractFollowUps(workResults);
+  const processItems = summarizeProcess(entries, workResults)
+  const followUps = extractFollowUps(workResults)
   const resultItems = reportEntries
     .slice(0, 8)
     .map(
-      (entry) => `
+      entry => `
       <article class="item">
         <h3>${escapeHtml(cleanText(entry.taskTitle || entry.action, '工作事项'))}</h3>
         <p><strong>任务：</strong>${escapeHtml(truncateText(cleanText(entry.userInput, '未记录原始任务'), 180))}</p>
         <p><strong>摘要：</strong>${escapeHtml(truncateText(cleanText(entry.details, '已完成相关处理'), 320))}</p>
       </article>`,
     )
-    .join('');
+    .join('')
   const followUpItems = (
     followUps.length > 0 ? followUps : ['暂未自动识别到明确待跟进事项。']
   )
-    .map((item) => `<li>${escapeHtml(truncateText(cleanText(item), 180))}</li>`)
-    .join('');
+    .map(item => `<li>${escapeHtml(truncateText(cleanText(item), 180))}</li>`)
+    .join('')
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -430,7 +430,7 @@ function buildReportHtml(
     <section class="overview">
       <h2>今日概览</h2>
       <p>${escapeHtml(summarizeResults(workResults))}</p>
-      <ul>${processItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+      <ul>${processItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
     </section>
     <section>
       <h2>重点成果</h2>
@@ -443,14 +443,14 @@ function buildReportHtml(
     <footer>由 ClawMaster 工作日志自动汇总。</footer>
   </main>
 </body>
-</html>`;
+</html>`
 }
 
 export async function generateAndSaveWorkReport(
   worklogRoot: string,
   date: string,
 ): Promise<WorkLogReportResult> {
-  const entries = await readWorkLogEntries(worklogRoot, date);
+  const entries = await readWorkLogEntries(worklogRoot, date)
   if (entries.length === 0) {
     return {
       ok: false,
@@ -460,29 +460,29 @@ export async function generateAndSaveWorkReport(
       html: '',
       path: '',
       message: '今天还没有工作记录，暂无可总结的内容。',
-    };
+    }
   }
 
   const workResults = entries.filter(
-    (entry) => entry.entryType === 'work_result',
-  );
-  const reportEntries = workResults.length > 0 ? workResults : entries;
-  const title = reportTitle(reportEntries[reportEntries.length - 1]);
+    entry => entry.entryType === 'work_result',
+  )
+  const reportEntries = workResults.length > 0 ? workResults : entries
+  const title = reportTitle(reportEntries[reportEntries.length - 1])
   const markdown = buildReportMarkdown(
     title,
     date,
     entries,
     workResults,
     reportEntries,
-  );
-  const html = buildReportHtml(title, date, entries, workResults, reportEntries);
-  const summariesDir = path.join(worklogRoot, 'summaries');
-  await fs.mkdir(summariesDir, { recursive: true });
+  )
+  const html = buildReportHtml(title, date, entries, workResults, reportEntries)
+  const summariesDir = path.join(worklogRoot, 'summaries')
+  await fs.mkdir(summariesDir, { recursive: true })
   const reportPath = path.join(
     summariesDir,
     `${date}-${safeFileName(title)}.html`,
-  );
-  await fs.writeFile(reportPath, html, 'utf8');
+  )
+  await fs.writeFile(reportPath, html, 'utf8')
   return {
     ok: true,
     date,
@@ -491,5 +491,5 @@ export async function generateAndSaveWorkReport(
     html,
     path: reportPath,
     message: `已生成并保存「${title}」HTML 总结：${reportPath}`,
-  };
+  }
 }

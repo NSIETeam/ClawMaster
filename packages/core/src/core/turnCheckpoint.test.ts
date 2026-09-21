@@ -6,10 +6,10 @@
  * Tests for TurnCheckpointManager — crash recovery checkpoint system.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { tmpdir } from 'os';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import { tmpdir } from 'os'
 
 import {
   TurnCheckpointManager,
@@ -18,25 +18,25 @@ import {
   ToolReplayClass,
   classifyTool,
   DEFAULT_REPLAY_CLASS,
-} from './turnCheckpoint.js';
-import { TurnState } from './turnStateMachine.js';
+} from './turnCheckpoint.js'
+import { TurnState } from './turnStateMachine.js'
 
-let tmpDir: string;
-let manager: TurnCheckpointManager;
+let tmpDir: string
+let manager: TurnCheckpointManager
 
 beforeEach(async () => {
   tmpDir = path.join(
     tmpdir(),
     `clawmaster-turn-checkpoint-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
-  await fs.mkdir(tmpDir, { recursive: true });
+  )
+  await fs.mkdir(tmpDir, { recursive: true })
   manager = new TurnCheckpointManager(
     path.join(tmpDir, '.clawmaster-user'),
-  );
+  )
 });
 
 afterEach(async () => {
-  await fs.rm(tmpDir, { recursive: true, force: true });
+  await fs.rm(tmpDir, { recursive: true, force: true })
 });
 
 function makeCheckpoint(
@@ -49,7 +49,7 @@ function makeCheckpoint(
     completedTools: [],
     timestamp: new Date().toISOString(),
     ...overrides,
-  };
+  }
 }
 
 function makeToolEntry(
@@ -62,7 +62,7 @@ function makeToolEntry(
     resultSummary: 'OK',
     replayClass: ToolReplayClass.IDEMPOTENT,
     ...overrides,
-  };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -71,70 +71,70 @@ function makeToolEntry(
 
 describe('TurnCheckpointManager — save & load', () => {
   it('should save a checkpoint to disk', async () => {
-    const cp = makeCheckpoint();
-    await manager.save(cp);
+    const cp = makeCheckpoint()
+    await manager.save(cp)
 
-    const loaded = await manager.load(cp.sessionId);
-    expect(loaded).not.toBeNull();
-    expect(loaded!.turnId).toBe(cp.turnId);
-    expect(loaded!.sessionId).toBe(cp.sessionId);
-    expect(loaded!.state).toBe(cp.state);
-    expect(loaded!.completedTools).toEqual(cp.completedTools);
+    const loaded = await manager.load(cp.sessionId)
+    expect(loaded).not.toBeNull()
+    expect(loaded!.turnId).toBe(cp.turnId)
+    expect(loaded!.sessionId).toBe(cp.sessionId)
+    expect(loaded!.state).toBe(cp.state)
+    expect(loaded!.completedTools).toEqual(cp.completedTools)
   });
 
   it('should return null when no checkpoint exists', async () => {
-    const loaded = await manager.load('nonexistent-session');
-    expect(loaded).toBeNull();
+    const loaded = await manager.load('nonexistent-session')
+    expect(loaded).toBeNull()
   });
 
   it('should update timestamp on each save', async () => {
-    const cp = makeCheckpoint();
-    await manager.save(cp);
+    const cp = makeCheckpoint()
+    await manager.save(cp)
 
-    const loaded1 = await manager.load(cp.sessionId);
-    const ts1 = new Date(loaded1!.timestamp).getTime();
+    const loaded1 = await manager.load(cp.sessionId)
+    const ts1 = new Date(loaded1!.timestamp).getTime()
 
     // Wait a tiny bit then re-save
-    await new Promise((r) => setTimeout(r, 10));
-    await manager.save(cp);
+    await new Promise(r => setTimeout(r, 10))
+    await manager.save(cp)
 
-    const loaded2 = await manager.load(cp.sessionId);
-    const ts2 = new Date(loaded2!.timestamp).getTime();
+    const loaded2 = await manager.load(cp.sessionId)
+    const ts2 = new Date(loaded2!.timestamp).getTime()
 
-    expect(ts2).toBeGreaterThanOrEqual(ts1);
+    expect(ts2).toBeGreaterThanOrEqual(ts1)
   });
 
   it('should load the most recent checkpoint for a session', async () => {
-    const old = makeCheckpoint({ timestamp: '2025-01-01T00:00:00.000Z', state: TurnState.PLANNING });
-    const recent = makeCheckpoint({ timestamp: '2025-06-01T00:00:00.000Z', state: TurnState.EXECUTING_TOOL });
-    old.sessionId = recent.sessionId;
-    old.turnId = 'turn-old';
-    recent.turnId = 'turn-recent';
+    const old = makeCheckpoint({ timestamp: '2025-01-01T00:00:00.000Z', state: TurnState.PLANNING })
+    const recent = makeCheckpoint({ timestamp: '2025-06-01T00:00:00.000Z', state: TurnState.EXECUTING_TOOL })
+    old.sessionId = recent.sessionId
+    old.turnId = 'turn-old'
+    recent.turnId = 'turn-recent'
 
-    await manager.save(old);
-    await manager.save(recent);
+    await manager.save(old)
+    await manager.save(recent)
 
-    const loaded = await manager.load(old.sessionId);
-    expect(loaded).not.toBeNull();
+    const loaded = await manager.load(old.sessionId)
+    expect(loaded).not.toBeNull()
     // Most recent should win
-    expect(loaded!.turnId).toBe('turn-recent');
-    expect(loaded!.state).toBe(TurnState.EXECUTING_TOOL);
+    expect(loaded!.turnId).toBe('turn-recent')
+    expect(loaded!.state).toBe(TurnState.EXECUTING_TOOL)
   });
 
   it('preserves checkpoint write order when saves share a clock tick', async () => {
-    const old = makeCheckpoint({ turnId: 'turn-same-tick-old' });
-    const recent = makeCheckpoint({ turnId: 'turn-same-tick-recent' });
-    old.sessionId = recent.sessionId;
+    const old = makeCheckpoint({ turnId: 'turn-same-tick-old' })
+    const recent = makeCheckpoint({ turnId: 'turn-same-tick-recent' })
+    old.sessionId = recent.sessionId
 
-    await manager.save(old);
-    await manager.save(recent);
+    await manager.save(old)
+    await manager.save(recent)
 
     expect(new Date(recent.timestamp).getTime()).toBeGreaterThan(
       new Date(old.timestamp).getTime(),
-    );
-    expect((await manager.load(old.sessionId))?.turnId).toBe(recent.turnId);
+    )
+    expect((await manager.load(old.sessionId))?.turnId).toBe(recent.turnId)
   });
-});
+})
 
 // ---------------------------------------------------------------------------
 // 2. clear
@@ -142,31 +142,31 @@ describe('TurnCheckpointManager — save & load', () => {
 
 describe('TurnCheckpointManager — clear', () => {
   it('should remove a checkpoint after successful completion', async () => {
-    const cp = makeCheckpoint();
-    await manager.save(cp);
+    const cp = makeCheckpoint()
+    await manager.save(cp)
 
-    await manager.clear(cp.turnId);
+    await manager.clear(cp.turnId)
 
-    const loaded = await manager.load(cp.sessionId);
-    expect(loaded).toBeNull();
+    const loaded = await manager.load(cp.sessionId)
+    expect(loaded).toBeNull()
   });
 
   it('should not throw when clearing a non-existent checkpoint', async () => {
-    await expect(manager.clear('nonexistent-turn-id')).resolves.toBeUndefined();
+    await expect(manager.clear('nonexistent-turn-id')).resolves.toBeUndefined()
   });
 
   it('should leave other checkpoints intact after clearing one', async () => {
-    const cp1 = makeCheckpoint({ sessionId: 'sess-a', turnId: 't1' });
-    const cp2 = makeCheckpoint({ sessionId: 'sess-b', turnId: 't2' });
+    const cp1 = makeCheckpoint({ sessionId: 'sess-a', turnId: 't1' })
+    const cp2 = makeCheckpoint({ sessionId: 'sess-b', turnId: 't2' })
 
-    await manager.save(cp1);
-    await manager.save(cp2);
-    await manager.clear('t1');
+    await manager.save(cp1)
+    await manager.save(cp2)
+    await manager.clear('t1')
 
-    expect(await manager.load('sess-a')).toBeNull();
-    expect(await manager.load('sess-b')).not.toBeNull();
+    expect(await manager.load('sess-a')).toBeNull()
+    expect(await manager.load('sess-b')).not.toBeNull()
   });
-});
+})
 
 // ---------------------------------------------------------------------------
 // 3. listIncomplete
@@ -174,57 +174,57 @@ describe('TurnCheckpointManager — clear', () => {
 
 describe('TurnCheckpointManager — listIncomplete', () => {
   it('should return empty array when no checkpoints exist', async () => {
-    const incomplete = await manager.listIncomplete();
-    expect(incomplete).toEqual([]);
+    const incomplete = await manager.listIncomplete()
+    expect(incomplete).toEqual([])
   });
 
   it('should list all incomplete turns across sessions', async () => {
-    const cp1 = makeCheckpoint({ sessionId: 'sess-x', state: TurnState.EXECUTING_TOOL });
-    const cp2 = makeCheckpoint({ sessionId: 'sess-y', state: TurnState.PLANNING });
+    const cp1 = makeCheckpoint({ sessionId: 'sess-x', state: TurnState.EXECUTING_TOOL })
+    const cp2 = makeCheckpoint({ sessionId: 'sess-y', state: TurnState.PLANNING })
 
-    await manager.save(cp1);
-    await manager.save(cp2);
+    await manager.save(cp1)
+    await manager.save(cp2)
 
-    const incomplete = await manager.listIncomplete();
-    expect(incomplete).toHaveLength(2);
-    const ids = incomplete.map((c) => c.turnId).sort();
-    expect(ids).toEqual([cp1.turnId, cp2.turnId].sort());
+    const incomplete = await manager.listIncomplete()
+    expect(incomplete).toHaveLength(2)
+    const ids = incomplete.map(c => c.turnId).sort()
+    expect(ids).toEqual([cp1.turnId, cp2.turnId].sort())
   });
 
   it('should exclude terminal-state checkpoints', async () => {
-    const running = makeCheckpoint({ state: TurnState.EXECUTING_TOOL, turnId: 't-running' });
-    const completed = makeCheckpoint({ state: TurnState.COMPLETED, turnId: 't-done' });
-    const failed = makeCheckpoint({ state: TurnState.FAILED, turnId: 't-failed' });
-    const cancelled = makeCheckpoint({ state: TurnState.CANCELLED, turnId: 't-cancel' });
+    const running = makeCheckpoint({ state: TurnState.EXECUTING_TOOL, turnId: 't-running' })
+    const completed = makeCheckpoint({ state: TurnState.COMPLETED, turnId: 't-done' })
+    const failed = makeCheckpoint({ state: TurnState.FAILED, turnId: 't-failed' })
+    const cancelled = makeCheckpoint({ state: TurnState.CANCELLED, turnId: 't-cancel' })
 
-    await manager.save(running);
-    await manager.save(completed);
-    await manager.save(failed);
-    await manager.save(cancelled);
+    await manager.save(running)
+    await manager.save(completed)
+    await manager.save(failed)
+    await manager.save(cancelled)
 
-    const incomplete = await manager.listIncomplete();
-    expect(incomplete).toHaveLength(1);
-    expect(incomplete[0].turnId).toBe('t-running');
+    const incomplete = await manager.listIncomplete()
+    expect(incomplete).toHaveLength(1)
+    expect(incomplete[0].turnId).toBe('t-running')
   });
 
   it('should sort by timestamp descending', async () => {
     const older = makeCheckpoint({
       turnId: 't-older',
       timestamp: '2025-01-01T00:00:00.000Z',
-    });
+    })
     const newer = makeCheckpoint({
       turnId: 't-newer',
       timestamp: '2025-06-01T00:00:00.000Z',
-    });
+    })
 
-    await manager.save(older);
-    await manager.save(newer);
+    await manager.save(older)
+    await manager.save(newer)
 
-    const incomplete = await manager.listIncomplete();
-    expect(incomplete[0].turnId).toBe('t-newer');
-    expect(incomplete[1].turnId).toBe('t-older');
+    const incomplete = await manager.listIncomplete()
+    expect(incomplete[0].turnId).toBe('t-newer')
+    expect(incomplete[1].turnId).toBe('t-older')
   });
-});
+})
 
 // ---------------------------------------------------------------------------
 // 4. crash recovery — tool already executed → not replayed
@@ -242,10 +242,10 @@ describe('TurnCheckpointManager — crash recovery', () => {
           replayClass: ToolReplayClass.NEVER_REPLAYED,
         },
       ],
-    });
+    })
 
-    const shouldSkip = manager.shouldSkipTool(cp, 'send_message', 'fc-send-1');
-    expect(shouldSkip).toBe(true);
+    const shouldSkip = manager.shouldSkipTool(cp, 'send_message', 'fc-send-1')
+    expect(shouldSkip).toBe(true)
   });
 
   it('should re-execute IDEMPOTENT tools (skip=false)', () => {
@@ -259,10 +259,10 @@ describe('TurnCheckpointManager — crash recovery', () => {
           replayClass: ToolReplayClass.IDEMPOTENT,
         },
       ],
-    });
+    })
 
-    const shouldSkip = manager.shouldSkipTool(cp, 'write_file', 'fc-write-1');
-    expect(shouldSkip).toBe(false);
+    const shouldSkip = manager.shouldSkipTool(cp, 'write_file', 'fc-write-1')
+    expect(shouldSkip).toBe(false)
   });
 
   it('should re-execute REPLAYABLE tools (skip=false)', () => {
@@ -276,10 +276,10 @@ describe('TurnCheckpointManager — crash recovery', () => {
           replayClass: ToolReplayClass.REPLAYABLE,
         },
       ],
-    });
+    })
 
-    const shouldSkip = manager.shouldSkipTool(cp, 'read_file', 'fc-read-1');
-    expect(shouldSkip).toBe(false);
+    const shouldSkip = manager.shouldSkipTool(cp, 'read_file', 'fc-read-1')
+    expect(shouldSkip).toBe(false)
   });
 
   it('should not skip tools that have NOT been completed yet', () => {
@@ -292,11 +292,11 @@ describe('TurnCheckpointManager — crash recovery', () => {
           replayClass: ToolReplayClass.IDEMPOTENT,
         },
       ],
-    });
+    })
 
     // This tool was never completed — should NOT be skipped
-    const shouldSkip = manager.shouldSkipTool(cp, 'send_message', 'fc-send-1');
-    expect(shouldSkip).toBe(false);
+    const shouldSkip = manager.shouldSkipTool(cp, 'send_message', 'fc-send-1')
+    expect(shouldSkip).toBe(false)
   });
 
   it('should not skip tools with different callIds (dedup by name+callId)', () => {
@@ -309,13 +309,13 @@ describe('TurnCheckpointManager — crash recovery', () => {
           replayClass: ToolReplayClass.NEVER_REPLAYED,
         },
       ],
-    });
+    })
 
     // Same tool name but different callId — it's a new invocation
-    const shouldSkip = manager.shouldSkipTool(cp, 'send_message', 'fc-send-2');
-    expect(shouldSkip).toBe(false);
+    const shouldSkip = manager.shouldSkipTool(cp, 'send_message', 'fc-send-2')
+    expect(shouldSkip).toBe(false)
   });
-});
+})
 
 // ---------------------------------------------------------------------------
 // 5. crash before tool → tool still needs executing
@@ -325,10 +325,10 @@ describe('TurnCheckpointManager — crash before tool execution', () => {
   it('should report that an un-completed tool is NOT in the completed list', () => {
     const cp = makeCheckpoint({
       completedTools: [],
-    });
+    })
 
-    const shouldSkip = manager.shouldSkipTool(cp, 'any_tool', 'fc-any');
-    expect(shouldSkip).toBe(false);
+    const shouldSkip = manager.shouldSkipTool(cp, 'any_tool', 'fc-any')
+    expect(shouldSkip).toBe(false)
   });
 
   it('should allow loading checkpoint state to see which tools ran', async () => {
@@ -339,25 +339,25 @@ describe('TurnCheckpointManager — crash before tool execution', () => {
         makeToolEntry({ name: 'read_file', callId: 'fc-r1', replayClass: ToolReplayClass.REPLAYABLE }),
         makeToolEntry({ name: 'write_file', callId: 'fc-w1', replayClass: ToolReplayClass.IDEMPOTENT }),
       ],
-    });
+    })
 
-    await manager.save(cp);
+    await manager.save(cp)
 
     // On recovery, load the checkpoint
-    const recovered = await manager.load(cp.sessionId);
-    expect(recovered).not.toBeNull();
-    expect(recovered!.completedTools).toHaveLength(2);
-    expect(recovered!.completedTools[0].name).toBe('read_file');
-    expect(recovered!.completedTools[1].name).toBe('write_file');
+    const recovered = await manager.load(cp.sessionId)
+    expect(recovered).not.toBeNull()
+    expect(recovered!.completedTools).toHaveLength(2)
+    expect(recovered!.completedTools[0].name).toBe('read_file')
+    expect(recovered!.completedTools[1].name).toBe('write_file')
   });
 
   it('should correctly classify known and unknown tools', () => {
-    expect(classifyTool('send_message')).toBe(ToolReplayClass.NEVER_REPLAYED);
-    expect(classifyTool('write_file')).toBe(ToolReplayClass.IDEMPOTENT);
-    expect(classifyTool('read_file')).toBe(ToolReplayClass.REPLAYABLE);
-    expect(classifyTool('some_custom_tool_xyz')).toBe(DEFAULT_REPLAY_CLASS);
+    expect(classifyTool('send_message')).toBe(ToolReplayClass.NEVER_REPLAYED)
+    expect(classifyTool('write_file')).toBe(ToolReplayClass.IDEMPOTENT)
+    expect(classifyTool('read_file')).toBe(ToolReplayClass.REPLAYABLE)
+    expect(classifyTool('some_custom_tool_xyz')).toBe(DEFAULT_REPLAY_CLASS)
   });
-});
+})
 
 // ---------------------------------------------------------------------------
 // 6. formatForRecovery
@@ -384,17 +384,17 @@ describe('TurnCheckpointManager.formatForRecovery', () => {
         },
       ],
       timestamp: '2025-06-01T00:00:02.000Z',
-    };
+    }
 
-    const summary = TurnCheckpointManager.formatForRecovery(cp);
-    expect(summary).toContain('turn-abc123de');
-    expect(summary).toContain('sess-xyz789');
-    expect(summary).toContain('executing_tool');
-    expect(summary).toContain('read_file');
-    expect(summary).toContain('send_message');
-    expect(summary).toContain('🔒'); // NEVER_REPLAYED marker
+    const summary = TurnCheckpointManager.formatForRecovery(cp)
+    expect(summary).toContain('turn-abc123de')
+    expect(summary).toContain('sess-xyz789')
+    expect(summary).toContain('executing_tool')
+    expect(summary).toContain('read_file')
+    expect(summary).toContain('send_message')
+    expect(summary).toContain('🔒') // NEVER_REPLAYED marker
   });
-});
+})
 
 // ---------------------------------------------------------------------------
 // 7. integration — full save/load/lifecycle in a single test
@@ -402,45 +402,45 @@ describe('TurnCheckpointManager.formatForRecovery', () => {
 
 describe('TurnCheckpointManager — lifecycle', () => {
   it('should support full save → load → append tools → clear cycle', async () => {
-    const cp = makeCheckpoint();
+    const cp = makeCheckpoint()
 
     // Phase 1: save initial state
-    await manager.save(cp);
+    await manager.save(cp)
 
     // Phase 2: load
-    let loaded = await manager.load(cp.sessionId);
-    expect(loaded).not.toBeNull();
-    expect(loaded!.completedTools).toHaveLength(0);
+    let loaded = await manager.load(cp.sessionId)
+    expect(loaded).not.toBeNull()
+    expect(loaded!.completedTools).toHaveLength(0)
 
     // Phase 3: tool executed → append to checkpoint
     cp.completedTools.push(
       makeToolEntry({ name: 'tool_a', callId: 'fc-a' }),
-    );
-    cp.state = TurnState.OBSERVING_RESULT;
-    await manager.save(cp);
+    )
+    cp.state = TurnState.OBSERVING_RESULT
+    await manager.save(cp)
 
-    loaded = await manager.load(cp.sessionId);
-    expect(loaded!.completedTools).toHaveLength(1);
-    expect(loaded!.state).toBe(TurnState.OBSERVING_RESULT);
+    loaded = await manager.load(cp.sessionId)
+    expect(loaded!.completedTools).toHaveLength(1)
+    expect(loaded!.state).toBe(TurnState.OBSERVING_RESULT)
 
     // Phase 4: another tool
     cp.completedTools.push(
       makeToolEntry({ name: 'send_message', callId: 'fc-s', replayClass: ToolReplayClass.NEVER_REPLAYED }),
-    );
-    await manager.save(cp);
+    )
+    await manager.save(cp)
 
-    loaded = await manager.load(cp.sessionId);
-    expect(loaded!.completedTools).toHaveLength(2);
+    loaded = await manager.load(cp.sessionId)
+    expect(loaded!.completedTools).toHaveLength(2)
     expect(
       manager.shouldSkipTool(loaded!, 'send_message', 'fc-s'),
-    ).toBe(true);
+    ).toBe(true)
     expect(
       manager.shouldSkipTool(loaded!, 'tool_a', 'fc-a'),
-    ).toBe(false);
+    ).toBe(false)
 
     // Phase 5: turn complete → clear
-    await manager.clear(cp.turnId);
-    loaded = await manager.load(cp.sessionId);
-    expect(loaded).toBeNull();
+    await manager.clear(cp.turnId)
+    loaded = await manager.load(cp.sessionId)
+    expect(loaded).toBeNull()
   });
-});
+})

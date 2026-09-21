@@ -31,14 +31,14 @@
  * 提示，可重试或配代理，不做静默降级。
  */
 
-import { app, shell } from 'electron';
-import type { WebContents } from 'electron';
-import { execFile, spawn } from 'node:child_process';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { promisify } from 'node:util';
+import { app, shell } from 'electron'
+import type { WebContents } from 'electron'
+import { execFile, spawn } from 'node:child_process'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import { promisify } from 'node:util'
 
-const execFileP = promisify(execFile);
+const execFileP = promisify(execFile)
 import {
   isAllowedAssetUrl,
   parseGithubRelease,
@@ -46,10 +46,10 @@ import {
   platformAssetKey,
   resolveCheckOutcome,
   type UpdateCheckResult,
-} from './update-core.js';
-import { computeFileSha256, verifyBeforeInstall } from './update-verify.js';
-import { downloadToFile } from './update-download.js';
-import { parseVerifiedManifestJson } from './update-manifest-integrity.js';
+} from './update-core.js'
+import { computeFileSha256, verifyBeforeInstall } from './update-verify.js'
+import { downloadToFile } from './update-download.js'
+import { parseVerifiedManifestJson } from './update-manifest-integrity.js'
 import {
   FALLBACK_RELEASE_API_URL,
   GITHUB_MANIFEST_URL,
@@ -57,32 +57,32 @@ import {
   PRIMARY_MANIFEST_URL,
   RELEASE_PAGE_URL,
   resolveManifestUrls,
-} from './update-sources.js';
+} from './update-sources.js'
 
 /** 检查更新的单次请求超时（任务书定 15s）。 */
-const CHECK_TIMEOUT_MS = 15_000;
+const CHECK_TIMEOUT_MS = 15_000
 
 /** 下载进度（webContents.send 推给 renderer）。 */
 export interface UpdateProgressInfo {
-  percent: number;
-  transferred: number;
-  total: number;
+  percent: number
+  transferred: number
+  total: number
 }
 
 /** 下载结果（结构化，不抛裸异常）。 */
 export type UpdateDownloadResult =
   | { ok: true; filePath: string; reused: boolean }
-  | { ok: false; cancelled?: boolean; error: string };
+  | { ok: false; cancelled?: boolean; error: string }
 
 /** 安装结果。 */
 export interface UpdateInstallResult {
-  ok: boolean;
-  message: string;
+  ok: boolean
+  message: string
 }
 
 type FetchJsonResult =
   | { ok: true; json: unknown }
-  | { ok: false; error: string; httpStatus?: number };
+  | { ok: false; error: string; httpStatus?: number }
 
 /** 带超时的匿名 JSON GET（跟随重定向）。所有失败都折叠成结构化错误。 */
 /** fetchJson 带退避重试：attempts 次内成功即返回；全失败返回最后一次结果。 */
@@ -92,15 +92,15 @@ async function fetchJsonWithRetry(
   attempts: number,
   expectedSha256?: string,
 ): Promise<FetchJsonResult> {
-  let last: FetchJsonResult = { ok: false, error: 'no attempt' };
+  let last: FetchJsonResult = { ok: false, error: 'no attempt' }
   for (let i = 0; i < attempts; i++) {
-    last = await fetchJson(url, timeoutMs, expectedSha256);
-    if (last.ok) return last;
+    last = await fetchJson(url, timeoutMs, expectedSha256)
+    if (last.ok) return last
     if (i < attempts - 1) {
-      await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+      await new Promise(r => setTimeout(r, 800 * (i + 1)))
     }
   }
-  return last;
+  return last
 }
 
 async function fetchJson(
@@ -108,12 +108,12 @@ async function fetchJson(
   timeoutMs: number,
   expectedSha256?: string,
 ): Promise<FetchJsonResult> {
-  const controller = new AbortController();
-  let timedOut = false;
+  const controller = new AbortController()
+  let timedOut = false
   const timer = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, timeoutMs);
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
   try {
     const res = await fetch(url, {
       signal: controller.signal,
@@ -123,49 +123,49 @@ async function fetchJson(
         'user-agent': 'clawmaster-desktop-updater',
         accept: 'application/json, application/vnd.github+json',
       },
-    });
+    })
     if (!res.ok) {
-      return { ok: false, error: `更新源返回 HTTP ${res.status}`, httpStatus: res.status };
+      return { ok: false, error: `更新源返回 HTTP ${res.status}`, httpStatus: res.status }
     }
     try {
-      return parseVerifiedManifestJson(await res.text(), expectedSha256);
+      return parseVerifiedManifestJson(await res.text(), expectedSha256)
     } catch {
-      return { ok: false, error: '更新清单不是有效的 JSON' };
+      return { ok: false, error: '更新清单不是有效的 JSON' }
     }
   } catch (e) {
     if (timedOut) {
-      return { ok: false, error: `检查更新超时（${Math.round(timeoutMs / 1000)}s 内无响应）` };
+      return { ok: false, error: `检查更新超时（${Math.round(timeoutMs / 1000)}s 内无响应）` }
     }
     return {
       ok: false,
       error:
         '网络请求失败，无法连接 GitHub（中国大陆直连可能较慢或不通，' +
         `可稍后重试或配置代理）：${e instanceof Error ? e.message : String(e)}`,
-    };
+    }
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timer)
   }
 }
 
 export interface ManagedUpdateSource {
-  manifestUrl: string;
-  manifestSha256: string;
-  releasePageUrl?: string;
+  manifestUrl: string
+  manifestSha256: string
+  releasePageUrl?: string
 }
 
 export class UpdateService {
   /** 最近一次「有新版」的检查结果（downloadUpdate 只信它，不接受 renderer 传 URL）。 */
   private lastAvailable: Extract<UpdateCheckResult, { status: 'update-available' }> | null =
-    null;
+    null
   /** 最近一次有效清单明确授权的镜像 origin；与 lastAvailable 同生命周期。 */
-  private allowedAssetOrigins: string[] = [];
+  private allowedAssetOrigins: string[] = []
   /** 进行中的下载（单例守护：同一时间只允许一个）。 */
-  private downloading: { controller: AbortController; partPath: string } | null = null;
+  private downloading: { controller: AbortController; partPath: string } | null = null
   /**
    * 已下载并通过 sha256 校验的安装包。**必须连期望 sha256 一起存**（审查 H2）：
    * installUpdate 打开前要用它对文件重验，防「校验后被替换」的 TOCTOU 窗口。
    */
-  private readyFile: { filePath: string; version: string; sha256: string } | null = null;
+  private readyFile: { filePath: string; version: string; sha256: string } | null = null
 
   constructor(
     /** 目标窗口 webContents（进度推送用；窗口可能重建，故传 getter）。 */
@@ -180,45 +180,45 @@ export class UpdateService {
    */
   async checkForUpdate(source?: ManagedUpdateSource): Promise<UpdateCheckResult> {
     // 新一轮检查一开始就清掉旧可下载态，防止本次失败后还能下载上次资产。
-    this.lastAvailable = null;
-    this.allowedAssetOrigins = [];
-    const currentVersion = app.getVersion();
-    const assetKey = platformAssetKey(process.platform, process.arch);
+    this.lastAvailable = null
+    this.allowedAssetOrigins = []
+    const currentVersion = app.getVersion()
+    const assetKey = platformAssetKey(process.platform, process.arch)
 
     // 1) 完整清单源。企业部署可用 CLAWMASTER_UPDATE_MANIFEST_URL 指向自己的 HTTPS 镜像；
     // 配置非法就忽略，镜像失败/清单不合法继续尝试 GitHub，绝不再硬编码未部署路由。
-    const manifestErrors: string[] = [];
-    let managedManifestUrl: string | null = null;
+    const manifestErrors: string[] = []
+    let managedManifestUrl: string | null = null
     if (source) {
       try {
-        const parsed = new URL(source.manifestUrl);
+        const parsed = new URL(source.manifestUrl)
         if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
-          throw new Error('managed update URL is invalid');
+          throw new Error('managed update URL is invalid')
         }
-        managedManifestUrl = parsed.toString();
+        managedManifestUrl = parsed.toString()
       } catch {
         return {
           status: 'check-failed',
           currentVersion,
           message: '企业更新策略中的完整安装包清单地址无效',
-        };
+        }
       }
     }
     const manifestUrls = managedManifestUrl
       ? [managedManifestUrl]
-      : resolveManifestUrls(process.env.CLAWMASTER_UPDATE_MANIFEST_URL);
+      : resolveManifestUrls(process.env.CLAWMASTER_UPDATE_MANIFEST_URL)
     for (const manifestUrl of manifestUrls) {
       const result = await fetchJsonWithRetry(
         manifestUrl,
         CHECK_TIMEOUT_MS,
         source || manifestUrl === PRIMARY_MANIFEST_URL ? 2 : 1,
         source?.manifestSha256,
-      );
+      )
       const sourceName = (() => {
-        try { return new URL(manifestUrl).hostname; } catch { return '更新源'; }
-      })();
+        try { return new URL(manifestUrl).hostname } catch { return '更新源' }
+      })()
       if (!result.ok) {
-        manifestErrors.push(`${sourceName}：${result.error}`);
+        manifestErrors.push(`${sourceName}：${result.error}`)
         continue;
       }
       const sourceAllowedOrigins = !source && (
@@ -226,10 +226,10 @@ export class UpdateService {
         manifestUrl === LEGACY_GITHUB_MANIFEST_URL
       )
         ? []
-        : [new URL(manifestUrl).origin];
-      const parsed = parseManifest(result.json, sourceAllowedOrigins);
+        : [new URL(manifestUrl).origin]
+      const parsed = parseManifest(result.json, sourceAllowedOrigins)
       if (!parsed.ok) {
-        manifestErrors.push(`${sourceName}：${parsed.error}`);
+        manifestErrors.push(`${sourceName}：${parsed.error}`)
         continue;
       }
       return this.remember(
@@ -240,7 +240,7 @@ export class UpdateService {
           source?.releasePageUrl ?? RELEASE_PAGE_URL,
         ),
         sourceAllowedOrigins,
-      );
+      )
     }
 
     // 2) 兜底：Releases API（所有完整清单源失败时）。
@@ -249,10 +249,10 @@ export class UpdateService {
         status: 'check-failed',
         currentVersion,
         message: `受管更新清单校验失败：${manifestErrors.join('；')}`,
-      };
+      }
     }
 
-    const fallback = await fetchJson(FALLBACK_RELEASE_API_URL, CHECK_TIMEOUT_MS);
+    const fallback = await fetchJson(FALLBACK_RELEASE_API_URL, CHECK_TIMEOUT_MS)
     if (!fallback.ok) {
       return {
         status: 'check-failed',
@@ -260,11 +260,11 @@ export class UpdateService {
         message:
           `更新清单均失败（${manifestErrors.join('；')}）；` +
           `兜底 API 也失败（${fallback.error}）`,
-      };
+      }
     }
-    const release = parseGithubRelease(fallback.json);
+    const release = parseGithubRelease(fallback.json)
     if (!release.ok) {
-      return { status: 'check-failed', currentVersion, message: release.error };
+      return { status: 'check-failed', currentVersion, message: release.error }
     }
 
     // 2a) release 资产里带 latest.json → 再取一次完整清单（才有 sha256 可校验）。
@@ -273,13 +273,13 @@ export class UpdateService {
         release.release.latestJsonUrl,
         CHECK_TIMEOUT_MS,
         2,
-      );
+      )
       if (manifestRes.ok) {
-        const parsed = parseManifest(manifestRes.json);
+        const parsed = parseManifest(manifestRes.json)
         if (parsed.ok) {
           return this.remember(
             resolveCheckOutcome(parsed.manifest, currentVersion, assetKey, RELEASE_PAGE_URL),
-          );
+          )
         }
       }
     }
@@ -291,17 +291,17 @@ export class UpdateService {
       notes: release.release.notes,
       publishedAt: release.release.publishedAt,
       assets: {},
-    });
+    })
     if (!parsedFromApi.ok) {
       return {
         status: 'check-failed',
         currentVersion,
         message: `兜底 API 的 tag（${release.release.version}）不是合法版本号`,
-      };
+      }
     }
     return this.remember(
       resolveCheckOutcome(parsedFromApi.manifest, currentVersion, assetKey, RELEASE_PAGE_URL),
-    );
+    )
   }
 
   /** 缓存「有新版」结果供 downloadUpdate 使用；其它状态则清掉旧缓存。 */
@@ -309,11 +309,11 @@ export class UpdateService {
     result: UpdateCheckResult,
     allowedAssetOrigins: readonly string[] = [],
   ): UpdateCheckResult {
-    this.lastAvailable = result.status === 'update-available' ? result : null;
+    this.lastAvailable = result.status === 'update-available' ? result : null
     this.allowedAssetOrigins = result.status === 'update-available'
       ? [...allowedAssetOrigins]
-      : [];
-    return result;
+      : []
+    return result
   }
 
   /**
@@ -325,33 +325,33 @@ export class UpdateService {
    */
   async downloadUpdate(): Promise<UpdateDownloadResult> {
     if (this.downloading) {
-      return { ok: false, error: '已有一个下载任务在进行中' };
+      return { ok: false, error: '已有一个下载任务在进行中' }
     }
-    const available = this.lastAvailable;
-    const asset = available?.asset;
+    const available = this.lastAvailable
+    const asset = available?.asset
     if (!available || !asset) {
-      return { ok: false, error: '当前没有可下载的更新，请先检查更新' };
+      return { ok: false, error: '当前没有可下载的更新，请先检查更新' }
     }
     // 纵深防御：清单解析时已过白名单，下载前再验一次（防中间态被改）。
     if (!isAllowedAssetUrl(asset.url, this.allowedAssetOrigins)) {
-      return { ok: false, error: '安装包下载地址不在允许的更新源内，已拒绝下载' };
+      return { ok: false, error: '安装包下载地址不在允许的更新源内，已拒绝下载' }
     }
 
     // basename 防清单里的 name 携带路径穿越（如 ../../xx）。
-    const fileName = path.basename(asset.name);
-    const finalPath = path.join(app.getPath('downloads'), fileName);
+    const fileName = path.basename(asset.name)
+    const finalPath = path.join(app.getPath('downloads'), fileName)
 
     // 同名文件已存在：sha256 匹配就复用；不匹配则视为旧/坏文件，重新下载覆盖。
     if (fs.existsSync(finalPath)) {
       try {
-        const existing = await computeFileSha256(finalPath);
+        const existing = await computeFileSha256(finalPath)
         if (existing === asset.sha256) {
           this.readyFile = {
             filePath: finalPath,
             version: available.version,
             sha256: asset.sha256,
-          };
-          return { ok: true, filePath: finalPath, reused: true };
+          }
+          return { ok: true, filePath: finalPath, reused: true }
         }
       } catch {
         // 读失败按「需要重新下载」处理。
@@ -360,9 +360,9 @@ export class UpdateService {
 
     // 实际下载走 update-download.ts（无 Electron 依赖、可单测）：
     // 内含 H1 最终 URL 白名单、M1 体积硬上限、sha256 校验 + .part 清理。
-    const partPath = finalPath + '.part';
-    const controller = new AbortController();
-    this.downloading = { controller, partPath };
+    const partPath = finalPath + '.part'
+    const controller = new AbortController()
+    this.downloading = { controller, partPath }
     try {
       const outcome = await downloadToFile({
         url: asset.url,
@@ -373,24 +373,24 @@ export class UpdateService {
         finalPath,
         signal: controller.signal,
         onProgress: (transferred, total) => this.pushProgress(transferred, total),
-      });
+      })
       if (!outcome.ok) {
-        return outcome;
+        return outcome
       }
       this.readyFile = {
         filePath: outcome.filePath,
         version: available.version,
         sha256: asset.sha256,
-      };
-      return { ok: true, filePath: outcome.filePath, reused: false };
+      }
+      return { ok: true, filePath: outcome.filePath, reused: false }
     } finally {
-      this.downloading = null;
+      this.downloading = null
     }
   }
 
   /** 取消进行中的下载（无任务时是安全空操作）。 */
   cancelDownload(): void {
-    this.downloading?.controller.abort();
+    this.downloading?.controller.abort()
   }
 
   /**
@@ -401,19 +401,19 @@ export class UpdateService {
    * Downloads 里的文件可能被替换——不一致就拒绝打开、删文件、要求重新下载。
    */
   async installUpdate(): Promise<UpdateInstallResult> {
-    const ready = this.readyFile;
+    const ready = this.readyFile
     if (!ready) {
-      return { ok: false, message: '还没有校验通过的安装包，请先下载更新' };
+      return { ok: false, message: '还没有校验通过的安装包，请先下载更新' }
     }
     if (!fs.existsSync(ready.filePath)) {
-      this.readyFile = null;
-      return { ok: false, message: '安装包文件已不存在（可能被移动或删除），请重新下载' };
+      this.readyFile = null
+      return { ok: false, message: '安装包文件已不存在（可能被移动或删除），请重新下载' }
     }
-    const verdict = await verifyBeforeInstall(ready.filePath, ready.sha256);
+    const verdict = await verifyBeforeInstall(ready.filePath, ready.sha256)
     if (!verdict.ok) {
       // 文件已不可信（且已被删除），清掉就绪态，逼用户走重新下载。
-      this.readyFile = null;
-      return { ok: false, message: verdict.message };
+      this.readyFile = null
+      return { ok: false, message: verdict.message }
     }
     // ── 自动覆盖安装（v1.6.0）：优先全自动，任何一步失败降级为打开安装包手动装 ──
 
@@ -425,10 +425,10 @@ export class UpdateService {
         const child = spawn(ready.filePath, ['/S', '--force-run'], {
           detached: true,
           stdio: 'ignore',
-        });
-        child.unref();
-        setTimeout(() => app.quit(), 400);
-        return { ok: true, message: '正在后台自动安装，安装完成后 ClawMaster 将自动重新启动。' };
+        })
+        child.unref()
+        setTimeout(() => app.quit(), 400)
+        return { ok: true, message: '正在后台自动安装，安装完成后 ClawMaster 将自动重新启动。' }
       } catch {
         /* 静默安装拉起失败 → 走下方手动兜底 */
       }
@@ -437,27 +437,27 @@ export class UpdateService {
     // macOS：挂载 dmg → ditto 覆盖当前 .app → 卸载 → 自动重启。
     // 运行中的 bundle 可被替换（进程握旧 inode），relaunch 后即新版。
     if (process.platform === 'darwin' && ready.filePath.toLowerCase().endsWith('.dmg')) {
-      const auto = await this.autoInstallFromDmg(ready.filePath);
+      const auto = await this.autoInstallFromDmg(ready.filePath)
       if (auto.ok) {
         // relaunch 在返回后触发，给 renderer 一拍时间收到结果展示提示。
         setTimeout(() => {
-          app.relaunch();
-          app.exit(0);
-        }, 600);
-        return { ok: true, message: '更新已安装，ClawMaster 正在自动重启…' };
+          app.relaunch()
+          app.exit(0)
+        }, 600)
+        return { ok: true, message: '更新已安装，ClawMaster 正在自动重启…' }
       }
       // 自动失败不终止：如实告知并降级手动路径。
     }
 
-    const openError = await shell.openPath(ready.filePath);
+    const openError = await shell.openPath(ready.filePath)
     if (openError) {
-      return { ok: false, message: `打开安装包失败：${openError}` };
+      return { ok: false, message: `打开安装包失败：${openError}` }
     }
     const message =
       process.platform === 'win32'
         ? '安装器已打开：请按向导完成安装，安装完成后手动重新启动 ClawMaster。'
-        : '自动安装未成功，已打开安装包：请把 ClawMaster 拖入「应用程序」替换旧版本后重新启动。';
-    return { ok: true, message };
+        : '自动安装未成功，已打开安装包：请把 ClawMaster 拖入「应用程序」替换旧版本后重新启动。'
+    return { ok: true, message }
   }
 
   /**
@@ -467,11 +467,11 @@ export class UpdateService {
    */
   private async autoInstallFromDmg(dmgPath: string): Promise<{ ok: boolean; reason?: string }> {
     // 当前 bundle 路径：<X>.app/Contents/MacOS/<bin> → 上三级。
-    const bundlePath = path.resolve(app.getPath('exe'), '..', '..', '..');
+    const bundlePath = path.resolve(app.getPath('exe'), '..', '..', '..')
     if (!bundlePath.endsWith('.app')) {
-      return { ok: false, reason: '当前不在 .app bundle 内（开发模式），不做自动覆盖' };
+      return { ok: false, reason: '当前不在 .app bundle 内（开发模式），不做自动覆盖' }
     }
-    let mountPoint: string | null = null;
+    let mountPoint: string | null = null
     try {
       const { stdout } = await execFileP('hdiutil', [
         'attach',
@@ -479,26 +479,26 @@ export class UpdateService {
         '-readonly',
         '-plist',
         dmgPath,
-      ]);
+      ])
       // plist 输出里找 mount-point（避免解析空格路径出错，用最朴素的标签扫描）。
-      const m = stdout.match(/<key>mount-point<\/key>\s*<string>([^<]+)<\/string>/);
-      mountPoint = m ? m[1] : null;
-      if (!mountPoint) return { ok: false, reason: '无法定位 dmg 挂载点' };
+      const m = stdout.match(/<key>mount-point<\/key>\s*<string>([^<]+)<\/string>/)
+      mountPoint = m ? m[1] : null
+      if (!mountPoint) return { ok: false, reason: '无法定位 dmg 挂载点' }
 
-      const apps = fs.readdirSync(mountPoint).filter((f) => f.endsWith('.app'));
+      const apps = fs.readdirSync(mountPoint).filter(f => f.endsWith('.app'))
       if (apps.length !== 1) {
-        return { ok: false, reason: `dmg 内应恰有一个 .app，实际 ${apps.length} 个` };
+        return { ok: false, reason: `dmg 内应恰有一个 .app，实际 ${apps.length} 个` }
       }
-      const srcApp = path.join(mountPoint, apps[0]);
+      const srcApp = path.join(mountPoint, apps[0])
       // ditto 保留签名/权限/扩展属性；目标是正在运行的 bundle，覆盖是安全的。
-      await execFileP('ditto', [srcApp, bundlePath]);
-      return { ok: true };
+      await execFileP('ditto', [srcApp, bundlePath])
+      return { ok: true }
     } catch (e) {
-      return { ok: false, reason: e instanceof Error ? e.message : '自动安装失败' };
+      return { ok: false, reason: e instanceof Error ? e.message : '自动安装失败' }
     } finally {
       if (mountPoint) {
         try {
-          await execFileP('hdiutil', ['detach', mountPoint, '-quiet']);
+          await execFileP('hdiutil', ['detach', mountPoint, '-quiet'])
         } catch {
           /* 卸载失败不影响结果（系统稍后自行回收）*/
         }
@@ -508,13 +508,13 @@ export class UpdateService {
 
   /** 进度推送（窗口可能已销毁，静默跳过）。 */
   private pushProgress(transferred: number, total: number): void {
-    const wc = this.getWebContents();
-    if (!wc || wc.isDestroyed()) return;
+    const wc = this.getWebContents()
+    if (!wc || wc.isDestroyed()) return
     const progress: UpdateProgressInfo = {
       percent: total > 0 ? Math.min(100, (transferred / total) * 100) : 0,
       transferred,
       total,
-    };
-    wc.send(this.progressChannel, progress);
+    }
+    wc.send(this.progressChannel, progress)
   }
 }

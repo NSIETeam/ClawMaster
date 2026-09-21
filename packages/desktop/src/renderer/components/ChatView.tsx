@@ -13,95 +13,95 @@
  * 飞书会话内发言 source='local' → server 回推飞书。
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react'
 import type {
   ClawMasterMessage,
   SessionSummary,
   ModelInfo,
   MessageSource,
-} from 'clawmaster-server';
-import type { Attachment } from '../state/useClawMasterStore.js';
-import { Message } from './Message.js';
-import type { RespondQuestionFn } from './ToolCalls.js';
+} from 'clawmaster-server'
+import type { Attachment } from '../state/useClawMasterStore.js'
+import { Message } from './Message.js'
+import type { RespondQuestionFn } from './ToolCalls.js'
 import {
   Composer,
   type ComposerAuthorizationContext,
   type PendingAgentSelection,
-} from './Composer.js';
-import type { SlashCommand } from './SlashCommands.js';
-import { ClawMasterCrown, IconArrowDown, IconPanelRight } from './icons.js';
+} from './Composer.js'
+import type { SlashCommand } from './SlashCommands.js'
+import { ClawMasterCrown, IconArrowDown, IconPanelRight } from './icons.js'
 
-import { ClawMasterPetStage } from './ClawMasterPetStage.js';
+import { ClawMasterPetStage } from './ClawMasterPetStage.js'
 import {
   PET_WIDGET_PREFERENCE_EVENT,
   readPetWidgetEnabled,
-} from '../petWidgetPreference.js';
+} from '../petWidgetPreference.js'
 
 /** 视口距底多近算「贴底」（px），贴底才自动跟随流式增量。 */
-const NEAR_BCLAWMASTERM = 80;
+const NEAR_BCLAWMASTERM = 80
 
 const EXAMPLE_PROMPTS = [
   '帮我优化这段登录流程的代码',
   '解释一下这个报错是什么意思',
   '给这个函数补一组单元测试',
-];
+]
 
 interface ChatViewProps {
-  session: SessionSummary | null;
-  messages: ClawMasterMessage[];
-  models: ModelInfo[];
-  currentModel: string | null;
-  busy: boolean;
+  session: SessionSummary | null
+  messages: ClawMasterMessage[]
+  models: ModelInfo[]
+  currentModel: string | null
+  busy: boolean
   onSend: (
     text: string,
     source: MessageSource,
     attachments?: Attachment[],
     authorization?: ComposerAuthorizationContext,
-  ) => void | boolean | Promise<void | boolean>;
+  ) => void | boolean | Promise<void | boolean>
   /** 中止当前流式生成（busy 时停止按钮）。 */
-  onCancel: () => void;
-  onSetModel: (model: string) => void;
-  onSetWorkspace?: (workspacePath: string) => void;
+  onCancel: () => void
+  onSetModel: (model: string) => void
+  onSetWorkspace?: (workspacePath: string) => void
   /**
    * 重新生成某条 bot 回复：携带被点消息 id，App 据此定位「该条之前最近的
    * 一条用户消息」重发，而非永远重发全会话最后一轮。
    */
-  onRegenerate: (messageId: string) => void;
+  onRegenerate: (messageId: string) => void
   /** AskUserQuestion 作答回传（透传到消息里的工具问答卡）。 */
-  onRespondQuestion?: RespondQuestionFn;
+  onRespondQuestion?: RespondQuestionFn
   /** 打开「模型与 BYO-key 设置」面板（接到 Composer 模型菜单的「管理模型」入口）。 */
-  onOpenSetup: () => void;
+  onOpenSetup: () => void
   /** 斜杠命令 `/new`：新建会话（App handleNewChat）。 */
-  onNewChat: () => void;
+  onNewChat: () => void
   /** 斜杠命令 `/clear`：清空当前会话上下文。 */
-  onClearContext: () => void;
+  onClearContext: () => void
   /** 导出当前会话为 Markdown 文件（真实落盘，对齐 CLI /export）。无会话时隐藏。 */
-  onExport?: () => void;
+  onExport?: () => void
   /** 斜杠命令 `/doctor`：打开设置与诊断中心的「依赖体检」tab。 */
-  onOpenDoctor?: () => void;
+  onOpenDoctor?: () => void
   /** 斜杠命令 `/feishu` 系列：打开设置与诊断中心的「飞书接入」tab。 */
-  onOpenFeishu?: () => void;
+  onOpenFeishu?: () => void
   /** 斜杠命令 `/memory`：打开设置与诊断中心的「记忆」tab。 */
-  onOpenMemory?: () => void;
+  onOpenMemory?: () => void
   /** 斜杠命令 `/skills`：打开设置与诊断中心的「技能库」tab。 */
-  onOpenSkills?: () => void;
+  onOpenSkills?: () => void
   /** 命令表（本地 + server 合并后的完整清单），透传给 Composer 的命令面板。 */
-  commands?: readonly SlashCommand[];
+  commands?: readonly SlashCommand[]
   /** server 侧斜杠命令：经 run_slash_command 帧执行。 */
-  onRunServerCommand?: (name: string, args: string) => void;
+  onRunServerCommand?: (name: string, args: string) => void
   /** 斜杠命令 `/theme` `/config`：打开设置与诊断中心的「偏好」tab。 */
-  onOpenPrefs?: () => void;
+  onOpenPrefs?: () => void
   /** 斜杠命令 `/session`：打开「查看全部对话」检索面板。 */
-  onOpenSessions?: () => void;
+  onOpenSessions?: () => void
   /** 斜杠命令 `/help`：在聊天区展示命令总览（系统气泡）。 */
-  onShowHelp?: () => void;
+  onShowHelp?: () => void
   /** 斜杠专家入口：创建绑定服务端 profile 的新会话。 */
-  onLaunchAgentProfile?: (profileId: string, title: string) => void;
+  onLaunchAgentProfile?: (profileId: string, title: string) => void
   /** 工作式 UI 的右侧栏状态；仅传入切换动作时显示顶栏入口。 */
-  rightPanelCollapsed?: boolean;
-  onToggleRightPanel?: () => void;
-  pendingAgent?: PendingAgentSelection | null;
-  onClearPendingAgent?: () => void;
+  rightPanelCollapsed?: boolean
+  onToggleRightPanel?: () => void
+  pendingAgent?: PendingAgentSelection | null
+  onClearPendingAgent?: () => void
 }
 
 export function ChatView({
@@ -135,106 +135,106 @@ export function ChatView({
   pendingAgent,
   onClearPendingAgent,
 }: ChatViewProps): React.JSX.Element {
-  const threadRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null)
   // 用户是否贴在底部（决定流式增量是否自动跟随）。
-  const stickRef = useRef(true);
+  const stickRef = useRef(true)
   // 上次见到的消息条数：用来区分「用户主动上翻」与「真·新消息到达」。
-  const lastCountRef = useRef(messages.length);
+  const lastCountRef = useRef(messages.length)
   // 未读：用户离底期间有新消息进来才置真，贴底时清零。浮标只在「离底 + 有未读」时出现。
-  const [hasUnread, setHasUnread] = useState(false);
-  const [showJump, setShowJump] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [petWidgetEnabled, setPetWidgetEnabled] = useState(readPetWidgetEnabled);
+  const [hasUnread, setHasUnread] = useState(false)
+  const [showJump, setShowJump] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const [petWidgetEnabled, setPetWidgetEnabled] = useState(readPetWidgetEnabled)
   // 空态示例胶囊注入 composer 的草稿（每次点击带新 token 触发再注入）。
   const [draft, setDraft] = useState<{ text: string; n: number }>({
     text: '',
     n: 0,
-  });
+  })
   const isNearBclawmasterm = (el: HTMLDivElement): boolean =>
-    el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BCLAWMASTERM;
+    el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BCLAWMASTERM
 
   const onThreadScroll = () => {
-    const el = threadRef.current;
-    if (!el) return;
-    const near = isNearBclawmasterm(el);
-    stickRef.current = near;
+    const el = threadRef.current
+    if (!el) return
+    const near = isNearBclawmasterm(el)
+    stickRef.current = near
     // 贴底即视为已读，收起浮标；离底时浮标可见性交给 hasUnread 决定（见下方 effect）。
     if (near) {
-      setHasUnread(false);
-      setShowJump(false);
+      setHasUnread(false)
+      setShowJump(false)
     } else {
-      setShowJump(hasUnread);
+      setShowJump(hasUnread)
     }
-    setScrolled(el.scrollTop > 4);
+    setScrolled(el.scrollTop > 4)
   };
 
   // 消息变化：贴底则自动跟随到底；离底时——
   //   · 条数增加（真·新消息）→ 标记未读、弹浮标；
   //   · 仅流式增量推高同一条 → 不打扰（条数没变，不弹）。
   useEffect(() => {
-    const el = threadRef.current;
-    if (!el) return;
-    const grew = messages.length > lastCountRef.current;
-    lastCountRef.current = messages.length;
+    const el = threadRef.current
+    if (!el) return
+    const grew = messages.length > lastCountRef.current
+    lastCountRef.current = messages.length
     if (stickRef.current) {
-      el.scrollTop = el.scrollHeight;
+      el.scrollTop = el.scrollHeight
     } else if (grew) {
-      setHasUnread(true);
-      setShowJump(true);
+      setHasUnread(true)
+      setShowJump(true)
     }
-  }, [messages]);
+  }, [messages])
 
   // 切换会话 → 重置到底部、收起浮标、清未读。
   useEffect(() => {
-    const el = threadRef.current;
-    stickRef.current = true;
-    setHasUnread(false);
-    setShowJump(false);
-    setScrolled(false);
-    lastCountRef.current = messages.length;
-    if (el) el.scrollTop = el.scrollHeight;
+    const el = threadRef.current
+    stickRef.current = true
+    setHasUnread(false)
+    setShowJump(false)
+    setScrolled(false)
+    lastCountRef.current = messages.length
+    if (el) el.scrollTop = el.scrollHeight
     // 仅在会话切换时复位，messages 长度变化由上方 effect 处理。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.sessionId]);
+  }, [session?.sessionId])
 
   useEffect(() => {
-    const syncPreference = (): void => setPetWidgetEnabled(readPetWidgetEnabled());
-    window.addEventListener(PET_WIDGET_PREFERENCE_EVENT, syncPreference);
-    return () => window.removeEventListener(PET_WIDGET_PREFERENCE_EVENT, syncPreference);
-  }, []);
+    const syncPreference = (): void => setPetWidgetEnabled(readPetWidgetEnabled())
+    window.addEventListener(PET_WIDGET_PREFERENCE_EVENT, syncPreference)
+    return () => window.removeEventListener(PET_WIDGET_PREFERENCE_EVENT, syncPreference)
+  }, [])
 
   const jumpToBclawmasterm = () => {
-    const el = threadRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    stickRef.current = true;
-    setHasUnread(false);
-    setShowJump(false);
+    const el = threadRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    stickRef.current = true
+    setHasUnread(false)
+    setShowJump(false)
   };
 
   const copy = (text: string) => {
-    void navigator.clipboard?.writeText(text);
+    void navigator.clipboard?.writeText(text)
   };
 
   // 斜杠命令 `/copy`（对齐 CLI）：复制最近一条 ClawMaster 回复的纯文本。
   // 无可复制内容时静默（面板描述已说明语义，空会话点它没有副作用）。
   const copyLastReply = () => {
-    const last = [...messages].reverse().find((m) => m.role === 'assistant');
-    if (!last) return;
+    const last = [...messages].reverse().find(m => m.role === 'assistant')
+    if (!last) return
     const text = last.content
-      .map((p) => (p.type === 'text' ? p.value : ''))
+      .map(p => (p.type === 'text' ? p.value : ''))
       .join('')
-      .trim();
-    if (text) copy(text);
+      .trim()
+    if (text) copy(text)
   };
 
   const fillDraft = (text: string) => {
-    setDraft((d) => ({ text, n: d.n + 1 }));
+    setDraft(d => ({ text, n: d.n + 1 }))
   };
 
   // 飞书会话内发言：source 仍是 'local'（app 内本地输入），
   // server 据会话归属（feishuChatId）决定回推飞书。
-  const sendSource: MessageSource = 'local';
+  const sendSource: MessageSource = 'local'
   return (
     <section className="claw-main">
       <header
@@ -271,7 +271,7 @@ export function ChatView({
           ) : messages.length === 0 ? (
             <EmptyConversation onPick={fillDraft} />
           ) : (
-            messages.map((m) => (
+            messages.map(m => (
               <Message
                 key={m.id}
                 message={m}
@@ -346,7 +346,7 @@ export function ChatView({
         onClearPendingAgent={onClearPendingAgent}
       />
     </section>
-  );
+  )
 }
 
 function EmptyState(): React.JSX.Element {
@@ -356,13 +356,13 @@ function EmptyState(): React.JSX.Element {
       <div className="claw-empty__title">选择左侧对话，或新建一个</div>
       <div>所有任务和对话都保存在这台电脑上</div>
     </div>
-  );
+  )
 }
 
 function EmptyConversation({
   onPick,
 }: {
-  onPick: (text: string) => void;
+  onPick: (text: string) => void
 }): React.JSX.Element {
   return (
     <div className="claw-empty">
@@ -370,7 +370,7 @@ function EmptyConversation({
       <div className="claw-empty__title">给 ClawMaster 发送第一条消息</div>
       <div>试试这些开头，或直接输入你的问题</div>
       <div className="claw-empty__prompts">
-        {EXAMPLE_PROMPTS.map((p) => (
+        {EXAMPLE_PROMPTS.map(p => (
           <button
             key={p}
             type="button"
@@ -382,5 +382,5 @@ function EmptyConversation({
         ))}
       </div>
     </div>
-  );
+  )
 }

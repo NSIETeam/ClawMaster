@@ -2,19 +2,19 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
 import {
   describeEnterpriseServiceTopology,
   resolveEnterpriseServiceTopology,
-} from './enterpriseServiceTopology.js';
+} from './enterpriseServiceTopology.js'
 
 describe('enterprise service topology', () => {
   it('keeps local SQLite, encrypted filesystem attachments, and memory cache for offline use', () => {
     const topology = resolveEnterpriseServiceTopology({
       environment: {},
       sqliteDatabasePath: '/var/lib/clawmaster/data.db',
-    });
+    })
 
     expect(topology).toEqual({
       mode: 'local-offline',
@@ -26,7 +26,7 @@ describe('enterprise service topology', () => {
       },
       attachments: { backend: 'encrypted-filesystem' },
       cache: { backend: 'memory' },
-    });
+    })
   });
 
   it('requires shared S3 attachment storage for PostgreSQL enterprise mode', () => {
@@ -40,7 +40,7 @@ describe('enterprise service topology', () => {
         },
         sqliteDatabasePath: '/var/lib/clawmaster/data.db',
       }),
-    ).toThrow(/PostgreSQL.*S3/i);
+    ).toThrow(/PostgreSQL.*S3/i)
   });
 
   it('requires a shared Redis-compatible cache for PostgreSQL enterprise mode', () => {
@@ -56,7 +56,7 @@ describe('enterprise service topology', () => {
         },
         sqliteDatabasePath: '/var/lib/clawmaster/data.db',
       }),
-    ).toThrow(/PostgreSQL.*Redis/i);
+    ).toThrow(/PostgreSQL.*Redis/i)
   });
 
   it('rejects mixed local and clustered storage backends', () => {
@@ -70,7 +70,7 @@ describe('enterprise service topology', () => {
         },
         sqliteDatabasePath: '/var/lib/clawmaster/data.db',
       }),
-    ).toThrow(/SQLite.*local attachment/i);
+    ).toThrow(/SQLite.*local attachment/i)
 
     expect(() =>
       resolveEnterpriseServiceTopology({
@@ -80,7 +80,7 @@ describe('enterprise service topology', () => {
         },
         sqliteDatabasePath: '/var/lib/clawmaster/data.db',
       }),
-    ).toThrow(/SQLite.*memory cache/i);
+    ).toThrow(/SQLite.*memory cache/i)
   });
 
   it('builds a credential-free stateless topology for multiple replicas', () => {
@@ -97,10 +97,10 @@ describe('enterprise service topology', () => {
         CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
       },
       sqliteDatabasePath: '/var/lib/clawmaster/data.db',
-    });
+    })
 
-    expect(topology.mode).toBe('clustered-enterprise');
-    const description = describeEnterpriseServiceTopology(topology);
+    expect(topology.mode).toBe('clustered-enterprise')
+    const description = describeEnterpriseServiceTopology(topology)
     expect(description).toEqual({
       mode: 'clustered-enterprise',
       replicas: 3,
@@ -111,7 +111,7 @@ describe('enterprise service topology', () => {
       },
       attachments: { backend: 's3', target: 'clawmaster-private' },
       cache: { backend: 'redis', target: 'cache.internal:6379/2' },
-    });
-    expect(JSON.stringify(description)).not.toMatch(/secret|default@/i);
+    })
+    expect(JSON.stringify(description)).not.toMatch(/secret|default@/i)
   });
-});
+})

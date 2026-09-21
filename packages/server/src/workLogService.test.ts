@@ -2,30 +2,30 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import * as fs from 'node:fs/promises';
-import * as os from 'node:os';
-import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as fs from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   generateAndSaveWorkReport,
   WorkLogService,
-} from './workLogService.js';
+} from './workLogService.js'
 
-let tempDir: string;
+let tempDir: string
 
 beforeEach(async () => {
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-worklog-report-'));
+  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-worklog-report-'))
 });
 
 afterEach(async () => {
-  await fs.rm(tempDir, { recursive: true, force: true });
+  await fs.rm(tempDir, { recursive: true, force: true })
 });
 
 describe('generateAndSaveWorkReport', () => {
   it('生成可直接打开的 HTML 今日总结，并保留结构化文本预览', async () => {
-    const date = '2026-07-20';
-    const dailyDir = path.join(tempDir, 'daily');
-    await fs.mkdir(dailyDir, { recursive: true });
+    const date = '2026-07-20'
+    const dailyDir = path.join(tempDir, 'daily')
+    await fs.mkdir(dailyDir, { recursive: true })
     const entries = [
       {
         timestamp: `${date}T09:57:00.000Z`,
@@ -47,28 +47,28 @@ describe('generateAndSaveWorkReport', () => {
         details: '完成报告正文、建议章节与后续检查事项。',
         entryType: 'work_result',
       },
-    ];
+    ]
     await fs.writeFile(
       path.join(dailyDir, `${date}.jsonl`),
-      entries.map((entry) => JSON.stringify(entry)).join('\n'),
+      entries.map(entry => JSON.stringify(entry)).join('\n'),
       'utf8',
-    );
+    )
 
-    const report = await generateAndSaveWorkReport(tempDir, date);
+    const report = await generateAndSaveWorkReport(tempDir, date)
 
-    expect(report.ok).toBe(true);
-    expect(report.path.endsWith('.html')).toBe(true);
-    expect(report.markdown).toContain('## 今日概览');
-    expect(report.markdown).toContain('## 重点成果');
-    const html = await fs.readFile(report.path, 'utf8');
-    expect(html).toContain('<h2>今日概览</h2>');
-    expect(html).toContain('前沿AI科技报告');
+    expect(report.ok).toBe(true)
+    expect(report.path.endsWith('.html')).toBe(true)
+    expect(report.markdown).toContain('## 今日概览')
+    expect(report.markdown).toContain('## 重点成果')
+    const html = await fs.readFile(report.path, 'utf8')
+    expect(html).toContain('<h2>今日概览</h2>')
+    expect(html).toContain('前沿AI科技报告')
   });
 
   it('共享服务容忍单行损坏，并为所有桌面外壳返回同一份今日数据', async () => {
-    const date = '2026-07-20';
-    const dailyDir = path.join(tempDir, 'daily');
-    await fs.mkdir(dailyDir, { recursive: true });
+    const date = '2026-07-20'
+    const dailyDir = path.join(tempDir, 'daily')
+    await fs.mkdir(dailyDir, { recursive: true })
     await fs.writeFile(
       path.join(dailyDir, `${date}.jsonl`),
       [
@@ -83,19 +83,19 @@ describe('generateAndSaveWorkReport', () => {
         '{broken json',
       ].join('\n'),
       'utf8',
-    );
+    )
     const service = new WorkLogService(
       tempDir,
       () => new Date(2026, 6, 20, 12),
-    );
+    )
 
     await expect(service.today()).resolves.toMatchObject({
       date,
       totalActions: 1,
       workResults: 0,
-    });
+    })
     await expect(service.recent(1)).resolves.toEqual([
       expect.objectContaining({ date, entries: [expect.objectContaining({ action: '读取材料' })] }),
-    ]);
+    ])
   });
-});
+})

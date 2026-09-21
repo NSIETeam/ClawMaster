@@ -5,29 +5,29 @@
  * 自动堆叠、倒计时消失、支持优先级着色。
  */
 
-import React, { useEffect, useState } from 'react';
-import * as transport from '../transport.js';
+import React, { useEffect, useState } from 'react'
+import * as transport from '../transport.js'
 
 interface Toast {
-  id: string;
-  ruleName: string;
-  message: string;
-  priority: 'low' | 'medium' | 'high';
-  expiresAt: number;
+  id: string
+  ruleName: string
+  message: string
+  priority: 'low' | 'medium' | 'high'
+  expiresAt: number
 }
 
-const TOAST_DURATION_MS = 10_000; // 10 秒后消失
-const MAX_TOASTS = 4;
+const TOAST_DURATION_MS = 10_000 // 10 秒后消失
+const MAX_TOASTS = 4
 
 export function ProactiveToast(): React.ReactElement | null {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([])
 
   useEffect(() => {
     const unsub = transport.onFrame((frame) => {
-      if (frame.type !== 'proactive_alert') return;
+      if (frame.type !== 'proactive_alert') return
       const { ruleName, message, priority } = frame.payload as {
-        ruleName: string; message: string; priority: 'low' | 'medium' | 'high';
-      };
+        ruleName: string; message: string; priority: 'low' | 'medium' | 'high'
+      }
 
       const toast: Toast = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -35,37 +35,37 @@ export function ProactiveToast(): React.ReactElement | null {
         message,
         priority,
         expiresAt: Date.now() + TOAST_DURATION_MS,
-      };
+      }
 
-      setToasts((prev) => [toast, ...prev].slice(0, MAX_TOASTS));
+      setToasts(prev => [toast, ...prev].slice(0, MAX_TOASTS))
     });
 
-    return () => { unsub(); };
-  }, []);
+    return () => { unsub() };
+  }, [])
 
   // Wake only when the next toast expires instead of polling twice per second.
   useEffect(() => {
-    if (toasts.length === 0) return undefined;
-    const nextExpiry = Math.min(...toasts.map((toast) => toast.expiresAt));
+    if (toasts.length === 0) return undefined
+    const nextExpiry = Math.min(...toasts.map(toast => toast.expiresAt))
     const timer = window.setTimeout(() => {
-      setToasts((current) => current.filter((toast) => toast.expiresAt > Date.now()));
-    }, Math.max(0, nextExpiry - Date.now()));
-    return () => window.clearTimeout(timer);
-  }, [toasts]);
+      setToasts(current => current.filter(toast => toast.expiresAt > Date.now()))
+    }, Math.max(0, nextExpiry - Date.now()))
+    return () => window.clearTimeout(timer)
+  }, [toasts])
 
-  if (toasts.length === 0) return null;
+  if (toasts.length === 0) return null
 
   const borderByPriority: Record<string, string> = {
     high: '2px solid #DC3545',
     medium: '2px solid #F0AD4E',
     low: '2px solid #6C757D',
-  };
+  }
 
   const iconByPriority: Record<string, string> = {
     high: '⚠️',
     medium: '📌',
     low: '💬',
-  };
+  }
 
   return (
     <div style={{
@@ -78,7 +78,7 @@ export function ProactiveToast(): React.ReactElement | null {
       gap: '10px',
       pointerEvents: 'none',
     }}>
-      {toasts.map((toast) => (
+      {toasts.map(toast => (
         <div
           key={toast.id}
           style={{
@@ -94,7 +94,7 @@ export function ProactiveToast(): React.ReactElement | null {
             cursor: 'pointer',
           }}
           onClick={() =>
-            setToasts((prev) => prev.filter((t) => t.id !== toast.id))
+            setToasts(prev => prev.filter(t => t.id !== toast.id))
           }
         >
           <div style={{
@@ -132,5 +132,5 @@ export function ProactiveToast(): React.ReactElement | null {
         }
       `}</style>
     </div>
-  );
+  )
 }

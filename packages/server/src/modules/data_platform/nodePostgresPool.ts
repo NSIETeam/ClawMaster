@@ -7,72 +7,72 @@ import {
   type PoolClient,
   type PoolConfig,
   type QueryResultRow,
-} from 'pg';
+} from 'pg'
 
 import type {
   PostgresClientLike,
   PostgresPoolLike,
   PostgresQueryResult,
-} from './postgresDatabaseLifecycle.js';
+} from './postgresDatabaseLifecycle.js'
 
 export interface NodePostgresEnvironment {
-  CLAWMASTER_POSTGRES_POOL_MAX?: string;
-  CLAWMASTER_POSTGRES_CONNECT_TIMEOUT_MS?: string;
-  CLAWMASTER_POSTGRES_IDLE_TIMEOUT_MS?: string;
-  CLAWMASTER_POSTGRES_STATEMENT_TIMEOUT_MS?: string;
-  CLAWMASTER_POSTGRES_SSL_MODE?: string;
+  CLAWMASTER_POSTGRES_POOL_MAX?: string
+  CLAWMASTER_POSTGRES_CONNECT_TIMEOUT_MS?: string
+  CLAWMASTER_POSTGRES_IDLE_TIMEOUT_MS?: string
+  CLAWMASTER_POSTGRES_STATEMENT_TIMEOUT_MS?: string
+  CLAWMASTER_POSTGRES_SSL_MODE?: string
 }
 
 function boundedInteger(input: {
-  name: string;
-  value: string | undefined;
-  fallback: number;
-  min: number;
-  max: number;
+  name: string
+  value: string | undefined
+  fallback: number
+  min: number
+  max: number
 }): number {
   if (input.value === undefined || input.value.trim() === '') {
-    return input.fallback;
+    return input.fallback
   }
-  const value = Number(input.value);
+  const value = Number(input.value)
   if (!Number.isSafeInteger(value) || value < input.min || value > input.max) {
     throw new Error(
       `${input.name} must be an integer from ${input.min} to ${input.max}`,
-    );
+    )
   }
-  return value;
+  return value
 }
 
 function resolveSsl(input: {
-  connectionString: string;
-  configuredMode?: string;
+  connectionString: string
+  configuredMode?: string
 }): { connectionString: string; ssl: PoolConfig['ssl'] } {
-  const parsed = new URL(input.connectionString);
-  const urlMode = parsed.searchParams.get('sslmode')?.trim().toLowerCase();
+  const parsed = new URL(input.connectionString)
+  const urlMode = parsed.searchParams.get('sslmode')?.trim().toLowerCase()
   const mode =
-    input.configuredMode?.trim().toLowerCase() || urlMode || 'verify-full';
+    input.configuredMode?.trim().toLowerCase() || urlMode || 'verify-full'
   if (!['disable', 'require', 'verify-full'].includes(mode)) {
     throw new Error(
       'PostgreSQL SSL mode must be disable, require, or verify-full',
-    );
+    )
   }
-  parsed.searchParams.delete('sslmode');
+  parsed.searchParams.delete('sslmode')
   return {
     connectionString: parsed.toString(),
     ssl:
       mode === 'disable'
         ? false
         : { rejectUnauthorized: mode === 'verify-full' },
-  };
+  }
 }
 
 export function buildNodePostgresPoolConfig(input: {
-  connectionString: string;
-  environment: NodePostgresEnvironment;
+  connectionString: string
+  environment: NodePostgresEnvironment
 }): PoolConfig {
   const transport = resolveSsl({
     connectionString: input.connectionString,
     configuredMode: input.environment.CLAWMASTER_POSTGRES_SSL_MODE,
-  });
+  })
   return {
     connectionString: transport.connectionString,
     application_name: 'clawmaster-enterprise',
@@ -105,7 +105,7 @@ export function buildNodePostgresPoolConfig(input: {
       max: 600_000,
     }),
     ssl: transport.ssl,
-  };
+  }
 }
 
 class NodePostgresClient implements PostgresClientLike {
@@ -117,12 +117,12 @@ class NodePostgresClient implements PostgresClientLike {
   ): Promise<PostgresQueryResult<Row>> {
     const result = await this.client.query<Row & QueryResultRow>(sql, [
       ...values,
-    ]);
-    return { rows: result.rows, rowCount: result.rowCount };
+    ])
+    return { rows: result.rows, rowCount: result.rowCount }
   }
 
   release(): void {
-    this.client.release();
+    this.client.release()
   }
 }
 
@@ -130,7 +130,7 @@ class NodePostgresPool implements PostgresPoolLike {
   constructor(private readonly pool: Pool) {}
 
   async connect(): Promise<PostgresClientLike> {
-    return new NodePostgresClient(await this.pool.connect());
+    return new NodePostgresClient(await this.pool.connect())
   }
 
   async query<Row extends Record<string, unknown> = Record<string, unknown>>(
@@ -139,15 +139,15 @@ class NodePostgresPool implements PostgresPoolLike {
   ): Promise<PostgresQueryResult<Row>> {
     const result = await this.pool.query<Row & QueryResultRow>(sql, [
       ...values,
-    ]);
-    return { rows: result.rows, rowCount: result.rowCount };
+    ])
+    return { rows: result.rows, rowCount: result.rowCount }
   }
 
   async end(): Promise<void> {
-    await this.pool.end();
+    await this.pool.end()
   }
 }
 
 export function createNodePostgresPool(config: PoolConfig): PostgresPoolLike {
-  return new NodePostgresPool(new Pool(config));
+  return new NodePostgresPool(new Pool(config))
 }

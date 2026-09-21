@@ -2,12 +2,12 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
 import {
   buildFederationAtoaDecision,
   parseFederationAtoaDecision,
-} from './federationAtoaProtocol.js';
+} from './federationAtoaProtocol.js'
 
 describe('federated A2A decision protocol', () => {
   it('round-trips an approved one-time grant', () => {
@@ -20,7 +20,7 @@ describe('federated A2A decision protocol', () => {
       expiresAt: '2026-08-12T12:10:00.000Z',
       grantedSources: ['enterprise_knowledge', 'schedules'],
       createdAt: '2026-08-12T12:00:00.000Z',
-    });
+    })
 
     expect(parseFederationAtoaDecision(content)).toEqual({
       v: 1,
@@ -32,7 +32,7 @@ describe('federated A2A decision protocol', () => {
       expiresAt: '2026-08-12T12:10:00.000Z',
       grantedSources: ['enterprise_knowledge', 'schedules'],
       createdAt: '2026-08-12T12:00:00.000Z',
-    });
+    })
   });
 
   it('round-trips denial without a grant', () => {
@@ -41,20 +41,20 @@ describe('federated A2A decision protocol', () => {
       requestId: 'request_two',
       requestMessageId: 'message_two',
       createdAt: '2026-08-12T12:00:00.000Z',
-    });
+    })
 
     expect(parseFederationAtoaDecision(content)).toMatchObject({
       status: 'denied',
       requestId: 'request_two',
       requestMessageId: 'message_two',
-    });
+    })
   });
 
   it('rejects malformed, expired-at-creation and unknown-source decisions', () => {
-    expect(parseFederationAtoaDecision('ordinary message')).toBeNull();
+    expect(parseFederationAtoaDecision('ordinary message')).toBeNull()
     expect(parseFederationAtoaDecision(
       'CLAWMASTER_FEDERATION_ATOA_DECISION {bad-json',
-    )).toBeNull();
+    )).toBeNull()
     expect(parseFederationAtoaDecision(
       'CLAWMASTER_FEDERATION_ATOA_DECISION ' + JSON.stringify({
         v: 1,
@@ -67,6 +67,6 @@ describe('federated A2A decision protocol', () => {
         createdAt: '2026-08-12T12:00:00.000Z',
         grantedSources: ['filesystem'],
       }),
-    )).toBeNull();
+    )).toBeNull()
   });
-});
+})

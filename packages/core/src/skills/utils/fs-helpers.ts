@@ -22,8 +22,8 @@
  * remember the distinction.
  */
 
-import fs from 'fs-extra';
-import path from 'path';
+import fs from 'fs-extra'
+import path from 'path'
 
 // Self-check: guard against future `import * as fs from 'fs-extra'` regressions.
 // Under Node's native ESM runtime, namespace imports of CJS packages do NOT
@@ -37,7 +37,7 @@ if (typeof fs.statSync !== 'function' || typeof fs.stat !== 'function') {
     'fs-helpers: fs-extra default import did not expose statSync/stat. ' +
       'This usually means someone switched to `import * as fs from "fs-extra"`; ' +
       'use the default import instead.',
-  );
+  )
 }
 
 /**
@@ -48,10 +48,10 @@ if (typeof fs.statSync !== 'function' || typeof fs.stat !== 'function') {
 export async function isDirectoryFollowingSymlinks(p: string): Promise<boolean> {
   try {
     // fs.stat follows symlinks (unlike fs.lstat).
-    const st = await fs.stat(p);
-    return st.isDirectory();
+    const st = await fs.stat(p)
+    return st.isDirectory()
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -60,10 +60,10 @@ export async function isDirectoryFollowingSymlinks(p: string): Promise<boolean> 
  */
 export function isDirectoryFollowingSymlinksSync(p: string): boolean {
   try {
-    const st = fs.statSync(p);
-    return st.isDirectory();
+    const st = fs.statSync(p)
+    return st.isDirectory()
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -79,7 +79,7 @@ export async function isDirentDirectoryFollowingSymlinks(
   entry: { name: string; isDirectory(): boolean; isSymbolicLink(): boolean },
   parentDir: string,
 ): Promise<boolean> {
-  if (entry.isDirectory()) return true;
-  if (!entry.isSymbolicLink()) return false;
-  return isDirectoryFollowingSymlinks(path.join(parentDir, entry.name));
+  if (entry.isDirectory()) return true
+  if (!entry.isSymbolicLink()) return false
+  return isDirectoryFollowingSymlinks(path.join(parentDir, entry.name))
 }

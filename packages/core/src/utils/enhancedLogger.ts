@@ -3,9 +3,9 @@
  * 增强的日志器，支持文件输出
  */
 
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import os from 'os';
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import os from 'os'
 
 export enum LogLevel {
   DEBUG = 0,
@@ -15,16 +15,16 @@ export enum LogLevel {
 }
 
 export interface LogConfig {
-  level: LogLevel;
-  enableConsole: boolean;
-  enableFile: boolean;
-  filePath?: string;
-  maxFileSize?: number; // MB
-  maxFiles?: number;
+  level: LogLevel
+  enableConsole: boolean
+  enableFile: boolean
+  filePath?: string
+  maxFileSize?: number // MB
+  maxFiles?: number
 }
 
 export class EnhancedLogger {
-  private config: LogConfig;
+  private config: LogConfig
 
   constructor(config: Partial<LogConfig> = {}) {
     this.config = {
@@ -34,132 +34,132 @@ export class EnhancedLogger {
       maxFileSize: 10, // 10MB
       maxFiles: 5,
       ...config,
-    };
+    }
 
     // 默认日志文件路径
     if (this.config.enableFile && !this.config.filePath) {
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')
       this.config.filePath = path.join(
         os.homedir(),
         '.clawmaster-user',
         'logs',
-        `clawmaster-${timestamp}.log`
+        `clawmaster-${timestamp}.log`,
       );
     }
   }
 
   private formatMessage(level: string, message: string, ...args: unknown[]): string {
-    const timestamp = new Date().toISOString();
-    const formattedArgs = args.map(arg => 
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-    ).join(' ');
+    const timestamp = new Date().toISOString()
+    const formattedArgs = args.map(arg =>
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg),
+    ).join(' ')
     
-    return `[${timestamp}] [${level}] ${message} ${formattedArgs}`.trim();
+    return `[${timestamp}] [${level}] ${message} ${formattedArgs}`.trim()
   }
 
   private async writeToFile(message: string): Promise<void> {
-    if (!this.config.enableFile || !this.config.filePath) return;
+    if (!this.config.enableFile || !this.config.filePath) return
 
     try {
       // 确保目录存在
-      await fs.mkdir(path.dirname(this.config.filePath), { recursive: true });
+      await fs.mkdir(path.dirname(this.config.filePath), { recursive: true })
       
       // 检查文件大小并轮转
-      await this.rotateLogIfNeeded();
+      await this.rotateLogIfNeeded()
       
       // 写入日志
-      await fs.appendFile(this.config.filePath, message + '\n', 'utf-8');
+      await fs.appendFile(this.config.filePath, message + '\n', 'utf-8')
     } catch (error) {
-      console.error('写入日志文件失败:', error);
+      console.error('写入日志文件失败:', error)
     }
   }
 
   private async rotateLogIfNeeded(): Promise<void> {
-    if (!this.config.filePath) return;
+    if (!this.config.filePath) return
 
     try {
-      const stats = await fs.stat(this.config.filePath);
-      const fileSizeMB = stats.size / (1024 * 1024);
+      const stats = await fs.stat(this.config.filePath)
+      const fileSizeMB = stats.size / (1024 * 1024)
 
       if (fileSizeMB > (this.config.maxFileSize || 10)) {
-        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-        const rotatedPath = this.config.filePath.replace('.log', `-${timestamp}.log`);
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')
+        const rotatedPath = this.config.filePath.replace('.log', `-${timestamp}.log`)
         
-        await fs.rename(this.config.filePath, rotatedPath);
+        await fs.rename(this.config.filePath, rotatedPath)
         
         // 清理旧日志文件
-        await this.cleanOldLogs();
+        await this.cleanOldLogs()
       }
     } catch (error) {
       // 文件不存在时忽略错误
       if (!(error && typeof error === 'object' && (error as { code?: string }).code === 'ENOENT')) {
-        console.error('日志轮转失败:', error);
+        console.error('日志轮转失败:', error)
       }
     }
   }
 
   private async cleanOldLogs(): Promise<void> {
-    if (!this.config.filePath) return;
+    if (!this.config.filePath) return
 
     try {
-      const logDir = path.dirname(this.config.filePath);
-      const files = await fs.readdir(logDir);
+      const logDir = path.dirname(this.config.filePath)
+      const files = await fs.readdir(logDir)
       const logFiles = files
         .filter(f => f.startsWith('clawmaster-') && f.endsWith('.log'))
         .map(f => ({
           name: f,
           path: path.join(logDir, f),
-          time: fs.stat(path.join(logDir, f)).then(s => s.mtime)
-        }));
+          time: fs.stat(path.join(logDir, f)).then(s => s.mtime),
+        }))
 
       const sortedFiles = await Promise.all(
-        logFiles.map(async f => ({ ...f, time: await f.time }))
+        logFiles.map(async f => ({ ...f, time: await f.time })),
       );
 
-      sortedFiles.sort((a, b) => b.time.getTime() - a.time.getTime());
+      sortedFiles.sort((a, b) => b.time.getTime() - a.time.getTime())
 
       // 保留最新的几个文件
-      const filesToDelete = sortedFiles.slice(this.config.maxFiles || 5);
+      const filesToDelete = sortedFiles.slice(this.config.maxFiles || 5)
       
       for (const file of filesToDelete) {
-        await fs.unlink(file.path);
+        await fs.unlink(file.path)
       }
     } catch (error) {
-      console.error('清理旧日志失败:', error);
+      console.error('清理旧日志失败:', error)
     }
   }
 
   private log(level: LogLevel, levelName: string, message: string, ...args: unknown[]): void {
-    if (level < this.config.level) return;
+    if (level < this.config.level) return
 
-    const formattedMessage = this.formatMessage(levelName, message, ...args);
+    const formattedMessage = this.formatMessage(levelName, message, ...args)
 
     if (this.config.enableConsole) {
       const consoleMethod = level >= LogLevel.ERROR ? console.error :
-                           level >= LogLevel.WARN ? console.warn :
-                           level >= LogLevel.INFO ? console.log : console.debug;
-      consoleMethod(formattedMessage);
+        level >= LogLevel.WARN ? console.warn :
+          level >= LogLevel.INFO ? console.log : console.debug
+      consoleMethod(formattedMessage)
     }
 
     if (this.config.enableFile) {
-      this.writeToFile(formattedMessage);
+      this.writeToFile(formattedMessage)
     }
   }
 
   debug(message: string, ...args: unknown[]): void {
-    this.log(LogLevel.DEBUG, 'DEBUG', message, ...args);
+    this.log(LogLevel.DEBUG, 'DEBUG', message, ...args)
   }
 
   info(message: string, ...args: unknown[]): void {
-    this.log(LogLevel.INFO, 'INFO', message, ...args);
+    this.log(LogLevel.INFO, 'INFO', message, ...args)
   }
 
   warn(message: string, ...args: unknown[]): void {
-    this.log(LogLevel.WARN, 'WARN', message, ...args);
+    this.log(LogLevel.WARN, 'WARN', message, ...args)
   }
 
   error(message: string, ...args: unknown[]): void {
-    this.log(LogLevel.ERROR, 'ERROR', message, ...args);
+    this.log(LogLevel.ERROR, 'ERROR', message, ...args)
   }
 
   // API调用专用日志方法
@@ -169,7 +169,7 @@ export class EnhancedLogger {
       timestamp: new Date().toISOString(),
       requestSize: JSON.stringify(requestData).length,
       // 在调试模式下记录完整请求
-      ...(process.env.FILE_DEBUG === '1' ? { requestData } : {})
+      ...(process.env.FILE_DEBUG === '1' ? { requestData } : {}),
     });
   }
 
@@ -179,7 +179,7 @@ export class EnhancedLogger {
       timestamp: new Date().toISOString(),
       responseSize: JSON.stringify(responseData).length,
       // 在调试模式下记录完整响应
-      ...(process.env.FILE_DEBUG === '1' ? { responseData } : {})
+      ...(process.env.FILE_DEBUG === '1' ? { responseData } : {}),
     });
   }
 }
@@ -190,4 +190,4 @@ export const logger = new EnhancedLogger({
   enableConsole: true,
   enableFile: process.env.LOG_TO_FILE === 'true',
   filePath: process.env.LOG_FILE_PATH,
-});
+})

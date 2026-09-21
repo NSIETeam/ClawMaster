@@ -6,24 +6,24 @@
  * promotion receipt and no partial domain state can commit.
  */
 
-import { createHash, createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto'
 
 import type {
   EncryptedFieldCipher,
   PostgresClientLike,
   PostgresPoolLike,
-} from '../modules/data_platform/index.js';
+} from '../modules/data_platform/index.js'
 import {
   loadVerifiedSqliteImportTable,
   type DecodedSqliteImportRow,
-} from './postgresImportStaging.js';
+} from './postgresImportStaging.js'
 
-const PROMOTION_LOCK_KEY = 0x4f545450;
-const MLS_CIPHERSUITE = 'MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519';
-const MLS_KEY_PACKAGE_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
-const MLS_TRANSPORT_EVENT_TTL_MS = 90 * 24 * 60 * 60 * 1_000;
+const PROMOTION_LOCK_KEY = 0x4f545450
+const MLS_CIPHERSUITE = 'MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519'
+const MLS_KEY_PACKAGE_TTL_MS = 7 * 24 * 60 * 60 * 1_000
+const MLS_TRANSPORT_EVENT_TTL_MS = 90 * 24 * 60 * 60 * 1_000
 const INVITE_ALPHABET =
-  'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
 const COMMERCIAL_SECRET_FIELDS = new Set([
   'telemetryToken',
   'leaseToken',
@@ -31,7 +31,7 @@ const COMMERCIAL_SECRET_FIELDS = new Set([
   'billingFinalizeToken',
   'privateKey',
   'privateKeyPem',
-]);
+])
 
 function sanitizeCommercialPayload(
   payload: Record<string, unknown>,
@@ -40,61 +40,61 @@ function sanitizeCommercialPayload(
     Object.entries(payload).filter(
       ([key]) => !COMMERCIAL_SECRET_FIELDS.has(key),
     ),
-  );
+  )
 }
 
 interface ImportRunRow extends Record<string, unknown> {
-  id: string;
-  state: string;
+  id: string
+  state: string
 }
 
 interface PromotionReceiptRow extends Record<string, unknown> {
-  run_id: string;
-  promoted_counts: Record<string, number> | string;
-  promoted_at: Date | string;
+  run_id: string
+  promoted_counts: Record<string, number> | string
+  promoted_at: Date | string
 }
 
 interface PreparedAttachmentRow extends Record<string, unknown> {
-  attachment_id: string;
-  message_id: string;
-  organization_id: string;
-  sender_account_id: string;
-  recipient_account_id: string;
-  ordinal: number | string;
-  ciphertext_bytes: number | string;
-  ciphertext_sha256: string;
-  e2ee_nonce: string;
-  source_backend: string;
-  source_storage_key: string | null;
-  s3_storage_key: string | null;
-  state: string;
-  source_created_at: Date | string;
+  attachment_id: string
+  message_id: string
+  organization_id: string
+  sender_account_id: string
+  recipient_account_id: string
+  ordinal: number | string
+  ciphertext_bytes: number | string
+  ciphertext_sha256: string
+  e2ee_nonce: string
+  source_backend: string
+  source_storage_key: string | null
+  s3_storage_key: string | null
+  state: string
+  source_created_at: Date | string
 }
 
 interface PreparedPromotionAttachment {
-  id: string;
-  messageId: string;
-  organizationId: string;
-  senderAccountId: string;
-  recipientAccountId: string;
-  ordinal: number;
-  ciphertextBytes: number;
-  ciphertextSha256: string;
-  nonce: string;
-  sourceBackend: 'sqlite' | 'encrypted-filesystem';
-  sourceStorageKey: string | null;
-  s3StorageKey: string;
-  sourceCreatedAt: string;
+  id: string
+  messageId: string
+  organizationId: string
+  senderAccountId: string
+  recipientAccountId: string
+  ordinal: number
+  ciphertextBytes: number
+  ciphertextSha256: string
+  nonce: string
+  sourceBackend: 'sqlite' | 'encrypted-filesystem'
+  sourceStorageKey: string | null
+  s3StorageKey: string
+  sourceCreatedAt: string
 }
 
 export interface PostgresEnterprisePromotionResult {
-  runId: string;
-  state: 'promoted' | 'already-promoted' | 'planned';
-  promotedCounts: Record<string, number>;
-  promotedAt: string | null;
+  runId: string
+  state: 'promoted' | 'already-promoted' | 'planned'
+  promotedCounts: Record<string, number>
+  promotedAt: string | null
 }
 
-type DecodedRow = DecodedSqliteImportRow;
+type DecodedRow = DecodedSqliteImportRow
 
 const PROMOTION_ORDER = [
   'organizations',
@@ -114,7 +114,7 @@ const PROMOTION_ORDER = [
   'mls_group_sessions',
   'mls_transport_events',
   'mls_resource_rate_buckets',
-] as const;
+] as const
 
 const BUSINESS_PROMOTION_ORDER = [
   'legal_consents',
@@ -157,41 +157,41 @@ const BUSINESS_PROMOTION_ORDER = [
   'billing_execution_receipt_keys',
   'billing_execution_receipt_sequences',
   'billing_admission_outbox',
-] as const;
+] as const
 
 function stringValue(value: unknown, label: string): string {
   if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`SQLite promotion ${label} is invalid`);
+    throw new Error(`SQLite promotion ${label} is invalid`)
   }
-  return value;
+  return value
 }
 
 function optionalString(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null;
+  return typeof value === 'string' && value.length > 0 ? value : null
 }
 
 function timestamp(value: unknown, label: string): string {
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) {
-      throw new Error(`SQLite promotion ${label} is invalid`);
+      throw new Error(`SQLite promotion ${label} is invalid`)
     }
-    return value.toISOString();
+    return value.toISOString()
   }
-  const raw = stringValue(value, label);
+  const raw = stringValue(value, label)
   const date = new Date(
     raw.endsWith('Z') || /[+-]\d\d:\d\d$/.test(raw)
       ? raw
       : `${raw.replace(' ', 'T')}Z`,
-  );
+  )
   if (Number.isNaN(date.getTime()))
-    throw new Error(`SQLite promotion ${label} is invalid`);
-  return date.toISOString();
+    throw new Error(`SQLite promotion ${label} is invalid`)
+  return date.toISOString()
 }
 
 function optionalTimestamp(value: unknown, label: string): string | null {
   return value === null || value === undefined || value === ''
     ? null
-    : timestamp(value, label);
+    : timestamp(value, label)
 }
 
 function expirationTimestamp(
@@ -201,19 +201,19 @@ function expirationTimestamp(
   label: string,
 ): string {
   if (value !== null && value !== undefined && value !== '') {
-    return timestamp(value, label);
+    return timestamp(value, label)
   }
-  const created = new Date(timestamp(createdAt, `${label} source created_at`));
-  return new Date(created.getTime() + ttlMs).toISOString();
+  const created = new Date(timestamp(createdAt, `${label} source created_at`))
+  return new Date(created.getTime() + ttlMs).toISOString()
 }
 
 function millisecondTimestamp(value: unknown, label: string): string {
-  const milliseconds = integerValue(value, label);
-  const date = new Date(milliseconds);
+  const milliseconds = integerValue(value, label)
+  const date = new Date(milliseconds)
   if (Number.isNaN(date.getTime())) {
-    throw new Error(`SQLite promotion ${label} is invalid`);
+    throw new Error(`SQLite promotion ${label} is invalid`)
   }
-  return date.toISOString();
+  return date.toISOString()
 }
 
 function optionalMillisecondTimestamp(
@@ -222,58 +222,58 @@ function optionalMillisecondTimestamp(
 ): string | null {
   return value === null || value === undefined || value === ''
     ? null
-    : millisecondTimestamp(value, label);
+    : millisecondTimestamp(value, label)
 }
 
 function booleanValue(value: unknown): boolean {
-  return value === true || value === 1 || value === '1';
+  return value === true || value === 1 || value === '1'
 }
 
 function integerValue(value: unknown, label: string): number {
-  const parsed = Number(value);
+  const parsed = Number(value)
   if (!Number.isSafeInteger(parsed))
-    throw new Error(`SQLite promotion ${label} is invalid`);
-  return parsed;
+    throw new Error(`SQLite promotion ${label} is invalid`)
+  return parsed
 }
 
 function positiveIntegerValue(value: unknown, label: string): number {
-  const parsed = integerValue(value, label);
-  if (parsed <= 0) throw new Error(`SQLite promotion ${label} is invalid`);
-  return parsed;
+  const parsed = integerValue(value, label)
+  if (parsed <= 0) throw new Error(`SQLite promotion ${label} is invalid`)
+  return parsed
 }
 
 function nonNegativeIntegerValue(value: unknown, label: string): number {
-  const parsed = integerValue(value, label);
-  if (parsed < 0) throw new Error(`SQLite promotion ${label} is invalid`);
-  return parsed;
+  const parsed = integerValue(value, label)
+  if (parsed < 0) throw new Error(`SQLite promotion ${label} is invalid`)
+  return parsed
 }
 
 function sha256Value(value: unknown, label: string): string {
-  const parsed = stringValue(value, label);
+  const parsed = stringValue(value, label)
   if (!/^[0-9a-f]{64}$/u.test(parsed)) {
-    throw new Error(`SQLite promotion ${label} is invalid`);
+    throw new Error(`SQLite promotion ${label} is invalid`)
   }
-  return parsed;
+  return parsed
 }
 
 function jsonObject(value: unknown): Record<string, unknown> {
-  if (typeof value !== 'string' || !value.trim()) return {};
+  if (typeof value !== 'string' || !value.trim()) return {}
   try {
-    const parsed = JSON.parse(value) as unknown;
+    const parsed = JSON.parse(value) as unknown
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
+      return parsed as Record<string, unknown>
     }
   } catch {
     // Preserve legacy free text in a structured audit field.
   }
-  return { legacyDetail: value };
+  return { legacyDetail: value }
 }
 
 function receipt(row: PromotionReceiptRow): PostgresEnterprisePromotionResult {
   const counts =
     typeof row.promoted_counts === 'string'
       ? (JSON.parse(row.promoted_counts) as Record<string, number>)
-      : row.promoted_counts;
+      : row.promoted_counts
   return {
     runId: row.run_id,
     state: 'already-promoted',
@@ -282,21 +282,21 @@ function receipt(row: PromotionReceiptRow): PostgresEnterprisePromotionResult {
       row.promoted_at instanceof Date
         ? row.promoted_at.toISOString()
         : new Date(row.promoted_at).toISOString(),
-  };
+  }
 }
 
 async function assertUnusedTarget(client: PostgresClientLike): Promise<void> {
   const result = await client.query<
     {
-      accounts: number | string;
-      messages: number | string;
-      mls_key_packages: number | string;
-      mls_conversations: number | string;
-      mls_group_sessions: number | string;
-      mls_transport_events: number | string;
-      account_sync_snapshots: number | string;
-      business_records: number | string;
-      non_default_organizations: number | string;
+      accounts: number | string
+      messages: number | string
+      mls_key_packages: number | string
+      mls_conversations: number | string
+      mls_group_sessions: number | string
+      mls_transport_events: number | string
+      account_sync_snapshots: number | string
+      business_records: number | string
+      non_default_organizations: number | string
     } & Record<string, unknown>
   >(
     `SELECT
@@ -310,8 +310,8 @@ async function assertUnusedTarget(client: PostgresClientLike): Promise<void> {
        (SELECT count(*) FROM enterprise_business_records)::integer AS business_records,
        (SELECT count(*) FROM organizations WHERE id <> 'org_default')::integer
          AS non_default_organizations`,
-  );
-  const row = result.rows[0];
+  )
+  const row = result.rows[0]
   if (
     !row ||
     Number(row.accounts) !== 0 ||
@@ -326,7 +326,7 @@ async function assertUnusedTarget(client: PostgresClientLike): Promise<void> {
   ) {
     throw new Error(
       'PostgreSQL promotion target is not empty; refusing to overwrite authoritative data',
-    );
+    )
   }
 }
 
@@ -335,7 +335,7 @@ async function insertOrganizations(
   rows: DecodedRow[],
 ): Promise<void> {
   for (const row of rows) {
-    const id = stringValue(row.id, 'organization id');
+    const id = stringValue(row.id, 'organization id')
     await client.query(
       `INSERT INTO organizations
         (id, name, slug, type, status, park_id, invite_secret, created_at, updated_at)
@@ -356,31 +356,31 @@ async function insertOrganizations(
         timestamp(row.created_at, 'organization created_at'),
         timestamp(row.updated_at, 'organization updated_at'),
       ],
-    );
+    )
     await client.query(
       `INSERT INTO organization_features (organization_id)
        VALUES ($1) ON CONFLICT (organization_id) DO NOTHING`,
       [id],
-    );
+    )
   }
 }
 
 function deriveImportedInviteCode(input: {
-  organizationId: string;
-  inviteSecret: string;
-  nonce: string;
+  organizationId: string
+  inviteSecret: string
+  nonce: string
 }): string {
   if (!/^[0-9a-f]{64}$/u.test(input.inviteSecret)) {
-    throw new Error('SQLite promotion organization invite secret is invalid');
+    throw new Error('SQLite promotion organization invite secret is invalid')
   }
   const digest = createHmac('sha256', input.inviteSecret)
     .update(`${input.organizationId}:${input.nonce}`)
-    .digest();
-  let code = '';
+    .digest()
+  let code = ''
   for (let index = 0; index < 12; index += 1) {
-    code += INVITE_ALPHABET[digest[index]! % INVITE_ALPHABET.length];
+    code += INVITE_ALPHABET[digest[index]! % INVITE_ALPHABET.length]
   }
-  return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
+  return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`
 }
 
 async function insertOrganizationInvites(
@@ -391,25 +391,25 @@ async function insertOrganizationInvites(
     const organizationId = stringValue(
       row.organization_id,
       'invite organization id',
-    );
+    )
     const secretResult = await client.query<
       { invite_secret: string | null } & Record<string, unknown>
     >('SELECT invite_secret FROM organizations WHERE id = $1', [
       organizationId,
-    ]);
-    const inviteSecret = secretResult.rows[0]?.invite_secret;
+    ])
+    const inviteSecret = secretResult.rows[0]?.invite_secret
     if (!inviteSecret) {
       throw new Error(
         `SQLite promotion organization ${organizationId} has invitations but no invite secret`,
-      );
+      )
     }
-    const nonce = stringValue(row.nonce, 'invite nonce');
+    const nonce = stringValue(row.nonce, 'invite nonce')
     const code = deriveImportedInviteCode({
       organizationId,
       inviteSecret,
       nonce,
-    });
-    const normalizedCode = code.replaceAll('-', '');
+    })
+    const normalizedCode = code.replaceAll('-', '')
     await client.query(
       `INSERT INTO organization_invites
         (id, organization_id, nonce, code_hash, issued_at, expires_at,
@@ -438,7 +438,7 @@ async function insertOrganizationInvites(
           ? 0
           : integerValue(row.used_count, 'invite used_count'),
       ],
-    );
+    )
   }
 }
 
@@ -446,13 +446,13 @@ async function insertOrganizationFeatures(
   client: PostgresClientLike,
   rows: DecodedRow[],
 ): Promise<void> {
-  const features = new Map<string, Record<string, boolean>>();
+  const features = new Map<string, Record<string, boolean>>()
   for (const row of rows) {
     const organizationId = stringValue(
       row.organization_id,
       'feature organization id',
-    );
-    const feature = stringValue(row.feature_key, 'feature key');
+    )
+    const feature = stringValue(row.feature_key, 'feature key')
     if (
       ![
         'enterprise_tree',
@@ -464,12 +464,12 @@ async function insertOrganizationFeatures(
         'skill_market',
       ].includes(feature)
     ) {
-      continue;
+      continue
     }
-    const current = features.get(organizationId) ?? {};
+    const current = features.get(organizationId) ?? {}
     current[feature === 'park_service' ? 'park_services' : feature] =
-      booleanValue(row.enabled);
-    features.set(organizationId, current);
+      booleanValue(row.enabled)
+    features.set(organizationId, current)
   }
   for (const [organizationId, patch] of features) {
     await client.query(
@@ -491,7 +491,7 @@ async function insertOrganizationFeatures(
         patch.knowledge ?? null,
         patch.skill_market ?? null,
       ],
-    );
+    )
   }
 }
 
@@ -511,7 +511,7 @@ async function insertDepartments(
         timestamp(row.created_at, 'department created_at'),
         timestamp(row.updated_at, 'department updated_at'),
       ],
-    );
+    )
   }
 }
 
@@ -530,7 +530,7 @@ async function insertPositions(client: PostgresClientLike, rows: DecodedRow[]) {
         timestamp(row.created_at, 'position created_at'),
         timestamp(row.updated_at, 'position updated_at'),
       ],
-    );
+    )
   }
 }
 
@@ -567,7 +567,7 @@ async function insertAccounts(client: PostgresClientLike, rows: DecodedRow[]) {
         timestamp(row.created_at, 'account created_at'),
         timestamp(row.updated_at, 'account updated_at'),
       ],
-    );
+    )
   }
 }
 
@@ -581,7 +581,7 @@ async function insertTags(client: PostgresClientLike, rows: DecodedRow[]) {
         stringValue(row.organization_id, 'tag organization id'),
         stringValue(row.tag, 'account tag'),
       ],
-    );
+    )
   }
 }
 
@@ -598,7 +598,7 @@ async function insertSessions(client: PostgresClientLike, rows: DecodedRow[]) {
         timestamp(row.expires_at, 'session expires_at'),
         optionalTimestamp(row.revoked_at, 'session revoked_at'),
       ],
-    );
+    )
   }
 }
 
@@ -615,7 +615,7 @@ async function insertAudits(client: PostgresClientLike, rows: DecodedRow[]) {
         JSON.stringify(jsonObject(row.detail)),
         timestamp(row.created_at, 'audit created_at'),
       ],
-    );
+    )
   }
 }
 
@@ -644,7 +644,7 @@ async function insertDevices(client: PostgresClientLike, rows: DecodedRow[]) {
         timestamp(row.last_seen_at, 'device last_seen_at'),
         optionalTimestamp(row.revoked_at, 'device revoked_at'),
       ],
-    );
+    )
   }
 }
 
@@ -670,13 +670,13 @@ async function insertTransparency(
         stringValue(row.entry_hash, 'transparency entry hash'),
         timestamp(row.created_at, 'transparency created_at'),
       ],
-    );
+    )
   }
 }
 
 async function insertMessages(client: PostgresClientLike, rows: DecodedRow[]) {
   for (const row of rows) {
-    const e2ee = Number(row.e2ee_protocol_version) === 1;
+    const e2ee = Number(row.e2ee_protocol_version) === 1
     if (
       !e2ee &&
       (!optionalString(row.content_ciphertext) ||
@@ -686,11 +686,11 @@ async function insertMessages(client: PostgresClientLike, rows: DecodedRow[]) {
     ) {
       throw new Error(
         `SQLite message ${String(row.id)} is not encrypted; promotion refuses plaintext data`,
-      );
+      )
     }
     const envelopes = e2ee
       ? JSON.parse(stringValue(row.e2ee_envelopes_json, 'message envelopes'))
-      : null;
+      : null
     await client.query(
       `INSERT INTO direct_messages
         (id, organization_id, sender_account_id, recipient_account_id,
@@ -726,7 +726,7 @@ async function insertMessages(client: PostgresClientLike, rows: DecodedRow[]) {
         timestamp(row.created_at, 'message created_at'),
         optionalTimestamp(row.read_at, 'message read_at'),
       ],
-    );
+    )
   }
 }
 
@@ -738,9 +738,9 @@ async function insertMlsKeyPackages(
     const ciphersuite = stringValue(
       row.ciphersuite,
       'MLS KeyPackage ciphersuite',
-    );
+    )
     if (ciphersuite !== MLS_CIPHERSUITE) {
-      throw new Error('SQLite promotion MLS KeyPackage ciphersuite is invalid');
+      throw new Error('SQLite promotion MLS KeyPackage ciphersuite is invalid')
     }
     await client.query(
       `INSERT INTO mls_key_packages
@@ -769,7 +769,7 @@ async function insertMlsKeyPackages(
           'MLS KeyPackage expires_at',
         ),
       ],
-    );
+    )
   }
 }
 
@@ -803,17 +803,17 @@ async function insertMlsConversations(
         row.retention_floor_sequence == null
           ? 0
           : nonNegativeIntegerValue(
-              row.retention_floor_sequence,
-              'MLS conversation retention floor',
-            ),
+            row.retention_floor_sequence,
+            'MLS conversation retention floor',
+          ),
         row.active_generation == null
           ? 1
           : positiveIntegerValue(
-              row.active_generation,
-              'MLS conversation active generation',
-            ),
+            row.active_generation,
+            'MLS conversation active generation',
+          ),
       ],
-    );
+    )
     if (row.active_generation == null) {
       await client.query(
         `INSERT INTO mls_group_sessions
@@ -827,7 +827,7 @@ async function insertMlsConversations(
           positiveIntegerValue(row.current_epoch, 'MLS conversation epoch'),
           timestamp(row.created_at, 'MLS conversation created_at'),
         ],
-      );
+      )
     }
   }
 }
@@ -837,14 +837,14 @@ async function insertMlsGroupSessions(
   rows: DecodedRow[],
 ): Promise<void> {
   for (const row of rows) {
-    const status = stringValue(row.status, 'MLS group session status');
+    const status = stringValue(row.status, 'MLS group session status')
     if (!['active', 'retired'].includes(status)) {
-      throw new Error('SQLite promotion MLS group session status is invalid');
+      throw new Error('SQLite promotion MLS group session status is invalid')
     }
     const generation = positiveIntegerValue(
       row.generation,
       'MLS group session generation',
-    );
+    )
     await client.query(
       `INSERT INTO mls_group_sessions
         (organization_id, conversation_id, generation, group_id,
@@ -865,7 +865,7 @@ async function insertMlsGroupSessions(
         optionalString(row.reset_by_device_id),
         optionalString(row.reset_event_id),
       ],
-    );
+    )
   }
 }
 
@@ -874,9 +874,9 @@ async function insertMlsTransportEvents(
   rows: DecodedRow[],
 ): Promise<void> {
   for (const row of rows) {
-    const eventType = stringValue(row.event_type, 'MLS event type');
+    const eventType = stringValue(row.event_type, 'MLS event type')
     if (!['welcome', 'commit', 'application'].includes(eventType)) {
-      throw new Error('SQLite promotion MLS event type is invalid');
+      throw new Error('SQLite promotion MLS event type is invalid')
     }
     await client.query(
       `INSERT INTO mls_transport_events
@@ -896,9 +896,9 @@ async function insertMlsTransportEvents(
         row.session_generation == null
           ? 1
           : positiveIntegerValue(
-              row.session_generation,
-              'MLS event session generation',
-            ),
+            row.session_generation,
+            'MLS event session generation',
+          ),
         stringValue(row.sender_account_id, 'MLS event sender account id'),
         stringValue(row.sender_device_id, 'MLS event sender device id'),
         optionalString(row.recipient_account_id),
@@ -910,9 +910,9 @@ async function insertMlsTransportEvents(
         row.key_package_reference == null
           ? null
           : sha256Value(
-              row.key_package_reference,
-              'MLS event KeyPackage reference',
-            ),
+            row.key_package_reference,
+            'MLS event KeyPackage reference',
+          ),
         timestamp(row.created_at, 'MLS event created_at'),
         expirationTimestamp(
           row.expires_at,
@@ -921,7 +921,7 @@ async function insertMlsTransportEvents(
           'MLS event expires_at',
         ),
       ],
-    );
+    )
   }
   await client.query(
     `SELECT setval(
@@ -929,7 +929,7 @@ async function insertMlsTransportEvents(
        COALESCE((SELECT max(sequence) FROM mls_transport_events), 1),
        EXISTS (SELECT 1 FROM mls_transport_events)
      )`,
-  );
+  )
 }
 
 async function insertMlsResourceRateBuckets(
@@ -937,9 +937,9 @@ async function insertMlsResourceRateBuckets(
   rows: DecodedRow[],
 ): Promise<void> {
   for (const row of rows) {
-    const action = stringValue(row.action, 'MLS rate bucket action');
+    const action = stringValue(row.action, 'MLS rate bucket action')
     if (!['key_package_publish', 'transport_event_append'].includes(action)) {
-      throw new Error('SQLite promotion MLS rate bucket action is invalid');
+      throw new Error('SQLite promotion MLS rate bucket action is invalid')
     }
     await client.query(
       `INSERT INTO mls_resource_rate_buckets
@@ -960,15 +960,15 @@ async function insertMlsResourceRateBuckets(
           'MLS rate bucket request count',
         ),
       ],
-    );
+    )
   }
 }
 
 async function verifiedPreparedAttachments(input: {
-  client: PostgresClientLike;
-  runId: string;
-  attachmentRows: DecodedRow[];
-  messageRows: DecodedRow[];
+  client: PostgresClientLike
+  runId: string
+  attachmentRows: DecodedRow[]
+  messageRows: DecodedRow[]
 }): Promise<PreparedPromotionAttachment[]> {
   const result = await input.client.query<PreparedAttachmentRow>(
     `SELECT attachment_id, message_id, organization_id, sender_account_id,
@@ -978,26 +978,26 @@ async function verifiedPreparedAttachments(input: {
      FROM clawmaster_sqlite_import_attachment_objects
      WHERE run_id = $1 ORDER BY attachment_id`,
     [input.runId],
-  );
+  )
   if (result.rows.length !== input.attachmentRows.length) {
     throw new Error(
       'every SQLite message attachment requires a verified S3 preparation',
-    );
+    )
   }
   const messages = new Map(
-    input.messageRows.map((row) => [String(row.id), row]),
-  );
+    input.messageRows.map(row => [String(row.id), row]),
+  )
   const preparedById = new Map(
-    result.rows.map((row) => [row.attachment_id, row] as const),
-  );
+    result.rows.map(row => [row.attachment_id, row] as const),
+  )
   return input.attachmentRows.map((source) => {
-    const id = stringValue(source.id, 'attachment id');
-    const messageId = stringValue(source.message_id, 'attachment message id');
+    const id = stringValue(source.id, 'attachment id')
+    const messageId = stringValue(source.message_id, 'attachment message id')
     const organizationId = stringValue(
       source.organization_id,
       'attachment organization id',
-    );
-    const message = messages.get(messageId);
+    )
+    const message = messages.get(messageId)
     if (
       !message ||
       Number(message.e2ee_protocol_version) !== 1 ||
@@ -1006,27 +1006,27 @@ async function verifiedPreparedAttachments(input: {
     ) {
       throw new Error(
         'SQLite attachment promotion only supports tenant-matched E2EE messages',
-      );
+      )
     }
     const senderAccountId = stringValue(
       message.sender_account_id,
       'message sender account id',
-    );
+    )
     const recipientAccountId = stringValue(
       message.recipient_account_id,
       'message recipient account id',
-    );
-    const ordinal = integerValue(source.ordinal, 'attachment ordinal');
+    )
+    const ordinal = integerValue(source.ordinal, 'attachment ordinal')
     const expectedBytes =
-      integerValue(source.byte_size, 'attachment byte size') + 16;
+      integerValue(source.byte_size, 'attachment byte size') + 16
     const sourceCreatedAt = timestamp(
       source.created_at,
       'attachment created_at',
-    );
-    const nonce = stringValue(source.e2ee_nonce, 'attachment nonce');
-    const sourceBackend = source.storage_backend;
-    const sourceStorageKey = optionalString(source.storage_key);
-    const prepared = preparedById.get(id);
+    )
+    const nonce = stringValue(source.e2ee_nonce, 'attachment nonce')
+    const sourceBackend = source.storage_backend
+    const sourceStorageKey = optionalString(source.storage_key)
+    const prepared = preparedById.get(id)
     if (
       !prepared ||
       prepared.state !== 'verified' ||
@@ -1051,7 +1051,7 @@ async function verifiedPreparedAttachments(input: {
     ) {
       throw new Error(
         `SQLite attachment ${id} has no matching verified S3 preparation`,
-      );
+      )
     }
     if (
       (sourceBackend !== 'sqlite' &&
@@ -1059,7 +1059,7 @@ async function verifiedPreparedAttachments(input: {
       (sourceBackend === 'sqlite' && sourceStorageKey !== null) ||
       (sourceBackend === 'encrypted-filesystem' && !sourceStorageKey)
     ) {
-      throw new Error(`SQLite attachment ${id} source metadata is invalid`);
+      throw new Error(`SQLite attachment ${id} source metadata is invalid`)
     }
     return {
       id,
@@ -1075,27 +1075,27 @@ async function verifiedPreparedAttachments(input: {
       sourceStorageKey,
       s3StorageKey: prepared.s3_storage_key,
       sourceCreatedAt,
-    };
+    }
   });
 }
 
 async function insertPreparedAttachments(input: {
-  client: PostgresClientLike;
-  attachments: PreparedPromotionAttachment[];
-  defaultQuotaBytes: number;
-  legacyGraceMs: number;
+  client: PostgresClientLike
+  attachments: PreparedPromotionAttachment[]
+  defaultQuotaBytes: number
+  legacyGraceMs: number
 }): Promise<void> {
-  const bytesByOrganization = new Map<string, number>();
+  const bytesByOrganization = new Map<string, number>()
   for (const attachment of input.attachments) {
     const next =
       (bytesByOrganization.get(attachment.organizationId) ?? 0) +
-      attachment.ciphertextBytes;
+      attachment.ciphertextBytes
     if (!Number.isSafeInteger(next) || next > input.defaultQuotaBytes) {
       throw new Error(
         `SQLite attachment import exceeds the configured quota for ${attachment.organizationId}`,
-      );
+      )
     }
-    bytesByOrganization.set(attachment.organizationId, next);
+    bytesByOrganization.set(attachment.organizationId, next)
   }
   for (const [organizationId, storedBytes] of bytesByOrganization) {
     await input.client.query(
@@ -1107,10 +1107,10 @@ async function insertPreparedAttachments(input: {
          stored_bytes = attachment_storage_quotas.stored_bytes + EXCLUDED.stored_bytes,
          updated_at = CURRENT_TIMESTAMP`,
       [organizationId, input.defaultQuotaBytes, storedBytes],
-    );
+    )
   }
   for (const attachment of input.attachments) {
-    const retainsLegacy = attachment.sourceBackend === 'encrypted-filesystem';
+    const retainsLegacy = attachment.sourceBackend === 'encrypted-filesystem'
     await input.client.query(
       `INSERT INTO attachment_objects
         (id, organization_id, owner_account_id, state, encryption,
@@ -1136,7 +1136,7 @@ async function insertPreparedAttachments(input: {
         input.legacyGraceMs,
         attachment.sourceCreatedAt,
       ],
-    );
+    )
     for (const accountId of new Set([
       attachment.senderAccountId,
       attachment.recipientAccountId,
@@ -1146,7 +1146,7 @@ async function insertPreparedAttachments(input: {
           (attachment_id, organization_id, account_id)
          VALUES ($1, $2, $3)`,
         [attachment.id, attachment.organizationId, accountId],
-      );
+      )
     }
     await input.client.query(
       `INSERT INTO direct_message_attachment_objects
@@ -1162,44 +1162,44 @@ async function insertPreparedAttachments(input: {
         attachment.ciphertextBytes,
         attachment.ciphertextSha256,
       ],
-    );
+    )
   }
 }
 
 function jsonValue(value: unknown, fallback: unknown): unknown {
-  if (typeof value !== 'string') return value ?? fallback;
+  if (typeof value !== 'string') return value ?? fallback
   try {
-    return JSON.parse(value) as unknown;
+    return JSON.parse(value) as unknown
   } catch {
-    return fallback;
+    return fallback
   }
 }
 
 function legacyTimestamp(value: unknown): string {
   if (value === null || value === undefined || value === '') {
-    return new Date(0).toISOString();
+    return new Date(0).toISOString()
   }
-  return timestamp(value, 'business record timestamp');
+  return timestamp(value, 'business record timestamp')
 }
 
 async function insertBusinessRecord(input: {
-  client: PostgresClientLike;
-  organizationId: string;
+  client: PostgresClientLike
+  organizationId: string
   domain:
     | 'knowledge'
     | 'skills'
     | 'park'
     | 'ticketing'
     | 'commercial_control'
-    | 'data_governance';
-  resourceType: string;
-  resourceId: string;
-  ownerAccountId?: string | null;
-  status?: string;
-  version?: number;
-  payload: Record<string, unknown>;
-  createdAt?: unknown;
-  updatedAt?: unknown;
+    | 'data_governance'
+  resourceType: string
+  resourceId: string
+  ownerAccountId?: string | null
+  status?: string
+  version?: number
+  payload: Record<string, unknown>
+  createdAt?: unknown
+  updatedAt?: unknown
 }): Promise<void> {
   await input.client.query(
     `INSERT INTO enterprise_business_records
@@ -1219,26 +1219,26 @@ async function insertBusinessRecord(input: {
       legacyTimestamp(input.createdAt),
       legacyTimestamp(input.updatedAt ?? input.createdAt),
     ],
-  );
+  )
 }
 
 async function insertBusinessEvent(input: {
-  client: PostgresClientLike;
-  organizationId: string;
+  client: PostgresClientLike
+  organizationId: string
   domain:
     | 'knowledge'
     | 'skills'
     | 'park'
     | 'ticketing'
     | 'commercial_control'
-    | 'data_governance';
-  eventId: string;
-  resourceType: string;
-  resourceId: string;
-  actorAccountId?: string | null;
-  eventType: string;
-  payload: Record<string, unknown>;
-  createdAt?: unknown;
+    | 'data_governance'
+  eventId: string
+  resourceType: string
+  resourceId: string
+  actorAccountId?: string | null
+  eventType: string
+  payload: Record<string, unknown>
+  createdAt?: unknown
 }): Promise<void> {
   await input.client.query(
     `INSERT INTO enterprise_business_events
@@ -1256,15 +1256,15 @@ async function insertBusinessEvent(input: {
       JSON.stringify(input.payload),
       legacyTimestamp(input.createdAt),
     ],
-  );
+  )
 }
 
 function importedSkillContent(
   row: DecodedRow,
   fieldCipher: EncryptedFieldCipher | undefined,
 ): string {
-  const plaintext = optionalString(row.content);
-  if (plaintext && plaintext !== '[encrypted:v1]') return plaintext;
+  const plaintext = optionalString(row.content)
+  if (plaintext && plaintext !== '[encrypted:v1]') return plaintext
   if (
     !fieldCipher ||
     !optionalString(row.content_ciphertext) ||
@@ -1273,14 +1273,14 @@ function importedSkillContent(
   ) {
     throw new Error(
       'SQLite promotion requires the enterprise field key to decrypt Skill content',
-    );
+    )
   }
   const organizationId = stringValue(
     row.organization_id,
     'skill organization id',
-  );
-  const skillId = stringValue(row.id, 'skill id');
-  const version = positiveIntegerValue(row.version ?? 1, 'skill version');
+  )
+  const skillId = stringValue(row.id, 'skill id')
+  const version = positiveIntegerValue(row.version ?? 1, 'skill version')
   return fieldCipher.decryptText(
     {
       ciphertext: stringValue(row.content_ciphertext, 'skill ciphertext'),
@@ -1292,13 +1292,13 @@ function importedSkillContent(
       ),
     },
     `enterprise-skill:${organizationId}:${skillId}:v${version}`,
-  );
+  )
 }
 
 async function promoteBusinessTables(input: {
-  client: PostgresClientLike;
-  loaded: ReadonlyMap<string, DecodedRow[]>;
-  fieldCipher?: EncryptedFieldCipher;
+  client: PostgresClientLike
+  loaded: ReadonlyMap<string, DecodedRow[]>
+  fieldCipher?: EncryptedFieldCipher
 }): Promise<void> {
   for (const row of input.loaded.get('legal_consents') ?? []) {
     await input.client.query(
@@ -1316,7 +1316,7 @@ async function promoteBusinessTables(input: {
         optionalString(row.source) ?? 'migration',
         timestamp(row.accepted_at, 'legal consent accepted_at'),
       ],
-    );
+    )
   }
 
   for (const row of input.loaded.get('account_sync_snapshots') ?? []) {
@@ -1338,18 +1338,18 @@ async function promoteBusinessTables(input: {
         row.updated_at_ms == null
           ? timestamp(row.updated_at, 'account sync updated_at')
           : millisecondTimestamp(
-              row.updated_at_ms,
-              'account sync updated_at_ms',
-            ),
+            row.updated_at_ms,
+            'account sync updated_at_ms',
+          ),
       ],
-    );
+    )
   }
 
   for (const row of input.loaded.get('knowledge') ?? []) {
     const organizationId = stringValue(
       row.organization_id,
       'knowledge organization id',
-    );
+    )
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1377,7 +1377,7 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('knowledge_revisions') ?? []) {
     await insertBusinessEvent({
@@ -1405,7 +1405,7 @@ async function promoteBusinessTables(input: {
         changeNote: row.change_note,
       },
       createdAt: row.created_at,
-    });
+    })
   }
   for (const row of input.loaded.get('knowledge_retention_evidence') ?? []) {
     await insertBusinessRecord({
@@ -1426,15 +1426,15 @@ async function promoteBusinessTables(input: {
       ),
       createdAt: row.created_at,
       updatedAt: row.created_at,
-    });
+    })
   }
 
   for (const row of input.loaded.get('enterprise_skills') ?? []) {
     const organizationId = stringValue(
       row.organization_id,
       'skill organization id',
-    );
-    const content = importedSkillContent(row, input.fieldCipher);
+    )
+    const content = importedSkillContent(row, input.fieldCipher)
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1483,7 +1483,7 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('enterprise_skill_versions') ?? []) {
     await insertBusinessEvent({
@@ -1508,7 +1508,7 @@ async function promoteBusinessTables(input: {
         description: stringValue(row.description, 'skill version description'),
       },
       createdAt: row.created_at,
-    });
+    })
   }
   for (const [table, eventType] of [
     ['enterprise_skill_installs', 'installed'],
@@ -1536,23 +1536,23 @@ async function promoteBusinessTables(input: {
           success: row.success == null ? undefined : booleanValue(row.success),
         },
         createdAt: row.created_at ?? row.installed_at,
-      });
+      })
     }
   }
 
-  const parkOrganizations = new Map<string, string>();
-  const parkInviteSecrets = new Map<string, string>();
+  const parkOrganizations = new Map<string, string>()
+  const parkInviteSecrets = new Map<string, string>()
   for (const row of input.loaded.get('parks') ?? []) {
     const organizationId = stringValue(
       row.admin_organization_id,
       'park admin organization id',
-    );
-    const parkId = stringValue(row.id, 'park id');
-    parkOrganizations.set(parkId, organizationId);
+    )
+    const parkId = stringValue(row.id, 'park id')
+    parkOrganizations.set(parkId, organizationId)
     parkInviteSecrets.set(
       parkId,
       stringValue(row.invite_secret, 'park invite secret'),
-    );
+    )
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1568,36 +1568,36 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('park_invites') ?? []) {
-    const parkId = stringValue(row.park_id, 'park invite park id');
-    const organizationId = parkOrganizations.get(parkId);
-    const inviteSecret = parkInviteSecrets.get(parkId);
+    const parkId = stringValue(row.park_id, 'park invite park id')
+    const organizationId = parkOrganizations.get(parkId)
+    const inviteSecret = parkInviteSecrets.get(parkId)
     if (!organizationId || !inviteSecret) {
-      throw new Error('SQLite promotion park invitation has no park');
+      throw new Error('SQLite promotion park invitation has no park')
     }
-    const nonce = stringValue(row.nonce, 'park invite nonce');
+    const nonce = stringValue(row.nonce, 'park invite nonce')
     const digest = createHmac('sha256', inviteSecret)
       .update(`${parkId}:${nonce}`)
-      .digest();
-    let code = '';
+      .digest()
+    let code = ''
     for (let index = 0; index < 12; index += 1) {
-      code += INVITE_ALPHABET[digest[index]! % INVITE_ALPHABET.length];
+      code += INVITE_ALPHABET[digest[index]! % INVITE_ALPHABET.length]
     }
-    const formatted = `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
+    const formatted = `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`
     const expiresAt = millisecondTimestamp(
       row.expires_at_ms,
       'park invite expires_at_ms',
-    );
+    )
     const usedCount = nonNegativeIntegerValue(
       row.used_count ?? 0,
       'park invite used count',
-    );
+    )
     const maxUses =
       row.max_uses == null
         ? 1_000_000
-        : positiveIntegerValue(row.max_uses, 'park invite max uses');
+        : positiveIntegerValue(row.max_uses, 'park invite max uses')
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1621,13 +1621,13 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.created_at,
       updatedAt: row.created_at,
-    });
+    })
   }
   for (const row of input.loaded.get('park_services') ?? []) {
-    const parkId = stringValue(row.park_id, 'park service park id');
-    const organizationId = parkOrganizations.get(parkId);
+    const parkId = stringValue(row.park_id, 'park service park id')
+    const organizationId = parkOrganizations.get(parkId)
     if (!organizationId)
-      throw new Error('SQLite promotion park service has no park');
+      throw new Error('SQLite promotion park service has no park')
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1642,17 +1642,17 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.updated_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('park_tenant_profiles') ?? []) {
-    const parkId = stringValue(row.park_id, 'park membership park id');
-    const adminOrganizationId = parkOrganizations.get(parkId);
+    const parkId = stringValue(row.park_id, 'park membership park id')
+    const adminOrganizationId = parkOrganizations.get(parkId)
     if (!adminOrganizationId)
-      throw new Error('SQLite promotion park membership has no park');
+      throw new Error('SQLite promotion park membership has no park')
     const organizationId = stringValue(
       row.organization_id,
       'park membership organization id',
-    );
+    )
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1668,15 +1668,15 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.updated_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('park_service_specialists') ?? []) {
-    const parkId = stringValue(row.park_id, 'park specialist park id');
-    const organizationId = parkOrganizations.get(parkId);
+    const parkId = stringValue(row.park_id, 'park specialist park id')
+    const organizationId = parkOrganizations.get(parkId)
     if (!organizationId)
-      throw new Error('SQLite promotion park specialist has no park');
-    const accountId = stringValue(row.account_id, 'park specialist account id');
-    const serviceId = stringValue(row.service_id, 'park specialist service id');
+      throw new Error('SQLite promotion park specialist has no park')
+    const accountId = stringValue(row.account_id, 'park specialist account id')
+    const serviceId = stringValue(row.service_id, 'park specialist service id')
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1687,13 +1687,13 @@ async function promoteBusinessTables(input: {
       payload: { accountId, serviceIds: [serviceId] },
       createdAt: row.created_at,
       updatedAt: row.created_at,
-    });
+    })
   }
   for (const row of input.loaded.get('park_settings') ?? []) {
     const organizationId = stringValue(
       row.organization_id,
       'park settings organization id',
-    );
+    )
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1707,7 +1707,7 @@ async function promoteBusinessTables(input: {
       ),
       createdAt: row.updated_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('park_meeting_rooms') ?? []) {
     await insertBusinessRecord({
@@ -1728,16 +1728,16 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('park_meeting_slots') ?? []) {
     const organizationId = stringValue(
       row.organization_id,
       'meeting slot organization id',
-    );
+    )
     const resourceId =
       optionalString(row.id) ??
-      `${String(row.room_id)}:${String(row.date)}:${String(row.start_time ?? row.slot_key)}`;
+      `${String(row.room_id)}:${String(row.date)}:${String(row.start_time ?? row.slot_key)}`
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1752,7 +1752,7 @@ async function promoteBusinessTables(input: {
       ),
       createdAt: row.updated_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('park_meeting_bookings') ?? []) {
     await insertBusinessRecord({
@@ -1771,16 +1771,16 @@ async function promoteBusinessTables(input: {
       ),
       createdAt: row.created_at,
       updatedAt: row.created_at,
-    });
+    })
   }
   for (const row of input.loaded.get('park_meeting_slot_overrides') ?? []) {
     const organizationId = stringValue(
       row.organization_id,
       'meeting slot override organization id',
-    );
+    )
     const resourceId = [row.meeting_room_id, row.use_date, row.slot_key]
       .map(String)
-      .join(':');
+      .join(':')
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1793,27 +1793,27 @@ async function promoteBusinessTables(input: {
       ),
       createdAt: row.updated_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
 
-  const publicationRecipients = new Map<string, DecodedRow[]>();
+  const publicationRecipients = new Map<string, DecodedRow[]>()
   for (const row of input.loaded.get('park_publication_recipients') ?? []) {
     const publicationId = stringValue(
       row.publication_id,
       'publication recipient id',
-    );
+    )
     publicationRecipients.set(publicationId, [
       ...(publicationRecipients.get(publicationId) ?? []),
       row,
-    ]);
+    ])
   }
   for (const row of input.loaded.get('park_publications') ?? []) {
     const organizationId = stringValue(
       row.organization_id,
       'publication organization id',
-    );
-    const publicationId = stringValue(row.id, 'publication id');
-    const recipients = publicationRecipients.get(publicationId) ?? [];
+    )
+    const publicationId = stringValue(row.id, 'publication id')
+    const recipients = publicationRecipients.get(publicationId) ?? []
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1828,15 +1828,15 @@ async function promoteBusinessTables(input: {
         content: row.body,
         targetOrganizationId: null,
         recipientAccountIds: recipients.map(
-          (recipient) => recipient.account_id,
+          recipient => recipient.account_id,
         ),
         options: [],
       },
       createdAt: row.created_at,
       updatedAt: row.created_at,
-    });
+    })
     for (const recipient of recipients) {
-      if (recipient.read_at == null && recipient.submitted_at == null) continue;
+      if (recipient.read_at == null && recipient.submitted_at == null) continue
       await insertBusinessEvent({
         client: input.client,
         organizationId,
@@ -1850,26 +1850,26 @@ async function promoteBusinessTables(input: {
           response: jsonValue(recipient.response_data, null),
         },
         createdAt: recipient.submitted_at ?? recipient.read_at,
-      });
+      })
     }
   }
 
-  const statisticsAssignments = new Map<string, DecodedRow[]>();
+  const statisticsAssignments = new Map<string, DecodedRow[]>()
   for (const row of input.loaded.get('park_data_statistics_assignments') ??
     []) {
-    const taskId = stringValue(row.task_id, 'statistics assignment task id');
+    const taskId = stringValue(row.task_id, 'statistics assignment task id')
     statisticsAssignments.set(taskId, [
       ...(statisticsAssignments.get(taskId) ?? []),
       row,
-    ]);
+    ])
   }
   for (const row of input.loaded.get('park_data_statistics_tasks') ?? []) {
     const organizationId = stringValue(
       row.admin_organization_id,
       'statistics task organization id',
-    );
-    const taskId = stringValue(row.id, 'statistics task id');
-    const assignments = statisticsAssignments.get(taskId) ?? [];
+    )
+    const taskId = stringValue(row.id, 'statistics task id')
+    const assignments = statisticsAssignments.get(taskId) ?? []
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1885,7 +1885,7 @@ async function promoteBusinessTables(input: {
         deadline: row.deadline,
         template: jsonValue(row.template_data ?? row.fields_json, {}),
         targetOrganizationId: null,
-        recipientAccountIds: assignments.flatMap((assignment) =>
+        recipientAccountIds: assignments.flatMap(assignment =>
           [assignment.ceo_account_id, assignment.assignee_account_id].filter(
             (value): value is string =>
               typeof value === 'string' && value.length > 0,
@@ -1895,21 +1895,21 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
 
-  const ticketDeliveries = new Map<string, string[]>();
+  const ticketDeliveries = new Map<string, string[]>()
   for (const row of input.loaded.get('ticket_deliveries') ?? []) {
-    const ticketId = stringValue(row.ticket_id, 'ticket delivery ticket id');
-    const recipients = ticketDeliveries.get(ticketId) ?? [];
-    recipients.push(stringValue(row.account_id, 'ticket delivery account id'));
-    ticketDeliveries.set(ticketId, recipients);
+    const ticketId = stringValue(row.ticket_id, 'ticket delivery ticket id')
+    const recipients = ticketDeliveries.get(ticketId) ?? []
+    recipients.push(stringValue(row.account_id, 'ticket delivery account id'))
+    ticketDeliveries.set(ticketId, recipients)
   }
   for (const row of input.loaded.get('park_application_sequences') ?? []) {
-    const parkId = stringValue(row.park_id, 'park sequence park id');
-    const organizationId = parkOrganizations.get(parkId);
+    const parkId = stringValue(row.park_id, 'park sequence park id')
+    const organizationId = parkOrganizations.get(parkId)
     if (!organizationId) {
-      throw new Error('SQLite promotion park sequence has no park');
+      throw new Error('SQLite promotion park sequence has no park')
     }
     await insertBusinessRecord({
       client: input.client,
@@ -1924,15 +1924,15 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.updated_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('it_tickets') ?? []) {
     const organizationId = stringValue(
       row.organization_id,
       'ticket organization id',
-    );
-    const parkId = optionalString(row.park_id);
-    const assigneeAccountIds = ticketDeliveries.get(String(row.id)) ?? [];
+    )
+    const parkId = optionalString(row.park_id)
+    const assigneeAccountIds = ticketDeliveries.get(String(row.id)) ?? []
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -1968,13 +1968,13 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('ticket_events') ?? []) {
     const ticket = (input.loaded.get('it_tickets') ?? []).find(
-      (candidate) => candidate.id === row.ticket_id,
-    );
-    if (!ticket) continue;
+      candidate => candidate.id === row.ticket_id,
+    )
+    if (!ticket) continue
     await insertBusinessEvent({
       client: input.client,
       organizationId: stringValue(
@@ -1993,13 +1993,13 @@ async function promoteBusinessTables(input: {
         optionalString(row.detail) ?? optionalString(row.response_text) ?? '',
       ),
       createdAt: row.created_at,
-    });
+    })
   }
   for (const row of input.loaded.get('ticket_notifications') ?? []) {
     const ticket = (input.loaded.get('it_tickets') ?? []).find(
-      (candidate) => candidate.id === row.ticket_id,
-    );
-    if (!ticket) continue;
+      candidate => candidate.id === row.ticket_id,
+    )
+    if (!ticket) continue
     await insertBusinessEvent({
       client: input.client,
       organizationId: stringValue(
@@ -2019,13 +2019,13 @@ async function promoteBusinessTables(input: {
         detail: row.detail,
       },
       createdAt: row.created_at,
-    });
+    })
   }
 
   for (const row of input.loaded.get('deployment_license') ?? []) {
-    const organizationId = optionalString(row.organization_id) ?? 'org_default';
-    const raw = jsonValue(row.raw_json, {}) as Record<string, unknown>;
-    const sanitized = sanitizeCommercialPayload(raw);
+    const organizationId = optionalString(row.organization_id) ?? 'org_default'
+    const raw = jsonValue(row.raw_json, {}) as Record<string, unknown>
+    const sanitized = sanitizeCommercialPayload(raw)
     await insertBusinessRecord({
       client: input.client,
       organizationId,
@@ -2054,10 +2054,10 @@ async function promoteBusinessTables(input: {
       },
       createdAt: row.updated_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const row of input.loaded.get('deployment_license_leases') ?? []) {
-    const raw = jsonValue(row.raw_json, {}) as Record<string, unknown>;
+    const raw = jsonValue(row.raw_json, {}) as Record<string, unknown>
     await insertBusinessRecord({
       client: input.client,
       organizationId: optionalString(raw.organizationId) ?? 'org_default',
@@ -2081,9 +2081,9 @@ async function promoteBusinessTables(input: {
           row.revoked_at_ms == null
             ? null
             : millisecondTimestamp(
-                row.revoked_at_ms,
-                'license lease revoked_at_ms',
-              ),
+              row.revoked_at_ms,
+              'license lease revoked_at_ms',
+            ),
         signingKeyId: row.signing_key_id,
       },
       createdAt: millisecondTimestamp(
@@ -2091,14 +2091,14 @@ async function promoteBusinessTables(input: {
         'license lease refresh time',
       ),
       updatedAt: row.updated_at,
-    });
+    })
   }
   const deploymentSettings = new Map(
-    (input.loaded.get('deployment_settings') ?? []).map((row) => [
+    (input.loaded.get('deployment_settings') ?? []).map(row => [
       stringValue(row.key, 'deployment setting key'),
       String(row.value ?? ''),
     ]),
-  );
+  )
   if (
     deploymentSettings.has('telemetry_enabled') ||
     deploymentSettings.has('telemetry_content_mode') ||
@@ -2121,12 +2121,12 @@ async function promoteBusinessTables(input: {
       },
       createdAt: new Date(0).toISOString(),
       updatedAt: new Date(0).toISOString(),
-    });
+    })
   }
   const moduleUpdates = jsonValue(
     deploymentSettings.get('module_update_manifest'),
     [],
-  );
+  )
   if (Array.isArray(moduleUpdates)) {
     for (const candidate of moduleUpdates) {
       if (
@@ -2134,10 +2134,10 @@ async function promoteBusinessTables(input: {
         typeof candidate !== 'object' ||
         Array.isArray(candidate)
       )
-        continue;
-      const descriptor = candidate as Record<string, unknown>;
-      const moduleName = optionalString(descriptor.module);
-      if (!moduleName) continue;
+        continue
+      const descriptor = candidate as Record<string, unknown>
+      const moduleName = optionalString(descriptor.module)
+      if (!moduleName) continue
       await insertBusinessRecord({
         client: input.client,
         organizationId: 'org_default',
@@ -2148,7 +2148,7 @@ async function promoteBusinessTables(input: {
         payload: descriptor,
         createdAt: descriptor.updatedAt,
         updatedAt: descriptor.updatedAt,
-      });
+      })
     }
   }
   for (const row of input.loaded.get('deployment_settings') ?? []) {
@@ -2161,7 +2161,7 @@ async function promoteBusinessTables(input: {
       payload: { value: row.value },
       createdAt: row.updated_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
   for (const table of [
     'telemetry_events',
@@ -2169,7 +2169,7 @@ async function promoteBusinessTables(input: {
   ] as const) {
     for (const row of input.loaded.get(table) ?? []) {
       const organizationId =
-        optionalString(row.organization_id) ?? 'org_default';
+        optionalString(row.organization_id) ?? 'org_default'
       await insertBusinessRecord({
         client: input.client,
         organizationId,
@@ -2182,19 +2182,19 @@ async function promoteBusinessTables(input: {
           row.created_at_ms == null
             ? row.updated_at
             : millisecondTimestamp(
-                row.created_at_ms,
-                'telemetry created_at_ms',
-              ),
+              row.created_at_ms,
+              'telemetry created_at_ms',
+            ),
         updatedAt: row.updated_at,
-      });
+      })
     }
   }
   for (const row of input.loaded.get('telemetry_ingest_nonces') ?? []) {
     const deploymentId = stringValue(
       row.deployment_id,
       'telemetry nonce deployment id',
-    );
-    const nonce = stringValue(row.nonce, 'telemetry nonce');
+    )
+    const nonce = stringValue(row.nonce, 'telemetry nonce')
     await insertBusinessRecord({
       client: input.client,
       organizationId: 'org_default',
@@ -2217,7 +2217,7 @@ async function promoteBusinessTables(input: {
         row.received_at_ms,
         'telemetry nonce received_at_ms',
       ),
-    });
+    })
   }
   for (const [table, resourceType] of [
     ['billing_usage_outbox', 'billing_usage'],
@@ -2241,14 +2241,14 @@ async function promoteBusinessTables(input: {
             ? row.updated_at
             : millisecondTimestamp(row.created_at_ms, `${table} created_at_ms`),
         updatedAt: row.updated_at,
-      });
+      })
     }
   }
   for (const row of input.loaded.get('billing_execution_receipt_keys') ?? []) {
     const deploymentId = stringValue(
       row.deployment_id,
       'billing receipt deployment id',
-    );
+    )
     await insertBusinessRecord({
       client: input.client,
       organizationId: 'org_default',
@@ -2268,21 +2268,21 @@ async function promoteBusinessTables(input: {
       updatedAt:
         row.retired_at_ms == null
           ? millisecondTimestamp(
-              row.created_at_ms,
-              'billing receipt key created_at_ms',
-            )
+            row.created_at_ms,
+            'billing receipt key created_at_ms',
+          )
           : millisecondTimestamp(
-              row.retired_at_ms,
-              'billing receipt key retired_at_ms',
-            ),
-    });
+            row.retired_at_ms,
+            'billing receipt key retired_at_ms',
+          ),
+    })
   }
   for (const row of input.loaded.get('billing_execution_receipt_sequences') ??
     []) {
     const deploymentId = stringValue(
       row.deployment_id,
       'billing sequence deployment id',
-    );
+    )
     await insertBusinessRecord({
       client: input.client,
       organizationId: 'org_default',
@@ -2292,7 +2292,7 @@ async function promoteBusinessTables(input: {
       payload: { lastSequence: row.last_sequence },
       createdAt: row.updated_at,
       updatedAt: row.updated_at,
-    });
+    })
   }
 
   for (const row of input.loaded.get('privacy_requests') ?? []) {
@@ -2314,7 +2314,7 @@ async function promoteBusinessTables(input: {
       ),
       createdAt: row.created_at,
       updatedAt: row.completed_at ?? row.created_at,
-    });
+    })
   }
 }
 
@@ -2339,141 +2339,141 @@ const INSERTS: Record<
   mls_group_sessions: insertMlsGroupSessions,
   mls_transport_events: insertMlsTransportEvents,
   mls_resource_rate_buckets: insertMlsResourceRateBuckets,
-};
+}
 
 export async function promoteVerifiedSqliteImport(input: {
-  pool: PostgresPoolLike;
-  runId: string;
-  dryRun?: boolean;
-  defaultAttachmentQuotaBytes?: number;
-  legacyAttachmentGraceMs?: number;
-  fieldCipher?: EncryptedFieldCipher;
+  pool: PostgresPoolLike
+  runId: string
+  dryRun?: boolean
+  defaultAttachmentQuotaBytes?: number
+  legacyAttachmentGraceMs?: number
+  fieldCipher?: EncryptedFieldCipher
 }): Promise<PostgresEnterprisePromotionResult> {
-  const runId = input.runId.trim();
+  const runId = input.runId.trim()
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(runId)) {
-    throw new Error('SQLite import run id is invalid');
+    throw new Error('SQLite import run id is invalid')
   }
-  const client = await input.pool.connect();
-  let active = false;
+  const client = await input.pool.connect()
+  let active = false
   try {
-    await client.query('BEGIN');
-    active = true;
+    await client.query('BEGIN')
+    active = true
     await client.query('SELECT pg_advisory_xact_lock($1::bigint)', [
       PROMOTION_LOCK_KEY,
-    ]);
+    ])
     const previous = await client.query<PromotionReceiptRow>(
       `SELECT run_id, promoted_counts, promoted_at
        FROM clawmaster_sqlite_import_promotions WHERE run_id = $1`,
       [runId],
-    );
+    )
     if (previous.rows[0]) {
-      await client.query('ROLLBACK');
-      active = false;
-      return receipt(previous.rows[0]);
+      await client.query('ROLLBACK')
+      active = false
+      return receipt(previous.rows[0])
     }
     const runResult = await client.query<ImportRunRow>(
       'SELECT id, state FROM clawmaster_sqlite_import_runs WHERE id = $1 FOR UPDATE',
       [runId],
-    );
+    )
     if (!runResult.rows[0] || runResult.rows[0].state !== 'verified') {
-      throw new Error('SQLite import run is missing or not verified');
+      throw new Error('SQLite import run is missing or not verified')
     }
-    await assertUnusedTarget(client);
-    const loaded = new Map<string, DecodedRow[]>();
-    const counts: Record<string, number> = {};
+    await assertUnusedTarget(client)
+    const loaded = new Map<string, DecodedRow[]>()
+    const counts: Record<string, number> = {}
     for (const table of PROMOTION_ORDER) {
-      const rows = await loadVerifiedSqliteImportTable(client, runId, table);
-      loaded.set(table, rows);
-      counts[table] = rows.length;
+      const rows = await loadVerifiedSqliteImportTable(client, runId, table)
+      loaded.set(table, rows)
+      counts[table] = rows.length
     }
     for (const table of BUSINESS_PROMOTION_ORDER) {
-      const rows = await loadVerifiedSqliteImportTable(client, runId, table);
-      loaded.set(table, rows);
-      counts[table] = rows.length;
+      const rows = await loadVerifiedSqliteImportTable(client, runId, table)
+      loaded.set(table, rows)
+      counts[table] = rows.length
     }
     const attachmentRows = await loadVerifiedSqliteImportTable(
       client,
       runId,
       'direct_message_attachments',
-    );
-    counts.direct_message_attachments = attachmentRows.length;
+    )
+    counts.direct_message_attachments = attachmentRows.length
     const preparedAttachments = await verifiedPreparedAttachments({
       client,
       runId,
       attachmentRows,
       messageRows: loaded.get('direct_messages') ?? [],
-    });
+    })
     const defaultAttachmentQuotaBytes =
-      input.defaultAttachmentQuotaBytes ?? 100 * 1024 * 1024 * 1024;
+      input.defaultAttachmentQuotaBytes ?? 100 * 1024 * 1024 * 1024
     const legacyAttachmentGraceMs =
-      input.legacyAttachmentGraceMs ?? 30 * 24 * 60 * 60 * 1_000;
+      input.legacyAttachmentGraceMs ?? 30 * 24 * 60 * 60 * 1_000
     if (
       !Number.isSafeInteger(defaultAttachmentQuotaBytes) ||
       defaultAttachmentQuotaBytes <= 0 ||
       !Number.isSafeInteger(legacyAttachmentGraceMs) ||
       legacyAttachmentGraceMs < 24 * 60 * 60 * 1_000
     ) {
-      throw new Error('SQLite attachment promotion configuration is invalid');
+      throw new Error('SQLite attachment promotion configuration is invalid')
     }
-    const plannedBytesByOrganization = new Map<string, number>();
+    const plannedBytesByOrganization = new Map<string, number>()
     for (const attachment of preparedAttachments) {
       const next =
         (plannedBytesByOrganization.get(attachment.organizationId) ?? 0) +
-        attachment.ciphertextBytes;
+        attachment.ciphertextBytes
       if (!Number.isSafeInteger(next) || next > defaultAttachmentQuotaBytes) {
         throw new Error(
           `SQLite attachment import exceeds the configured quota for ${attachment.organizationId}`,
-        );
+        )
       }
-      plannedBytesByOrganization.set(attachment.organizationId, next);
+      plannedBytesByOrganization.set(attachment.organizationId, next)
     }
     if ((loaded.get('organizations')?.length ?? 0) === 0) {
-      throw new Error('SQLite import contains no organizations');
+      throw new Error('SQLite import contains no organizations')
     }
     if (input.dryRun) {
-      await client.query('ROLLBACK');
-      active = false;
+      await client.query('ROLLBACK')
+      active = false
       return {
         runId,
         state: 'planned',
         promotedCounts: counts,
         promotedAt: null,
-      };
+      }
     }
     for (const table of PROMOTION_ORDER) {
-      await INSERTS[table](client, loaded.get(table)!);
+      await INSERTS[table](client, loaded.get(table)!)
     }
     await promoteBusinessTables({
       client,
       loaded,
       fieldCipher: input.fieldCipher,
-    });
+    })
     await insertPreparedAttachments({
       client,
       attachments: preparedAttachments,
       defaultQuotaBytes: defaultAttachmentQuotaBytes,
       legacyGraceMs: legacyAttachmentGraceMs,
-    });
+    })
     const inserted = await client.query<PromotionReceiptRow>(
       `INSERT INTO clawmaster_sqlite_import_promotions (run_id, promoted_counts)
        VALUES ($1, $2::jsonb)
        RETURNING run_id, promoted_counts, promoted_at`,
       [runId, JSON.stringify(counts)],
-    );
-    await client.query('COMMIT');
-    active = false;
-    const promoted = receipt(inserted.rows[0]!);
-    return { ...promoted, state: 'promoted' };
+    )
+    await client.query('COMMIT')
+    active = false
+    const promoted = receipt(inserted.rows[0]!)
+    return { ...promoted, state: 'promoted' }
   } catch (error) {
     if (active) {
       try {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK')
       } catch {
         // Preserve the promotion error.
       }
     }
-    throw error;
+    throw error
   } finally {
-    client.release();
+    client.release()
   }
 }

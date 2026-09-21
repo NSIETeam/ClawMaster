@@ -21,73 +21,73 @@ export type EscalationJobStatus =
   | 'failed' // 不可恢复失败（终态）
 
 /** Result of a channel send as recorded on the job. */
-export type EscalationChannelResult = 'sent' | 'failed' | 'skipped';
+export type EscalationChannelResult = 'sent' | 'failed' | 'skipped'
 
 /** A single delivery attempt to one channel. */
 export interface EscalationAttempt {
-  channel: 'clawmaster' | 'feishu' | 'sms';
-  status: EscalationChannelResult;
-  detail: string | null;
-  attemptedAt: string;
+  channel: 'clawmaster' | 'feishu' | 'sms'
+  status: EscalationChannelResult
+  detail: string | null
+  attemptedAt: string
 }
 
 /** Durable notification escalation job record. */
 export interface EscalationJob {
   /** Unique, caller-provided idempotency key (e.g. ticketId + event + recipient). */
-  id: string;
-  organizationId: string;
-  ticketId: string;
-  recipientAccountId: string;
-  feishuOpenId: string | null;
-  phone: string | null;
-  title: string;
-  body: string;
+  id: string
+  organizationId: string
+  ticketId: string
+  recipientAccountId: string
+  feishuOpenId: string | null
+  phone: string | null
+  title: string
+  body: string
   /** Job creation time (ISO). */
-  createdAt: string;
+  createdAt: string
   /** Deadline (ISO) after which an unread job escalates to SMS. */
-  escalateAt: string;
-  status: EscalationJobStatus;
+  escalateAt: string
+  status: EscalationJobStatus
   /** When the recipient acknowledged (read receipt), if ever. */
-  readAt: string | null;
+  readAt: string | null
   /** When SMS was sent (escalated), if ever. */
-  escalatedAt: string | null;
+  escalatedAt: string | null
   /** Number of failed delivery attempts so far. */
-  retryCount: number;
+  retryCount: number
   /** Terminal failure reason kept for operator inspection. */
-  failureReason: string | null;
-  attempts: EscalationAttempt[];
+  failureReason: string | null
+  attempts: EscalationAttempt[]
 }
 
 /** Result returned by the escalation queue facade. */
 export interface EscalationSubmitResult {
   /** True when a new job was created; false when an identical idempotent job already existed. */
-  accepted: boolean;
-  job: EscalationJob;
+  accepted: boolean
+  job: EscalationJob
 }
 
 /** Input to create (or dedupe) an escalation notification job. */
 export interface SubmitEscalationInput {
-  id: string;
-  organizationId: string;
-  ticketId: string;
-  recipientAccountId: string;
-  feishuOpenId?: string | null;
-  phone?: string | null;
-  title: string;
-  body: string;
+  id: string
+  organizationId: string
+  ticketId: string
+  recipientAccountId: string
+  feishuOpenId?: string | null
+  phone?: string | null
+  title: string
+  body: string
   /** Override default 5-minute escalation window (ms). Defaults to 300_000. */
-  escalateAfterMs?: number;
-  now?: Date;
+  escalateAfterMs?: number
+  now?: Date
 }
 
 /** Minimal database surface the escalation repository needs (better-sqlite3/node:sqlite compatible). */
 export interface EscalationDatabase {
-  exec(sql: string): void;
+  exec(sql: string): void
   prepare(sql: string): {
-    run(...args: unknown[]): { changes: number | bigint; lastInsertRowid: number | bigint };
-    get(...args: unknown[]): unknown;
-    all(...args: unknown[]): unknown[];
-  };
+    run(...args: unknown[]): { changes: number | bigint; lastInsertRowid: number | bigint }
+    get(...args: unknown[]): unknown
+    all(...args: unknown[]): unknown[]
+  }
 }
 
 /**
@@ -96,19 +96,19 @@ export interface EscalationDatabase {
  * onto the job for operator inspection.
  */
 export interface EscalationChannelSender {
-  readonly channel: 'clawmaster' | 'feishu' | 'sms';
+  readonly channel: 'clawmaster' | 'feishu' | 'sms'
   /** @returns true when delivered, false when failed (kept for retry), null when skipped (permanent). */
   send(
     job: EscalationJob,
     recipientId: string,
     title: string,
     body: string,
-  ): Promise<boolean | null>;
+  ): Promise<boolean | null>
 }
 
 /** Opaque store abstraction so the facade is testable without a real DB. */
 export interface EscalationRepositoryStore {
-  db(): EscalationDatabase;
-  createJobId(): string;
-  now(): Date;
+  db(): EscalationDatabase
+  createJobId(): string
+  now(): Date
 }

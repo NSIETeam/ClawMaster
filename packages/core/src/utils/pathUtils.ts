@@ -5,12 +5,12 @@
  */
 
 
-import * as path from 'path';
+import * as path from 'path'
 
 /**
  * The clipboard directory name
  */
-export const CLIPBOARD_DIR = 'clipboard';
+export const CLIPBOARD_DIR = 'clipboard'
 
 /**
  * Checks if a given path is within the clipboard directory
@@ -20,18 +20,18 @@ export const CLIPBOARD_DIR = 'clipboard';
  * @returns true if the path is within the clipboard directory
  */
 export function isClipboardPath(pathName: string, targetDir: string, configDirName: string): boolean {
-  const fullClipboardPath = `${configDirName}/${CLIPBOARD_DIR}`;
+  const fullClipboardPath = `${configDirName}/${CLIPBOARD_DIR}`
   
   // Convert relative path to absolute path for comparison
-  const absolutePath = path.resolve(targetDir, pathName);
-  const expectedClipboardAbsolute = path.resolve(targetDir, fullClipboardPath);
+  const absolutePath = path.resolve(targetDir, pathName)
+  const expectedClipboardAbsolute = path.resolve(targetDir, fullClipboardPath)
   
   // Check if the absolute path starts with clipboard directory path
-  if (absolutePath.startsWith(expectedClipboardAbsolute) || 
+  if (absolutePath.startsWith(expectedClipboardAbsolute) ||
       absolutePath === expectedClipboardAbsolute ) {
-    return true;
+    return true
   }
-  
+
   // Also check the original path patterns for direct matches
-  return false;
+  return false
 }

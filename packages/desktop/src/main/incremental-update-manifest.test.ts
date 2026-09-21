@@ -2,11 +2,11 @@
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
-import { parseIncrementalUpdateManifest } from './incremental-update-manifest.js';
+import { describe, expect, it } from 'vitest'
+import { parseIncrementalUpdateManifest } from './incremental-update-manifest.js'
 
-const sha = 'a'.repeat(64);
-const signature = `ed25519:${Buffer.alloc(64).toString('base64url')}`;
+const sha = 'a'.repeat(64)
+const signature = `ed25519:${Buffer.alloc(64).toString('base64url')}`
 
 describe('incremental update manifest', () => {
   it('accepts patch, kernel and component channels with signed https artifacts', () => {
@@ -56,15 +56,15 @@ describe('incremental update manifest', () => {
           rollback: { supported: true, receipt: true },
         }],
       },
-    });
+    })
 
-    expect(parsed.ok).toBe(true);
+    expect(parsed.ok).toBe(true)
     if (parsed.ok) {
-      expect(parsed.manifest.channels.patch[0].target).toBe('desktop/main');
-      expect(parsed.manifest.channels.kernel[0].restart).toBe('server');
-      expect(parsed.manifest.channels.component[0].restart).toBe('none');
+      expect(parsed.manifest.channels.patch[0].target).toBe('desktop/main')
+      expect(parsed.manifest.channels.kernel[0].restart).toBe('server')
+      expect(parsed.manifest.channels.component[0].restart).toBe('none')
     }
-  });
+  })
 
   it('rejects unsigned artifacts before download', () => {
     const parsed = parseIncrementalUpdateManifest({
@@ -89,9 +89,9 @@ describe('incremental update manifest', () => {
         kernel: [],
         component: [],
       },
-    });
+    })
 
-    expect(parsed).toEqual({ ok: false, error: 'patch artifact missing signature' });
+    expect(parsed).toEqual({ ok: false, error: 'patch artifact missing signature' })
   });
 
   it('rejects non-https artifacts', () => {
@@ -117,9 +117,9 @@ describe('incremental update manifest', () => {
         kernel: [],
         component: [],
       },
-    });
+    })
 
-    expect(parsed).toEqual({ ok: false, error: 'patch artifact url must use https' });
+    expect(parsed).toEqual({ ok: false, error: 'patch artifact url must use https' })
   });
   it('requires kind-specific compatibility metadata', () => {
     const parsed = parseIncrementalUpdateManifest({
@@ -144,9 +144,9 @@ describe('incremental update manifest', () => {
           rollback: { supported: true, receipt: true },
         }],
       },
-    });
+    })
 
-    expect(parsed).toEqual({ ok: false, error: 'component artifact must declare compat.componentApi' });
+    expect(parsed).toEqual({ ok: false, error: 'component artifact must declare compat.componentApi' })
   });
 
-});
+})

@@ -2,18 +2,18 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
-import type { ScheduleItemInfo } from 'clawmaster-server';
-import { IconChevron } from './icons.js';
+import React, { useEffect, useMemo, useState } from 'react'
+import type { ScheduleItemInfo } from 'clawmaster-server'
+import { IconChevron } from './icons.js'
 
 function localTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '--:--';
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '--:--'
   return new Intl.DateTimeFormat('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  }).format(date);
+  }).format(date)
 }
 
 export function DayAgenda({
@@ -25,77 +25,77 @@ export function DayAgenda({
   onBack,
   backLabel = '返回对话',
 }: {
-  date: string;
-  schedules: ScheduleItemInfo[];
+  date: string
+  schedules: ScheduleItemInfo[]
   workResults?: ReadonlyArray<{
-    time: string;
-    action: string;
-    taskTitle?: string;
-    details?: string;
-  }>;
+    time: string
+    action: string
+    taskTitle?: string
+    details?: string
+  }>
   onCreate: (input: {
-    title: string;
-    startAt: string;
-    endAt?: string;
-    notes?: string;
-  }) => void;
-  onDelete: (id: string) => void;
-  onBack: () => void;
-  backLabel?: string;
+    title: string
+    startAt: string
+    endAt?: string
+    notes?: string
+  }) => void
+  onDelete: (id: string) => void
+  onBack: () => void
+  backLabel?: string
 }): React.JSX.Element {
-  const [adding, setAdding] = useState(false);
-  const [title, setTitle] = useState('');
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('10:00');
-  const [notes, setNotes] = useState('');
+  const [adding, setAdding] = useState(false)
+  const [title, setTitle] = useState('')
+  const [startTime, setStartTime] = useState('09:00')
+  const [endTime, setEndTime] = useState('10:00')
+  const [notes, setNotes] = useState('')
   const [loadedWorkResults, setLoadedWorkResults] = useState<Array<{
-    time: string;
-    action: string;
-    taskTitle?: string;
-    details?: string;
-  }>>([]);
+    time: string
+    action: string
+    taskTitle?: string
+    details?: string
+  }>>([])
   const sorted = useMemo(
     () => [...schedules].sort((a, b) => a.startAt.localeCompare(b.startAt)),
     [schedules],
-  );
+  )
 
   useEffect(() => {
-    if (providedWorkResults) return undefined;
-    let cancelled = false;
-    const bridge = window.clawmaster;
+    if (providedWorkResults) return undefined
+    let cancelled = false
+    const bridge = window.clawmaster
     if (!bridge?.workLogRecent) {
-      setLoadedWorkResults([]);
+      setLoadedWorkResults([])
       return () => {
-        cancelled = true;
+        cancelled = true
       };
     }
     void bridge.workLogRecent(92).then((days) => {
-      if (cancelled) return;
-      const day = days.find((item) => item.date === date);
+      if (cancelled) return
+      const day = days.find(item => item.date === date)
       setLoadedWorkResults(
-        (day?.entries ?? []).filter((entry) => entry.entryType === 'work_result'),
-      );
+        (day?.entries ?? []).filter(entry => entry.entryType === 'work_result'),
+      )
     }).catch(() => {
-      if (!cancelled) setLoadedWorkResults([]);
+      if (!cancelled) setLoadedWorkResults([])
     });
-    return () => { cancelled = true; };
-  }, [date, providedWorkResults]);
+    return () => { cancelled = true };
+  }, [date, providedWorkResults])
 
-  const workResults = providedWorkResults ?? loadedWorkResults;
+  const workResults = providedWorkResults ?? loadedWorkResults
 
   const submit = (): void => {
-    if (!title.trim() || !startTime) return;
-    const startAt = new Date(`${date}T${startTime}:00`).toISOString();
-    const endAt = endTime ? new Date(`${date}T${endTime}:00`).toISOString() : undefined;
+    if (!title.trim() || !startTime) return
+    const startAt = new Date(`${date}T${startTime}:00`).toISOString()
+    const endAt = endTime ? new Date(`${date}T${endTime}:00`).toISOString() : undefined
     onCreate({
       title: title.trim(),
       startAt,
       ...(endAt ? { endAt } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
-    });
-    setTitle('');
-    setNotes('');
-    setAdding(false);
+    })
+    setTitle('')
+    setNotes('')
+    setAdding(false)
   };
 
   return (
@@ -107,7 +107,7 @@ export function DayAgenda({
           <p>当天工作和安排集中在这里；标有“ClawMaster”的项目由 Agent 自主创建。</p>
         </div>
         <div className="claw-agenda__actions">
-          <button type="button" className="claw-hub__btn claw-hub__btn--primary" onClick={() => setAdding((value) => !value)}>
+          <button type="button" className="claw-hub__btn claw-hub__btn--primary" onClick={() => setAdding(value => !value)}>
             {adding ? '取消新增' : '+ 新建日程'}
           </button>
           <button type="button" className="claw-hub__btn" onClick={onBack}>
@@ -138,10 +138,10 @@ export function DayAgenda({
 
       {adding ? (
         <div className="claw-agenda__form">
-          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="日程标题" aria-label="日程标题" />
-          <label>开始<input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label>
-          <label>结束<input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label>
-          <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="备注（可选）" aria-label="日程备注" />
+          <input value={title} onChange={event => setTitle(event.target.value)} placeholder="日程标题" aria-label="日程标题" />
+          <label>开始<input type="time" value={startTime} onChange={event => setStartTime(event.target.value)} /></label>
+          <label>结束<input type="time" value={endTime} onChange={event => setEndTime(event.target.value)} /></label>
+          <input value={notes} onChange={event => setNotes(event.target.value)} placeholder="备注（可选）" aria-label="日程备注" />
           <button type="button" onClick={submit}>保存</button>
         </div>
       ) : null}
@@ -153,7 +153,7 @@ export function DayAgenda({
             <span>你可以手动新增，也可以直接告诉 ClawMaster“帮我安排一个复盘”。</span>
           </div>
         ) : (
-          sorted.map((item) => (
+          sorted.map(item => (
             <article key={item.id} className="claw-agenda__item">
               <div className="claw-agenda__time">
                 {localTime(item.startAt)}
@@ -175,5 +175,5 @@ export function DayAgenda({
         )}
       </div>
     </section>
-  );
+  )
 }

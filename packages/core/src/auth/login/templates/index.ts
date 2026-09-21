@@ -6,8 +6,8 @@
  */
 
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'fs'
+import * as path from 'path'
 
 /**
  * NOTE: We intentionally do NOT use import.meta.url or fileURLToPath here.
@@ -33,55 +33,55 @@ function getCurrentDirname(): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (typeof (globalThis as any).__dirname === 'string') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (globalThis as any).__dirname;
+    return (globalThis as any).__dirname
   }
   // In webpack bundle or other environments, return empty
-  return '';
+  return ''
 }
-const currentDirname = getCurrentDirname();
+const currentDirname = getCurrentDirname()
 
 /**
  * HTML模板管理类
  */
 export class AuthTemplates {
-  private static cache = new Map<string, string>();
-  private static customBasePath: string | null = null;
+  private static cache = new Map<string, string>()
+  private static customBasePath: string | null = null
 
   /**
    * 设置自定义基础路径（用于VSCode扩展等打包环境）
    * @param basePath 扩展的根目录路径
    */
   static setBasePath(basePath: string): void {
-    this.customBasePath = basePath;
-    console.log(`📁 [AuthTemplates] Custom base path set: ${basePath}`);
+    this.customBasePath = basePath
+    console.log(`📁 [AuthTemplates] Custom base path set: ${basePath}`)
   }
 
   /**
    * 获取认证选择页面模板
    */
   static getAuthSelectPage(): string {
-    return this.loadTemplate('authSelectPage.html');
+    return this.loadTemplate('authSelectPage.html')
   }
 
   /**
    * 获取飞书成功页面模板
    */
   static getFeishuSuccessPage(): string {
-    return this.generateFeishuSuccessTemplate();
+    return this.generateFeishuSuccessTemplate()
   }
 
   /**
    * 获取ClawMaster成功页面模板
    */
   static getClawMasterSuccessPage(): string {
-    return this.generateClawMasterSuccessTemplate();
+    return this.generateClawMasterSuccessTemplate()
   }
 
   /**
    * 获取错误页面模板
    */
   static getErrorPage(message: string): string {
-    return this.generateErrorTemplate(message);
+    return this.generateErrorTemplate(message)
   }
 
   /**
@@ -91,24 +91,24 @@ export class AuthTemplates {
   private static loadTemplate(filename: string): string {
     // 使用缓存提高性能
     if (this.cache.has(filename)) {
-      return this.cache.get(filename)!;
+      return this.cache.get(filename)!
     }
 
     try {
       // 构建可能的模板路径列表（按优先级排序）
-      const possiblePaths: string[] = [];
+      const possiblePaths: string[] = []
 
       // 0. 如果设置了自定义基础路径，优先使用（VSCode扩展环境）
       if (this.customBasePath) {
-        possiblePaths.push(path.join(this.customBasePath, 'dist', 'bundled', 'auth', 'login', 'templates', filename));
-        possiblePaths.push(path.join(this.customBasePath, 'bundled', 'auth', 'login', 'templates', filename));
-        possiblePaths.push(path.join(this.customBasePath, 'auth', 'login', 'templates', filename));
+        possiblePaths.push(path.join(this.customBasePath, 'dist', 'bundled', 'auth', 'login', 'templates', filename))
+        possiblePaths.push(path.join(this.customBasePath, 'bundled', 'auth', 'login', 'templates', filename))
+        possiblePaths.push(path.join(this.customBasePath, 'auth', 'login', 'templates', filename))
       }
 
       // 1. 当前目录（开发环境 - 源码中的templates目录）
       // Only add if currentDirname is valid (non-empty and not a cross-platform mismatch)
       if (currentDirname) {
-        possiblePaths.push(path.join(currentDirname, filename));
+        possiblePaths.push(path.join(currentDirname, filename))
       }
 
       // 2. VSCode扩展打包后的路径结构
@@ -118,78 +118,78 @@ export class AuthTemplates {
       // 尝试从currentDirname向上查找，构建多种可能的路径
       // Only do this if currentDirname is valid (not empty from cross-platform mismatch)
       if (currentDirname) {
-        let currentDir = currentDirname;
+        let currentDir = currentDirname
         for (let i = 0; i < 10; i++) {
           // VSCode扩展的标准路径: dist/bundled/auth/login/templates/
-          possiblePaths.push(path.join(currentDir, 'bundled', 'auth', 'login', 'templates', filename));
+          possiblePaths.push(path.join(currentDir, 'bundled', 'auth', 'login', 'templates', filename))
           // 备用路径1: bundled/（直接在bundled目录下）
-          possiblePaths.push(path.join(currentDir, 'bundled', filename));
+          possiblePaths.push(path.join(currentDir, 'bundled', filename))
           // 备用路径2: bundle/login/templates/（CLI打包后的路径 - npm run dev和打包后都会用）
-          possiblePaths.push(path.join(currentDir, 'bundle', 'login', 'templates', filename));
+          possiblePaths.push(path.join(currentDir, 'bundle', 'login', 'templates', filename))
           // 备用路径3: auth/login/templates/（相对路径）
-          possiblePaths.push(path.join(currentDir, 'auth', 'login', 'templates', filename));
+          possiblePaths.push(path.join(currentDir, 'auth', 'login', 'templates', filename))
 
-          currentDir = path.dirname(currentDir);
+          currentDir = path.dirname(currentDir)
         }
       }
 
       // 3. 使用process.cwd()作为基准（CLI环境或Node进程根目录）
       if (typeof process !== 'undefined' && process.cwd) {
         try {
-          const cwd = process.cwd();
+          const cwd = process.cwd()
           // CLI开发环境优先路径: {project_root}/bundle/login/templates/
-          possiblePaths.push(path.join(cwd, 'bundle', 'login', 'templates', filename));
+          possiblePaths.push(path.join(cwd, 'bundle', 'login', 'templates', filename))
           // VSCode扩展路径
-          possiblePaths.push(path.join(cwd, 'dist', 'bundled', 'auth', 'login', 'templates', filename));
-          possiblePaths.push(path.join(cwd, 'bundled', 'auth', 'login', 'templates', filename));
-          possiblePaths.push(path.join(cwd, 'auth', 'login', 'templates', filename));
+          possiblePaths.push(path.join(cwd, 'dist', 'bundled', 'auth', 'login', 'templates', filename))
+          possiblePaths.push(path.join(cwd, 'bundled', 'auth', 'login', 'templates', filename))
+          possiblePaths.push(path.join(cwd, 'auth', 'login', 'templates', filename))
       } catch {
           // process.cwd() 可能在某些环境下失败，忽略
         }
       }
 
       // 查找第一个存在的模板文件
-      let foundPath: string | null = null;
+      let foundPath: string | null = null
       for (const testPath of possiblePaths) {
         try {
           if (fs.existsSync(testPath)) {
-            foundPath = testPath;
-            console.error(`✅ [AuthTemplates] Template loaded: ${filename} from ${testPath}`);
+            foundPath = testPath
+            console.error(`✅ [AuthTemplates] Template loaded: ${filename} from ${testPath}`)
             break;
           }
-      } catch {
+        } catch {
           // 某些路径可能因权限问题无法访问，继续尝试下一个
-          continue;
+          continue
         }
       }
 
       if (!foundPath) {
         // 记录所有尝试过的路径，帮助调试
-        console.warn(`⚠️ [AuthTemplates] Template ${filename} not found in any location.`);
-        console.warn(`   Tried ${possiblePaths.length} paths. First 5:`);
-        possiblePaths.slice(0, 5).forEach((p, i) => console.warn(`   ${i + 1}. ${p}`));
-        console.warn(`   Current dirname: ${currentDirname || '(unavailable - cross-platform build)'}`);
-        console.warn(`   Custom base path: ${this.customBasePath || '(not set)'}`);
+        console.warn(`⚠️ [AuthTemplates] Template ${filename} not found in any location.`)
+        console.warn(`   Tried ${possiblePaths.length} paths. First 5:`)
+        possiblePaths.slice(0, 5).forEach((p, i) => console.warn(`   ${i + 1}. ${p}`))
+        console.warn(`   Current dirname: ${currentDirname || '(unavailable - cross-platform build)'}`)
+        console.warn(`   Custom base path: ${this.customBasePath || '(not set)'}`)
         if (typeof process !== 'undefined' && process.cwd) {
           try {
-            console.warn(`   Process cwd: ${process.cwd()}`);
+            console.warn(`   Process cwd: ${process.cwd()}`)
       } catch {
-            console.warn(`   Process cwd: unavailable`);
+            console.warn('   Process cwd: unavailable');
           }
         }
 
         // 使用fallback模板
-        console.log(`ℹ️ [AuthTemplates] Using fallback template for ${filename}`);
-        return this.generateBasicAuthSelectTemplate();
+        console.log(`ℹ️ [AuthTemplates] Using fallback template for ${filename}`)
+        return this.generateBasicAuthSelectTemplate()
       }
 
-      const template = fs.readFileSync(foundPath, 'utf-8');
-      this.cache.set(filename, template);
-      return template;
+      const template = fs.readFileSync(foundPath, 'utf-8')
+      this.cache.set(filename, template)
+      return template
     } catch (error) {
-      console.error(`❌ [AuthTemplates] Failed to load template ${filename}:`, error);
+      console.error(`❌ [AuthTemplates] Failed to load template ${filename}:`, error)
       // 如果无法加载模板文件，返回一个基本的HTML
-      return this.generateBasicAuthSelectTemplate();
+      return this.generateBasicAuthSelectTemplate()
     }
   }
 
@@ -542,7 +542,7 @@ export class AuthTemplates {
         </script>
       </body>
       </html>
-    `;
+    `
   }
 
   /**
@@ -668,7 +668,7 @@ export class AuthTemplates {
         ${this.getI18nScript()}
       </body>
       </html>
-    `;
+    `
   }
 
   /**
@@ -794,7 +794,7 @@ export class AuthTemplates {
         ${this.getI18nScript()}
       </body>
       </html>
-    `;
+    `
   }
 
   /**
@@ -925,7 +925,7 @@ export class AuthTemplates {
         ${this.getI18nScript()}
       </body>
       </html>
-    `;
+    `
   }
 
   /**
@@ -985,13 +985,13 @@ export class AuthTemplates {
           initI18n();
         });
       </script>
-    `;
+    `
   }
 
   /**
    * 清除缓存
    */
   static clearCache(): void {
-    this.cache.clear();
+    this.cache.clear()
   }
 }

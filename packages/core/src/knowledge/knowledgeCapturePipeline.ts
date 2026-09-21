@@ -20,9 +20,9 @@ import {
   KnowledgeCapture,
   type KnowledgeObservation,
   type SimpleMessage,
-} from './knowledgeCapture.js';
-import { LocalKnowledgeStore, type KnowledgeEntry } from './localKnowledgeStore.js';
-import { getWorkLogger, type WorkLogEntry } from '../orchestration/workLog.js';
+} from './knowledgeCapture.js'
+import { LocalKnowledgeStore, type KnowledgeEntry } from './localKnowledgeStore.js'
+import { getWorkLogger, type WorkLogEntry } from '../orchestration/workLog.js'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,38 +30,38 @@ import { getWorkLogger, type WorkLogEntry } from '../orchestration/workLog.js';
 
 export interface KnowledgeCaptureStats {
   /** 总知识条目数 */
-  totalEntries: number;
+  totalEntries: number
   /** 按分类统计 */
-  byCategory: Record<string, number>;
+  byCategory: Record<string, number>
   /** 最后捕获时间 */
-  lastCapturedAt: string | null;
+  lastCapturedAt: string | null
   /** 自启动以来写入条数 */
-  capturedThisSession: number;
+  capturedThisSession: number
   /** 自启动以来去重跳过数 */
-  skippedDuplicate: number;
+  skippedDuplicate: number
   /** 自启动以来低置信度跳过数 */
-  skippedLowConfidence: number;
+  skippedLowConfidence: number
   /** 自启动以来脱敏跳过数 */
-  skippedSanitized: number;
+  skippedSanitized: number
 }
 
 export interface PipelineRunResult {
   /** 候选总数 */
-  candidatesFound: number;
+  candidatesFound: number
   /** 写入条数 */
-  written: number;
+  written: number
   /** 去重跳过 */
-  skippedDuplicate: number;
+  skippedDuplicate: number
   /** 脱敏跳过 */
-  skippedSanitized: number;
+  skippedSanitized: number
   /** 低置信度跳过 */
-  skippedLowConfidence: number;
+  skippedLowConfidence: number
   /** 是否捕获了任何内容 */
-  captured: boolean;
+  captured: boolean
   /** 本次新增到个人知识库的条目。 */
-  entries: KnowledgeEntry[];
+  entries: KnowledgeEntry[]
   /** 可继续进入企业证据池的原子化观察，包括个人库中的重复项。 */
-  observations: KnowledgeObservation[];
+  observations: KnowledgeObservation[]
 }
 
 const emptyPipelineResult = (): PipelineRunResult => ({
@@ -73,30 +73,30 @@ const emptyPipelineResult = (): PipelineRunResult => ({
   captured: false,
   entries: [],
   observations: [],
-});
+})
 
 // ---------------------------------------------------------------------------
 // KnowledgeCapturePipeline
 // ---------------------------------------------------------------------------
 
 export class KnowledgeCapturePipeline {
-  private capture: KnowledgeCapture;
-  private store: LocalKnowledgeStore;
+  private capture: KnowledgeCapture
+  private store: LocalKnowledgeStore
   private stats: {
-    capturedThisSession: number;
-    skippedDuplicate: number;
-    skippedLowConfidence: number;
-    skippedSanitized: number;
+    capturedThisSession: number
+    skippedDuplicate: number
+    skippedLowConfidence: number
+    skippedSanitized: number
   } = {
     capturedThisSession: 0,
     skippedDuplicate: 0,
     skippedLowConfidence: 0,
     skippedSanitized: 0,
-  };
+  }
 
   constructor(store?: LocalKnowledgeStore) {
-    this.store = store ?? new LocalKnowledgeStore();
-    this.capture = new KnowledgeCapture(this.store);
+    this.store = store ?? new LocalKnowledgeStore()
+    this.capture = new KnowledgeCapture(this.store)
   }
 
   // ── 1. runFromWorklog ────────────────────────────────────────────────
@@ -107,19 +107,19 @@ export class KnowledgeCapturePipeline {
    */
   async runFromWorklog(sessionId: string): Promise<PipelineRunResult> {
     try {
-      const worklogger = getWorkLogger();
-      const today = this.formatLocalDate(new Date());
-      const entries = await worklogger.readDay(today);
+      const worklogger = getWorkLogger()
+      const today = this.formatLocalDate(new Date())
+      const entries = await worklogger.readDay(today)
 
       if (entries.length === 0) {
-        return emptyPipelineResult();
+        return emptyPipelineResult()
       }
 
       // 从 worklog entries 构造 SimpleMessage 用于分析
-      const messages = this.worklogToSimpleMessages(entries);
-      return this.runFromMessages(messages, sessionId);
+      const messages = this.worklogToSimpleMessages(entries)
+      return this.runFromMessages(messages, sessionId)
     } catch {
-      return emptyPipelineResult();
+      return emptyPipelineResult()
     }
   }
 
@@ -134,34 +134,34 @@ export class KnowledgeCapturePipeline {
   ): Promise<PipelineRunResult> {
     try {
       if (!this.capture.shouldCapture(messages)) {
-        return emptyPipelineResult();
+        return emptyPipelineResult()
       }
 
-      const candidates = this.capture.extractCandidates(messages, sessionId);
-      const candidatesFound = candidates.length;
+      const candidates = this.capture.extractCandidates(messages, sessionId)
+      const candidatesFound = candidates.length
 
       if (candidatesFound === 0) {
-        return emptyPipelineResult();
+        return emptyPipelineResult()
       }
 
-      const result = await this.capture.ingestCandidates(candidates);
+      const result = await this.capture.ingestCandidates(candidates)
 
       // 更新进程级统计
-      this.stats.capturedThisSession += result.written;
-      this.stats.skippedDuplicate += result.skippedDuplicate;
-      this.stats.skippedLowConfidence += result.skippedLowConfidence;
-      this.stats.skippedSanitized += result.skippedSanitized;
+      this.stats.capturedThisSession += result.written
+      this.stats.skippedDuplicate += result.skippedDuplicate
+      this.stats.skippedLowConfidence += result.skippedLowConfidence
+      this.stats.skippedSanitized += result.skippedSanitized
 
       // 知识写入后通知 memory-index 刷新（异步，非阻塞）
-      this.notifyMemoryIndexRefresh().catch(() => {});
+      this.notifyMemoryIndexRefresh().catch(() => {})
 
       return {
         candidatesFound,
         ...result,
         captured: result.written > 0,
-      };
+      }
     } catch {
-      return emptyPipelineResult();
+      return emptyPipelineResult()
     }
   }
 
@@ -176,19 +176,19 @@ export class KnowledgeCapturePipeline {
     sessionId: string,
   ): Promise<{ written: boolean; entry?: KnowledgeEntry }> {
     try {
-      const sanitized = this.capture.sanitizeSecrets(content.trim());
-      if (sanitized.length < 10) return { written: false };
+      const sanitized = this.capture.sanitizeSecrets(content.trim())
+      if (sanitized.length < 10) return { written: false }
 
-      const fp = this.capture.fingerprint(sanitized);
-      const existing = await this.store.findByFingerprint(fp);
+      const fp = this.capture.fingerprint(sanitized)
+      const existing = await this.store.findByFingerprint(fp)
       if (existing) {
         await this.store.reinforceByFingerprint(fp, {
           sourceSessionId: sessionId,
           confidence: 1,
           content: sanitized,
           category: 'preference',
-        });
-        return { written: false };
+        })
+        return { written: false }
       }
 
       const entry = await this.store.add(
@@ -198,14 +198,14 @@ export class KnowledgeCapturePipeline {
         fp,
         1,
         sessionId,
-      );
+      )
 
-      this.stats.capturedThisSession++;
-      this.notifyMemoryIndexRefresh().catch(() => {});
+      this.stats.capturedThisSession++
+      this.notifyMemoryIndexRefresh().catch(() => {})
 
-      return { written: true, entry };
+      return { written: true, entry }
     } catch {
-      return { written: false };
+      return { written: false }
     }
   }
 
@@ -216,14 +216,14 @@ export class KnowledgeCapturePipeline {
    */
   async status(): Promise<KnowledgeCaptureStats> {
     try {
-      const entries = await this.store.loadAll();
-      const byCategory: Record<string, number> = {};
-      let lastCapturedAt: string | null = null;
+      const entries = await this.store.loadAll()
+      const byCategory: Record<string, number> = {}
+      let lastCapturedAt: string | null = null
 
       for (const e of entries) {
-        byCategory[e.category] = (byCategory[e.category] || 0) + 1;
+        byCategory[e.category] = (byCategory[e.category] || 0) + 1
         if (!lastCapturedAt || e.createdAt > lastCapturedAt) {
-          lastCapturedAt = e.createdAt;
+          lastCapturedAt = e.createdAt
         }
       }
 
@@ -235,7 +235,7 @@ export class KnowledgeCapturePipeline {
         skippedDuplicate: this.stats.skippedDuplicate,
         skippedLowConfidence: this.stats.skippedLowConfidence,
         skippedSanitized: this.stats.skippedSanitized,
-      };
+      }
     } catch {
       return {
         totalEntries: 0,
@@ -245,7 +245,7 @@ export class KnowledgeCapturePipeline {
         skippedDuplicate: this.stats.skippedDuplicate,
         skippedLowConfidence: this.stats.skippedLowConfidence,
         skippedSanitized: this.stats.skippedSanitized,
-      };
+      }
     }
   }
 
@@ -253,26 +253,26 @@ export class KnowledgeCapturePipeline {
    * 格式化 status 输出为人类可读文本
    */
   async formatStatus(): Promise<string> {
-    const s = await this.status();
-    const lines: string[] = [];
-    lines.push('📚 Knowledge Status');
-    lines.push(`  Total entries: ${s.totalEntries}`);
-    lines.push(`  Captured this session: ${s.capturedThisSession}`);
+    const s = await this.status()
+    const lines: string[] = []
+    lines.push('📚 Knowledge Status')
+    lines.push(`  Total entries: ${s.totalEntries}`)
+    lines.push(`  Captured this session: ${s.capturedThisSession}`)
     if (s.lastCapturedAt) {
-      lines.push(`  Last captured: ${s.lastCapturedAt}`);
+      lines.push(`  Last captured: ${s.lastCapturedAt}`)
     }
     if (Object.keys(s.byCategory).length > 0) {
-      lines.push('  By type:');
+      lines.push('  By type:')
       for (const [cat, count] of Object.entries(s.byCategory).sort(
         (a, b) => b[1] - a[1],
       )) {
-        lines.push(`    ${cat}: ${count}`);
+        lines.push(`    ${cat}: ${count}`)
       }
     }
     if (s.totalEntries === 0) {
-      lines.push('  ⚠️  Knowledge store is empty. Complete a task to auto-capture.');
+      lines.push('  ⚠️  Knowledge store is empty. Complete a task to auto-capture.')
     }
-    return lines.join('\n');
+    return lines.join('\n')
   }
 
   // ── Internal helpers ──────────────────────────────────────────────────
@@ -282,8 +282,8 @@ export class KnowledgeCapturePipeline {
    */
   private worklogToSimpleMessages(entries: WorkLogEntry[]): SimpleMessage[] {
     return entries
-      .filter((e) => e.action && e.action.trim().length > 0)
-      .map((e) => ({
+      .filter(e => e.action && e.action.trim().length > 0)
+      .map(e => ({
         role: 'assistant' as const,
         text: [
           e.taskTitle || e.action,
@@ -294,7 +294,7 @@ export class KnowledgeCapturePipeline {
           .join('\n'),
         toolName: e.toolName,
         toolSuccess: e.success,
-      }));
+      }))
   }
 
   /**
@@ -310,10 +310,10 @@ export class KnowledgeCapturePipeline {
 
   /** 获取本地日期（与 worklog 对齐） */
   private formatLocalDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 }
 
@@ -321,18 +321,18 @@ export class KnowledgeCapturePipeline {
 // 全局单例
 // ---------------------------------------------------------------------------
 
-let globalPipeline: KnowledgeCapturePipeline | null = null;
+let globalPipeline: KnowledgeCapturePipeline | null = null
 
 export function getKnowledgeCapturePipeline(): KnowledgeCapturePipeline {
   if (!globalPipeline) {
-    globalPipeline = new KnowledgeCapturePipeline();
+    globalPipeline = new KnowledgeCapturePipeline()
   }
-  return globalPipeline;
+  return globalPipeline
 }
 
 /**
  * 重置单例（测试用）
  */
 export function resetKnowledgeCapturePipeline(): void {
-  globalPipeline = null;
+  globalPipeline = null
 }

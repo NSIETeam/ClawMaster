@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
-import { buildRecallFromLayeredMemory, type MemoryRecallQuery } from './memoryRecall.js';
+import { buildRecallFromLayeredMemory, type MemoryRecallQuery } from './memoryRecall.js'
 
 const layeredMemory = [
   '--- Global Memory ---',
@@ -15,7 +15,7 @@ const layeredMemory = [
   '--- Session Memory ---',
   '- current issue: memory recall token budget',
   '- focus on project memory summarization',
-].join('\n');
+].join('\n')
 
 describe('buildRecallFromLayeredMemory', () => {
   it('selects the most relevant lines for the provided query terms', () => {
@@ -27,19 +27,19 @@ describe('buildRecallFromLayeredMemory', () => {
       maxSections: 3,
       maxItemsPerSection: 3,
       maxChars: 800,
-    };
+    }
 
-    const result = buildRecallFromLayeredMemory(layeredMemory, query);
+    const result = buildRecallFromLayeredMemory(layeredMemory, query)
 
-    expect(result).toContain('--- Project Memory ---');
-    expect(result).toContain('project name: clawmaster');
-    expect(result).toContain('plugin interfaces should be keyed by plugin name');
-    expect(result).toContain('--- Session Memory ---');
-    expect(result).not.toContain('user prefers short answers');
+    expect(result).toContain('--- Project Memory ---')
+    expect(result).toContain('project name: clawmaster')
+    expect(result).toContain('plugin interfaces should be keyed by plugin name')
+    expect(result).toContain('--- Session Memory ---')
+    expect(result).not.toContain('user prefers short answers')
   });
 
   it('returns an empty string when there are no query terms', () => {
-    const result = buildRecallFromLayeredMemory(layeredMemory, {});
-    expect(result).toBe('');
+    const result = buildRecallFromLayeredMemory(layeredMemory, {})
+    expect(result).toBe('')
   });
-});
+})

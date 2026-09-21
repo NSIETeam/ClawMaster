@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
 import {
   parseCustomerModuleManifest,
   validateCustomerModuleArchiveEntries,
   type CustomerModuleManifestV1,
-} from './customerModuleManifest.js';
+} from './customerModuleManifest.js'
 
 function manifest(overrides: Partial<CustomerModuleManifestV1> = {}): CustomerModuleManifestV1 {
   return {
@@ -27,19 +27,19 @@ function manifest(overrides: Partial<CustomerModuleManifestV1> = {}): CustomerMo
     },
     signature: { algorithm: 'ed25519', keyId: 'market-v1', value: 'ed25519:signature' },
     ...overrides,
-  };
+  }
 }
 
 describe('customer module manifest', () => {
   it('accepts a minimal signed WASM module', () => {
-    expect(parseCustomerModuleManifest(manifest())).toEqual(manifest());
+    expect(parseCustomerModuleManifest(manifest())).toEqual(manifest())
   });
 
   it('allows unsigned authoring drafts but never installable manifests', () => {
-    const draft = manifest();
-    delete draft.signature;
-    expect(parseCustomerModuleManifest(draft, { requireSignature: false })).toEqual(draft);
-    expect(() => parseCustomerModuleManifest(draft)).toThrow(/signature/);
+    const draft = manifest()
+    delete draft.signature
+    expect(parseCustomerModuleManifest(draft, { requireSignature: false })).toEqual(draft)
+    expect(() => parseCustomerModuleManifest(draft)).toThrow(/signature/)
   });
 
   it.each([
@@ -57,24 +57,24 @@ describe('customer module manifest', () => {
     ['executable form field', { inputSchema: { type: 'object', properties: { code: { type: 'html' } } } }],
   ])('rejects %s', (_label, overrides) => {
     expect(() => parseCustomerModuleManifest(manifest(overrides as Partial<CustomerModuleManifestV1>)))
-      .toThrow();
+      .toThrow()
   });
 
   it('rejects archive traversal, symlinks, undeclared and duplicate files', () => {
     expect(() => validateCustomerModuleArchiveEntries(manifest(), [
       { path: 'module.wasm', kind: 'file', size: 12 },
       { path: '../secret', kind: 'file', size: 4 },
-    ])).toThrow(/unsafe path/);
+    ])).toThrow(/unsafe path/)
     expect(() => validateCustomerModuleArchiveEntries(manifest(), [
       { path: 'module.wasm', kind: 'symlink', size: 12 },
-    ])).toThrow(/symlink/);
+    ])).toThrow(/symlink/)
     expect(() => validateCustomerModuleArchiveEntries(manifest(), [
       { path: 'module.wasm', kind: 'file', size: 12 },
       { path: 'extra.txt', kind: 'file', size: 4 },
-    ])).toThrow(/undeclared/);
+    ])).toThrow(/undeclared/)
     expect(() => validateCustomerModuleArchiveEntries(manifest(), [
       { path: 'module.wasm', kind: 'file', size: 12 },
       { path: 'module.wasm', kind: 'file', size: 12 },
-    ])).toThrow(/duplicate/);
+    ])).toThrow(/duplicate/)
   });
-});
+})

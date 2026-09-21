@@ -4,22 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as path from 'path';
-import { homedir } from 'os';
-import { bfsFileSearch } from './bfsFileSearch.js';
+import * as fs from 'fs/promises'
+import * as fsSync from 'fs'
+import * as path from 'path'
+import { homedir } from 'os'
+import { bfsFileSearch } from './bfsFileSearch.js'
 import {
   CLAWMASTER_CONFIG_DIR,
   getAllGeminiMdFilenames,
   DEFAULT_CONTEXT_FILENAMES,
-} from '../tools/memoryTool.js';
-import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
-import { processImports } from './memoryImportProcessor.js';
+} from '../tools/memoryTool.js'
+import { FileDiscoveryService } from '../services/fileDiscoveryService.js'
+import { processImports } from './memoryImportProcessor.js'
 import {
   DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
   FileFilteringOptions,
-} from '../config/config.js';
+} from '../config/config.js'
 
 // Simple console logger, similar to the one previously in CLI's config.ts
 // TODO: Integrate with a more robust server-side logger if available/appropriate.
@@ -32,28 +32,28 @@ const logger = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error: (...args: any[]) =>
     console.error('[ERROR] [MemoryDiscovery]', ...args),
-};
+}
 
 /**
  * 单个上下文文件读入的最大字节数。超过则截断并 warn,防止某个被灌爆的
  * 记忆/上下文文件(如长期 append 的 CLAWMASTER.md)把整个 prompt 撑爆,
  * 导致 token 成本飙升与资源耗尽。
  */
-export const MAX_CONTEXT_FILE_SIZE = 256 * 1024; // 256KB
+export const MAX_CONTEXT_FILE_SIZE = 256 * 1024 // 256KB
 
 interface ClawMasterFileContent {
-  filePath: string;
-  content: string | null;
+  filePath: string
+  content: string | null
 }
 
 async function findProjectRoot(startDir: string): Promise<string | null> {
-  let currentDir = path.resolve(startDir);
+  let currentDir = path.resolve(startDir)
   while (true) {
-    const gitPath = path.join(currentDir, '.git');
+    const gitPath = path.join(currentDir, '.git')
     try {
-      const stats = await fs.stat(gitPath);
+      const stats = await fs.stat(gitPath)
       if (stats.isDirectory()) {
-        return currentDir;
+        return currentDir
       }
     } catch (error: unknown) {
       // Don't log ENOENT errors as they're expected when .git doesn't exist
@@ -62,30 +62,30 @@ async function findProjectRoot(startDir: string): Promise<string | null> {
         typeof error === 'object' &&
         error !== null &&
         'code' in error &&
-        (error as { code: string }).code === 'ENOENT';
+        (error as { code: string }).code === 'ENOENT'
 
       // Only log unexpected errors in non-test environments
       // process.env.NODE_ENV === 'test' or VITEST are common test indicators
-      const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST;
+      const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST
 
       if (!isENOENT && !isTestEnv) {
         if (typeof error === 'object' && error !== null && 'code' in error) {
-          const fsError = error as { code: string; message: string };
+          const fsError = error as { code: string; message: string }
           logger.warn(
             `Error checking for .git directory at ${gitPath}: ${fsError.message}`,
-          );
+          )
         } else {
           logger.warn(
             `Non-standard error checking for .git directory at ${gitPath}: ${String(error)}`,
-          );
+          )
         }
       }
     }
-    const parentDir = path.dirname(currentDir);
+    const parentDir = path.dirname(currentDir)
     if (parentDir === currentDir) {
-      return null;
+      return null
     }
-    currentDir = parentDir;
+    currentDir = parentDir
   }
 }
 
@@ -98,59 +98,59 @@ async function getClawMasterMdFilePathsInternal(
   fileFilteringOptions: FileFilteringOptions,
   maxDirs: number,
 ): Promise<string[]> {
-  const allPaths = new Set<string>();
+  const allPaths = new Set<string>()
   // Search for all possible context file names, not just the currently configured one
   const geminiMdFilenames = Array.from(new Set([
     ...getAllGeminiMdFilenames(),
-    ...DEFAULT_CONTEXT_FILENAMES
-  ])).filter(filename => !filename.includes('*')); // Exclude glob patterns for now
+    ...DEFAULT_CONTEXT_FILENAMES,
+  ])).filter(filename => !filename.includes('*')) // Exclude glob patterns for now
 
   for (const geminiMdFilename of geminiMdFilenames) {
-    const resolvedCwd = path.resolve(currentWorkingDirectory);
-    const resolvedHome = path.resolve(userHomePath);
+    const resolvedCwd = path.resolve(currentWorkingDirectory)
+    const resolvedHome = path.resolve(userHomePath)
     const globalMemoryPath = path.join(
       resolvedHome,
       CLAWMASTER_CONFIG_DIR,
       geminiMdFilename,
-    );
+    )
 
     if (debugMode)
       logger.debug(
         `Searching for ${geminiMdFilename} starting from CWD: ${resolvedCwd}`,
-      );
-    if (debugMode) logger.debug(`User home directory: ${resolvedHome}`);
+      )
+    if (debugMode) logger.debug(`User home directory: ${resolvedHome}`)
 
     try {
-      await fs.access(globalMemoryPath, fsSync.constants.R_OK);
-      allPaths.add(globalMemoryPath);
+      await fs.access(globalMemoryPath, fsSync.constants.R_OK)
+      allPaths.add(globalMemoryPath)
       if (debugMode)
         logger.debug(
           `Found readable global ${geminiMdFilename}: ${globalMemoryPath}`,
-        );
+        )
     } catch {
       if (debugMode)
         logger.debug(
           `Global ${geminiMdFilename} not found or not readable: ${globalMemoryPath}`,
-        );
+        )
     }
 
-    const projectRoot = await findProjectRoot(resolvedCwd);
+    const projectRoot = await findProjectRoot(resolvedCwd)
     if (debugMode)
-      logger.debug(`Determined project root: ${projectRoot ?? 'None'}`);
+      logger.debug(`Determined project root: ${projectRoot ?? 'None'}`)
 
-    const upwardPaths: string[] = [];
-    let currentDir = resolvedCwd;
+    const upwardPaths: string[] = []
+    let currentDir = resolvedCwd
     // Determine the directory that signifies the top of the project or user-specific space.
     const ultimateStopDir = projectRoot
       ? path.dirname(projectRoot)
-      : path.dirname(resolvedHome);
+      : path.dirname(resolvedHome)
 
     while (currentDir && currentDir !== path.dirname(currentDir)) {
       // Loop until filesystem root or currentDir is empty
       if (debugMode) {
         logger.debug(
           `Checking for ${geminiMdFilename} in (upward scan): ${currentDir}`,
-        );
+        )
       }
 
       // Skip the global .gemini directory itself during upward scan from CWD,
@@ -159,28 +159,28 @@ async function getClawMasterMdFilePathsInternal(
         if (debugMode) {
           logger.debug(
             `Upward scan reached global config dir path, stopping upward search here: ${currentDir}`,
-          );
+          )
         }
-        break;
+        break
       }
 
-      const potentialPath = path.join(currentDir, geminiMdFilename);
+      const potentialPath = path.join(currentDir, geminiMdFilename)
       try {
-        await fs.access(potentialPath, fsSync.constants.R_OK);
+        await fs.access(potentialPath, fsSync.constants.R_OK)
         // Add to upwardPaths only if it's not the already added globalMemoryPath
         if (potentialPath !== globalMemoryPath) {
-          upwardPaths.unshift(potentialPath);
+          upwardPaths.unshift(potentialPath)
           if (debugMode) {
             logger.debug(
               `Found readable upward ${geminiMdFilename}: ${potentialPath}`,
-            );
+            )
           }
         }
       } catch {
         if (debugMode) {
           logger.debug(
             `Upward ${geminiMdFilename} not found or not readable in: ${currentDir}`,
-          );
+          )
         }
       }
 
@@ -189,19 +189,19 @@ async function getClawMasterMdFilePathsInternal(
         if (debugMode)
           logger.debug(
             `Reached ultimate stop directory for upward scan: ${currentDir}`,
-          );
+          )
         break;
       }
 
-      currentDir = path.dirname(currentDir);
+      currentDir = path.dirname(currentDir)
     }
-    upwardPaths.forEach((p) => allPaths.add(p));
+    upwardPaths.forEach(p => allPaths.add(p))
 
     // Merge options with memory defaults, with options taking precedence
     const mergedOptions = {
       ...DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
       ...fileFilteringOptions,
-    };
+    }
 
     const downwardPaths = await bfsFileSearch(resolvedCwd, {
       fileName: geminiMdFilename,
@@ -209,54 +209,54 @@ async function getClawMasterMdFilePathsInternal(
       debug: debugMode,
       fileService,
       fileFilteringOptions: mergedOptions, // Pass merged options as fileFilter
-    });
-    downwardPaths.sort(); // Sort for consistent ordering, though hierarchy might be more complex
+    })
+    downwardPaths.sort() // Sort for consistent ordering, though hierarchy might be more complex
     if (debugMode && downwardPaths.length > 0)
       logger.debug(
         `Found downward ${geminiMdFilename} files (sorted): ${JSON.stringify(
           downwardPaths,
         )}`,
-      );
+      )
     // Add downward paths only if they haven't been included already (e.g. from upward scan)
     for (const dPath of downwardPaths) {
-      allPaths.add(dPath);
+      allPaths.add(dPath)
     }
   }
 
   // Add extension context file paths
   for (const extensionPath of extensionContextFilePaths) {
-    allPaths.add(extensionPath);
+    allPaths.add(extensionPath)
   }
 
-  const finalPaths = Array.from(allPaths);
+  const finalPaths = Array.from(allPaths)
 
   if (debugMode)
     logger.debug(
       `Final ordered ${getAllGeminiMdFilenames()} paths to read: ${JSON.stringify(
         finalPaths,
       )}`,
-    );
-  return finalPaths;
+    )
+  return finalPaths
 }
 
 async function readGeminiMdFiles(
   filePaths: string[],
   debugMode: boolean,
 ): Promise<ClawMasterFileContent[]> {
-  const results: ClawMasterFileContent[] = [];
+  const results: ClawMasterFileContent[] = []
   for (const filePath of filePaths) {
     try {
-      let content = await fs.readFile(filePath, 'utf-8');
+      let content = await fs.readFile(filePath, 'utf-8')
 
       // 大小上限:超过 MAX_CONTEXT_FILE_SIZE 的文件按字节截断,避免被灌爆的
       // 上下文文件撑爆 prompt(成本/资源)。截断时 warn。
       if (Buffer.byteLength(content, 'utf-8') > MAX_CONTEXT_FILE_SIZE) {
         logger.warn(
           `Context file ${filePath} exceeds the size limit (${MAX_CONTEXT_FILE_SIZE} bytes); truncating.`,
-        );
+        )
         content = Buffer.from(content, 'utf-8')
           .subarray(0, MAX_CONTEXT_FILE_SIZE)
-          .toString('utf-8');
+          .toString('utf-8')
       }
 
       // Process imports in the content
@@ -264,26 +264,26 @@ async function readGeminiMdFiles(
         content,
         path.dirname(filePath),
         debugMode,
-      );
+      )
 
-      results.push({ filePath, content: processedContent });
+      results.push({ filePath, content: processedContent })
       if (debugMode)
         logger.debug(
           `Successfully read and processed imports: ${filePath} (Length: ${processedContent.length})`,
-        );
+        )
     } catch (error: unknown) {
-      const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST;
+      const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST
       if (!isTestEnv) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? error.message : String(error)
         logger.warn(
           `Warning: Could not read ${getAllGeminiMdFilenames()} file at ${filePath}. Error: ${message}`,
-        );
+        )
       }
-      results.push({ filePath, content: null }); // Still include it with null content
-      if (debugMode) logger.debug(`Failed to read: ${filePath}`);
+      results.push({ filePath, content: null }) // Still include it with null content
+      if (debugMode) logger.debug(`Failed to read: ${filePath}`)
     }
   }
-  return results;
+  return results
 }
 
 function concatenateInstructions(
@@ -292,19 +292,19 @@ function concatenateInstructions(
   currentWorkingDirectoryForDisplay: string,
 ): string {
   return instructionContents
-    .filter((item) => typeof item.content === 'string')
+    .filter(item => typeof item.content === 'string')
     .map((item) => {
-      const trimmedContent = (item.content as string).trim();
+      const trimmedContent = (item.content as string).trim()
       if (trimmedContent.length === 0) {
-        return null;
+        return null
       }
       const displayPath = path.isAbsolute(item.filePath)
         ? path.relative(currentWorkingDirectoryForDisplay, item.filePath)
-        : item.filePath;
-      return `--- Context from: ${displayPath} ---\n${trimmedContent}\n--- End of Context from: ${displayPath} ---`;
+        : item.filePath
+      return `--- Context from: ${displayPath} ---\n${trimmedContent}\n--- End of Context from: ${displayPath} ---`
     })
     .filter((block): block is string => block !== null)
-    .join('\n\n');
+    .join('\n\n')
 }
 
 /**
@@ -322,11 +322,11 @@ export async function loadServerHierarchicalMemory(
   if (debugMode)
     logger.debug(
       `Loading server hierarchical memory for CWD: ${currentWorkingDirectory}`,
-    );
+    )
 
   // For the server, homedir() refers to the server process's home.
   // This is consistent with how MemoryTool already finds the global path.
-  const userHomePath = homedir();
+  const userHomePath = homedir()
   const filePaths = await getClawMasterMdFilePathsInternal(
     currentWorkingDirectory,
     userHomePath,
@@ -335,24 +335,24 @@ export async function loadServerHierarchicalMemory(
     extensionContextFilePaths,
     fileFilteringOptions || DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
     maxDirs,
-  );
+  )
   if (filePaths.length === 0) {
-    if (debugMode) logger.debug('No GEMINI.md files found in hierarchy.');
-    return { memoryContent: '', fileCount: 0, filePaths: [] };
+    if (debugMode) logger.debug('No GEMINI.md files found in hierarchy.')
+    return { memoryContent: '', fileCount: 0, filePaths: [] }
   }
-  const contentsWithPaths = await readGeminiMdFiles(filePaths, debugMode);
+  const contentsWithPaths = await readGeminiMdFiles(filePaths, debugMode)
   // Pass CWD for relative path display in concatenated content
   const combinedInstructions = concatenateInstructions(
     contentsWithPaths,
     currentWorkingDirectory,
-  );
+  )
   if (debugMode)
     logger.debug(
       `Combined instructions length: ${combinedInstructions.length}`,
-    );
+    )
   if (debugMode && combinedInstructions.length > 0)
     logger.debug(
       `Combined instructions (snippet): ${combinedInstructions.substring(0, 500)}...`,
-    );
-  return { memoryContent: combinedInstructions, fileCount: filePaths.length, filePaths };
+    )
+  return { memoryContent: combinedInstructions, fileCount: filePaths.length, filePaths }
 }

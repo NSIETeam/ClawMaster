@@ -7,53 +7,53 @@
  * 存储层通过 data_platform 使用 Node 内置 node:sqlite，无原生依赖。
  */
 
-import { applyDatabaseSchemaContributors } from '../modules/data_platform/databaseSchemaContributor.js';
-import { createDataPlatformComposition } from '../modules/data_platform/dataPlatformComposition.js';
-import { createDataProtectionService } from '../modules/data_platform/dataProtectionService.js';
-import { createEncryptedFieldCipher } from '../modules/data_platform/encryptedFieldCipher.js';
-import { createEncryptedObjectStore } from '../modules/data_platform/encryptedObjectStore.js';
-import { createFileEncryptionKeyProvider } from '../modules/data_platform/fileEncryptionKeyProvider.js';
+import { applyDatabaseSchemaContributors } from '../modules/data_platform/databaseSchemaContributor.js'
+import { createDataPlatformComposition } from '../modules/data_platform/dataPlatformComposition.js'
+import { createDataProtectionService } from '../modules/data_platform/dataProtectionService.js'
+import { createEncryptedFieldCipher } from '../modules/data_platform/encryptedFieldCipher.js'
+import { createEncryptedObjectStore } from '../modules/data_platform/encryptedObjectStore.js'
+import { createFileEncryptionKeyProvider } from '../modules/data_platform/fileEncryptionKeyProvider.js'
 import {
   createSqlCipherFileRuntime,
   parseSqlCipherRuntimeMode,
-} from '../modules/data_platform/sqlCipherRuntime.js';
+} from '../modules/data_platform/sqlCipherRuntime.js'
 import {
   describeEnterpriseServiceTopology,
   resolveEnterpriseServiceTopology,
-} from '../modules/data_platform/enterpriseServiceTopology.js';
-import { requireLocalSqliteTopology } from '../modules/data_platform/enterpriseDatabaseTopology.js';
-import { Database } from '../modules/data_platform/sqliteCompat.js';
-import { createAuthorizationComposition } from '../modules/authorization/index.js';
+} from '../modules/data_platform/enterpriseServiceTopology.js'
+import { requireLocalSqliteTopology } from '../modules/data_platform/enterpriseDatabaseTopology.js'
+import { Database } from '../modules/data_platform/sqliteCompat.js'
+import { createAuthorizationComposition } from '../modules/authorization/index.js'
 import {
   createDataGovernanceComposition,
   DATA_GOVERNANCE_SCHEMA_CONTRIBUTOR,
-} from '../modules/data_governance/index.js';
+} from '../modules/data_governance/index.js'
 import {
   COLLABORATION_SCHEMA_CONTRIBUTOR,
   createCollaborationComposition,
   type AccountPresenceView as CollaborationAccountPresenceView,
-} from '../modules/collaboration/index.js';
+} from '../modules/collaboration/index.js'
 import {
   createEnterpriseKnowledgeComposition,
   createEnterpriseKnowledgeSchemaContributor,
-} from '../modules/enterprise_knowledge/index.js';
+} from '../modules/enterprise_knowledge/index.js'
 import {
   createEnterpriseSkillMarketplaceComposition,
   ENTERPRISE_SKILL_MARKET_SCHEMA_CONTRIBUTOR,
-} from '../modules/enterprise_skill_market/index.js';
-import { createIntegrationAdaptersComposition } from '../modules/integration_adapters/index.js';
+} from '../modules/enterprise_skill_market/index.js'
+import { createIntegrationAdaptersComposition } from '../modules/integration_adapters/index.js'
 import {
   createFederationComposition,
   FEDERATION_GATEWAY_SCHEMA_CONTRIBUTOR,
-} from '../modules/federation_gateway/index.js';
+} from '../modules/federation_gateway/index.js'
 import {
   createMeshRendezvousComposition,
   MESH_RENDEZVOUS_SCHEMA_CONTRIBUTOR,
-} from '../modules/mesh_rendezvous/index.js';
+} from '../modules/mesh_rendezvous/index.js'
 import {
   createModelGatewayComposition,
   MODEL_GATEWAY_SCHEMA_CONTRIBUTOR,
-} from '../modules/model_gateway/index.js';
+} from '../modules/model_gateway/index.js'
 import {
   createPersonalIntelligenceComposition,
   createWorklogSchemaContributor,
@@ -61,7 +61,7 @@ import {
   normalizeCostCNY,
   normalizeTokens,
   PERSONAL_INTELLIGENCE_SCHEMA_CONTRIBUTOR,
-} from '../modules/personal_intelligence/index.js';
+} from '../modules/personal_intelligence/index.js'
 import {
   createParkPublicationSchemaContributor,
   PARK_RESOURCE_SCHEMA_CONTRIBUTOR,
@@ -73,18 +73,18 @@ import {
   migrateLegacyParkTicketEvents,
   PARK_CORE_SCHEMA_CONTRIBUTOR,
   PARK_STATISTICS_SCHEMA_CONTRIBUTOR,
-} from '../modules/park_services/index.js';
-import { CUSTOMER_MODULE_SCHEMA_CONTRIBUTOR } from '../modules/tool_skill_platform/index.js';
-import path from 'path';
-import os from 'os';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+} from '../modules/park_services/index.js'
+import { CUSTOMER_MODULE_SCHEMA_CONTRIBUTOR } from '../modules/tool_skill_platform/index.js'
+import path from 'path'
+import os from 'os'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import {
   createAuditLogSchemaContributor,
   createCommercialControlComposition,
   createCreditsSchemaContributor,
   parsePublicKeyList,
   PRIVATE_DEPLOYMENT_SCHEMA_CONTRIBUTOR,
-} from '../modules/commercial_control/index.js';
+} from '../modules/commercial_control/index.js'
 import {
   backfillEnterpriseAccountEmployees,
   backfillLegacyOrganizationStructure,
@@ -121,7 +121,7 @@ import {
   type SmsChallengeIssueResult as IdentitySmsChallengeIssueResult,
   type SmsChallengeVerifyResult as IdentitySmsChallengeVerifyResult,
   type SmsRegistrationVerifyResult as IdentitySmsRegistrationVerifyResult,
-} from '../modules/identity_organization/index.js';
+} from '../modules/identity_organization/index.js'
 export type {
   AuditLogRecord,
   CreditBalance,
@@ -134,11 +134,11 @@ export type {
   DeploymentTelemetrySettings,
   PrivateDeploymentStatus,
   RedeemCodeInfo,
-} from '../modules/commercial_control/index.js';
+} from '../modules/commercial_control/index.js'
 export {
   CREDITS_TABLES_SQL,
   CreditsRequestError,
-} from '../modules/commercial_control/index.js';
+} from '../modules/commercial_control/index.js'
 export type {
   AssignmentIdentity,
   AssignmentIdentityInput,
@@ -148,7 +148,7 @@ export type {
   OrganizationInviteResolution,
   OrganizationInviteStatus,
   OrganizationInviteView,
-} from '../modules/identity_organization/index.js';
+} from '../modules/identity_organization/index.js'
 export type {
   AtoaInboxMessageView,
   DirectMessageAttachmentDownload,
@@ -158,11 +158,11 @@ export type {
   E2eeAttachmentCiphertextInput,
   E2eeMessageEnvelope,
   UnreadDirectMessageNotification,
-} from '../modules/collaboration/index.js';
+} from '../modules/collaboration/index.js'
 export type {
   AddEnterpriseKnowledgeInput,
   EnterpriseKnowledgeEntryView,
-} from '../modules/enterprise_knowledge/index.js';
+} from '../modules/enterprise_knowledge/index.js'
 export type {
   EnterpriseSkillActor,
   EnterpriseSkillInstallView,
@@ -170,21 +170,21 @@ export type {
   EnterpriseSkillStatus,
   EnterpriseSkillView,
   EnterpriseSkillVisibility,
-} from '../modules/enterprise_skill_market/index.js';
+} from '../modules/enterprise_skill_market/index.js'
 export {
   ACCOUNT_SYNC_SCOPES,
   AccountSyncConflictError,
-} from '../modules/personal_intelligence/index.js';
+} from '../modules/personal_intelligence/index.js'
 export type {
   DataGovernanceAccount,
   PrivacyDeletionReceipt,
-} from '../modules/data_governance/index.js';
+} from '../modules/data_governance/index.js'
 export type {
   AccountSyncFile,
   AccountSyncPayload,
   AccountSyncScope,
   AccountSyncSnapshotView,
-} from '../modules/personal_intelligence/index.js';
+} from '../modules/personal_intelligence/index.js'
 export type {
   ParkDataStatisticsAssignmentStatus,
   ParkDataStatisticsAssignmentView,
@@ -200,7 +200,7 @@ export type {
   TicketHistoryAction,
   TicketHistoryEntry,
   TicketView,
-} from '../modules/park_services/index.js';
+} from '../modules/park_services/index.js'
 export type {
   FederationDirectoryEntry,
   FederationInboxMessageView,
@@ -208,54 +208,54 @@ export type {
   FederationProvisioningManifest,
   FederationQueueInput,
   FederationRoutingMetadata,
-} from '../modules/federation_gateway/index.js';
-export { PARK_SERVICE_IDS } from '../modules/park_services/index.js';
+} from '../modules/federation_gateway/index.js'
+export { PARK_SERVICE_IDS } from '../modules/park_services/index.js'
 
 const DATA_DIR =
   process.env.CLAWMASTER_ENTERPRISE_DIR ||
-  path.join(os.homedir(), '.clawmaster-enterprise');
-const DB_PATH = path.join(DATA_DIR, 'data.db');
+  path.join(os.homedir(), '.clawmaster-enterprise')
+const DB_PATH = path.join(DATA_DIR, 'data.db')
 const ENTERPRISE_SERVICE_TOPOLOGY = resolveEnterpriseServiceTopology({
   environment: process.env,
   sqliteDatabasePath: DB_PATH,
-});
-requireLocalSqliteTopology(ENTERPRISE_SERVICE_TOPOLOGY.database);
-const DATABASE_ENCRYPTION_MODE = parseSqlCipherRuntimeMode();
+})
+requireLocalSqliteTopology(ENTERPRISE_SERVICE_TOPOLOGY.database)
+const DATABASE_ENCRYPTION_MODE = parseSqlCipherRuntimeMode()
 const SQLCIPHER_RUNTIME =
   DATABASE_ENCRYPTION_MODE === 'required'
     ? createSqlCipherFileRuntime({ dataDirectory: DATA_DIR })
-    : null;
+    : null
 const ACCOUNT_SYNC_EXTERNAL_KEY_PATH =
-  process.env.CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?.trim() || null;
+  process.env.CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?.trim() || null
 const ACCOUNT_SYNC_KEY_PATH =
-  ACCOUNT_SYNC_EXTERNAL_KEY_PATH || path.join(DATA_DIR, 'account-sync.key');
+  ACCOUNT_SYNC_EXTERNAL_KEY_PATH || path.join(DATA_DIR, 'account-sync.key')
 const ATTACHMENT_STORAGE_DIR =
-  process.env.CLAWMASTER_ATTACHMENT_STORAGE_DIR || path.join(DATA_DIR, 'attachments');
+  process.env.CLAWMASTER_ATTACHMENT_STORAGE_DIR || path.join(DATA_DIR, 'attachments')
 const ATTACHMENT_EXTERNAL_KEY_PATH =
-  process.env.CLAWMASTER_ATTACHMENT_ENCRYPTION_KEY_FILE?.trim() || null;
+  process.env.CLAWMASTER_ATTACHMENT_ENCRYPTION_KEY_FILE?.trim() || null
 const ATTACHMENT_STORAGE_KEY_PATH =
-  ATTACHMENT_EXTERNAL_KEY_PATH || path.join(DATA_DIR, 'attachment-storage.key');
+  ATTACHMENT_EXTERNAL_KEY_PATH || path.join(DATA_DIR, 'attachment-storage.key')
 const FIELD_EXTERNAL_KEY_PATH =
-  process.env.CLAWMASTER_FIELD_ENCRYPTION_KEY_FILE?.trim() || null;
+  process.env.CLAWMASTER_FIELD_ENCRYPTION_KEY_FILE?.trim() || null
 const FIELD_ENCRYPTION_KEY_PATH =
-  FIELD_EXTERNAL_KEY_PATH || path.join(DATA_DIR, 'field-encryption.key');
+  FIELD_EXTERNAL_KEY_PATH || path.join(DATA_DIR, 'field-encryption.key')
 const BACKUP_STORAGE_DIR =
-  process.env.CLAWMASTER_BACKUP_DIR || path.join(DATA_DIR, 'backups');
+  process.env.CLAWMASTER_BACKUP_DIR || path.join(DATA_DIR, 'backups')
 const PRIVACY_DELETION_LEDGER_PATH = path.join(
   DATA_DIR,
   'privacy-deletions.jsonl',
-);
+)
 const PRIVACY_DELETION_LEDGER_KEY_PATH = path.join(
   DATA_DIR,
   'privacy-deletions.key',
-);
+)
 
-export const DEFAULT_ORGANIZATION_ID = 'org_default';
-export const ENTERPRISE_SCHEMA_VERSION = 23;
-export const ORGANIZATION_INVITE_VALIDITY_MS = 7 * 24 * 60 * 60 * 1000;
+export const DEFAULT_ORGANIZATION_ID = 'org_default'
+export const ENTERPRISE_SCHEMA_VERSION = 23
+export const ORGANIZATION_INVITE_VALIDITY_MS = 7 * 24 * 60 * 60 * 1000
 const ORGANIZATION_INVITE_ALPHABET =
-  'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-const INVITE_CODE_RAW_LENGTH = 12;
+  'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+const INVITE_CODE_RAW_LENGTH = 12
 
 function initSchema(d: Database): void {
   applyDatabaseSchemaContributors(d, [
@@ -303,16 +303,16 @@ function initSchema(d: Database): void {
     createAuditLogSchemaContributor({
       defaultOrganizationId: DEFAULT_ORGANIZATION_ID,
     }),
-  ]);
+  ])
 
   migrateLegacyEnterpriseTenant(d, {
     defaultOrganizationId: DEFAULT_ORGANIZATION_ID,
     defaultOrganizationName:
       process.env.CLAWMASTER_DEFAULT_ORGANIZATION_NAME?.trim() || '默认企业',
     inviteSecret: randomBytes(32).toString('hex'),
-  });
-  backfillEnterpriseAccountEmployees(d);
-  backfillLegacyOrganizationStructure(d);
+  })
+  backfillEnterpriseAccountEmployees(d)
+  backfillLegacyOrganizationStructure(d)
 }
 
 const dataPlatform = createDataPlatformComposition({
@@ -329,42 +329,42 @@ const dataPlatform = createDataPlatformComposition({
     legacyBackupPath: `${DB_PATH}.pre-b2b-v2.bak`,
     schemaVersion: ENTERPRISE_SCHEMA_VERSION,
     beforeForeignKeys(database) {
-      migrateLegacyAuthSessions(database, DEFAULT_ORGANIZATION_ID);
-      migrateLegacyParkTicketEvents(database);
+      migrateLegacyAuthSessions(database, DEFAULT_ORGANIZATION_ID)
+      migrateLegacyParkTicketEvents(database)
     },
     initializeSchema: initSchema,
   },
   ...(SQLCIPHER_RUNTIME
     ? {
-        databaseEncryption: {
-          keyProvider: SQLCIPHER_RUNTIME.keyProvider,
-          driver: SQLCIPHER_RUNTIME.driver,
-        },
-      }
+      databaseEncryption: {
+        keyProvider: SQLCIPHER_RUNTIME.keyProvider,
+        driver: SQLCIPHER_RUNTIME.driver,
+      },
+    }
     : {}),
-});
-const accountSyncKeyProvider = dataPlatform.encryptionKeyProvider;
+})
+const accountSyncKeyProvider = dataPlatform.encryptionKeyProvider
 const attachmentStorageKeyProvider = createFileEncryptionKeyProvider({
   keyPath: ATTACHMENT_STORAGE_KEY_PATH,
   keyBytes: 32,
   invalidKeyMessage: 'attachment storage encryption key is invalid',
   createIfMissing: !ATTACHMENT_EXTERNAL_KEY_PATH,
   managePermissions: !ATTACHMENT_EXTERNAL_KEY_PATH,
-});
+})
 const fieldEncryptionKeyProvider = createFileEncryptionKeyProvider({
   keyPath: FIELD_ENCRYPTION_KEY_PATH,
   keyBytes: 32,
   invalidKeyMessage: 'field encryption key is invalid',
   createIfMissing: !FIELD_EXTERNAL_KEY_PATH,
   managePermissions: !FIELD_EXTERNAL_KEY_PATH,
-});
+})
 const fieldCipher = createEncryptedFieldCipher({
   keyProvider: fieldEncryptionKeyProvider,
-});
+})
 const attachmentObjectStore = createEncryptedObjectStore({
   root: ATTACHMENT_STORAGE_DIR,
   keyProvider: attachmentStorageKeyProvider,
-});
+})
 const dataProtection = createDataProtectionService({
   dataDirectory: DATA_DIR,
   databasePath: DB_PATH,
@@ -374,10 +374,10 @@ const dataProtection = createDataProtectionService({
   fieldEncryptionKeyPath: FIELD_ENCRYPTION_KEY_PATH,
   ...(SQLCIPHER_RUNTIME
     ? {
-        databaseKeyRecoveryPath: SQLCIPHER_RUNTIME.keyPath,
-        createDatabaseSnapshot: dataPlatform.createDatabaseSnapshot,
-        openDatabaseSnapshot: dataPlatform.openDatabaseSnapshot,
-      }
+      databaseKeyRecoveryPath: SQLCIPHER_RUNTIME.keyPath,
+      createDatabaseSnapshot: dataPlatform.createDatabaseSnapshot,
+      openDatabaseSnapshot: dataPlatform.openDatabaseSnapshot,
+    }
     : {}),
   attachmentDirectory: ATTACHMENT_STORAGE_DIR,
   privacyDeletionLedgerPath: PRIVACY_DELETION_LEDGER_PATH,
@@ -395,23 +395,23 @@ const dataProtection = createDataProtectionService({
     Number(process.env.CLAWMASTER_DISK_MIN_FREE_MB || 2048) * 1024 * 1024,
   appVersion: () => process.env.CLAWMASTER_APP_VERSION?.trim() || 'development',
   buildCommit: () => process.env.CLAWMASTER_BUILD_COMMIT?.trim() || 'unknown',
-});
+})
 
 /** 释放当前企业数据库连接；服务关闭或隔离测试清理时调用。 */
 export function closeEnterpriseDatabase(): void {
   try {
-    dataPlatform.closeDatabase();
+    dataPlatform.closeDatabase()
   } finally {
-    attachmentStorageKeyProvider.clear();
-    fieldEncryptionKeyProvider.clear();
+    attachmentStorageKeyProvider.clear()
+    fieldEncryptionKeyProvider.clear()
   }
 }
 
-export const getDB = dataPlatform.getDatabase;
+export const getDB = dataPlatform.getDatabase
 
 /** Credential-free storage topology for diagnostics and readiness output. */
 export function getEnterpriseServiceTopology() {
-  return describeEnterpriseServiceTopology(ENTERPRISE_SERVICE_TOPOLOGY);
+  return describeEnterpriseServiceTopology(ENTERPRISE_SERVICE_TOPOLOGY)
 }
 
 /**
@@ -421,23 +421,23 @@ export function getEnterpriseServiceTopology() {
 export function getOperationsSecurityStatus() {
   let sqlCipher:
     | {
-        state: 'active';
-        keyVersion: number;
-        migratedFromPlaintext: boolean;
-      }
-    | { state: 'disabled' | 'error' };
+      state: 'active'
+      keyVersion: number
+      migratedFromPlaintext: boolean
+    }
+    | { state: 'disabled' | 'error' }
   if (!SQLCIPHER_RUNTIME) {
-    sqlCipher = { state: 'disabled' };
+    sqlCipher = { state: 'disabled' }
   } else {
     try {
-      const status = dataPlatform.getDatabaseEncryptionStatus();
+      const status = dataPlatform.getDatabaseEncryptionStatus()
       sqlCipher = {
         state: 'active',
         keyVersion: status.keyVersion,
         migratedFromPlaintext: status.migratedFromPlaintext,
-      };
+      }
     } catch {
-      sqlCipher = { state: 'error' };
+      sqlCipher = { state: 'error' }
     }
   }
   return {
@@ -455,19 +455,19 @@ export function getOperationsSecurityStatus() {
           ? ('configured' as const)
           : ('not-configured' as const),
     },
-  };
+  }
 }
 
 /** 执行真实读查询，供 HTTP readiness 判断数据库与 schema 是否可用。 */
-export const getDatabaseReadiness = dataPlatform.getReadiness;
+export const getDatabaseReadiness = dataPlatform.getReadiness
 export const getDatabaseEncryptionStatus =
-  dataPlatform.getDatabaseEncryptionStatus;
-export const rotateDatabaseEncryptionKey = dataPlatform.rotateDatabaseKey;
+  dataPlatform.getDatabaseEncryptionStatus
+export const rotateDatabaseEncryptionKey = dataPlatform.rotateDatabaseKey
 
-export const getDataProtectionStatus = dataProtection.getStatus;
-export const runDataProtectionBackup = dataProtection.runBackup;
-export const sweepOrphanAttachments = dataProtection.sweepOrphanAttachments;
-export const startDataProtectionRuntime = dataProtection.start;
+export const getDataProtectionStatus = dataProtection.getStatus
+export const runDataProtectionBackup = dataProtection.runBackup
+export const sweepOrphanAttachments = dataProtection.sweepOrphanAttachments
+export const startDataProtectionRuntime = dataProtection.start
 
 // ============================================================
 // Organizations and time-boxed registration invites
@@ -531,7 +531,7 @@ export const {
     Number(process.env.CLAWMASTER_TELEMETRY_RETENTION_DAYS || 90),
   fieldCipher,
   databaseReadiness: getDatabaseReadiness,
-});
+})
 
 export const {
   getFederationStatus,
@@ -577,7 +577,7 @@ export const {
   allowInsecureLoopback:
     process.env.NODE_ENV === 'test' &&
     process.env.CLAWMASTER_FEDERATION_ALLOW_INSECURE_LOOPBACK === 'true',
-});
+})
 
 export const {
   publishRendezvous,
@@ -593,9 +593,9 @@ export const {
   db: getDB,
   now: Date.now,
   signingKey: process.env.CLAWMASTER_MESH_SIGNING_KEY?.trim() || undefined,
-});
+})
 
-export type OrganizationView = OrganizationDirectoryView;
+export type OrganizationView = OrganizationDirectoryView
 
 export const {
   getOrganization,
@@ -631,14 +631,14 @@ export const {
   organizationInviteCodeRawLength: INVITE_CODE_RAW_LENGTH,
   normalizeOptionalText,
   audit: logAudit,
-});
+})
 
 export type OrganizationPositionRoleMapping =
-  IdentityOrganizationPositionRoleMapping;
-export type OrganizationPositionView = IdentityOrganizationPositionView;
-export type OrganizationDepartmentView = IdentityOrganizationDepartmentView;
+  IdentityOrganizationPositionRoleMapping
+export type OrganizationPositionView = IdentityOrganizationPositionView
+export type OrganizationDepartmentView = IdentityOrganizationDepartmentView
 
-export type OrganizationFeatures = IdentityOrganizationFeatures;
+export type OrganizationFeatures = IdentityOrganizationFeatures
 
 export const {
   getOrganizationFeatures,
@@ -649,7 +649,7 @@ export const {
   db: getDB,
   audit: logAudit,
   isLicenseUsable: isLicenseUsableForOrganizationFeature,
-});
+})
 
 export const {
   getEnterpriseSkillLeaderboard,
@@ -663,19 +663,19 @@ export const {
   db: getDB,
   fieldCipher,
   createId: randomUUID,
-  organizationExists: (organizationId) =>
+  organizationExists: organizationId =>
     Boolean(getOrganization(organizationId)),
-});
+})
 
 function normalizeOptionalText(
   value: string | null | undefined,
   label: string,
   maxLength = 80,
 ): string | null {
-  const clean = value?.trim() || null;
+  const clean = value?.trim() || null
   if (clean && clean.length > maxLength)
-    throw new Error(`${label}不能超过 ${maxLength} 个字符`);
-  return clean;
+    throw new Error(`${label}不能超过 ${maxLength} 个字符`)
+  return clean
 }
 
 // ============================================================
@@ -683,125 +683,125 @@ function normalizeOptionalText(
 // ============================================================
 
 export interface AccountView {
-  id: string;
-  organizationId: string;
-  organizationName: string;
-  accountType: 'personal' | 'enterprise';
-  employeeId: string | null;
-  username: string;
-  phone: string | null;
-  feishuOpenId: string | null;
-  name: string;
-  role: string | null;
-  department: string | null;
-  departmentId: string | null;
-  positionId: string | null;
-  positionTitle: string | null;
-  avatarUrl: string | null;
-  isAdmin: boolean;
-  status: 'active' | 'disabled';
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  organizationId: string
+  organizationName: string
+  accountType: 'personal' | 'enterprise'
+  employeeId: string | null
+  username: string
+  phone: string | null
+  feishuOpenId: string | null
+  name: string
+  role: string | null
+  department: string | null
+  departmentId: string | null
+  positionId: string | null
+  positionTitle: string | null
+  avatarUrl: string | null
+  isAdmin: boolean
+  status: 'active' | 'disabled'
+  tags: string[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface AccountRow {
-  id: string;
-  organization_id: string;
-  account_type: 'personal' | 'enterprise' | null;
-  employee_id: string | null;
-  username: string;
-  phone: string | null;
-  feishu_open_id: string | null;
-  password_hash: string;
-  name: string;
-  role: string | null;
-  department: string | null;
-  department_id: string | null;
-  position_id: string | null;
-  position_title: string | null;
-  avatar_url: string | null;
-  is_admin: number;
-  status: 'active' | 'disabled';
-  deleted_at: string | null;
-  created_at: string;
-  updated_at: string;
+  id: string
+  organization_id: string
+  account_type: 'personal' | 'enterprise' | null
+  employee_id: string | null
+  username: string
+  phone: string | null
+  feishu_open_id: string | null
+  password_hash: string
+  name: string
+  role: string | null
+  department: string | null
+  department_id: string | null
+  position_id: string | null
+  position_title: string | null
+  avatar_url: string | null
+  is_admin: number
+  status: 'active' | 'disabled'
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
 }
 
 function normalizeUsername(username: string): string {
-  return username.trim().toLocaleLowerCase('en-US');
+  return username.trim().toLocaleLowerCase('en-US')
 }
 
 /** 中国大陆手机号统一保存为 E.164；展示和下发短信时再去掉 +86。 */
 export function normalizePhone(phone: string): string {
-  let digits = phone.trim().replace(/[^\d]/g, '');
-  if (digits.startsWith('0086')) digits = digits.slice(4);
+  let digits = phone.trim().replace(/[^\d]/g, '')
+  if (digits.startsWith('0086')) digits = digits.slice(4)
   else if (digits.startsWith('86') && digits.length === 13)
-    digits = digits.slice(2);
-  if (!/^1[3-9]\d{9}$/.test(digits)) throw new Error('手机号格式不正确');
-  return `+86${digits}`;
+    digits = digits.slice(2)
+  if (!/^1[3-9]\d{9}$/.test(digits)) throw new Error('手机号格式不正确')
+  return `+86${digits}`
 }
 
 function normalizeOptionalPhone(
   phone: string | null | undefined,
 ): string | null {
-  if (phone == null || !phone.trim()) return null;
-  return normalizePhone(phone);
+  if (phone == null || !phone.trim()) return null
+  return normalizePhone(phone)
 }
 
 function normalizeOptionalFeishuOpenId(
   value: string | null | undefined,
 ): string | null {
-  if (value == null || !value.trim()) return null;
-  const openId = value.trim();
+  if (value == null || !value.trim()) return null
+  const openId = value.trim()
   if (!/^ou_[A-Za-z0-9_-]+$/.test(openId))
-    throw new Error('飞书 open_id 格式不正确');
-  return openId;
+    throw new Error('飞书 open_id 格式不正确')
+  return openId
 }
 
 function normalizeOptionalAvatarUrl(
   value: string | null | undefined,
 ): string | null {
-  if (value == null || !value.trim()) return null;
-  const avatarUrl = value.trim();
+  if (value == null || !value.trim()) return null
+  const avatarUrl = value.trim()
   if (/^https:\/\//i.test(avatarUrl)) {
     if (avatarUrl.length > 2_000)
-      throw new Error('头像地址不能超过 2000 个字符');
+      throw new Error('头像地址不能超过 2000 个字符')
     try {
-      if (new URL(avatarUrl).protocol !== 'https:') throw new Error();
+      if (new URL(avatarUrl).protocol !== 'https:') throw new Error()
     } catch {
-      throw new Error('头像地址格式不正确');
+      throw new Error('头像地址格式不正确')
     }
-    return avatarUrl;
+    return avatarUrl
   }
   const match =
     /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/i.exec(
       avatarUrl,
-    );
+    )
   if (!match)
     throw new Error(
       '头像仅支持 HTTPS 或 PNG、JPEG、WebP、GIF 格式的 data:image',
-    );
+    )
   if (
     avatarUrl.length > 700_000 ||
     Buffer.from(match[2]!, 'base64').byteLength > 512 * 1024
   ) {
-    throw new Error('头像数据不能超过 512KB');
+    throw new Error('头像数据不能超过 512KB')
   }
-  return avatarUrl;
+  return avatarUrl
 }
 
-export const normalizeTags = normalizeAccountTags;
+export const normalizeTags = normalizeAccountTags
 
-const passwordHash = hashIdentitySecret;
-const passwordMatches = identitySecretMatches;
-const assertAccountPassword = assertIdentityAccountPassword;
-export const isAcceptableAccountPassword = isAcceptableIdentityAccountPassword;
+const passwordHash = hashIdentitySecret
+const passwordMatches = identitySecretMatches
+const assertAccountPassword = assertIdentityAccountPassword
+export const isAcceptableAccountPassword = isAcceptableIdentityAccountPassword
 
-const accountTagStore = { db: getDB };
+const accountTagStore = { db: getDB }
 
 export function toAccountView(row: AccountRow): AccountView {
-  const organization = getOrganization(row.organization_id);
+  const organization = getOrganization(row.organization_id)
   return {
     id: row.id,
     organizationId: row.organization_id,
@@ -827,7 +827,7 @@ export function toAccountView(row: AccountRow): AccountView {
     ),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-  };
+  }
 }
 
 export const {
@@ -863,7 +863,7 @@ export const {
   createChallengeId: (kind: 'login' | 'registration') =>
     `${kind === 'login' ? 'sms' : 'smsreg'}_${randomUUID()}`,
   audit: logAudit,
-});
+})
 
 const personalIntelligence = createPersonalIntelligenceComposition<
   AccountView,
@@ -878,7 +878,7 @@ const personalIntelligence = createPersonalIntelligenceComposition<
   getEmployee,
   listActiveEmployees: listEmployees,
   audit: logAudit,
-});
+})
 
 export const {
   listAccountSyncSnapshots,
@@ -886,8 +886,8 @@ export const {
   getReport,
   getTaskHistory,
   logTask,
-} = personalIntelligence;
-const listWorklogsForBackup = personalIntelligence.listWorklogsForBackup;
+} = personalIntelligence
+const listWorklogsForBackup = personalIntelligence.listWorklogsForBackup
 
 /** 企业、首位管理员和首个 7 天邀请要么全部成功，要么全部回滚。 */
 export const {
@@ -927,11 +927,11 @@ export const {
   resolveAssignmentIdentity,
   getPositionRoleMapping: getOrganizationPositionRoleMappingFromRepository,
   createEmployee(input) {
-    const { inviteCode, ...employee } = input;
+    const { inviteCode, ...employee } = input
     return createEmployee({
       ...employee,
       invite_code: inviteCode,
-    });
+    })
   },
   getAccount,
   findAccountByPhone,
@@ -945,10 +945,10 @@ export const {
       accountId,
       organizationId,
       tags,
-    );
+    )
   },
   audit: logAudit,
-});
+})
 
 export const {
   ensureDirectMessageContentEncrypted,
@@ -986,7 +986,7 @@ export const {
   fieldCipher,
   attachmentObjectStore,
   getAccount,
-});
+})
 
 export const {
   getDataGovernanceProfile,
@@ -1001,26 +1001,26 @@ export const {
   fieldCipher,
   attachmentObjectStore,
   createDeletionPasswordHash: passwordHash,
-});
+})
 
 // The ledger lives outside data.db. Restoring an older encrypted backup cannot
 // resurrect an account whose deletion was already completed.
-reapplyPrivacyDeletionTombstones();
+reapplyPrivacyDeletionTombstones()
 
-export type AccountPresenceView = CollaborationAccountPresenceView;
+export type AccountPresenceView = CollaborationAccountPresenceView
 
 const integrationAdapters = createIntegrationAdaptersComposition({
   listFeishuAccountBindings,
   isLicenseUsableForOrganizationFeature,
   isOrganizationFeatureEnabled,
-});
+})
 
-export const { isFeishuAutoReplyEnabledForOpenId } = integrationAdapters;
+export const { isFeishuAutoReplyEnabledForOpenId } = integrationAdapters
 
-export type SmsChallengeIssueResult = IdentitySmsChallengeIssueResult;
-export type SmsRegistrationVerifyResult = IdentitySmsRegistrationVerifyResult;
+export type SmsChallengeIssueResult = IdentitySmsChallengeIssueResult
+export type SmsRegistrationVerifyResult = IdentitySmsRegistrationVerifyResult
 export type SmsChallengeVerifyResult =
-  IdentitySmsChallengeVerifyResult<AccountView>;
+  IdentitySmsChallengeVerifyResult<AccountView>
 
 // ============================================================
 // Park tenants, organization membership and service specialists
@@ -1088,7 +1088,7 @@ export const {
   db: getDB,
   getAccount,
   getOrganization: getEnterpriseOrganization,
-  isOrganizationActive: (organizationId) =>
+  isOrganizationActive: organizationId =>
     getOrganization(organizationId)?.status === 'active',
   listAccounts,
   getOrganizationFeatures,
@@ -1098,30 +1098,30 @@ export const {
   normalizeInviteCode: normalizeOrganizationInviteCode,
   normalizeTags,
   createUuid: randomUUID,
-  createRandomHex: (byteLength) => randomBytes(byteLength).toString('hex'),
+  createRandomHex: byteLength => randomBytes(byteLength).toString('hex'),
   inviteValidityMs: ORGANIZATION_INVITE_VALIDITY_MS,
   inviteAlphabet: ORGANIZATION_INVITE_ALPHABET,
   inviteCodeRawLength: INVITE_CODE_RAW_LENGTH,
   audit: logAudit,
-});
+})
 
 export {
   PARK_MEETING_CLOSE_MINUTES,
   PARK_MEETING_OPEN_MINUTES,
   PARK_MEETING_SLOT_MINUTES,
   PARK_MEETING_TIME_SLOTS,
-} from '../modules/park_services/index.js';
+} from '../modules/park_services/index.js'
 export type {
   ParkMeetingRoomView,
   ParkMeetingSlotView,
   ParkSettingsView,
-} from '../modules/park_services/index.js';
+} from '../modules/park_services/index.js'
 
 export type {
   ParkAnnouncementResultView,
   ParkPublicationView,
   ParkSurveyResultView,
-} from '../modules/park_services/index.js';
+} from '../modules/park_services/index.js'
 
 // ============================================================
 // Provider-reported Token usage (client_reported, idempotent)
@@ -1134,13 +1134,13 @@ const modelGateway = createModelGatewayComposition({
   listOrganizationAccounts: listAccounts,
   createId: randomUUID,
   onRecordedUsage(input) {
-    if (input.totalTokens < 1) return;
+    if (input.totalTokens < 1) return
     const digest = createHash('sha256')
       .update(
         [getDeploymentId(), input.organizationId, input.messageId].join('\0'),
         'utf8',
       )
-      .digest('hex');
+      .digest('hex')
     queueBillingUsage({
       organizationId: input.organizationId,
       module: 'model_gateway',
@@ -1148,27 +1148,27 @@ const modelGateway = createModelGatewayComposition({
       model: input.model,
       referenceId: `usage_${digest.slice(0, 32)}`,
       idempotencyKey: `usage:${digest}`,
-    });
+    })
   },
-});
+})
 
 export const {
   getOrganizationUsageSummary,
   getPersonalTokenUsageProfile,
   recordTokenUsage,
-} = modelGateway;
+} = modelGateway
 export type {
   AccountTokenUsageView,
   OrganizationUsageSummary,
   PersonalTokenUsageProfile,
-} from '../modules/model_gateway/index.js';
+} from '../modules/model_gateway/index.js'
 
-export { ESTIMATE, normalizeCostCNY, normalizeTokens };
+export { ESTIMATE, normalizeCostCNY, normalizeTokens }
 export type {
   LogWorkTaskInput,
   WorklogRecord,
   WorklogReport,
-} from '../modules/personal_intelligence/index.js';
+} from '../modules/personal_intelligence/index.js'
 
 // ============================================================
 // Knowledge operations
@@ -1189,7 +1189,7 @@ export const {
   db: getDB,
   defaultOrganizationId: DEFAULT_ORGANIZATION_ID,
   getOrganization,
-});
+})
 
 // ============================================================
 // Invite codes
@@ -1197,25 +1197,25 @@ export const {
 // ============================================================
 // Export all (for backup)
 // ============================================================
-const backupDatabaseStore = { db: getDB };
+const backupDatabaseStore = { db: getDB }
 
 const enterpriseBackup = dataPlatform.createBackup({
   defaultOrganizationId: DEFAULT_ORGANIZATION_ID,
-  listEmployees: (organizationId) =>
+  listEmployees: organizationId =>
     listEmployeesForBackup(backupDatabaseStore, organizationId),
-  listTaskLogs: (organizationId) => listWorklogsForBackup(organizationId),
-  listKnowledge: (organizationId) => getKnowledgeForBackup(organizationId),
-  listInviteCodes: (organizationId) =>
+  listTaskLogs: organizationId => listWorklogsForBackup(organizationId),
+  listKnowledge: organizationId => getKnowledgeForBackup(organizationId),
+  listInviteCodes: organizationId =>
     listDepartmentInvitesForBackup(backupDatabaseStore, organizationId),
-  listAuditLogs: (organizationId) => getAuditLogs(200, organizationId),
+  listAuditLogs: organizationId => getAuditLogs(200, organizationId),
   // Account repositories deliberately omit password hashes and session tokens.
   listAccounts,
-  listAccountTags: (organizationId) =>
+  listAccountTags: organizationId =>
     listOrganizationAccountTagsInRepository(accountTagStore, organizationId),
-  listTickets: (organizationId) =>
+  listTickets: organizationId =>
     listParkTicketsForBackup(backupDatabaseStore, organizationId),
-  listTicketDeliveries: (organizationId) =>
+  listTicketDeliveries: organizationId =>
     listTicketDeliveriesForBackup(backupDatabaseStore, organizationId),
-});
+})
 
-export const { exportAll } = enterpriseBackup;
+export const { exportAll } = enterpriseBackup

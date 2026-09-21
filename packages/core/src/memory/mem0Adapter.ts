@@ -16,67 +16,67 @@
  * 当 Mem0 不可用时（依赖未安装/网络问题），自动降级到 FileMemoryProvider。
  */
 
-import type { Config } from '../config/config.js';
-import { FileMemoryProvider, type MemoryProvider, type MemoryScope } from './memoryProvider.js';
-import os from 'os';
+import type { Config } from '../config/config.js'
+import { FileMemoryProvider, type MemoryProvider, type MemoryScope } from './memoryProvider.js'
+import os from 'os'
 
 /** Mem0 记忆条目 */
 export interface Mem0Memory {
-  id: string;
-  memory: string;
-  userId?: string;
-  agentId?: string;
-  runId?: string;
-  metadata?: Record<string, unknown>;
-  createdAt?: string;
-  updatedAt?: string;
+  id: string
+  memory: string
+  userId?: string
+  agentId?: string
+  runId?: string
+  metadata?: Record<string, unknown>
+  createdAt?: string
+  updatedAt?: string
 }
 
 /** Mem0 搜索结果 */
 export interface Mem0SearchResult {
-  id: string;
-  memory: string;
-  score: number;
-  userId?: string;
-  metadata?: Record<string, unknown>;
+  id: string
+  memory: string
+  score: number
+  userId?: string
+  metadata?: Record<string, unknown>
 }
 
 interface Mem0Client {
-  search(query: string, options: Record<string, unknown>): Promise<unknown>;
+  search(query: string, options: Record<string, unknown>): Promise<unknown>
   add(
     messages: Array<{ role: string; content: string }>,
     options: Record<string, unknown>,
-  ): Promise<unknown>;
-  getAll(options: Record<string, unknown>): Promise<unknown>;
-  delete(memoryId: string): Promise<unknown>;
+  ): Promise<unknown>
+  getAll(options: Record<string, unknown>): Promise<unknown>
+  delete(memoryId: string): Promise<unknown>
 }
 
-type Mem0Constructor = new (options: Record<string, unknown>) => Mem0Client;
+type Mem0Constructor = new (options: Record<string, unknown>) => Mem0Client
 
 /** Mem0 配置选项 */
 export interface Mem0Config {
   /** Mem0 API Key（如使用云端版） */
-  apiKey?: string;
+  apiKey?: string
   /** 本地 Mem0 实例地址（如使用自托管版） */
-  baseUrl?: string;
+  baseUrl?: string
   /** LLM 提供商配置（用于 Mem0 内部的实体提取） */
   llm?: {
-    provider: string;
-    model: string;
-    apiKey?: string;
-    baseUrl?: string;
-  };
+    provider: string
+    model: string
+    apiKey?: string
+    baseUrl?: string
+  }
   /** 嵌入模型配置 */
   embedder?: {
-    provider: string;
-    model: string;
-    apiKey?: string;
-  };
+    provider: string
+    model: string
+    apiKey?: string
+  }
   /** 向量存储配置 */
   vectorStore?: {
-    provider: string;
-    config?: Record<string, unknown>;
-  };
+    provider: string
+    config?: Record<string, unknown>
+  }
 }
 
 /**
@@ -87,47 +87,47 @@ export interface Mem0Config {
  * 降级时：委托 FileMemoryProvider，保证向后兼容。
  */
 export class Mem0Adapter implements MemoryProvider {
-  readonly name = 'mem0';
+  readonly name = 'mem0'
 
-  private mem0Client: Mem0Client | null = null;
-  private fileFallback: FileMemoryProvider;
-  private initialized = false;
-  private initError: string | null = null;
+  private mem0Client: Mem0Client | null = null
+  private fileFallback: FileMemoryProvider
+  private initialized = false
+  private initError: string | null = null
 
   constructor(
     private readonly config: Config,
     private readonly mem0Config: Mem0Config,
     fallbackCtx: { projectRoot: string; sessionId?: string },
   ) {
-    this.fileFallback = new FileMemoryProvider(fallbackCtx);
+    this.fileFallback = new FileMemoryProvider(fallbackCtx)
   }
 
   /** 惰性初始化 Mem0 客户端 */
   private async ensureInitialized(): Promise<boolean> {
     if (this.initialized) {
-      return this.mem0Client !== null;
+      return this.mem0Client !== null
     }
-    this.initialized = true;
+    this.initialized = true
 
     try {
       // 保持真正的运行期可选依赖：不能把字面量 import 留给 Vite 静态解析，
       // 否则未启用 Mem0 的桌面安装包也会被迫携带整个 SDK。
-      const optionalPackageName = ['mem0', 'ai'].join('');
-      const mem0Module = await import(/* @vite-ignore */ optionalPackageName).catch(() => null);
+      const optionalPackageName = ['mem0', 'ai'].join('')
+      const mem0Module = await import(/* @vite-ignore */ optionalPackageName).catch(() => null)
       if (!mem0Module) {
-        throw new Error('mem0ai module not installed');
+        throw new Error('mem0ai module not installed')
       }
-      const moduleExports = mem0Module as { default?: unknown; Mem0?: unknown };
-      const clientConstructor = moduleExports.default ?? moduleExports.Mem0 ?? mem0Module;
+      const moduleExports = mem0Module as { default?: unknown; Mem0?: unknown }
+      const clientConstructor = moduleExports.default ?? moduleExports.Mem0 ?? mem0Module
       if (typeof clientConstructor !== 'function') {
-        throw new Error('mem0ai module does not export a client constructor');
+        throw new Error('mem0ai module does not export a client constructor')
       }
-      const Mem0 = clientConstructor as Mem0Constructor;
+      const Mem0 = clientConstructor as Mem0Constructor
 
-      const options: Record<string, unknown> = {};
+      const options: Record<string, unknown> = {}
 
       if (this.mem0Config.apiKey) {
-        options.apiKey = this.mem0Config.apiKey;
+        options.apiKey = this.mem0Config.apiKey
       }
 
       // 配置 LLM（复用 ClawMaster 当前的模型配置）
@@ -139,7 +139,7 @@ export class Mem0Adapter implements MemoryProvider {
             apiKey: this.mem0Config.llm.apiKey,
             baseURL: this.mem0Config.llm.baseUrl,
           },
-        };
+        }
       }
 
       // 配置嵌入模型
@@ -150,7 +150,7 @@ export class Mem0Adapter implements MemoryProvider {
             model: this.mem0Config.embedder.model,
             apiKey: this.mem0Config.embedder.apiKey,
           },
-        };
+        }
       }
 
       // 配置向量存储（默认本地 SQLite）
@@ -158,17 +158,17 @@ export class Mem0Adapter implements MemoryProvider {
         options.vectorStore = {
           provider: this.mem0Config.vectorStore.provider,
           config: this.mem0Config.vectorStore.config || {},
-        };
+        }
       }
 
-      this.mem0Client = new Mem0(options);
-      console.log('[Mem0Adapter] Initialized successfully');
-      return true;
+      this.mem0Client = new Mem0(options)
+      console.log('[Mem0Adapter] Initialized successfully')
+      return true
     } catch (error) {
-      this.initError = error instanceof Error ? error.message : String(error);
-      console.warn(`[Mem0Adapter] Failed to initialize, falling back to file memory: ${this.initError}`);
-      this.mem0Client = null;
-      return false;
+      this.initError = error instanceof Error ? error.message : String(error)
+      console.warn(`[Mem0Adapter] Failed to initialize, falling back to file memory: ${this.initError}`)
+      this.mem0Client = null
+      return false
     }
   }
 
@@ -176,21 +176,21 @@ export class Mem0Adapter implements MemoryProvider {
   private getUserId(): string {
     // 优先用 config 中的用户标识，回退到 OS 用户名
     const feishuUser = (this.config as Config & {
-      getFeishuUser?: () => string | null | undefined;
-    }).getFeishuUser?.();
+      getFeishuUser?: () => string | null | undefined
+    }).getFeishuUser?.()
     if (feishuUser) {
-      return feishuUser;
+      return feishuUser
     }
     try {
-      return os.userInfo().username;
+      return os.userInfo().username
     } catch {
-      return 'default-user';
+      return 'default-user'
     }
   }
 
   /** 获取 Agent ID（区分不同 ClawMaster 实例） */
   private getAgentId(): string {
-    return this.config.getSessionId?.() || 'clawmaster-main';
+    return this.config.getSessionId?.() || 'clawmaster-main'
   }
 
   async load(scope: MemoryScope): Promise<string> {
@@ -200,91 +200,91 @@ export class Mem0Adapter implements MemoryProvider {
 
     if (scope === 'session') {
       // 会话级短期记忆仍用文件，不走 Mem0
-      return this.fileFallback.load(scope);
+      return this.fileFallback.load(scope)
     }
 
     // File memory is the portable source of truth. Account recovery restores
     // these files, while Mem0's local database is intentionally device-local.
-    const fileMemory = await this.fileFallback.load(scope);
+    const fileMemory = await this.fileFallback.load(scope)
 
-    const ok = await this.ensureInitialized();
+    const ok = await this.ensureInitialized()
     if (!ok || !this.mem0Client) {
       // 降级到文件
-      return fileMemory;
+      return fileMemory
     }
 
     try {
-      const userId = this.getUserId();
-      const agentId = this.getAgentId();
+      const userId = this.getUserId()
+      const agentId = this.getAgentId()
 
       // 搜索该用户的所有记忆
       const results = await this.mem0Client.search('', {
         userId,
         agentId,
         limit: 50,
-      });
+      })
 
       if (!Array.isArray(results) || results.length === 0) {
-        return fileMemory;
+        return fileMemory
       }
 
       // 格式化为 prompt 可用的文本
       const memories = results.map((r: Mem0SearchResult) => {
         const tags = r.metadata?.tags
           ? ` [${Array.isArray(r.metadata.tags) ? r.metadata.tags.join(', ') : r.metadata.tags}]`
-          : '';
-        return `- ${r.memory}${tags}`;
+          : ''
+        return `- ${r.memory}${tags}`
       });
 
       const fileFacts = new Set(
         fileMemory
           .split(/\r?\n/u)
-          .map((line) => line.replace(/^\s*[-*]\s*/u, '').trim().toLocaleLowerCase())
+          .map(line => line.replace(/^\s*[-*]\s*/u, '').trim().toLocaleLowerCase())
           .filter(Boolean),
-      );
+      )
       const structuredMemory = memories.filter((line) => {
         const normalized = line
           .replace(/^\s*[-*]\s*/u, '')
           .replace(/\s+\[[^\]]*\]\s*$/u, '')
           .trim()
-          .toLocaleLowerCase();
-        return normalized.length > 0 && !fileFacts.has(normalized);
+          .toLocaleLowerCase()
+        return normalized.length > 0 && !fileFacts.has(normalized)
       });
 
       return [fileMemory.trim(), structuredMemory.join('\n')]
         .filter(Boolean)
-        .join('\n\n');
+        .join('\n\n')
     } catch (error) {
-      console.warn(`[Mem0Adapter] load failed, falling back: ${error instanceof Error ? error.message : String(error)}`);
-      return this.fileFallback.load(scope);
+      console.warn(`[Mem0Adapter] load failed, falling back: ${error instanceof Error ? error.message : String(error)}`)
+      return this.fileFallback.load(scope)
     }
   }
 
   async save(scope: MemoryScope, fact: string): Promise<void> {
-    const trimmed = (fact ?? '').trim();
+    const trimmed = (fact ?? '').trim()
     if (trimmed.length === 0) {
-      return;
+      return
     }
 
     // session 层仍用文件
     if (scope === 'session') {
-      await this.fileFallback.save(scope, trimmed);
+      await this.fileFallback.save(scope, trimmed)
       return;
     }
 
     // 同时写 Mem0 和文件（双写保证一致性）
     // 文件写入保证向后兼容，Mem0 写入提供结构化记忆
-    await this.fileFallback.save(scope, trimmed);
+    await this.fileFallback.save(scope, trimmed)
 
-    const ok = await this.ensureInitialized();
+    const ok = await this.ensureInitialized()
     if (!ok || !this.mem0Client) {
       // Mem0 不可用时，文件已经写了，足够
-      return;
+      return
     }
 
     try {
-      const userId = this.getUserId();
-      const agentId = this.getAgentId();
+      const userId = this.getUserId()
+      const agentId = this.getAgentId()
 
       // Mem0 的 add() 会自动提取实体/关系/偏好
       await this.mem0Client.add(
@@ -298,11 +298,11 @@ export class Mem0Adapter implements MemoryProvider {
             timestamp: new Date().toISOString(),
           },
         },
-      );
+      )
 
-      console.log(`[Mem0Adapter] Saved memory for user=${userId}: ${trimmed.substring(0, 80)}...`);
+      console.log(`[Mem0Adapter] Saved memory for user=${userId}: ${trimmed.substring(0, 80)}...`)
     } catch (error) {
-      console.warn(`[Mem0Adapter] save failed (file already written): ${error instanceof Error ? error.message : String(error)}`);
+      console.warn(`[Mem0Adapter] save failed (file already written): ${error instanceof Error ? error.message : String(error)}`)
       // 不抛错——文件已经写成功，Mem0 失败不影响主流程
     }
   }
@@ -312,25 +312,25 @@ export class Mem0Adapter implements MemoryProvider {
    * 按相关性检索，返回最匹配的记忆条目。
    */
   async search(query: string, limit: number = 10): Promise<Mem0SearchResult[]> {
-    const ok = await this.ensureInitialized();
+    const ok = await this.ensureInitialized()
     if (!ok || !this.mem0Client) {
-      return [];
+      return []
     }
 
     try {
-      const userId = this.getUserId();
-      const agentId = this.getAgentId();
+      const userId = this.getUserId()
+      const agentId = this.getAgentId()
 
       const results = await this.mem0Client.search(query, {
         userId,
         agentId,
         limit,
-      });
+      })
 
-      return Array.isArray(results) ? results : [];
+      return Array.isArray(results) ? results : []
     } catch (error) {
-      console.warn(`[Mem0Adapter] search failed: ${error instanceof Error ? error.message : String(error)}`);
-      return [];
+      console.warn(`[Mem0Adapter] search failed: ${error instanceof Error ? error.message : String(error)}`)
+      return []
     }
   }
 
@@ -339,25 +339,25 @@ export class Mem0Adapter implements MemoryProvider {
    * 返回所有记忆条目，可序列化为 JSON 传递给新员工。
    */
   async exportMemories(): Promise<Mem0Memory[]> {
-    const ok = await this.ensureInitialized();
+    const ok = await this.ensureInitialized()
     if (!ok || !this.mem0Client) {
-      return [];
+      return []
     }
 
     try {
-      const userId = this.getUserId();
-      const agentId = this.getAgentId();
+      const userId = this.getUserId()
+      const agentId = this.getAgentId()
 
       // Mem0 的 getAll() 返回所有记忆
       const all = await this.mem0Client.getAll({
         userId,
         agentId,
-      });
+      })
 
-      return Array.isArray(all) ? all : [];
+      return Array.isArray(all) ? all : []
     } catch (error) {
-      console.warn(`[Mem0Adapter] export failed: ${error instanceof Error ? error.message : String(error)}`);
-      return [];
+      console.warn(`[Mem0Adapter] export failed: ${error instanceof Error ? error.message : String(error)}`)
+      return []
     }
   }
 
@@ -366,14 +366,14 @@ export class Mem0Adapter implements MemoryProvider {
    * 批量写入记忆条目，自动建立实体关系。
    */
   async importMemories(memories: Mem0Memory[], newUserId: string): Promise<number> {
-    const ok = await this.ensureInitialized();
+    const ok = await this.ensureInitialized()
     if (!ok || !this.mem0Client) {
-      return 0;
+      return 0
     }
 
     try {
-      const agentId = this.getAgentId();
-      let count = 0;
+      const agentId = this.getAgentId()
+      let count = 0
 
       for (const mem of memories) {
         await this.mem0Client.add(
@@ -388,31 +388,31 @@ export class Mem0Adapter implements MemoryProvider {
               importTimestamp: new Date().toISOString(),
             },
           },
-        );
+        )
         count++;
       }
 
-      console.log(`[Mem0Adapter] Imported ${count} memories for user=${newUserId}`);
-      return count;
+      console.log(`[Mem0Adapter] Imported ${count} memories for user=${newUserId}`)
+      return count
     } catch (error) {
-      console.warn(`[Mem0Adapter] import failed: ${error instanceof Error ? error.message : String(error)}`);
-      return 0;
+      console.warn(`[Mem0Adapter] import failed: ${error instanceof Error ? error.message : String(error)}`)
+      return 0
     }
   }
 
   /** 删除指定记忆（遗忘机制） */
   async deleteMemory(memoryId: string): Promise<boolean> {
-    const ok = await this.ensureInitialized();
+    const ok = await this.ensureInitialized()
     if (!ok || !this.mem0Client) {
-      return false;
+      return false
     }
 
     try {
-      await this.mem0Client.delete(memoryId);
-      return true;
+      await this.mem0Client.delete(memoryId)
+      return true
     } catch (error) {
-      console.warn(`[Mem0Adapter] delete failed: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+      console.warn(`[Mem0Adapter] delete failed: ${error instanceof Error ? error.message : String(error)}`)
+      return false
     }
   }
 }
@@ -422,28 +422,28 @@ export class Mem0Adapter implements MemoryProvider {
  * 复用 ClawMaster 已有的模型配置（DeepSeek/GLM/Codex），不引入新的 API Key。
  */
 export function buildMem0Config(config: Config): Mem0Config {
-  const customModels = config.getCustomModels?.();
-  const firstModel = customModels?.[0];
+  const customModels = config.getCustomModels?.()
+  const firstModel = customModels?.[0]
 
   // 复用 ClawMaster 的第一个自定义模型作为 Mem0 的 LLM
   const llm = firstModel
     ? {
-        provider: firstModel.provider === 'anthropic' ? 'anthropic' : 'openai',
-        model: firstModel.modelId,
-        apiKey: firstModel.apiKey,
-        baseUrl: firstModel.baseUrl,
-      }
-    : undefined;
+      provider: firstModel.provider === 'anthropic' ? 'anthropic' : 'openai',
+      model: firstModel.modelId,
+      apiKey: firstModel.apiKey,
+      baseUrl: firstModel.baseUrl,
+    }
+    : undefined
 
   return {
     llm,
     // 嵌入模型：优先用 LLM 同厂商的嵌入模型
     embedder: llm
       ? {
-          provider: llm.provider,
-          model: 'text-embedding-3-small', // 默认嵌入模型，可按需调整
-          apiKey: llm.apiKey,
-        }
+        provider: llm.provider,
+        model: 'text-embedding-3-small', // 默认嵌入模型，可按需调整
+        apiKey: llm.apiKey,
+      }
       : undefined,
     // 向量存储：默认本地 SQLite（和 codebase-memory-mcp 同栈）
     vectorStore: {
@@ -452,7 +452,7 @@ export function buildMem0Config(config: Config): Mem0Config {
         dbPath: '~/.clawmaster-user/memory/mem0.sqlite',
       },
     },
-  };
+  }
 }
 
 /**
@@ -464,10 +464,10 @@ export function createMem0Adapter(
   ctx: { projectRoot: string; sessionId?: string },
 ): MemoryProvider {
   try {
-    const mem0Config = buildMem0Config(config);
-    return new Mem0Adapter(config, mem0Config, ctx);
+    const mem0Config = buildMem0Config(config)
+    return new Mem0Adapter(config, mem0Config, ctx)
   } catch (error) {
-    console.warn(`[Mem0Adapter] Failed to create adapter, using file fallback: ${error instanceof Error ? error.message : String(error)}`);
-    return new FileMemoryProvider(ctx);
+    console.warn(`[Mem0Adapter] Failed to create adapter, using file fallback: ${error instanceof Error ? error.message : String(error)}`)
+    return new FileMemoryProvider(ctx)
   }
 }

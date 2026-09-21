@@ -4,7 +4,7 @@
 
 export function platformAdminHTML(): string {
   if (process.env.CLAWMASTER_ENTERPRISE_PLATFORM_LEGACY_UI === '1') {
-    return legacyPlatformAdminHTML();
+    return legacyPlatformAdminHTML()
   }
   return `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -271,7 +271,7 @@ $('organizationForm').addEventListener('submit',async event=>{event.preventDefau
 $('clearToken').addEventListener('click',()=>{clearPlatformSession('');$('platformToken').focus()});
 document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(!$('accountPermissionModal').classList.contains('hidden'))closeAccountPermission(false);else if(!$('createOrganizationModal').classList.contains('hidden'))closeCreateOrganization()});
 if(token){loadOrganizations(selectedOrganizationId).then(()=>sessionStorage.setItem(KEY,token)).catch(()=>clearPlatformSession('平台令牌已失效，请重新验证'))}else setAuthenticated(false);
-</script></body></html>`;
+</script></body></html>`
 }
 
 function legacyPlatformAdminHTML(): string {
@@ -315,5 +315,5 @@ $('tokenForm').addEventListener('submit',async event=>{event.preventDefault();sh
 $('clearToken').addEventListener('click',()=>{clearPlatformSession('');$('platformToken').focus()});
 $('organizationForm').addEventListener('submit',async event=>{event.preventDefault();show('createError','');show('createNotice','');const button=$('createOrganization');button.disabled=true;$('createStatus').textContent='正在创建企业…';const body={name:$('organizationName').value.trim(),admin:{username:$('adminUsername').value.trim(),name:$('adminName').value.trim(),phone:$('adminPhone').value.trim()||null,password:$('adminPassword').value}};const slug=$('organizationSlug').value.trim();if(slug)body.slug=slug;try{const data=await api('/enterprise/organizations',{method:'POST',body:JSON.stringify(body)});$('organizationForm').reset();show('createNotice','企业「'+data.organization.name+'」已创建；首位管理员 @'+data.admin.username+'；邀请码 '+data.invite.code);await loadOrganizations()}catch(error){if(error.status===401||error.status===403){clearPlatformSession('平台令牌已失效，请重新验证');$('platformToken').focus()}else show('createError',error.message)}finally{button.disabled=false;$('createStatus').textContent=''}});
 if(token){loadOrganizations().catch(()=>clearPlatformSession('平台令牌已失效，请重新验证'))}else setAuthenticated(false);
-</script></body></html>`;
+</script></body></html>`
 }

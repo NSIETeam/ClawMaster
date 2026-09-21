@@ -25,34 +25,34 @@
  *     blob 一律视为不可读（fail closed），需 `/feishu logout` 后重新 setup。
  */
 
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
-import * as os from 'node:os';
-import * as crypto from 'node:crypto';
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
+import * as os from 'node:os'
+import * as crypto from 'node:crypto'
 
 export interface FeishuCredentials {
-  appId: string;
-  appSecret: string;
-  domain: 'feishu' | 'lark';
+  appId: string
+  appSecret: string
+  domain: 'feishu' | 'lark'
   /** 扫码建应用时拿到的 bot 信息 */
-  botName?: string;
-  botOpenId?: string;
+  botName?: string
+  botOpenId?: string
   /** 手动输入时探测到的租户名 */
-  tenantName?: string;
+  tenantName?: string
   /**
    * Bot 拥有者的飞书 open_id —— 通常是 setup 时扫码用户的 open_id。
    * 用于授权检查：默认仅此 open_id 可以触发 Bot 的 LLM/工具调用。
    */
-  ownerOpenId?: string;
+  ownerOpenId?: string
   /**
    * 额外的授权 open_id 白名单（除 ownerOpenId 外）。
    * 通过 `/feishu allow <openId>` 添加；`/feishu deny <openId>` 移除。
    */
-  allowlist?: string[];
+  allowlist?: string[]
 }
 
-const FEISHU_CREDENTIALS_FILE = 'feishu-credentials.json';
-const ENCRYPTION_KEY_FILE = 'feishu-key';
+const FEISHU_CREDENTIALS_FILE = 'feishu-credentials.json'
+const ENCRYPTION_KEY_FILE = 'feishu-key'
 
 /**
  * 飞书凭证统一存放在用户全局目录 `~/.clawmaster-user/`。
@@ -63,57 +63,57 @@ const ENCRYPTION_KEY_FILE = 'feishu-key';
  * 飞书 Bot 凭证不区分项目，固定走全局，因此不接受 projectRoot 形参。
  */
 function credDir(): string {
-  return path.join(os.homedir(), '.clawmaster-user');
+  return path.join(os.homedir(), '.clawmaster-user')
 }
 
 function credPath(): string {
-  return path.join(credDir(), FEISHU_CREDENTIALS_FILE);
+  return path.join(credDir(), FEISHU_CREDENTIALS_FILE)
 }
 
 function keyPath(): string {
-  return path.join(credDir(), ENCRYPTION_KEY_FILE);
+  return path.join(credDir(), ENCRYPTION_KEY_FILE)
 }
 
 async function loadOrCreateKey(): Promise<Buffer> {
-  const dir = credDir();
-  const kp = keyPath();
-  await fs.mkdir(dir, { recursive: true });
+  const dir = credDir()
+  const kp = keyPath()
+  await fs.mkdir(dir, { recursive: true })
   try {
-    const existing = await fs.readFile(kp);
-    return existing;
+    const existing = await fs.readFile(kp)
+    return existing
   } catch {
-    const key = crypto.randomBytes(32);
-    await fs.writeFile(kp, key, { mode: 0o600 });
-    return key;
+    const key = crypto.randomBytes(32)
+    await fs.writeFile(kp, key, { mode: 0o600 })
+    return key
   }
 }
 
 // --- AES-256-GCM (current format) ---
 
-const GCM_PREFIX = 'gcm:';
-const GCM_IV_BYTES = 12; // recommended for GCM
+const GCM_PREFIX = 'gcm:'
+const GCM_IV_BYTES = 12 // recommended for GCM
 
 function encryptGcm(data: string, key: Buffer): string {
-  const iv = crypto.randomBytes(GCM_IV_BYTES);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return `${GCM_PREFIX}${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
+  const iv = crypto.randomBytes(GCM_IV_BYTES)
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+  const encrypted = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return `${GCM_PREFIX}${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`
 }
 
 function decryptGcm(payload: string, key: Buffer): string {
-  const body = payload.slice(GCM_PREFIX.length);
-  const [ivHex, tagHex, encHex] = body.split(':');
+  const body = payload.slice(GCM_PREFIX.length)
+  const [ivHex, tagHex, encHex] = body.split(':')
   if (!ivHex || !tagHex || !encHex) {
-    throw new Error('Malformed GCM payload');
+    throw new Error('Malformed GCM payload')
   }
-  const iv = Buffer.from(ivHex, 'hex');
-  const tag = Buffer.from(tagHex, 'hex');
-  const encrypted = Buffer.from(encHex, 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  decipher.setAuthTag(tag);
-  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-  return decrypted.toString('utf8');
+  const iv = Buffer.from(ivHex, 'hex')
+  const tag = Buffer.from(tagHex, 'hex')
+  const encrypted = Buffer.from(encHex, 'hex')
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(tag)
+  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()])
+  return decrypted.toString('utf8')
 }
 
 /**
@@ -125,8 +125,8 @@ export class CredentialsLoadError extends Error {
     message: string,
     readonly cause?: unknown,
   ) {
-    super(message);
-    this.name = 'CredentialsLoadError';
+    super(message)
+    this.name = 'CredentialsLoadError'
   }
 }
 
@@ -136,59 +136,59 @@ export class CredentialsLoadError extends Error {
  * can be told to run `/feishu logout` and re-setup).
  */
 export async function loadCredentials(): Promise<FeishuCredentials | null> {
-  let encrypted: string;
+  let encrypted: string
   try {
-    encrypted = (await fs.readFile(credPath(), 'utf8')).trim();
+    encrypted = (await fs.readFile(credPath(), 'utf8')).trim()
   } catch (e: unknown) {
     if ((e as NodeJS.ErrnoException)?.code === 'ENOENT') {
-      return null;
+      return null
     }
     throw new CredentialsLoadError(
       `Failed to read Feishu credentials: ${(e as Error).message}`,
       e,
-    );
+    )
   }
 
-  let key: Buffer;
+  let key: Buffer
   try {
-    key = await loadOrCreateKey();
+    key = await loadOrCreateKey()
   } catch (e: unknown) {
     throw new CredentialsLoadError(
       `Failed to read Feishu encryption key: ${(e as Error).message}`,
       e,
-    );
+    )
   }
 
   try {
     // 只接受经过认证加密的 GCM 格式；非 GCM blob 一律拒绝（fail closed），
     // 不再回退到无完整性校验的 CBC，避免篡改 / 注入。
     if (!encrypted.startsWith(GCM_PREFIX)) {
-      throw new Error('Unauthenticated or unrecognized credentials format');
+      throw new Error('Unauthenticated or unrecognized credentials format')
     }
-    const json = decryptGcm(encrypted, key);
-    return JSON.parse(json) as FeishuCredentials;
+    const json = decryptGcm(encrypted, key)
+    return JSON.parse(json) as FeishuCredentials
   } catch (e: unknown) {
     throw new CredentialsLoadError(
       'Feishu credentials file is corrupted or was encrypted with a different key. ' +
         'Run `/feishu logout` to clear and re-setup.',
       e,
-    );
+    )
   }
 }
 
 export async function saveCredentials(
   creds: FeishuCredentials,
 ): Promise<void> {
-  await fs.mkdir(credDir(), { recursive: true });
-  const key = await loadOrCreateKey();
-  const json = JSON.stringify(creds);
-  const encrypted = encryptGcm(json, key);
-  await fs.writeFile(credPath(), encrypted, { mode: 0o600 });
+  await fs.mkdir(credDir(), { recursive: true })
+  const key = await loadOrCreateKey()
+  const json = JSON.stringify(creds)
+  const encrypted = encryptGcm(json, key)
+  await fs.writeFile(credPath(), encrypted, { mode: 0o600 })
 }
 
 export async function clearCredentials(): Promise<void> {
   try {
-    await fs.unlink(credPath());
+    await fs.unlink(credPath())
   } catch {
     // ignore
   }
@@ -209,8 +209,8 @@ export function isSenderAuthorized(
   creds: FeishuCredentials,
   senderOpenId: string,
 ): boolean {
-  if (!senderOpenId) return false;
-  if (creds.ownerOpenId && creds.ownerOpenId === senderOpenId) return true;
-  if (creds.allowlist?.includes(senderOpenId)) return true;
-  return false;
+  if (!senderOpenId) return false
+  if (creds.ownerOpenId && creds.ownerOpenId === senderOpenId) return true
+  if (creds.allowlist?.includes(senderOpenId)) return true
+  return false
 }

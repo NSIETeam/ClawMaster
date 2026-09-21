@@ -4,40 +4,40 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GitIgnoreParser, GitIgnoreFilter } from '../utils/gitIgnoreParser.js';
-import { isGitRepository } from '../utils/gitUtils.js';
-import * as path from 'path';
+import { GitIgnoreParser, GitIgnoreFilter } from '../utils/gitIgnoreParser.js'
+import { isGitRepository } from '../utils/gitUtils.js'
+import * as path from 'path'
 
-const GEMINI_IGNORE_FILE_NAME = '.clawmasterignore';
+const GEMINI_IGNORE_FILE_NAME = '.clawmasterignore'
 
 export interface FilterFilesOptions {
-  respectGitIgnore?: boolean;
-  respectGeminiIgnore?: boolean;
+  respectGitIgnore?: boolean
+  respectGeminiIgnore?: boolean
 }
 
 export class FileDiscoveryService {
-  private gitIgnoreFilter: GitIgnoreFilter | null = null;
-  private clawmasterIgnoreFilter: GitIgnoreFilter | null = null;
-  private projectRoot: string;
+  private gitIgnoreFilter: GitIgnoreFilter | null = null
+  private clawmasterIgnoreFilter: GitIgnoreFilter | null = null
+  private projectRoot: string
 
   constructor(projectRoot: string) {
-    this.projectRoot = path.resolve(projectRoot);
+    this.projectRoot = path.resolve(projectRoot)
     if (isGitRepository(this.projectRoot)) {
-      const parser = new GitIgnoreParser(this.projectRoot);
+      const parser = new GitIgnoreParser(this.projectRoot)
       try {
-        parser.loadGitRepoPatterns();
+        parser.loadGitRepoPatterns()
       } catch (_error) {
         // ignore file not found
       }
-      this.gitIgnoreFilter = parser;
+      this.gitIgnoreFilter = parser
     }
-    const gParser = new GitIgnoreParser(this.projectRoot);
+    const gParser = new GitIgnoreParser(this.projectRoot)
     try {
-      gParser.loadPatterns(GEMINI_IGNORE_FILE_NAME);
+      gParser.loadPatterns(GEMINI_IGNORE_FILE_NAME)
     } catch (_error) {
       // ignore file not found
     }
-    this.clawmasterIgnoreFilter = gParser;
+    this.clawmasterIgnoreFilter = gParser
   }
 
   /**
@@ -52,15 +52,15 @@ export class FileDiscoveryService {
   ): string[] {
     return filePaths.filter((filePath) => {
       if (options.respectGitIgnore && this.shouldGitIgnoreFile(filePath)) {
-        return false;
+        return false
       }
       if (
         options.respectGeminiIgnore &&
         this.shouldGeminiIgnoreFile(filePath)
       ) {
-        return false;
+        return false
       }
-      return true;
+      return true
     });
   }
 
@@ -69,9 +69,9 @@ export class FileDiscoveryService {
    */
   shouldGitIgnoreFile(filePath: string): boolean {
     if (this.gitIgnoreFilter) {
-      return this.gitIgnoreFilter.isIgnored(filePath);
+      return this.gitIgnoreFilter.isIgnored(filePath)
     }
-    return false;
+    return false
   }
 
   /**
@@ -79,9 +79,9 @@ export class FileDiscoveryService {
    */
   shouldGeminiIgnoreFile(filePath: string): boolean {
     if (this.clawmasterIgnoreFilter) {
-      return this.clawmasterIgnoreFilter.isIgnored(filePath);
+      return this.clawmasterIgnoreFilter.isIgnored(filePath)
     }
-    return false;
+    return false
   }
 
   /**
@@ -91,21 +91,21 @@ export class FileDiscoveryService {
     filePath: string,
     options: FilterFilesOptions = {},
   ): boolean {
-    const { respectGitIgnore = true, respectGeminiIgnore = true } = options;
+    const { respectGitIgnore = true, respectGeminiIgnore = true } = options
 
     if (respectGitIgnore && this.shouldGitIgnoreFile(filePath)) {
-      return true;
+      return true
     }
     if (respectGeminiIgnore && this.shouldGeminiIgnoreFile(filePath)) {
-      return true;
+      return true
     }
-    return false;
+    return false
   }
 
   /**
    * Returns loaded patterns from .clawmasterignore
    */
   getClawMasterIgnorePatterns(): string[] {
-    return this.clawmasterIgnoreFilter?.getPatterns() ?? [];
+    return this.clawmasterIgnoreFilter?.getPatterns() ?? []
   }
 }

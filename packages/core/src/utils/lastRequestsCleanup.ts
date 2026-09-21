@@ -32,17 +32,17 @@
  *     diagnostic dumps a developer is currently inspecting.
  */
 
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 
-const RETENTION_DAYS = 3;
-const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+const RETENTION_DAYS = 3
+const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000
 
-let alreadyRan = false;
+let alreadyRan = false
 
 export function getLastRequestsDir(): string {
-  return path.join(os.homedir(), '.clawmaster-user', 'last-requests');
+  return path.join(os.homedir(), '.clawmaster-user', 'last-requests')
 }
 
 /**
@@ -57,50 +57,50 @@ export async function cleanupLastRequestsDir(
   now: number = Date.now(),
   retentionMs: number = RETENTION_MS,
 ): Promise<number> {
-  if (alreadyRan) return 0;
-  alreadyRan = true;
+  if (alreadyRan) return 0
+  alreadyRan = true
 
   // Don't trash a developer's dumps under vitest.
-  if (process.env.VITEST || process.env.NODE_ENV === 'test') return 0;
+  if (process.env.VITEST || process.env.NODE_ENV === 'test') return 0
 
-  const dir = getLastRequestsDir();
-  let entries: string[];
+  const dir = getLastRequestsDir()
+  let entries: string[]
   try {
-    entries = await fs.promises.readdir(dir);
+    entries = await fs.promises.readdir(dir)
   } catch (err) {
     // ENOENT is expected the very first time anyone runs ClawMaster.
     if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
       // Any other error is non-fatal — just don't sweep this run.
     }
-    return 0;
+    return 0
   }
 
-  let deleted = 0;
+  let deleted = 0
   await Promise.all(
     entries.map(async (name) => {
       // Only touch files we authored (json + their .tmp transients).
-      if (!name.endsWith('.json') && !name.endsWith('.tmp')) return;
-      const file = path.join(dir, name);
+      if (!name.endsWith('.json') && !name.endsWith('.tmp')) return
+      const file = path.join(dir, name)
       try {
-        const stat = await fs.promises.stat(file);
-        if (!stat.isFile()) return;
+        const stat = await fs.promises.stat(file)
+        if (!stat.isFile()) return
         // Use mtime so user-edited files (rare) are also subject to the rule.
         if (now - stat.mtimeMs > retentionMs) {
-          await fs.promises.unlink(file);
+          await fs.promises.unlink(file)
           deleted++;
         }
       } catch {
         // best-effort
       }
     }),
-  );
+  )
 
-  return deleted;
+  return deleted
 }
 
 /**
  * Reset the once-per-process latch. Test-only.
  */
 export function _resetLastRequestsCleanupLatch(): void {
-  alreadyRan = false;
+  alreadyRan = false
 }

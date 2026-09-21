@@ -5,28 +5,28 @@
  * particularly verifying that plugin root directory is correctly output.
  */
 
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import path from 'path';
-import os from 'os';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
+import path from 'path'
+import os from 'os'
 
 // Get actual paths for test assertions (before mock)
-const mockClawMasterHome = path.join(os.homedir(), '.clawmaster-user');
+const mockClawMasterHome = path.join(os.homedir(), '.clawmaster-user')
 const mockSkillsPaths = {
   CLAWMASTER_HOME: mockClawMasterHome,
   SKILLS_ROOT: path.join(mockClawMasterHome, 'skills'),
   MARKETPLACE_ROOT: path.join(mockClawMasterHome, 'marketplace'),
-};
+}
 
 // Create mock class constructors that can be configured per test
-let mockLoaderInstance: unknown = null;
-let mockInjectorInstance: unknown = null;
+let mockLoaderInstance: unknown = null
+let mockInjectorInstance: unknown = null
 
 // Mock the skills module - all variables must be inline
 vi.mock('../skills/index.js', async () => {
-  const pathModule = await import('path');
-  const osModule = await import('os');
+  const pathModule = await import('path')
+  const osModule = await import('os')
 
-  const clawmasterHome = pathModule.join(osModule.homedir(), '.clawmaster-user');
+  const clawmasterHome = pathModule.join(osModule.homedir(), '.clawmaster-user')
 
   return {
     SkillsPaths: {
@@ -35,17 +35,17 @@ vi.mock('../skills/index.js', async () => {
       MARKETPLACE_ROOT: pathModule.join(clawmasterHome, 'marketplace'),
     },
     SettingsManager: class MockSettingsManager {
-      async initialize() { return; }
+      async initialize() { return }
     },
     MarketplaceManager: class MockMarketplaceManager {},
     SkillLoader: class MockSkillLoader {
       async loadEnabledSkills() {
-        return mockLoaderInstance?.loadEnabledSkills?.() ?? [];
+        return mockLoaderInstance?.loadEnabledSkills?.() ?? []
       }
     },
     SkillContextInjector: class MockSkillContextInjector {
       async loadSkillLevel2(skillId: string) {
-        return mockInjectorInstance?.loadSkillLevel2?.(skillId) ?? '';
+        return mockInjectorInstance?.loadSkillLevel2?.(skillId) ?? ''
       }
     },
     SkillLoadLevel: {
@@ -53,63 +53,63 @@ vi.mock('../skills/index.js', async () => {
       FULL: 'FULL',
       RESOURCES: 'RESOURCES',
     },
-  };
+  }
 });
 
 // Import after mock setup
-import { UseSkillTool } from './use-skill.js';
-import { SkillLoadLevel } from '../skills/index.js';
+import { UseSkillTool } from './use-skill.js'
+import { SkillLoadLevel } from '../skills/index.js'
 
 describe('UseSkillTool', () => {
-  const mockAbortSignal = new AbortController().signal;
-  let useSkillTool: UseSkillTool;
+  const mockAbortSignal = new AbortController().signal
+  let useSkillTool: UseSkillTool
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    useSkillTool = new UseSkillTool();
+    vi.clearAllMocks()
+    useSkillTool = new UseSkillTool()
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.restoreAllMocks()
   });
 
   describe('basic properties', () => {
     it('should have correct name and displayName', () => {
-      expect(useSkillTool.name).toBe('use_skill');
-      expect(useSkillTool.displayName).toBe('Use Skill');
+      expect(useSkillTool.name).toBe('use_skill')
+      expect(useSkillTool.displayName).toBe('Use Skill')
     });
 
     it('should have schema with skillName parameter', () => {
-      expect(useSkillTool.schema).toBeDefined();
-      expect(useSkillTool.schema.parameters?.properties?.skillName).toBeDefined();
+      expect(useSkillTool.schema).toBeDefined()
+      expect(useSkillTool.schema.parameters?.properties?.skillName).toBeDefined()
     });
-  });
+  })
 
   describe('validateToolParams', () => {
     it('should return error for missing skillName', () => {
-      const result = useSkillTool.validateToolParams({} as unknown as Parameters<typeof useSkillTool.validateToolParams>[0]);
-      expect(result).toContain('skillName is required');
+      const result = useSkillTool.validateToolParams({} as unknown as Parameters<typeof useSkillTool.validateToolParams>[0])
+      expect(result).toContain('skillName is required')
     });
 
     it('should return error for empty skillName', () => {
-      const result = useSkillTool.validateToolParams({ skillName: '  ' });
-      expect(result).toContain('cannot be empty');
+      const result = useSkillTool.validateToolParams({ skillName: '  ' })
+      expect(result).toContain('cannot be empty')
     });
 
     it('should return null for valid skillName', () => {
-      const result = useSkillTool.validateToolParams({ skillName: 'test-skill' });
-      expect(result).toBeNull();
+      const result = useSkillTool.validateToolParams({ skillName: 'test-skill' })
+      expect(result).toBeNull()
     });
-  });
+  })
 
   describe('execute - plugin root directory output', () => {
     it('should include plugin root directory for marketplace skills', async () => {
-      const marketplaceId = 'agent-browser';
+      const marketplaceId = 'agent-browser'
       const skillPath = path.join(
         mockSkillsPaths.MARKETPLACE_ROOT,
         marketplaceId,
         'skills',
-        'agent-browser'
+        'agent-browser',
       );
 
       const mockSkill = {
@@ -124,36 +124,36 @@ describe('UseSkillTool', () => {
         enabled: true,
         loadLevel: SkillLoadLevel.RESOURCES,
         scripts: [],
-      };
+      }
 
       // Setup mocks for this test via global instances
       mockLoaderInstance = {
         loadEnabledSkills: () => [mockSkill],
-      };
+      }
       mockInjectorInstance = {
         loadSkillLevel2: () => '# Agent Browser\n\nUsage instructions...',
-      };
+      }
 
-      const result = await useSkillTool.execute({ skillName: 'agent-browser' }, mockAbortSignal);
+      const result = await useSkillTool.execute({ skillName: 'agent-browser' }, mockAbortSignal)
 
       // Verify output contains plugin root directory
-      const expectedPluginRoot = path.join(mockSkillsPaths.MARKETPLACE_ROOT, marketplaceId);
-      expect(result.llmContent).toContain('**Plugin root directory**');
-      expect(result.llmContent).toContain(expectedPluginRoot);
-      expect(result.llmContent).toContain('**Skill directory**');
-      expect(result.llmContent).toContain(skillPath);
-      expect(result.returnDisplay).toContain('✅ Loaded skill');
+      const expectedPluginRoot = path.join(mockSkillsPaths.MARKETPLACE_ROOT, marketplaceId)
+      expect(result.llmContent).toContain('**Plugin root directory**')
+      expect(result.llmContent).toContain(expectedPluginRoot)
+      expect(result.llmContent).toContain('**Skill directory**')
+      expect(result.llmContent).toContain(skillPath)
+      expect(result.returnDisplay).toContain('✅ Loaded skill')
     });
 
     it('should include scripts with full paths when available', async () => {
-      const marketplaceId = 'document-skills';
+      const marketplaceId = 'document-skills'
       const skillPath = path.join(
         mockSkillsPaths.MARKETPLACE_ROOT,
         marketplaceId,
         'skills',
-        'pptx'
+        'pptx',
       );
-      const scriptsPath = path.join(skillPath, 'scripts');
+      const scriptsPath = path.join(skillPath, 'scripts')
 
       const mockSkill = {
         id: 'document-skills:pptx',
@@ -171,27 +171,27 @@ describe('UseSkillTool', () => {
           { name: 'generate.js', path: path.join(scriptsPath, 'generate.js'), type: 'node' },
           { name: 'convert.py', path: path.join(scriptsPath, 'convert.py'), type: 'python' },
         ],
-      };
+      }
 
       mockLoaderInstance = {
         loadEnabledSkills: () => [mockSkill],
-      };
+      }
       mockInjectorInstance = {
         loadSkillLevel2: () => '# PPTX Skill\n\nCreate PowerPoint files...',
-      };
+      }
 
-      const result = await useSkillTool.execute({ skillName: 'pptx' }, mockAbortSignal);
+      const result = await useSkillTool.execute({ skillName: 'pptx' }, mockAbortSignal)
 
       // Verify output contains scripts directory and script paths
-      expect(result.llmContent).toContain('**Scripts directory**');
-      expect(result.llmContent).toContain(scriptsPath);
-      expect(result.llmContent).toContain('**Available scripts**');
-      expect(result.llmContent).toContain('generate.js');
-      expect(result.llmContent).toContain('convert.py');
+      expect(result.llmContent).toContain('**Scripts directory**')
+      expect(result.llmContent).toContain(scriptsPath)
+      expect(result.llmContent).toContain('**Available scripts**')
+      expect(result.llmContent).toContain('generate.js')
+      expect(result.llmContent).toContain('convert.py')
     });
 
     it('should not show plugin root directory for non-marketplace skills', async () => {
-      const skillPath = '/mock/project/.clawmaster/skills/custom-skill';
+      const skillPath = '/mock/project/.clawmaster/skills/custom-skill'
 
       const mockSkill = {
         id: 'project:custom-skill',
@@ -205,52 +205,52 @@ describe('UseSkillTool', () => {
         enabled: true,
         loadLevel: SkillLoadLevel.RESOURCES,
         scripts: [],
-      };
+      }
 
       mockLoaderInstance = {
         loadEnabledSkills: () => [mockSkill],
-      };
+      }
       mockInjectorInstance = {
         loadSkillLevel2: () => '# Custom Skill\n\nCustom instructions...',
-      };
+      }
 
-      const result = await useSkillTool.execute({ skillName: 'custom-skill' }, mockAbortSignal);
+      const result = await useSkillTool.execute({ skillName: 'custom-skill' }, mockAbortSignal)
 
       // For non-marketplace skills, should only show skill directory
-      expect(result.llmContent).toContain('**Skill directory**');
-      expect(result.llmContent).toContain(skillPath);
+      expect(result.llmContent).toContain('**Skill directory**')
+      expect(result.llmContent).toContain(skillPath)
       // Should not contain Plugin root directory line
-      expect(result.llmContent).not.toContain('**Plugin root directory**');
+      expect(result.llmContent).not.toContain('**Plugin root directory**')
     });
 
     it('should return error when skill not found', async () => {
       mockLoaderInstance = {
         loadEnabledSkills: () => [],
-      };
+      }
 
-      const result = await useSkillTool.execute({ skillName: 'nonexistent' }, mockAbortSignal);
+      const result = await useSkillTool.execute({ skillName: 'nonexistent' }, mockAbortSignal)
 
-      expect(result.llmContent).toContain('❌ Skill "nonexistent" not found');
-      expect(result.returnDisplay).toContain('not found');
+      expect(result.llmContent).toContain('❌ Skill "nonexistent" not found')
+      expect(result.returnDisplay).toContain('not found')
     });
-  });
+  })
 
   describe('getDescription', () => {
     it('should return description with skill name', () => {
-      const desc = useSkillTool.getDescription({ skillName: 'test-skill' });
-      expect(desc).toBe('Loading skill: test-skill');
+      const desc = useSkillTool.getDescription({ skillName: 'test-skill' })
+      expect(desc).toBe('Loading skill: test-skill')
     });
-  });
+  })
 
   describe('shouldConfirmExecute', () => {
     it('should return false (no confirmation needed)', async () => {
       const result = await useSkillTool.shouldConfirmExecute(
         { skillName: 'test' },
-        mockAbortSignal
+        mockAbortSignal,
       );
-      expect(result).toBe(false);
+      expect(result).toBe(false)
     });
-  });
+  })
 
   describe('skill name matching', () => {
     it('should match skill by exact name (case-insensitive)', async () => {
@@ -266,24 +266,24 @@ describe('UseSkillTool', () => {
         enabled: true,
         loadLevel: SkillLoadLevel.RESOURCES,
         scripts: [],
-      };
+      }
 
       mockLoaderInstance = {
         loadEnabledSkills: () => [mockSkill],
-      };
+      }
       mockInjectorInstance = {
         loadSkillLevel2: () => '# Test\n\nTest content',
-      };
+      }
 
       // Test case-insensitive matching
-      const result1 = await useSkillTool.execute({ skillName: 'pptx' }, mockAbortSignal);
-      expect(result1.returnDisplay).toContain('✅ Loaded skill');
+      const result1 = await useSkillTool.execute({ skillName: 'pptx' }, mockAbortSignal)
+      expect(result1.returnDisplay).toContain('✅ Loaded skill')
 
-      const result2 = await useSkillTool.execute({ skillName: 'PPTX' }, mockAbortSignal);
-      expect(result2.returnDisplay).toContain('✅ Loaded skill');
+      const result2 = await useSkillTool.execute({ skillName: 'PPTX' }, mockAbortSignal)
+      expect(result2.returnDisplay).toContain('✅ Loaded skill')
 
-      const result3 = await useSkillTool.execute({ skillName: 'PpTx' }, mockAbortSignal);
-      expect(result3.returnDisplay).toContain('✅ Loaded skill');
+      const result3 = await useSkillTool.execute({ skillName: 'PpTx' }, mockAbortSignal)
+      expect(result3.returnDisplay).toContain('✅ Loaded skill')
     });
 
     it('should match skill by ID suffix', async () => {
@@ -299,18 +299,18 @@ describe('UseSkillTool', () => {
         enabled: true,
         loadLevel: SkillLoadLevel.RESOURCES,
         scripts: [],
-      };
+      }
 
       mockLoaderInstance = {
         loadEnabledSkills: () => [mockSkill],
-      };
+      }
       mockInjectorInstance = {
         loadSkillLevel2: () => '# Test\n\nTest content',
-      };
+      }
 
       // Should match by just the skill name
-      const result = await useSkillTool.execute({ skillName: 'my-skill' }, mockAbortSignal);
-      expect(result.returnDisplay).toContain('✅ Loaded skill');
+      const result = await useSkillTool.execute({ skillName: 'my-skill' }, mockAbortSignal)
+      expect(result.returnDisplay).toContain('✅ Loaded skill')
     });
 
     it('should match skill by full ID', async () => {
@@ -326,21 +326,21 @@ describe('UseSkillTool', () => {
         enabled: true,
         loadLevel: SkillLoadLevel.RESOURCES,
         scripts: [],
-      };
+      }
 
       mockLoaderInstance = {
         loadEnabledSkills: () => [mockSkill],
-      };
+      }
       mockInjectorInstance = {
         loadSkillLevel2: () => '# Test\n\nTest content',
-      };
+      }
 
       // Should match by full ID
       const result = await useSkillTool.execute(
         { skillName: 'marketplace:plugin:my-skill' },
-        mockAbortSignal
+        mockAbortSignal,
       );
-      expect(result.returnDisplay).toContain('✅ Loaded skill');
+      expect(result.returnDisplay).toContain('✅ Loaded skill')
     });
 
     it('should provide detailed debug info when skill not found', async () => {
@@ -371,26 +371,26 @@ describe('UseSkillTool', () => {
           loadLevel: SkillLoadLevel.RESOURCES,
           scripts: [],
         },
-      ];
+      ]
 
       mockLoaderInstance = {
         loadEnabledSkills: () => mockSkills,
-      };
+      }
 
-      const result = await useSkillTool.execute({ skillName: 'nonexistent' }, mockAbortSignal);
+      const result = await useSkillTool.execute({ skillName: 'nonexistent' }, mockAbortSignal)
 
       // Should provide debug information
-      expect(result.llmContent).toContain('❌ Skill "nonexistent" not found');
-      expect(result.llmContent).toContain('📊 Debug Information');
-      expect(result.llmContent).toContain('Total skills loaded: 2');
-      expect(result.llmContent).toContain('Normalized search: "nonexistent"');
-      expect(result.llmContent).toContain('By name:');
-      expect(result.llmContent).toContain('skill1');
-      expect(result.llmContent).toContain('skill2');
-      expect(result.llmContent).toContain('By ID:');
-      expect(result.llmContent).toContain('marketplace:plugin1:skill1');
-      expect(result.llmContent).toContain('marketplace:plugin2:skill2');
-      expect(result.llmContent).toContain('Inconsistency between list and use_skill');
+      expect(result.llmContent).toContain('❌ Skill "nonexistent" not found')
+      expect(result.llmContent).toContain('📊 Debug Information')
+      expect(result.llmContent).toContain('Total skills loaded: 2')
+      expect(result.llmContent).toContain('Normalized search: "nonexistent"')
+      expect(result.llmContent).toContain('By name:')
+      expect(result.llmContent).toContain('skill1')
+      expect(result.llmContent).toContain('skill2')
+      expect(result.llmContent).toContain('By ID:')
+      expect(result.llmContent).toContain('marketplace:plugin1:skill1')
+      expect(result.llmContent).toContain('marketplace:plugin2:skill2')
+      expect(result.llmContent).toContain('Inconsistency between list and use_skill')
     });
-  });
+  })
 });

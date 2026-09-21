@@ -9,7 +9,7 @@
  * confirmation payload.
  */
 
-import { Type } from '@google/genai';
+import { Type } from '@google/genai'
 import {
   BaseTool,
   Icon,
@@ -18,29 +18,29 @@ import {
   type ToolConfirmationPayload,
   type ToolExecuteConfirmationDetails,
   type ToolResult,
-} from './tools.js';
+} from './tools.js'
 
 export type EnterpriseCollaborationAction =
   | 'list_members'
   | 'send_message'
   | 'ask_peer_clawmaster'
   | 'consult_peer_clawmaster'
-  | 'assign_member_position';
+  | 'assign_member_position'
 
 export interface EnterpriseCollaborationParams {
-  action: EnterpriseCollaborationAction;
-  recipientAccountId?: string;
-  content?: string;
-  question?: string;
-  department?: string;
-  positionTitle?: string;
-  role?: string;
+  action: EnterpriseCollaborationAction
+  recipientAccountId?: string
+  content?: string
+  question?: string
+  department?: string
+  positionTitle?: string
+  role?: string
 }
 
 interface RelayState {
-  status: 'pending' | 'result' | 'cancelled' | 'error';
-  result?: string;
-  error?: string;
+  status: 'pending' | 'result' | 'cancelled' | 'error'
+  result?: string
+  error?: string
 }
 
 const ACTIONS: readonly EnterpriseCollaborationAction[] = [
@@ -49,10 +49,10 @@ const ACTIONS: readonly EnterpriseCollaborationAction[] = [
   'ask_peer_clawmaster',
   'consult_peer_clawmaster',
   'assign_member_position',
-];
+]
 
-const RECIPIENT_ACCOUNT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
-const MAX_TEXT_LENGTH = 4000;
+const RECIPIENT_ACCOUNT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
+const MAX_TEXT_LENGTH = 4000
 
 const DESCRIPTION = `Communicate with coworkers under the authenticated enterprise tree through the ClawMaster desktop client.
 
@@ -64,15 +64,15 @@ Required workflow:
 5. Call consult_peer_clawmaster with recipientAccountId and question only for the lower-frequency two-ClawMaster negotiation flow, such as comparing schedules, agreeing on a meeting time, or producing a cooperation plan. The client performs the real negotiation.
 6. If and only if the authenticated user is an enterprise administrator, call assign_member_position with a list_members recipientAccountId, department, positionTitle, and optional role to make a real organization assignment. The client rechecks the administrator identity and same-organization member immediately before updating the account. Never claim success unless the client returns the updated member.
 
-When answering about the current user's own information, answer normally instead of calling ask_peer_clawmaster. This tool is a structured confirmation relay: it does not access the network or filesystem and does not invent or hand-build A2A protocol messages. Every action must be executed by the client confirmation UI, and only the client's real JSON result may be treated as the outcome.`;
+When answering about the current user's own information, answer normally instead of calling ask_peer_clawmaster. This tool is a structured confirmation relay: it does not access the network or filesystem and does not invent or hand-build A2A protocol messages. Every action must be executed by the client confirmation UI, and only the client's real JSON result may be treated as the outcome.`
 
 export class EnterpriseCollaborationTool extends BaseTool<
   EnterpriseCollaborationParams,
   ToolResult
 > {
-  static readonly Name = 'enterprise_collaboration';
+  static readonly Name = 'enterprise_collaboration'
 
-  private readonly relayStates = new WeakMap<object, RelayState>();
+  private readonly relayStates = new WeakMap<object, RelayState>()
 
   constructor() {
     super(
@@ -126,26 +126,26 @@ export class EnterpriseCollaborationTool extends BaseTool<
       false,
       false,
       false,
-    );
+    )
   }
 
   override validateToolParams(
     params: EnterpriseCollaborationParams,
   ): string | null {
     if (!params || typeof params !== 'object' || Array.isArray(params)) {
-      return 'enterprise_collaboration params 必须是对象';
+      return 'enterprise_collaboration params 必须是对象'
     }
 
-    const raw = params as unknown as Record<string, unknown>;
+    const raw = params as unknown as Record<string, unknown>
     if (
       typeof raw.action !== 'string' ||
       !ACTIONS.includes(raw.action as EnterpriseCollaborationAction)
     ) {
-      return `action 必须是以下值之一：${ACTIONS.join(', ')}`;
+      return `action 必须是以下值之一：${ACTIONS.join(', ')}`
     }
 
     const unknownFields = Object.keys(raw).filter(
-      (key) =>
+      key =>
         ![
           'action',
           'recipientAccountId',
@@ -155,81 +155,81 @@ export class EnterpriseCollaborationTool extends BaseTool<
           'positionTitle',
           'role',
         ].includes(key),
-    );
+    )
     if (unknownFields.length > 0) {
-      return `不接受未知参数：${unknownFields.join(', ')}`;
+      return `不接受未知参数：${unknownFields.join(', ')}`
     }
 
-    const action = raw.action as EnterpriseCollaborationAction;
-    const needsRecipient = action !== 'list_members';
+    const action = raw.action as EnterpriseCollaborationAction
+    const needsRecipient = action !== 'list_members'
     if (needsRecipient) {
       if (
         typeof raw.recipientAccountId !== 'string' ||
         !RECIPIENT_ACCOUNT_ID.test(raw.recipientAccountId)
       ) {
-        return 'recipientAccountId 必须是 list_members 返回的 1 到 128 位账号 ID，只能包含字母、数字、下划线和连字符';
+        return 'recipientAccountId 必须是 list_members 返回的 1 到 128 位账号 ID，只能包含字母、数字、下划线和连字符'
       }
     } else if (raw.recipientAccountId !== undefined) {
-      return 'list_members 不接受 recipientAccountId';
+      return 'list_members 不接受 recipientAccountId'
     }
 
     if (action === 'send_message') {
-      const contentError = this.validateText(raw.content, 'content');
-      if (contentError) return contentError;
+      const contentError = this.validateText(raw.content, 'content')
+      if (contentError) return contentError
     } else if (raw.content !== undefined) {
-      return `${action} 不接受 content`;
+      return `${action} 不接受 content`
     }
 
     if (action === 'ask_peer_clawmaster' || action === 'consult_peer_clawmaster') {
-      const questionError = this.validateText(raw.question, 'question');
-      if (questionError) return questionError;
+      const questionError = this.validateText(raw.question, 'question')
+      if (questionError) return questionError
     } else if (raw.question !== undefined) {
-      return `${action} 不接受 question`;
+      return `${action} 不接受 question`
     }
 
     if (action === 'assign_member_position') {
       const departmentError = this.validateAssignmentText(
         raw.department,
         'department',
-      );
-      if (departmentError) return departmentError;
+      )
+      if (departmentError) return departmentError
       const positionError = this.validateAssignmentText(
         raw.positionTitle,
         'positionTitle',
-      );
-      if (positionError) return positionError;
+      )
+      if (positionError) return positionError
       if (raw.role !== undefined) {
-        const roleError = this.validateAssignmentText(raw.role, 'role');
-        if (roleError) return roleError;
+        const roleError = this.validateAssignmentText(raw.role, 'role')
+        if (roleError) return roleError
       }
     } else {
       for (const field of ['department', 'positionTitle', 'role'] as const) {
-        if (raw[field] !== undefined) return `${action} 不接受 ${field}`;
+        if (raw[field] !== undefined) return `${action} 不接受 ${field}`
       }
     }
 
-    return null;
+    return null
   }
 
   override getDescription(params: EnterpriseCollaborationParams): string {
     const recipient = params.recipientAccountId
       ? ` for ${params.recipientAccountId}`
-      : '';
-    return `Run enterprise collaboration action ${params.action}${recipient} through the ClawMaster client`;
+      : ''
+    return `Run enterprise collaboration action ${params.action}${recipient} through the ClawMaster client`
   }
 
   override async shouldConfirmExecute(
     params: EnterpriseCollaborationParams,
     abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
-    const validationError = this.validateToolParams(params);
-    if (validationError) return false;
+    const validationError = this.validateToolParams(params)
+    if (validationError) return false
     if (abortSignal.aborted) {
-      throw new Error('enterprise_collaboration 确认已取消');
+      throw new Error('enterprise_collaboration 确认已取消')
     }
 
-    const relayState: RelayState = { status: 'pending' };
-    this.relayStates.set(params, relayState);
+    const relayState: RelayState = { status: 'pending' }
+    this.relayStates.set(params, relayState)
 
     const details: ToolExecuteConfirmationDetails = {
       type: 'exec',
@@ -243,74 +243,74 @@ export class EnterpriseCollaborationTool extends BaseTool<
         payload?: ToolConfirmationPayload,
       ) => {
         if (this.relayStates.get(params) !== relayState) {
-          throw new Error('enterprise_collaboration 确认结果已过期');
+          throw new Error('enterprise_collaboration 确认结果已过期')
         }
         if (outcome === ToolConfirmationOutcome.Cancel) {
-          relayState.status = 'cancelled';
+          relayState.status = 'cancelled'
           return;
         }
 
-        const rawResult = payload?.newContent;
+        const rawResult = payload?.newContent
         if (typeof rawResult !== 'string' || !rawResult.trim()) {
-          relayState.status = 'error';
-          relayState.error = '客户端没有返回 JSON 执行结果';
+          relayState.status = 'error'
+          relayState.error = '客户端没有返回 JSON 执行结果'
           return;
         }
 
-        let parsed: unknown;
+        let parsed: unknown
         try {
-          parsed = JSON.parse(rawResult);
+          parsed = JSON.parse(rawResult)
         } catch {
-          relayState.status = 'error';
-          relayState.error = '客户端返回的执行结果不是有效 JSON';
+          relayState.status = 'error'
+          relayState.error = '客户端返回的执行结果不是有效 JSON'
           return;
         }
         if (parsed === null || typeof parsed !== 'object') {
-          relayState.status = 'error';
-          relayState.error = '客户端执行结果必须是 JSON 对象或数组';
+          relayState.status = 'error'
+          relayState.error = '客户端执行结果必须是 JSON 对象或数组'
           return;
         }
 
-        relayState.status = 'result';
-        relayState.result = JSON.stringify(parsed);
+        relayState.status = 'result'
+        relayState.result = JSON.stringify(parsed)
       },
-    };
+    }
 
-    return details;
+    return details
   }
 
   override async execute(
     params: EnterpriseCollaborationParams,
     signal: AbortSignal,
   ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
+    const validationError = this.validateToolParams(params)
     if (validationError) {
-      throw new Error(`enterprise_collaboration 参数错误：${validationError}`);
+      throw new Error(`enterprise_collaboration 参数错误：${validationError}`)
     }
     if (signal.aborted) {
-      throw new Error('enterprise_collaboration 执行已取消');
+      throw new Error('enterprise_collaboration 执行已取消')
     }
 
-    const relayState = this.relayStates.get(params);
+    const relayState = this.relayStates.get(params)
     if (!relayState || relayState.status === 'pending') {
-      throw new Error('enterprise_collaboration 尚未通过客户端确认并执行');
+      throw new Error('enterprise_collaboration 尚未通过客户端确认并执行')
     }
-    this.relayStates.delete(params);
+    this.relayStates.delete(params)
 
     if (relayState.status === 'cancelled') {
-      throw new Error('enterprise_collaboration 已取消');
+      throw new Error('enterprise_collaboration 已取消')
     }
     if (relayState.status === 'error') {
-      throw new Error(`enterprise_collaboration 失败：${relayState.error}`);
+      throw new Error(`enterprise_collaboration 失败：${relayState.error}`)
     }
     if (!relayState.result) {
-      throw new Error('enterprise_collaboration 客户端没有返回 JSON 执行结果');
+      throw new Error('enterprise_collaboration 客户端没有返回 JSON 执行结果')
     }
 
     return {
       llmContent: relayState.result,
       returnDisplay: relayState.result,
-    };
+    }
   }
 
   private validateText(
@@ -322,9 +322,9 @@ export class EnterpriseCollaborationTool extends BaseTool<
       value.trim().length < 1 ||
       value.length > MAX_TEXT_LENGTH
     ) {
-      return `${field} 长度必须为 1 到 ${MAX_TEXT_LENGTH} 个字符`;
+      return `${field} 长度必须为 1 到 ${MAX_TEXT_LENGTH} 个字符`
     }
-    return null;
+    return null
   }
 
   private validateAssignmentText(
@@ -336,8 +336,8 @@ export class EnterpriseCollaborationTool extends BaseTool<
       || value.trim().length < 1
       || value.trim().length > 160
     ) {
-      return `${field} 长度必须为 1 到 160 个字符`;
+      return `${field} 长度必须为 1 到 160 个字符`
     }
-    return null;
+    return null
   }
 }

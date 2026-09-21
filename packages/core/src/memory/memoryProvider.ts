@@ -16,8 +16,8 @@
  * 写入复用 MemoryTool 已有的串行写锁 + 去重 + 上限,不另起一套并发模型。
  */
 
-import * as fs from 'fs/promises';
-import { existsSync } from 'node:fs';
+import * as fs from 'fs/promises'
+import { existsSync } from 'node:fs'
 import {
   DEFAULT_CONTEXT_FILENAME,
   LEGACY_CONTEXT_FILENAME,
@@ -25,7 +25,7 @@ import {
   getGlobalMemoryPath,
   getFeishuSessionMemoryPath,
   findMemorySectionHeader,
-} from '../tools/memoryTool.js';
+} from '../tools/memoryTool.js'
 
 /**
  * 记忆作用域:三层。
@@ -33,14 +33,14 @@ import {
  * - `project`:项目根 CLAWMASTER.md(保持现状,向后兼容)。
  * - `session`:单飞书会话维度(~/.clawmaster-user/memory/sessions/<id>.md)。
  */
-export type MemoryScope = 'global' | 'project' | 'session';
+export type MemoryScope = 'global' | 'project' | 'session'
 
 /** 定位某一层记忆所需的运行时上下文。 */
 export interface MemoryScopeContext {
   /** 当前项目根目录,用于解析 project 层的 CLAWMASTER.md。 */
-  readonly projectRoot: string;
+  readonly projectRoot: string
   /** 当前会话标识(飞书 chatId),用于解析 session 层文件;无则跳过 session 层。 */
-  readonly sessionId?: string;
+  readonly sessionId?: string
 }
 
 /**
@@ -51,28 +51,28 @@ export interface MemoryScopeContext {
  */
 export interface MemoryProvider {
   /** Provider 名称(诊断/日志用)。 */
-  readonly name: string;
+  readonly name: string
   /** 读取指定 scope 的记忆文本。文件缺失返回空串,绝不抛 ENOENT。 */
-  load(scope: MemoryScope): Promise<string>;
+  load(scope: MemoryScope): Promise<string>
   /** 向指定 scope 追加一条事实。复用底层串行写锁,保证并发安全。 */
-  save(scope: MemoryScope, fact: string): Promise<void>;
+  save(scope: MemoryScope, fact: string): Promise<void>
 }
 
 /** Provider 写文件用的 fs 适配器(可注入,便于测试)。 */
 export interface MemoryFsAdapter {
-  readFile: (path: string, encoding: 'utf-8') => Promise<string>;
-  writeFile: (path: string, data: string, encoding: 'utf-8') => Promise<void>;
+  readFile: (path: string, encoding: 'utf-8') => Promise<string>
+  writeFile: (path: string, data: string, encoding: 'utf-8') => Promise<void>
   mkdir: (
     path: string,
     options: { recursive: boolean },
-  ) => Promise<string | undefined>;
+  ) => Promise<string | undefined>
 }
 
 const DEFAULT_FS_ADAPTER: MemoryFsAdapter = {
   readFile: fs.readFile,
   writeFile: fs.writeFile,
   mkdir: fs.mkdir,
-};
+}
 
 /**
  * 把一个 scope 解析为其后端记忆文件的绝对路径。
@@ -84,18 +84,18 @@ function resolveScopePath(
 ): string | null {
   switch (scope) {
     case 'global':
-      return getGlobalMemoryPath();
+      return getGlobalMemoryPath()
     case 'project':
-      {
-        const root = ctx.projectRoot.replace(/[/\\]+$/, '');
-        const currentPath = `${root}/${DEFAULT_CONTEXT_FILENAME}`;
-        const legacyPath = `${root}/${LEGACY_CONTEXT_FILENAME}`;
-        return existsSync(currentPath) || !existsSync(legacyPath) ? currentPath : legacyPath;
+    {
+      const root = ctx.projectRoot.replace(/[/\\]+$/, '')
+        const currentPath = `${root}/${DEFAULT_CONTEXT_FILENAME}`
+        const legacyPath = `${root}/${LEGACY_CONTEXT_FILENAME}`
+        return existsSync(currentPath) || !existsSync(legacyPath) ? currentPath : legacyPath
       }
     case 'session':
-      return ctx.sessionId ? getFeishuSessionMemoryPath(ctx.sessionId) : null;
+      return ctx.sessionId ? getFeishuSessionMemoryPath(ctx.sessionId) : null
     default:
-      return null;
+      return null
   }
 }
 
@@ -107,7 +107,7 @@ function resolveScopePath(
  * 不重复造并发模型。读取做空文件/缺失文件的安全兜底。
  */
 export class FileMemoryProvider implements MemoryProvider {
-  readonly name = 'file';
+  readonly name = 'file'
 
   constructor(
     private readonly ctx: MemoryScopeContext,
@@ -115,31 +115,31 @@ export class FileMemoryProvider implements MemoryProvider {
   ) {}
 
   async load(scope: MemoryScope): Promise<string> {
-    const filePath = resolveScopePath(scope, this.ctx);
+    const filePath = resolveScopePath(scope, this.ctx)
     if (!filePath) {
-      return '';
+      return ''
     }
     try {
-      const content = await this.fsAdapter.readFile(filePath, 'utf-8');
-      return content ?? '';
+      const content = await this.fsAdapter.readFile(filePath, 'utf-8')
+      return content ?? ''
     } catch {
       // 文件不存在/不可读:视为该层暂无记忆,返回空串。
-      return '';
+      return ''
     }
   }
 
   async save(scope: MemoryScope, fact: string): Promise<void> {
-    const trimmed = (fact ?? '').trim();
+    const trimmed = (fact ?? '').trim()
     if (trimmed.length === 0) {
-      return;
+      return
     }
-    const filePath = resolveScopePath(scope, this.ctx);
+    const filePath = resolveScopePath(scope, this.ctx)
     if (!filePath) {
       // session 层无 sessionId 等情况:静默跳过,不阻断主流程。
-      return;
+      return
     }
     // 复用既有串行写锁 + 去重 + 上限。
-    await MemoryTool.performAddMemoryEntry(trimmed, filePath, this.fsAdapter);
+    await MemoryTool.performAddMemoryEntry(trimmed, filePath, this.fsAdapter)
   }
 }
 
@@ -149,21 +149,21 @@ export interface AssembleMemoryOptions {
    * 合并顺序中包含哪些 scope。默认 ['global', 'project', 'session'],
    * 即:全局偏好垫底、项目记忆居中、会话记忆最近(越靠后越贴近当下)。
    */
-  readonly scopes?: readonly MemoryScope[];
+  readonly scopes?: readonly MemoryScope[]
 }
 
 const DEFAULT_SCOPE_ORDER: readonly MemoryScope[] = [
   'global',
   'project',
   'session',
-];
+]
 
 /** 每层在装配输出里的人类可读标签。 */
 const SCOPE_LABEL: Record<MemoryScope, string> = {
   global: 'Global Memory',
   project: 'Project Memory',
   session: 'Session Memory',
-};
+}
 
 /**
  * 从一条记忆文本里抽出 MEMORY_SECTION_HEADER 段落下的事实(只保留 "- " 列表项),
@@ -171,20 +171,20 @@ const SCOPE_LABEL: Record<MemoryScope, string> = {
  * 若文本里没有该段落头,则原样返回 trim 后的全文(向后兼容裸记忆文件)。
  */
 function extractMemorySection(raw: string): string {
-  const content = (raw ?? '').trim();
+  const content = (raw ?? '').trim()
   if (content.length === 0) {
-    return '';
+    return ''
   }
-  const memorySection = findMemorySectionHeader(content);
+  const memorySection = findMemorySectionHeader(content)
   if (!memorySection) {
-    return content;
+    return content
   }
-  const start = memorySection.index + memorySection.header.length;
-  let end = content.indexOf('\n## ', start);
+  const start = memorySection.index + memorySection.header.length
+  let end = content.indexOf('\n## ', start)
   if (end === -1) {
-    end = content.length;
+    end = content.length
   }
-  return content.substring(start, end).trim();
+  return content.substring(start, end).trim()
 }
 
 /**
@@ -208,25 +208,25 @@ export async function assembleLayeredMemory(
   provider: MemoryProvider,
   options: AssembleMemoryOptions = {},
 ): Promise<string> {
-  const scopes = options.scopes ?? DEFAULT_SCOPE_ORDER;
-  const blocks: string[] = [];
+  const scopes = options.scopes ?? DEFAULT_SCOPE_ORDER
+  const blocks: string[] = []
 
   for (const scope of scopes) {
-    let raw = '';
+    let raw = ''
     try {
-      raw = await provider.load(scope);
+      raw = await provider.load(scope)
     } catch {
       // 单层读取失败不应拖垮整体装配;跳过该层。
-      raw = '';
+      raw = ''
     }
-    const section = extractMemorySection(raw);
+    const section = extractMemorySection(raw)
     if (section.length === 0) {
-      continue;
+      continue
     }
-    blocks.push(`--- ${SCOPE_LABEL[scope]} ---\n${section}`);
+    blocks.push(`--- ${SCOPE_LABEL[scope]} ---\n${section}`)
   }
 
-  return blocks.join('\n\n');
+  return blocks.join('\n\n')
 }
 
 /**
@@ -237,6 +237,6 @@ export async function assembleFileLayeredMemory(
   ctx: MemoryScopeContext,
   options: AssembleMemoryOptions = {},
 ): Promise<string> {
-  const provider = new FileMemoryProvider(ctx);
-  return assembleLayeredMemory(provider, options);
+  const provider = new FileMemoryProvider(ctx)
+  return assembleLayeredMemory(provider, options)
 }

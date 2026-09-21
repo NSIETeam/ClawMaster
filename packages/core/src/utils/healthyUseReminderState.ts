@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { getProjectTempDir } from './paths.js';
+import * as fs from 'fs'
+import * as path from 'path'
+import { getProjectTempDir } from './paths.js'
 
-const REMINDER_STATE_FILE = 'healthy-use-reminder.json';
+const REMINDER_STATE_FILE = 'healthy-use-reminder.json'
 
 interface ReminderState {
-  lastReminderShownAt: number; // 最后一次显示提醒的时间戳
+  lastReminderShownAt: number // 最后一次显示提醒的时间戳
 }
 
 /**
@@ -21,11 +21,11 @@ interface ReminderState {
  * 文件路径：~/.clawmaster/tmp/<project-hash>/healthy-use-reminder.json
  */
 export class HealthyUseReminderState {
-  private stateFilePath: string;
+  private stateFilePath: string
 
   constructor(projectRoot: string) {
-    const tempDir = getProjectTempDir(projectRoot);
-    this.stateFilePath = path.join(tempDir, REMINDER_STATE_FILE);
+    const tempDir = getProjectTempDir(projectRoot)
+    this.stateFilePath = path.join(tempDir, REMINDER_STATE_FILE)
   }
 
   /**
@@ -38,26 +38,26 @@ export class HealthyUseReminderState {
    * @returns 是否应该显示提醒
    */
   shouldShowReminder(): boolean {
-    const now = new Date();
-    const hour = now.getHours();
-    const isRestrictedTime = hour >= 22 || hour < 6;
+    const now = new Date()
+    const hour = now.getHours()
+    const isRestrictedTime = hour >= 22 || hour < 6
 
     // 不在防沉迷时段，清理状态
     if (!isRestrictedTime) {
-      this.clearState();
-      return false;
+      this.clearState()
+      return false
     }
 
     // 在防沉迷时段，检查是否需要提醒
-    const state = this.loadState();
+    const state = this.loadState()
     if (!state || state.lastReminderShownAt === 0) {
-      return true; // 首次提醒
+      return true // 首次提醒
     }
 
-    const fortyFiveMinutesInMs = 45 * 60 * 1000;
-    const timeSinceLastReminder = Date.now() - state.lastReminderShownAt;
+    const fortyFiveMinutesInMs = 45 * 60 * 1000
+    const timeSinceLastReminder = Date.now() - state.lastReminderShownAt
 
-    return timeSinceLastReminder >= fortyFiveMinutesInMs;
+    return timeSinceLastReminder >= fortyFiveMinutesInMs
   }
 
   /**
@@ -69,7 +69,7 @@ export class HealthyUseReminderState {
   markReminderShown(): void {
     this.saveState({
       lastReminderShownAt: Date.now(),
-    });
+    })
   }
 
   /**
@@ -80,12 +80,12 @@ export class HealthyUseReminderState {
   clearState(): void {
     try {
       if (fs.existsSync(this.stateFilePath)) {
-        fs.unlinkSync(this.stateFilePath);
+        fs.unlinkSync(this.stateFilePath)
       }
     } catch (error) {
       // 静默失败，不影响主流程
       if (process.env.DEBUG) {
-        console.error('[HealthyUseReminderState] Failed to clear state:', error);
+        console.error('[HealthyUseReminderState] Failed to clear state:', error)
       }
     }
   }
@@ -96,17 +96,17 @@ export class HealthyUseReminderState {
   private loadState(): ReminderState | null {
     try {
       if (!fs.existsSync(this.stateFilePath)) {
-        return null;
+        return null
       }
 
-      const content = fs.readFileSync(this.stateFilePath, 'utf-8');
-      return JSON.parse(content) as ReminderState;
+      const content = fs.readFileSync(this.stateFilePath, 'utf-8')
+      return JSON.parse(content) as ReminderState
     } catch (error) {
       // 文件损坏或格式错误，返回 null
       if (process.env.DEBUG) {
-        console.error('[HealthyUseReminderState] Failed to load state:', error);
+        console.error('[HealthyUseReminderState] Failed to load state:', error)
       }
-      return null;
+      return null
     }
   }
 
@@ -115,18 +115,18 @@ export class HealthyUseReminderState {
    */
   private saveState(state: ReminderState): void {
     try {
-      const tempDir = path.dirname(this.stateFilePath);
+      const tempDir = path.dirname(this.stateFilePath)
 
       // 确保目录存在
       if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
+        fs.mkdirSync(tempDir, { recursive: true })
       }
 
-      fs.writeFileSync(this.stateFilePath, JSON.stringify(state, null, 2), 'utf-8');
+      fs.writeFileSync(this.stateFilePath, JSON.stringify(state, null, 2), 'utf-8')
     } catch (error) {
       // 静默失败，不影响主流程
       if (process.env.DEBUG) {
-        console.error('[HealthyUseReminderState] Failed to save state:', error);
+        console.error('[HealthyUseReminderState] Failed to save state:', error)
       }
     }
   }

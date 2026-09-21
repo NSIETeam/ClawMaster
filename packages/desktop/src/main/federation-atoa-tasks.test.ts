@@ -2,18 +2,18 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
 import type {
   EnterpriseFederatedDirectMessage,
   EnterpriseFederationContact,
-} from './enterprise-client.js';
+} from './enterprise-client.js'
 import {
   buildFederationAtoaDecision,
   deterministicFederationAtoaMessageId,
   federationAtoaScope,
-} from './federation-atoa-protocol.js';
-import { deriveFederationAtoaTasks } from './federation-atoa-tasks.js';
+} from './federation-atoa-protocol.js'
+import { deriveFederationAtoaTasks } from './federation-atoa-tasks.js'
 
 const contact: EnterpriseFederationContact = {
   id: 'contact_remote',
@@ -28,7 +28,7 @@ const contact: EnterpriseFederationContact = {
   unreadCount: 0,
   trustState: 'verified',
   keyFingerprint: 'b'.repeat(64),
-};
+}
 
 const requestContent = 'CLAWMASTER_ATOA_REQUEST ' + JSON.stringify({
   v: 1,
@@ -37,12 +37,12 @@ const requestContent = 'CLAWMASTER_ATOA_REQUEST ' + JSON.stringify({
   createdAt: '2026-08-12T12:00:00.000Z',
   mode: 'answer',
   requestedSources: ['schedules'],
-});
+})
 
 function message(input: Partial<EnterpriseFederatedDirectMessage> & {
-  id: string;
-  direction: 'inbound' | 'outbound';
-  content: string;
+  id: string
+  direction: 'inbound' | 'outbound'
+  content: string
 }): EnterpriseFederatedDirectMessage {
   return {
     senderAccountId: input.direction === 'inbound' ? contact.identity : 'account_a',
@@ -58,7 +58,7 @@ function message(input: Partial<EnterpriseFederatedDirectMessage> & {
     deliveryStatus: input.direction === 'inbound' ? 'received' : 'sent',
     trustState: 'verified',
     ...input,
-  };
+  }
 }
 
 describe('deriveFederationAtoaTasks', () => {
@@ -68,13 +68,13 @@ describe('deriveFederationAtoaTasks', () => {
       direction: 'inbound',
       content: requestContent,
       contentType: 'atoa_request',
-    });
+    })
     expect(deriveFederationAtoaTasks({ contact, messages: [proposal] }))
-      .toMatchObject([{ kind: 'proposal', request: { id: 'request_one' } }]);
+      .toMatchObject([{ kind: 'proposal', request: { id: 'request_one' } }])
     expect(deriveFederationAtoaTasks({
       contact: { ...contact, trustState: 'unverified' },
       messages: [proposal],
-    })).toEqual([]);
+    })).toEqual([])
   });
 
   it('dispatches an exact approved grant once and rejects a changed binding', () => {
@@ -83,8 +83,8 @@ describe('deriveFederationAtoaTasks', () => {
       direction: 'outbound',
       content: requestContent,
       contentType: 'atoa_request',
-    });
-    const scope = federationAtoaScope(proposal.id, proposal.content);
+    })
+    const scope = federationAtoaScope(proposal.id, proposal.content)
     const decision = message({
       id: 'decision_one',
       direction: 'inbound',
@@ -98,13 +98,13 @@ describe('deriveFederationAtoaTasks', () => {
         grantedSources: ['schedules'],
       }),
       inReplyToMessageId: proposal.id,
-    });
-    const now = Date.parse('2026-08-12T12:01:00.000Z');
+    })
+    const now = Date.parse('2026-08-12T12:01:00.000Z')
     expect(deriveFederationAtoaTasks({
       contact,
       messages: [proposal, decision],
       now,
-    })).toMatchObject([{ kind: 'grant', decision: { grantId: 'grant_one' } }]);
+    })).toMatchObject([{ kind: 'grant', decision: { grantId: 'grant_one' } }])
 
     const dispatched = message({
       id: deterministicFederationAtoaMessageId(
@@ -118,12 +118,12 @@ describe('deriveFederationAtoaTasks', () => {
       inReplyToMessageId: proposal.id,
       federationA2aGrantId: 'grant_one',
       federationA2aScope: scope,
-    });
+    })
     expect(deriveFederationAtoaTasks({
       contact,
       messages: [proposal, decision, dispatched],
       now,
-    })).toEqual([]);
+    })).toEqual([])
 
     const tampered = {
       ...decision,
@@ -136,12 +136,12 @@ describe('deriveFederationAtoaTasks', () => {
         expiresAt: '2099-01-01T00:00:00.000Z',
         grantedSources: ['schedules'],
       }),
-    };
+    }
     expect(deriveFederationAtoaTasks({
       contact,
       messages: [proposal, tampered],
       now,
-    })).toEqual([]);
+    })).toEqual([])
   });
 
   it('executes only a request matching the locally issued grant and stops after reply', () => {
@@ -150,8 +150,8 @@ describe('deriveFederationAtoaTasks', () => {
       direction: 'inbound',
       content: requestContent,
       contentType: 'atoa_request',
-    });
-    const scope = federationAtoaScope(proposal.id, proposal.content);
+    })
+    const scope = federationAtoaScope(proposal.id, proposal.content)
     const decision = message({
       id: 'decision_one',
       direction: 'outbound',
@@ -165,7 +165,7 @@ describe('deriveFederationAtoaTasks', () => {
         grantedSources: ['schedules'],
       }),
       inReplyToMessageId: proposal.id,
-    });
+    })
     const request = message({
       id: 'actual_request_one',
       direction: 'inbound',
@@ -175,7 +175,7 @@ describe('deriveFederationAtoaTasks', () => {
       inReplyToMessageId: proposal.id,
       federationA2aGrantId: 'grant_one',
       federationA2aScope: scope,
-    });
+    })
     expect(deriveFederationAtoaTasks({
       contact,
       messages: [proposal, decision, request],
@@ -183,7 +183,7 @@ describe('deriveFederationAtoaTasks', () => {
       kind: 'request',
       grantedSources: ['schedules'],
       needsCurrentChatSelection: false,
-    }]);
+    }])
 
     const response = message({
       id: 'response_one',
@@ -192,10 +192,10 @@ describe('deriveFederationAtoaTasks', () => {
       federationMessageType: 'a2a.response',
       contentType: 'atoa_response',
       inReplyToMessageId: request.id,
-    });
+    })
     expect(deriveFederationAtoaTasks({
       contact,
       messages: [proposal, decision, request, response],
-    })).toEqual([]);
+    })).toEqual([])
   });
-});
+})

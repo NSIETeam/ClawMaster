@@ -2,9 +2,9 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
-import { createClusteredEnterpriseInfrastructure } from './clusteredInfrastructure.js';
+import { createClusteredEnterpriseInfrastructure } from './clusteredInfrastructure.js'
 
 const clusteredEnvironment = {
   CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
@@ -15,7 +15,7 @@ const clusteredEnvironment = {
   CLAWMASTER_S3_BUCKET: 'clawmaster-private',
   CLAWMASTER_S3_REGION: 'us-east-1',
   CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
-} as const;
+} as const
 
 describe('clustered enterprise infrastructure configuration', () => {
   it('rejects a partial legacy dual-read configuration before opening clients', async () => {
@@ -26,7 +26,7 @@ describe('clustered enterprise infrastructure configuration', () => {
           CLAWMASTER_ATTACHMENT_LEGACY_READ_DIR: 'D:\\legacy-attachments',
         },
       }),
-    ).rejects.toThrow(/requires both/i);
+    ).rejects.toThrow(/requires both/i)
   });
 
   it('forbids a local legacy fallback on a multi-replica deployment', async () => {
@@ -39,7 +39,7 @@ describe('clustered enterprise infrastructure configuration', () => {
           CLAWMASTER_ATTACHMENT_LEGACY_READ_KEY_FILE: 'D:\\keys\\attachment.key',
         },
       }),
-    ).rejects.toThrow(/one migration-window replica/i);
+    ).rejects.toThrow(/one migration-window replica/i)
   });
 
   it('rejects an attachment limit above the desktop E2EE protocol limit', async () => {
@@ -50,6 +50,6 @@ describe('clustered enterprise infrastructure configuration', () => {
           CLAWMASTER_ATTACHMENT_MAX_BYTES: String(10 * 1024 * 1024 + 17),
         },
       }),
-    ).rejects.toThrow(/E2EE protocol limit/i);
+    ).rejects.toThrow(/E2EE protocol limit/i)
   });
-});
+})

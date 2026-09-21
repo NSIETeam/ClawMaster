@@ -4,29 +4,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { PartUnion } from '@google/genai';
-import mime from 'mime-types';
-import { createHash } from 'node:crypto';
-import os from 'node:os';
+import fs from 'node:fs'
+import path from 'node:path'
+import { PartUnion } from '@google/genai'
+import mime from 'mime-types'
+import { createHash } from 'node:crypto'
+import os from 'node:os'
 // Heavy parsers are dynamically imported by file type so plain text reads keep
 // the runtime kernel lightweight.
 
 // Constants for text file processing
-const DEFAULT_MAX_LINES_TEXT_FILE = 2000;
-const MAX_LINE_LENGTH_TEXT_FILE = 2000;
+const DEFAULT_MAX_LINES_TEXT_FILE = 2000
+const MAX_LINE_LENGTH_TEXT_FILE = 2000
 
 // Constants for image compression
-const MAX_IMAGE_WIDTH = 1920;
-const MAX_IMAGE_HEIGHT = 1080;
-const MAX_IMAGE_WIDTH_AGGRESSIVE = 1280; // 激进压缩时的最大宽度
-const MAX_IMAGE_HEIGHT_AGGRESSIVE = 720;  // 激进压缩时的最大高度
-const JPEG_QUALITY = 60; // 降低JPEG质量以获得更好的压缩率
-const JPEG_QUALITY_AGGRESSIVE = 45; // 更激进的压缩质量
+const MAX_IMAGE_WIDTH = 1920
+const MAX_IMAGE_HEIGHT = 1080
+const MAX_IMAGE_WIDTH_AGGRESSIVE = 1280 // 激进压缩时的最大宽度
+const MAX_IMAGE_HEIGHT_AGGRESSIVE = 720  // 激进压缩时的最大高度
+const JPEG_QUALITY = 60 // 降低JPEG质量以获得更好的压缩率
+const JPEG_QUALITY_AGGRESSIVE = 45 // 更激进的压缩质量
 
 // Default values for encoding and separator format
-export const DEFAULT_ENCODING: BufferEncoding = 'utf-8';
+export const DEFAULT_ENCODING: BufferEncoding = 'utf-8'
 
 /**
  * Looks up the specific MIME type for a file path.
@@ -34,8 +34,8 @@ export const DEFAULT_ENCODING: BufferEncoding = 'utf-8';
  * @returns The specific MIME type string (e.g., 'text/python', 'application/javascript') or undefined if not found or ambiguous.
  */
 export function getSpecificMimeType(filePath: string): string | undefined {
-  const lookedUpMime = mime.lookup(filePath);
-  return typeof lookedUpMime === 'string' ? lookedUpMime : undefined;
+  const lookedUpMime = mime.lookup(filePath)
+  return typeof lookedUpMime === 'string' ? lookedUpMime : undefined
 }
 
 /**
@@ -48,18 +48,18 @@ export function isWithinRoot(
   pathToCheck: string,
   rootDirectory: string,
 ): boolean {
-  const absPath = path.resolve(pathToCheck);
-  const absRoot = path.resolve(rootDirectory);
+  const absPath = path.resolve(pathToCheck)
+  const absRoot = path.resolve(rootDirectory)
 
   // path.relative handles case-insensitivity and cross-drive on Windows.
   // On cross-drive, path.relative returns an absolute path, correctly judged as outside root.
-  const rel = path.relative(absRoot, absPath);
-  const normalizedRel = rel.replace(/\\/g, '/');
+  const rel = path.relative(absRoot, absPath)
+  const normalizedRel = rel.replace(/\\/g, '/')
 
-  if (rel === '') return true;
-  if (normalizedRel === '..' || normalizedRel.startsWith('../')) return false;
-  if (path.isAbsolute(rel)) return false;
-  return true;
+  if (rel === '') return true
+  if (normalizedRel === '..' || normalizedRel.startsWith('../')) return false
+  if (path.isAbsolute(rel)) return false
+  return true
 }
 
 /**
@@ -68,53 +68,53 @@ export function isWithinRoot(
  * @returns Promise that resolves to true if the file appears to be binary.
  */
 export async function isBinaryFile(filePath: string): Promise<boolean> {
-  let fileHandle: fs.promises.FileHandle | undefined;
+  let fileHandle: fs.promises.FileHandle | undefined
   try {
-    fileHandle = await fs.promises.open(filePath, 'r');
+    fileHandle = await fs.promises.open(filePath, 'r')
 
     // Read up to 4KB or file size, whichever is smaller
-    const stats = await fileHandle.stat();
-    const fileSize = stats.size;
+    const stats = await fileHandle.stat()
+    const fileSize = stats.size
     if (fileSize === 0) {
       // Empty file is not considered binary for content checking
-      return false;
+      return false
     }
-    const bufferSize = Math.min(4096, fileSize);
-    const buffer = Buffer.alloc(bufferSize);
-    const result = await fileHandle.read(buffer, 0, buffer.length, 0);
-    const bytesRead = result.bytesRead;
+    const bufferSize = Math.min(4096, fileSize)
+    const buffer = Buffer.alloc(bufferSize)
+    const result = await fileHandle.read(buffer, 0, buffer.length, 0)
+    const bytesRead = result.bytesRead
 
-    if (bytesRead === 0) return false;
+    if (bytesRead === 0) return false
 
-    let nonPrintableCount = 0;
+    let nonPrintableCount = 0
     for (let i = 0; i < bytesRead; i++) {
-      if (buffer[i] === 0) return true; // Null byte is a strong indicator
+      if (buffer[i] === 0) return true // Null byte is a strong indicator
       if (buffer[i] < 9 || (buffer[i] > 13 && buffer[i] < 32)) {
-        nonPrintableCount++;
+        nonPrintableCount++
       }
     }
     // If >30% non-printable characters, consider it binary
-    return nonPrintableCount / bytesRead > 0.3;
+    return nonPrintableCount / bytesRead > 0.3
   } catch (error) {
     // Log error for debugging while maintaining existing behavior
     console.warn(
       `Failed to check if file is binary: ${filePath}`,
       error instanceof Error ? error.message : String(error),
-    );
+    )
     // If any error occurs (e.g. file not found, permissions),
     // treat as not binary here; let higher-level functions handle existence/access errors.
-    return false;
+    return false
   } finally {
     // Safely close the file handle if it was successfully opened
     if (fileHandle) {
       try {
-        await fileHandle.close();
+        await fileHandle.close()
       } catch (closeError) {
         // Log close errors for debugging while continuing with cleanup
         console.warn(
           `Failed to close file handle for: ${filePath}`,
           closeError instanceof Error ? closeError.message : String(closeError),
-        );
+        )
         // The important thing is that we attempted to clean up
       }
     }
@@ -132,19 +132,19 @@ async function compressImage(
   imageBuffer: Buffer,
   mimeType: string,
 ): Promise<{ buffer: Buffer; mimeType: string; compressionInfo: string }> {
-  const originalSize = imageBuffer.length;
-  const originalSizeKB = Math.round(originalSize / 1024);
+  const originalSize = imageBuffer.length
+  const originalSizeKB = Math.round(originalSize / 1024)
 
-  console.log(`🖼️  Jimp图片压缩开始 - 原始大小: ${originalSizeKB}KB, 格式: ${mimeType}`);
+  console.log(`🖼️  Jimp图片压缩开始 - 原始大小: ${originalSizeKB}KB, 格式: ${mimeType}`)
 
   try {
-    const { Jimp, JimpMime, ResizeStrategy } = await import('jimp');
+    const { Jimp, JimpMime, ResizeStrategy } = await import('jimp')
     // 使用Jimp加载图片
-    const image = await Jimp.read(imageBuffer);
-    const originalWidth = image.width;
-    const originalHeight = image.height;
+    const image = await Jimp.read(imageBuffer)
+    const originalWidth = image.width
+    const originalHeight = image.height
 
-    console.log(`📏 图片元数据: ${originalWidth}x${originalHeight}, 格式: ${mimeType}`);
+    console.log(`📏 图片元数据: ${originalWidth}x${originalHeight}, 格式: ${mimeType}`)
 
     // Skip compression if image is already small enough
     if (
@@ -152,123 +152,123 @@ async function compressImage(
       originalHeight <= MAX_IMAGE_HEIGHT &&
       imageBuffer.length <= 200 * 1024 // 200KB
     ) {
-      console.log('⏭️  图片已足够小，跳过压缩');
+      console.log('⏭️  图片已足够小，跳过压缩')
       return {
         buffer: imageBuffer,
         mimeType,
-        compressionInfo: '(no compression needed)'
+        compressionInfo: '(no compression needed)',
       };
     }
 
-    console.log(`🔄 开始压缩处理 - 目标尺寸: ${MAX_IMAGE_WIDTH}x${MAX_IMAGE_HEIGHT}`);
+    console.log(`🔄 开始压缩处理 - 目标尺寸: ${MAX_IMAGE_WIDTH}x${MAX_IMAGE_HEIGHT}`)
 
     // 对于特大文件，使用更激进的尺寸压缩
-    const isLargeFile = originalSize > 500 * 1024; // 大于500KB的文件
-    const targetWidth = isLargeFile ? MAX_IMAGE_WIDTH_AGGRESSIVE : MAX_IMAGE_WIDTH;
-    const targetHeight = isLargeFile ? MAX_IMAGE_HEIGHT_AGGRESSIVE : MAX_IMAGE_HEIGHT;
+    const isLargeFile = originalSize > 500 * 1024 // 大于500KB的文件
+    const targetWidth = isLargeFile ? MAX_IMAGE_WIDTH_AGGRESSIVE : MAX_IMAGE_WIDTH
+    const targetHeight = isLargeFile ? MAX_IMAGE_HEIGHT_AGGRESSIVE : MAX_IMAGE_HEIGHT
 
     if (isLargeFile) {
-      console.log(`📦 检测到大文件(${originalSizeKB}KB)，使用激进压缩: ${targetWidth}x${targetHeight}`);
+      console.log(`📦 检测到大文件(${originalSizeKB}KB)，使用激进压缩: ${targetWidth}x${targetHeight}`)
     }
 
     // Resize image if too large (maintain aspect ratio)
-    let resizedImage = image;
+    let resizedImage = image
     if (originalWidth > targetWidth || originalHeight > targetHeight) {
       // Jimp.RESIZE_BEZIER provides good quality for downscaling
       resizedImage.scaleToFit({
         w: targetWidth,
         h: targetHeight,
         mode: ResizeStrategy.BEZIER,
-      });
-      console.log(`📐 图片已缩放至: ${resizedImage.width}x${resizedImage.height}`);
+      })
+      console.log(`📐 图片已缩放至: ${resizedImage.width}x${resizedImage.height}`)
     }
 
-    let compressedBuffer: Buffer;
-    const finalMimeType = 'image/jpeg';
+    let compressedBuffer: Buffer
+    const finalMimeType = 'image/jpeg'
 
     // Convert all images to JPEG for maximum compression
-    console.log('🎨 转换为JPEG格式进行激进压缩...');
+    console.log('🎨 转换为JPEG格式进行激进压缩...')
 
     // Try different quality levels and choose the best compression
     const jpegNormal = await resizedImage.getBuffer(JimpMime.jpeg, {
       quality: JPEG_QUALITY,
-    });
+    })
     const jpegAggressive = await resizedImage.getBuffer(JimpMime.jpeg, {
       quality: JPEG_QUALITY_AGGRESSIVE,
-    });
+    })
 
     // Choose the version with better compression
-    compressedBuffer = jpegAggressive.length < jpegNormal.length ? jpegAggressive : jpegNormal;
-    const selectedQuality = jpegAggressive.length < jpegNormal.length ? JPEG_QUALITY_AGGRESSIVE : JPEG_QUALITY;
+    compressedBuffer = jpegAggressive.length < jpegNormal.length ? jpegAggressive : jpegNormal
+    const selectedQuality = jpegAggressive.length < jpegNormal.length ? JPEG_QUALITY_AGGRESSIVE : JPEG_QUALITY
 
-    console.log(`📊 选择JPEG质量: ${selectedQuality} (${Math.round(compressedBuffer.length/1024)}KB)`);
+    console.log(`📊 选择JPEG质量: ${selectedQuality} (${Math.round(compressedBuffer.length/1024)}KB)`)
 
     // 4MB兜底机制：如果压缩后仍然大于4MB，继续缩小尺寸
-    const maxSize = 4 * 1024 * 1024; // 4MB
+    const maxSize = 4 * 1024 * 1024 // 4MB
     if (compressedBuffer.length > maxSize) {
-      console.log(`⚠️  压缩后文件仍然过大(${Math.round(compressedBuffer.length/1024/1024)}MB)，启动兜底压缩机制...`);
+      console.log(`⚠️  压缩后文件仍然过大(${Math.round(compressedBuffer.length/1024/1024)}MB)，启动兜底压缩机制...`)
 
-      const currentImage = resizedImage;
-      let currentBuffer = compressedBuffer;
-      let attempts = 0;
-      const maxAttempts = 5;
+      const currentImage = resizedImage
+      let currentBuffer = compressedBuffer
+      let attempts = 0
+      const maxAttempts = 5
 
       while (currentBuffer.length > maxSize && attempts < maxAttempts) {
-        attempts++;
+        attempts++
         // 每次将尺寸缩小20%
-        const currentWidth = currentImage.width;
-        const currentHeight = currentImage.height;
-        const newWidth = Math.floor(currentWidth * 0.8);
-        const newHeight = Math.floor(currentHeight * 0.8);
+        const currentWidth = currentImage.width
+        const currentHeight = currentImage.height
+        const newWidth = Math.floor(currentWidth * 0.8)
+        const newHeight = Math.floor(currentHeight * 0.8)
 
-        console.log(`🔄 兜底压缩第${attempts}次: ${currentWidth}x${currentHeight} → ${newWidth}x${newHeight}`);
+        console.log(`🔄 兜底压缩第${attempts}次: ${currentWidth}x${currentHeight} → ${newWidth}x${newHeight}`)
 
         currentImage.resize({
           w: newWidth,
           h: newHeight,
           mode: ResizeStrategy.BEZIER,
-        });
+        })
 
         // 使用最激进的质量
         currentBuffer = await currentImage.getBuffer(JimpMime.jpeg, {
           quality: JPEG_QUALITY_AGGRESSIVE,
-        });
+        })
 
-        console.log(`📏 当前大小: ${Math.round(currentBuffer.length/1024)}KB`);
+        console.log(`📏 当前大小: ${Math.round(currentBuffer.length/1024)}KB`)
       }
 
       if (currentBuffer.length <= maxSize) {
-        console.log(`✅ 兜底压缩成功！最终尺寸: ${currentImage.width}x${currentImage.height}`);
-        compressedBuffer = currentBuffer;
-        resizedImage = currentImage;
+        console.log(`✅ 兜底压缩成功！最终尺寸: ${currentImage.width}x${currentImage.height}`)
+        compressedBuffer = currentBuffer
+        resizedImage = currentImage
       } else {
-        console.log(`⚠️  经过${maxAttempts}次尝试仍未达到4MB限制，使用当前最小版本`);
-        compressedBuffer = currentBuffer;
-        resizedImage = currentImage;
+        console.log(`⚠️  经过${maxAttempts}次尝试仍未达到4MB限制，使用当前最小版本`)
+        compressedBuffer = currentBuffer
+        resizedImage = currentImage
       }
     }
 
-    const compressedSize = compressedBuffer.length;
-    const compressedSizeKB = Math.round(compressedSize / 1024);
-    const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
+    const compressedSize = compressedBuffer.length
+    const compressedSizeKB = Math.round(compressedSize / 1024)
+    const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1)
 
-    const compressionInfo = `(compressed: ${originalSizeKB}KB → ${compressedSizeKB}KB, saved ${compressionRatio}%)`;
-    console.log(`✅ 压缩完成 ${compressionInfo}`);
+    const compressionInfo = `(compressed: ${originalSizeKB}KB → ${compressedSizeKB}KB, saved ${compressionRatio}%)`
+    console.log(`✅ 压缩完成 ${compressionInfo}`)
 
     return {
       buffer: compressedBuffer,
       mimeType: finalMimeType,
-      compressionInfo
+      compressionInfo,
     };
   } catch (error) {
     // If compression fails, return original
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('❌ 图片压缩失败，使用原图:', errorMessage);
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('❌ 图片压缩失败，使用原图:', errorMessage)
 
     return {
       buffer: imageBuffer,
       mimeType,
-      compressionInfo: `(compression failed: ${errorMessage})`
+      compressionInfo: `(compression failed: ${errorMessage})`,
     };
   }
 }
@@ -280,32 +280,32 @@ async function compressImage(
  * @returns Promise that resolves to true if it's a Linux device tree file.
  */
 async function isLinuxDeviceTreeFile(filePath: string): Promise<boolean> {
-  let fileHandle: fs.promises.FileHandle | undefined;
+  let fileHandle: fs.promises.FileHandle | undefined
   try {
-    fileHandle = await fs.promises.open(filePath, 'r');
+    fileHandle = await fs.promises.open(filePath, 'r')
 
     // Read first 2KB to handle copyright headers
-    const buffer = Buffer.alloc(2048);
-    const result = await fileHandle.read(buffer, 0, buffer.length, 0);
+    const buffer = Buffer.alloc(2048)
+    const result = await fileHandle.read(buffer, 0, buffer.length, 0)
 
-    if (result.bytesRead === 0) return false;
+    if (result.bytesRead === 0) return false
 
     // Quick binary check - if contains null bytes, likely binary audio file
     if (buffer.slice(0, result.bytesRead).includes(0)) {
-      return false;
+      return false
     }
 
-    const content = buffer.slice(0, result.bytesRead).toString('utf-8');
+    const content = buffer.slice(0, result.bytesRead).toString('utf-8')
 
     // Simple feature check: any device tree characteristic indicates it's a DT file
-    return /\/\/\s*SPDX-License-Identifier:|\/dts-v1\/|#include.*dt-bindings|compatible\s*=|#address-cells|&\w+/.test(content);
+    return /\/\/\s*SPDX-License-Identifier:|\/dts-v1\/|#include.*dt-bindings|compatible\s*=|#address-cells|&\w+/.test(content)
 
   } catch (_error) {
-    return false;
+    return false
   } finally {
     if (fileHandle) {
       try {
-        await fileHandle.close();
+        await fileHandle.close()
       } catch {
         // Ignore close errors
       }
@@ -321,47 +321,47 @@ async function isLinuxDeviceTreeFile(filePath: string): Promise<boolean> {
 export async function detectFileType(
   filePath: string,
 ): Promise<'text' | 'image' | 'pdf' | 'audio' | 'video' | 'binary' | 'svg' | 'excel' | 'word'> {
-  const ext = path.extname(filePath).toLowerCase();
+  const ext = path.extname(filePath).toLowerCase()
 
   // The mimetype for "ts" is MPEG transport stream (a video format) but we want
   // to assume these are typescript files instead.
   if (ext === '.ts') {
-    return 'text';
+    return 'text'
   }
 
   if (ext === '.svg') {
-    return 'svg';
+    return 'svg'
   }
 
   // Office file detection
   if (['.xlsx', '.xls'].includes(ext)) {
-    return 'excel';
+    return 'excel'
   }
   if (['.docx', '.doc'].includes(ext)) {
-    return 'word';
+    return 'word'
   }
 
   // DTS/DTSI files intelligent detection
   if (ext === '.dts' || ext === '.dtsi') {
     if (await isLinuxDeviceTreeFile(filePath)) {
-      return 'text';
+      return 'text'
     }
     // If not a device tree file, continue with MIME type processing (might be audio DTS)
   }
 
-  const lookedUpMimeType = mime.lookup(filePath); // Returns false if not found, or the mime type string
+  const lookedUpMimeType = mime.lookup(filePath) // Returns false if not found, or the mime type string
   if (lookedUpMimeType) {
     if (lookedUpMimeType.startsWith('image/')) {
-      return 'image';
+      return 'image'
     }
     if (lookedUpMimeType.startsWith('audio/')) {
-      return 'audio';
+      return 'audio'
     }
     if (lookedUpMimeType.startsWith('video/')) {
-      return 'video';
+      return 'video'
     }
     if (lookedUpMimeType === 'application/pdf') {
-      return 'pdf';
+      return 'pdf'
     }
   }
 
@@ -386,16 +386,16 @@ export async function detectFileType(
       '.ppt', '.pptx', '.odt', '.ods', '.odp',
     ].includes(ext)
   ) {
-    return 'binary';
+    return 'binary'
   }
 
   // Fall back to content-based check if mime type wasn't conclusive for image/pdf
   // and it's not a known binary extension.
   if (await isBinaryFile(filePath)) {
-    return 'binary';
+    return 'binary'
   }
 
-  return 'text';
+  return 'text'
 }
 
 /**
@@ -405,65 +405,65 @@ export async function detectFileType(
  */
 async function extractExcelContent(filePath: string): Promise<string> {
   try {
-    const XLSX = await import('xlsx');
+    const XLSX = await import('xlsx')
     // Read file as buffer first
-    const fileBuffer = fs.readFileSync(filePath);
+    const fileBuffer = fs.readFileSync(filePath)
 
     // Use XLSX.read instead of XLSX.readFile for ES modules
-    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-    let content = '';
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' })
+    let content = ''
 
     /**
      * Clean cell content by removing excess whitespace and control characters
      */
     const cleanCellContent = (cell: unknown): string => {
-      if (cell === null || cell === undefined) return '';
-      let text = String(cell);
+      if (cell === null || cell === undefined) return ''
+      let text = String(cell)
       // Remove control characters (except newlines and tabs)
-      text = [...text].filter(char => {
-        const code = char.charCodeAt(0);
-        return !(code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31) || code === 127);
-      }).join('');
+      text = [...text].filter((char) => {
+        const code = char.charCodeAt(0)
+        return !(code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31) || code === 127)
+      }).join('')
       // Normalize multiple spaces to single space
-      text = text.replace(/\s+/g, ' ');
+      text = text.replace(/\s+/g, ' ')
       // Trim leading and trailing whitespace
-      return text.trim();
+      return text.trim()
     };
 
     // Process each sheet
     workbook.SheetNames.forEach((sheetName, index) => {
-      const worksheet = workbook.Sheets[sheetName];
+      const worksheet = workbook.Sheets[sheetName]
 
       // Add sheet header
       if (workbook.SheetNames.length > 1) {
-        content += `\n=== Sheet ${index + 1}: ${sheetName} ===\n`;
+        content += `\n=== Sheet ${index + 1}: ${sheetName} ===\n`
       }
 
       // Convert to array of arrays (rows and columns)
       const jsonData: unknown[][] = XLSX.utils.sheet_to_json(worksheet, {
         header: 1,
         defval: '', // Use empty string for empty cells
-        blankrows: false // Skip completely blank rows
+        blankrows: false, // Skip completely blank rows
       });
 
       // Format as tab-separated values
       jsonData.forEach((row: unknown[], _rowIndex) => {
-        const cleanedRow = row.map(cleanCellContent);
+        const cleanedRow = row.map(cleanCellContent)
         // Only add rows that have at least one non-empty cell
         if (cleanedRow.some(cell => cell.length > 0)) {
-          content += cleanedRow.join('\t') + '\n';
+          content += cleanedRow.join('\t') + '\n'
         }
-      });
+      })
 
       if (index < workbook.SheetNames.length - 1) {
-        content += '\n'; // Add spacing between sheets
+        content += '\n' // Add spacing between sheets
       }
-    });
+    })
 
-    return content.trim();
+    return content.trim()
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to read Excel file: ${errorMessage}`);
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to read Excel file: ${errorMessage}`)
   }
 }
 
@@ -474,18 +474,18 @@ async function extractExcelContent(filePath: string): Promise<string> {
  */
 async function extractWordContent(filePath: string): Promise<string> {
   try {
-    const { default: mammoth } = await import('mammoth');
-    const result = await mammoth.extractRawText({ path: filePath });
+    const { default: mammoth } = await import('mammoth')
+    const result = await mammoth.extractRawText({ path: filePath })
 
     // Check for conversion warnings
     if (result.messages && result.messages.length > 0) {
-      console.warn(`Word document conversion warnings for ${filePath}:`, result.messages);
+      console.warn(`Word document conversion warnings for ${filePath}:`, result.messages)
     }
 
-    return result.value;
+    return result.value
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to read Word document: ${errorMessage}`);
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to read Word document: ${errorMessage}`)
   }
 }
 
@@ -498,15 +498,15 @@ async function extractWordContent(filePath: string): Promise<string> {
  * Multi-library PDF text extraction with pure JavaScript fallbacks
  */
 async function extractPdfTextUncached(filePath: string): Promise<string> {
-  const fileName = path.basename(filePath);
-  const stats = await fs.promises.stat(filePath);
-  const largePdf = stats.size >= 12 * 1024 * 1024;
+  const fileName = path.basename(filePath)
+  const stats = await fs.promises.stat(filePath)
+  const largePdf = stats.size >= 12 * 1024 * 1024
 
   // Large PDFs are often simple text exports. pdf-parse is usually faster for
   // that case, so try it first and keep pdf2json as the layout-heavy fallback.
   if (largePdf) {
     try {
-      return await extractPdfWithPdfParse(filePath);
+      return await extractPdfWithPdfParse(filePath)
     } catch {
       // Continue to the standard fallback chain below.
     }
@@ -514,19 +514,19 @@ async function extractPdfTextUncached(filePath: string): Promise<string> {
 
   // Method 1: Try pdf2json first (better for complex PDFs, zero dependencies)
   try {
-    return await extractPdfWithPdf2json(filePath);
+    return await extractPdfWithPdf2json(filePath)
   } catch (pdf2jsonError) {
     // pdf2json failed, trying pdf-parse fallback
 
     // Method 2: Try original pdf-parse (fallback)
     try {
-      return await extractPdfWithPdfParse(filePath);
+      return await extractPdfWithPdfParse(filePath)
     } catch (pdfParseError) {
       // Both PDF parsing methods failed
 
       // Return helpful error message with file info
-      const stats = await fs.promises.stat(filePath);
-      const fileSize = Math.round(stats.size / 1024);
+      const stats = await fs.promises.stat(filePath)
+      const fileSize = Math.round(stats.size / 1024)
 
       return `PDF文件解析失败: ${fileName}
 文件大小: ${fileSize} KB
@@ -541,58 +541,58 @@ async function extractPdfTextUncached(filePath: string): Promise<string> {
 3. 可以尝试将PDF转换为图片格式后重新处理
 4. 或者手动复制粘贴PDF中的文本内容
 
-文件确实存在且可访问，但内容无法自动提取。`;
+文件确实存在且可访问，但内容无法自动提取。`
     }
   }
 }
 
 export interface PdfTextCacheOptions {
-  cacheDir?: string;
-  extractor?: (filePath: string) => Promise<string>;
+  cacheDir?: string
+  extractor?: (filePath: string) => Promise<string>
 }
 
 export interface PdfTextCacheResult {
-  text: string;
-  cacheHit: boolean;
+  text: string
+  cacheHit: boolean
 }
 
-const pdfExtractionsInFlight = new Map<string, Promise<PdfTextCacheResult>>();
+const pdfExtractionsInFlight = new Map<string, Promise<PdfTextCacheResult>>()
 
 function resolvePdfTextCacheDir(): string {
-  const explicit = process.env['CLAWMASTER_PDF_TEXT_CACHE_DIR']?.trim();
-  if (explicit) return explicit;
-  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
-  if (userDir) return path.join(userDir, 'cache', 'pdf-text');
+  const explicit = process.env['CLAWMASTER_PDF_TEXT_CACHE_DIR']?.trim()
+  if (explicit) return explicit
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim()
+  if (userDir) return path.join(userDir, 'cache', 'pdf-text')
   if (process.env['NODE_ENV'] === 'test' || process.env['VITEST']) {
-    return path.join(os.tmpdir(), 'clawmaster-pdf-text-cache-tests', String(process.pid));
+    return path.join(os.tmpdir(), 'clawmaster-pdf-text-cache-tests', String(process.pid))
   }
-  return path.join(os.homedir(), '.clawmaster-user', 'cache', 'pdf-text');
+  return path.join(os.homedir(), '.clawmaster-user', 'cache', 'pdf-text')
 }
 
 async function pdfCacheKey(filePath: string): Promise<string> {
-  const stats = await fs.promises.stat(filePath, { bigint: true });
-  const contentHash = createHash('sha256');
-  const size = Number(stats.size);
-  const sampleSize = 64 * 1024;
+  const stats = await fs.promises.stat(filePath, { bigint: true })
+  const contentHash = createHash('sha256')
+  const size = Number(stats.size)
+  const sampleSize = 64 * 1024
   if (size <= sampleSize * 3) {
     for await (const chunk of fs.createReadStream(filePath)) {
-      contentHash.update(chunk as Buffer);
+      contentHash.update(chunk as Buffer)
     }
   } else {
     const positions = [
       0,
       Math.max(0, Math.floor(size / 2) - Math.floor(sampleSize / 2)),
       Math.max(0, size - sampleSize),
-    ];
-    const handle = await fs.promises.open(filePath, 'r');
+    ]
+    const handle = await fs.promises.open(filePath, 'r')
     try {
       for (const position of positions) {
-        const buffer = Buffer.allocUnsafe(sampleSize);
-        const { bytesRead } = await handle.read(buffer, 0, sampleSize, position);
-        contentHash.update(buffer.subarray(0, bytesRead));
+        const buffer = Buffer.allocUnsafe(sampleSize)
+        const { bytesRead } = await handle.read(buffer, 0, sampleSize, position)
+        contentHash.update(buffer.subarray(0, bytesRead))
       }
     } finally {
-      await handle.close();
+      await handle.close()
     }
   }
   return createHash('sha256')
@@ -603,7 +603,7 @@ async function pdfCacheKey(filePath: string): Promise<string> {
       mtimeNs: stats.mtimeNs.toString(),
       content: contentHash.digest('hex'),
     }))
-    .digest('hex');
+    .digest('hex')
 }
 
 /**
@@ -617,43 +617,43 @@ export async function extractPdfTextWithCache(
   filePath: string,
   options: PdfTextCacheOptions = {},
 ): Promise<PdfTextCacheResult> {
-  const cacheDir = options.cacheDir ?? resolvePdfTextCacheDir();
-  const key = await pdfCacheKey(filePath);
-  const cachePath = path.join(cacheDir, `${key}.json`);
+  const cacheDir = options.cacheDir ?? resolvePdfTextCacheDir()
+  const key = await pdfCacheKey(filePath)
+  const cachePath = path.join(cacheDir, `${key}.json`)
   try {
-    const cached = JSON.parse(await fs.promises.readFile(cachePath, 'utf8')) as { text?: unknown };
-    if (typeof cached.text === 'string') return { text: cached.text, cacheHit: true };
+    const cached = JSON.parse(await fs.promises.readFile(cachePath, 'utf8')) as { text?: unknown }
+    if (typeof cached.text === 'string') return { text: cached.text, cacheHit: true }
   } catch {
     // Missing/corrupt cache entries are normal misses.
   }
 
-  const inFlightKey = `${cacheDir}\0${key}`;
-  const active = pdfExtractionsInFlight.get(inFlightKey);
-  if (active) return active;
+  const inFlightKey = `${cacheDir}\0${key}`
+  const active = pdfExtractionsInFlight.get(inFlightKey)
+  if (active) return active
 
   const extraction = (async (): Promise<PdfTextCacheResult> => {
-    const extractor = options.extractor ?? extractPdfTextUncached;
-    const text = await extractor(filePath);
+    const extractor = options.extractor ?? extractPdfTextUncached
+    const text = await extractor(filePath)
     if (!text.startsWith('PDF文件解析失败:') && Buffer.byteLength(text, 'utf8') <= 8 * 1024 * 1024) {
-      await fs.promises.mkdir(cacheDir, { recursive: true, mode: 0o700 }).catch(() => undefined);
-      if (process.platform !== 'win32') await fs.promises.chmod(cacheDir, 0o700).catch(() => undefined);
-      const tempPath = `${cachePath}.tmp-${process.pid}-${Date.now()}`;
+      await fs.promises.mkdir(cacheDir, { recursive: true, mode: 0o700 }).catch(() => undefined)
+      if (process.platform !== 'win32') await fs.promises.chmod(cacheDir, 0o700).catch(() => undefined)
+      const tempPath = `${cachePath}.tmp-${process.pid}-${Date.now()}`
       await fs.promises.writeFile(tempPath, JSON.stringify({ version: 1, text }), {
         encoding: 'utf8',
         mode: 0o600,
-      }).catch(() => undefined);
+      }).catch(() => undefined)
       if (fs.existsSync(tempPath)) {
-        await fs.promises.rename(tempPath, cachePath).catch(() => undefined);
-        if (process.platform !== 'win32') await fs.promises.chmod(cachePath, 0o600).catch(() => undefined);
+        await fs.promises.rename(tempPath, cachePath).catch(() => undefined)
+        if (process.platform !== 'win32') await fs.promises.chmod(cachePath, 0o600).catch(() => undefined)
       }
     }
-    return { text, cacheHit: false };
-  })();
-  pdfExtractionsInFlight.set(inFlightKey, extraction);
+    return { text, cacheHit: false }
+  })()
+  pdfExtractionsInFlight.set(inFlightKey, extraction)
   try {
-    return await extraction;
+    return await extraction
   } finally {
-    pdfExtractionsInFlight.delete(inFlightKey);
+    pdfExtractionsInFlight.delete(inFlightKey)
   }
 }
 
@@ -663,60 +663,60 @@ export async function extractPdfTextWithCache(
 async function extractPdfWithPdf2json(filePath: string): Promise<string> {
   try {
     // Dynamic import to avoid initialization issues
-    const PDFParser = (await import('pdf2json')).default;
+    const PDFParser = (await import('pdf2json')).default
 
     return new Promise((resolve, reject) => {
-      const pdfParser = new PDFParser();
+      const pdfParser = new PDFParser()
 
       // Set shorter timeout for better UX
       const timeout = setTimeout(() => {
-        reject(new Error('pdf2json parsing timeout after 6 seconds'));
-      }, 6000);
+        reject(new Error('pdf2json parsing timeout after 6 seconds'))
+      }, 6000)
 
       pdfParser.on('pdfParser_dataError', (errData: unknown) => {
-        clearTimeout(timeout);
-        const parserError = errData && typeof errData === 'object' ? (errData as { parserError?: string }).parserError : undefined;
-        reject(new Error(`pdf2json parsing error: ${parserError || 'unknown error'}`));
+        clearTimeout(timeout)
+        const parserError = errData && typeof errData === 'object' ? (errData as { parserError?: string }).parserError : undefined
+        reject(new Error(`pdf2json parsing error: ${parserError || 'unknown error'}`))
       });
 
       pdfParser.on('pdfParser_dataReady', (pdfData: unknown) => {
-        clearTimeout(timeout);
+        clearTimeout(timeout)
         try {
-          let fullText = '';
+          let fullText = ''
 
-          const pages = pdfData && typeof pdfData === 'object' ? (pdfData as { Pages?: unknown[] }).Pages : undefined;
+          const pages = pdfData && typeof pdfData === 'object' ? (pdfData as { Pages?: unknown[] }).Pages : undefined
           if (pages) {
             pages.forEach((page: unknown) => {
-              const pageData = page && typeof page === 'object' ? page as { Texts?: unknown[] } : {};
+              const pageData = page && typeof page === 'object' ? page as { Texts?: unknown[] } : {}
               if (pageData.Texts) {
                 pageData.Texts.forEach((text: unknown) => {
-                  const textData = text && typeof text === 'object' ? text as { R?: Array<{ T?: string }> } : {};
+                  const textData = text && typeof text === 'object' ? text as { R?: Array<{ T?: string }> } : {}
                   if (textData.R?.[0]?.T) {
                     // Decode URI components and add spaces between text elements
-                    fullText += decodeURIComponent(textData.R[0].T) + ' ';
+                    fullText += decodeURIComponent(textData.R[0].T) + ' '
                   }
-                });
+                })
               }
-              fullText += '\n'; // Add newline after each page
+              fullText += '\n' // Add newline after each page
             });
           }
 
-          const cleanedText = fullText.trim();
+          const cleanedText = fullText.trim()
           if (cleanedText) {
-            resolve(cleanPdfText(cleanedText));
+            resolve(cleanPdfText(cleanedText))
           } else {
-            reject(new Error('pdf2json extracted no text content'));
+            reject(new Error('pdf2json extracted no text content'))
           }
         } catch (parseErr) {
-          reject(new Error(`pdf2json data processing error: ${parseErr}`));
+          reject(new Error(`pdf2json data processing error: ${parseErr}`))
         }
-      });
+      })
 
       // Load PDF file
-      pdfParser.loadPDF(filePath);
+      pdfParser.loadPDF(filePath)
     });
   } catch (importError) {
-    throw new Error(`Failed to load pdf2json library: ${importError}`);
+    throw new Error(`Failed to load pdf2json library: ${importError}`)
   }
 }
 
@@ -725,25 +725,25 @@ async function extractPdfWithPdf2json(filePath: string): Promise<string> {
  */
 async function extractPdfWithPdfParse(filePath: string): Promise<string> {
   // Dynamic import to avoid initialization issues with pdf-parse
-  const pdfParse = (await import('pdf-parse')).default;
-  const dataBuffer = await fs.promises.readFile(filePath);
+  const pdfParse = (await import('pdf-parse')).default
+  const dataBuffer = await fs.promises.readFile(filePath)
 
   // Shorter timeout for better UX
-  const PDF_PARSE_TIMEOUT = 4000; // 4 seconds
+  const PDF_PARSE_TIMEOUT = 4000 // 4 seconds
 
-  const parsePromise = pdfParse(dataBuffer);
+  const parsePromise = pdfParse(dataBuffer)
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('pdf-parse timeout after 4 seconds')), PDF_PARSE_TIMEOUT);
+    setTimeout(() => reject(new Error('pdf-parse timeout after 4 seconds')), PDF_PARSE_TIMEOUT)
   });
 
-  const pdfData = await Promise.race([parsePromise, timeoutPromise]);
+  const pdfData = await Promise.race([parsePromise, timeoutPromise])
 
   if (!pdfData || !pdfData.text) {
-    throw new Error('pdf-parse extracted no text content');
+    throw new Error('pdf-parse extracted no text content')
   }
 
   // Clean up the extracted text
-  return cleanPdfText(pdfData.text);
+  return cleanPdfText(pdfData.text)
 }
 
 /**
@@ -763,16 +763,16 @@ function cleanPdfText(rawText: string): string {
     .split('\n')
     .map(line => line.trim())
     .join('\n')
-    .trim();
+    .trim()
 }
 
 export interface ProcessedFileReadResult {
-  llmContent: PartUnion; // string for text, Part for image/pdf/unreadable binary
-  returnDisplay: string;
-  error?: string; // Optional error message for the LLM if file processing failed
-  isTruncated?: boolean; // For text files, indicates if content was truncated
-  originalLineCount?: number; // For text files
-  linesShown?: [number, number]; // For text files [startLine, endLine] (1-based for display)
+  llmContent: PartUnion // string for text, Part for image/pdf/unreadable binary
+  returnDisplay: string
+  error?: string // Optional error message for the LLM if file processing failed
+  isTruncated?: boolean // For text files, indicates if content was truncated
+  originalLineCount?: number // For text files
+  linesShown?: [number, number] // For text files [startLine, endLine] (1-based for display)
 }
 
 /**
@@ -796,20 +796,20 @@ export async function processSingleFileContent(
         llmContent: '',
         returnDisplay: 'File not found.',
         error: `File not found: ${filePath}`,
-      };
+      }
     }
-    const stats = await fs.promises.stat(filePath);
+    const stats = await fs.promises.stat(filePath)
     if (stats.isDirectory()) {
       return {
         llmContent: '',
         returnDisplay: 'Path is a directory.',
         error: `Path is a directory, not a file: ${filePath}`,
-      };
+      }
     }
 
-    const fileSizeInBytes = stats.size;
+    const fileSizeInBytes = stats.size
     // 20MB limit
-    const maxFileSize = 20 * 1024 * 1024;
+    const maxFileSize = 20 * 1024 * 1024
 
     if (fileSizeInBytes > maxFileSize) {
       throw new Error(
@@ -817,92 +817,92 @@ export async function processSingleFileContent(
           fileSizeInBytes /
           (1024 * 1024)
         ).toFixed(2)}MB)`,
-      );
+      )
     }
 
-    const fileType = await detectFileType(filePath);
+    const fileType = await detectFileType(filePath)
     const relativePathForDisplay = path
       .relative(rootDirectory, filePath)
-      .replace(/\\/g, '/');
+      .replace(/\\/g, '/')
 
     switch (fileType) {
       case 'binary': {
         return {
           llmContent: `Cannot display content of binary file: ${relativePathForDisplay}`,
           returnDisplay: `Skipped binary file: ${relativePathForDisplay}`,
-        };
+        }
       }
       case 'svg': {
-        const SVG_MAX_SIZE_BYTES = 1 * 1024 * 1024;
+        const SVG_MAX_SIZE_BYTES = 1 * 1024 * 1024
         if (stats.size > SVG_MAX_SIZE_BYTES) {
           return {
             llmContent: `Cannot display content of SVG file larger than 1MB: ${relativePathForDisplay}`,
             returnDisplay: `Skipped large SVG file (>1MB): ${relativePathForDisplay}`,
-          };
+          }
         }
-        const content = await fs.promises.readFile(filePath, 'utf8');
+        const content = await fs.promises.readFile(filePath, 'utf8')
         return {
           llmContent: content,
           returnDisplay: `Read SVG as text: ${relativePathForDisplay}`,
-        };
+        }
       }
       case 'text': {
-        const content = await fs.promises.readFile(filePath, 'utf8');
-        const lines = content.split('\n');
-        const originalLineCount = lines.length;
+        const content = await fs.promises.readFile(filePath, 'utf8')
+        const lines = content.split('\n')
+        const originalLineCount = lines.length
 
-        const startLine = offset || 0;
+        const startLine = offset || 0
         const effectiveLimit =
-          limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit;
+          limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit
         // Ensure endLine does not exceed originalLineCount
-        const endLine = Math.min(startLine + effectiveLimit, originalLineCount);
+        const endLine = Math.min(startLine + effectiveLimit, originalLineCount)
         // Ensure selectedLines doesn't try to slice beyond array bounds if startLine is too high
-        const actualStartLine = Math.min(startLine, originalLineCount);
-        const selectedLines = lines.slice(actualStartLine, endLine);
+        const actualStartLine = Math.min(startLine, originalLineCount)
+        const selectedLines = lines.slice(actualStartLine, endLine)
 
-        let linesWereTruncatedInLength = false;
+        let linesWereTruncatedInLength = false
         const formattedLines = selectedLines.map((line) => {
           if (line.length > MAX_LINE_LENGTH_TEXT_FILE) {
-            linesWereTruncatedInLength = true;
+            linesWereTruncatedInLength = true
             return (
               line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]'
-            );
+            )
           }
-          return line;
+          return line
         });
 
-        const contentRangeTruncated = endLine < originalLineCount;
-        const isTruncated = contentRangeTruncated || linesWereTruncatedInLength;
+        const contentRangeTruncated = endLine < originalLineCount
+        const isTruncated = contentRangeTruncated || linesWereTruncatedInLength
 
-        let llmTextContent = '';
+        let llmTextContent = ''
         if (contentRangeTruncated) {
-          llmTextContent += `[File content truncated: showing lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} total lines. Use offset/limit parameters to view more.]\n`;
+          llmTextContent += `[File content truncated: showing lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} total lines. Use offset/limit parameters to view more.]\n`
         } else if (linesWereTruncatedInLength) {
-          llmTextContent += `[File content partially truncated: some lines exceeded maximum length of ${MAX_LINE_LENGTH_TEXT_FILE} characters.]\n`;
+          llmTextContent += `[File content partially truncated: some lines exceeded maximum length of ${MAX_LINE_LENGTH_TEXT_FILE} characters.]\n`
         }
-        llmTextContent += formattedLines.join('\n');
+        llmTextContent += formattedLines.join('\n')
 
         const displayInfo = isTruncated
           ? `read lines: ${actualStartLine + 1}-${endLine}`
-          : `(${endLine} lines)`;
+          : `(${endLine} lines)`
         return {
           llmContent: llmTextContent,
           returnDisplay: displayInfo,
           isTruncated,
           originalLineCount,
           linesShown: [actualStartLine + 1, endLine],
-        };
+        }
       }
       case 'image': {
-        const originalBuffer = await fs.promises.readFile(filePath);
+        const originalBuffer = await fs.promises.readFile(filePath)
         const originalMimeType =
-          mime.lookup(filePath) || 'application/octet-stream';
+          mime.lookup(filePath) || 'application/octet-stream'
 
         // Compress image to optimize token usage
         const { buffer: compressedBuffer, mimeType: compressedMimeType, compressionInfo } =
-          await compressImage(originalBuffer, originalMimeType);
+          await compressImage(originalBuffer, originalMimeType)
 
-        const base64Data = compressedBuffer.toString('base64');
+        const base64Data = compressedBuffer.toString('base64')
 
         return {
           llmContent: {
@@ -912,181 +912,181 @@ export async function processSingleFileContent(
             },
           },
           returnDisplay: `Read ${fileType} file: ${relativePathForDisplay} ${compressionInfo}`,
-        };
+        }
       }
       case 'excel': {
         try {
-          const content = await extractExcelContent(filePath);
-          const lines = content.split('\n');
-          const originalLineCount = lines.length;
+          const content = await extractExcelContent(filePath)
+          const lines = content.split('\n')
+          const originalLineCount = lines.length
 
           // Apply the same offset/limit logic as text files
-          const startLine = offset || 0;
-          const effectiveLimit = limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit;
-          const endLine = Math.min(startLine + effectiveLimit, originalLineCount);
-          const actualStartLine = Math.min(startLine, originalLineCount);
-          const selectedLines = lines.slice(actualStartLine, endLine);
+          const startLine = offset || 0
+          const effectiveLimit = limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit
+          const endLine = Math.min(startLine + effectiveLimit, originalLineCount)
+          const actualStartLine = Math.min(startLine, originalLineCount)
+          const selectedLines = lines.slice(actualStartLine, endLine)
 
-          let linesWereTruncatedInLength = false;
+          let linesWereTruncatedInLength = false
           const formattedLines = selectedLines.map((line) => {
             if (line.length > MAX_LINE_LENGTH_TEXT_FILE) {
-              linesWereTruncatedInLength = true;
-              return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]';
+              linesWereTruncatedInLength = true
+              return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]'
             }
-            return line;
+            return line
           });
 
-          const contentRangeTruncated = endLine < originalLineCount;
-          const isTruncated = contentRangeTruncated || linesWereTruncatedInLength;
+          const contentRangeTruncated = endLine < originalLineCount
+          const isTruncated = contentRangeTruncated || linesWereTruncatedInLength
 
-          let llmTextContent = `Excel file content from ${relativePathForDisplay}:\n\n`;
+          let llmTextContent = `Excel file content from ${relativePathForDisplay}:\n\n`
           if (contentRangeTruncated) {
-            llmTextContent += `[Excel content truncated: showing lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} total lines. Use offset/limit parameters to view more.]\n`;
+            llmTextContent += `[Excel content truncated: showing lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} total lines. Use offset/limit parameters to view more.]\n`
           } else if (linesWereTruncatedInLength) {
-            llmTextContent += `[Excel content partially truncated: some lines exceeded maximum length of ${MAX_LINE_LENGTH_TEXT_FILE} characters.]\n`;
+            llmTextContent += `[Excel content partially truncated: some lines exceeded maximum length of ${MAX_LINE_LENGTH_TEXT_FILE} characters.]\n`
           }
-          llmTextContent += formattedLines.join('\n');
+          llmTextContent += formattedLines.join('\n')
 
           const displayInfo = isTruncated
             ? `read lines: ${actualStartLine + 1}-${endLine}`
-            : `${endLine} lines`;
+            : `${endLine} lines`
           return {
             llmContent: llmTextContent,
             returnDisplay: `Read Excel file: ${relativePathForDisplay} (${displayInfo})`,
             isTruncated,
             originalLineCount,
             linesShown: [actualStartLine + 1, endLine],
-          };
+          }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage = error instanceof Error ? error.message : String(error)
           return {
             llmContent: `Error reading Excel file ${relativePathForDisplay}: ${errorMessage}`,
             returnDisplay: `Error reading Excel file: ${relativePathForDisplay}`,
             error: `Error reading Excel file ${filePath}: ${errorMessage}`,
-          };
+          }
         }
       }
       case 'word': {
         try {
-          const content = await extractWordContent(filePath);
-          const lines = content.split('\n');
-          const originalLineCount = lines.length;
+          const content = await extractWordContent(filePath)
+          const lines = content.split('\n')
+          const originalLineCount = lines.length
 
           // Apply the same offset/limit logic as text files
-          const startLine = offset || 0;
-          const effectiveLimit = limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit;
-          const endLine = Math.min(startLine + effectiveLimit, originalLineCount);
-          const actualStartLine = Math.min(startLine, originalLineCount);
-          const selectedLines = lines.slice(actualStartLine, endLine);
+          const startLine = offset || 0
+          const effectiveLimit = limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit
+          const endLine = Math.min(startLine + effectiveLimit, originalLineCount)
+          const actualStartLine = Math.min(startLine, originalLineCount)
+          const selectedLines = lines.slice(actualStartLine, endLine)
 
-          let linesWereTruncatedInLength = false;
+          let linesWereTruncatedInLength = false
           const formattedLines = selectedLines.map((line) => {
             if (line.length > MAX_LINE_LENGTH_TEXT_FILE) {
-              linesWereTruncatedInLength = true;
-              return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]';
+              linesWereTruncatedInLength = true
+              return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]'
             }
-            return line;
+            return line
           });
 
-          const contentRangeTruncated = endLine < originalLineCount;
-          const isTruncated = contentRangeTruncated || linesWereTruncatedInLength;
+          const contentRangeTruncated = endLine < originalLineCount
+          const isTruncated = contentRangeTruncated || linesWereTruncatedInLength
 
-          let llmTextContent = `Word document content from ${relativePathForDisplay}:\n\n`;
+          let llmTextContent = `Word document content from ${relativePathForDisplay}:\n\n`
           if (contentRangeTruncated) {
-            llmTextContent += `[Word content truncated: showing lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} total lines. Use offset/limit parameters to view more.]\n`;
+            llmTextContent += `[Word content truncated: showing lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} total lines. Use offset/limit parameters to view more.]\n`
           } else if (linesWereTruncatedInLength) {
-            llmTextContent += `[Word content partially truncated: some lines exceeded maximum length of ${MAX_LINE_LENGTH_TEXT_FILE} characters.]\n`;
+            llmTextContent += `[Word content partially truncated: some lines exceeded maximum length of ${MAX_LINE_LENGTH_TEXT_FILE} characters.]\n`
           }
-          llmTextContent += formattedLines.join('\n');
+          llmTextContent += formattedLines.join('\n')
 
           const displayInfo = isTruncated
             ? `read lines: ${actualStartLine + 1}-${endLine}`
-            : `${endLine} lines`;
+            : `${endLine} lines`
           return {
             llmContent: llmTextContent,
             returnDisplay: `Read Word document: ${relativePathForDisplay} (${displayInfo})`,
             isTruncated,
             originalLineCount,
             linesShown: [actualStartLine + 1, endLine],
-          };
+          }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage = error instanceof Error ? error.message : String(error)
           return {
             llmContent: `Error reading Word document ${relativePathForDisplay}: ${errorMessage}`,
             returnDisplay: `Error reading Word document: ${relativePathForDisplay}`,
             error: `Error reading Word document ${filePath}: ${errorMessage}`,
-          };
+          }
         }
       }
       case 'pdf': {
         try {
-          const extraction = await extractPdfTextWithCache(filePath);
-          const extractedText = extraction.text;
-          const lines = extractedText.split('\n');
-          const originalLineCount = lines.length;
+          const extraction = await extractPdfTextWithCache(filePath)
+          const extractedText = extraction.text
+          const lines = extractedText.split('\n')
+          const originalLineCount = lines.length
 
           // Apply the same offset/limit logic as text files
-          const startLine = offset || 0;
-          const effectiveLimit = limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit;
-          const endLine = Math.min(startLine + effectiveLimit, originalLineCount);
-          const actualStartLine = Math.min(startLine, originalLineCount);
-          const selectedLines = lines.slice(actualStartLine, endLine);
+          const startLine = offset || 0
+          const effectiveLimit = limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit
+          const endLine = Math.min(startLine + effectiveLimit, originalLineCount)
+          const actualStartLine = Math.min(startLine, originalLineCount)
+          const selectedLines = lines.slice(actualStartLine, endLine)
 
           // Apply line length limits
-          let linesWereTruncatedInLength = false;
+          let linesWereTruncatedInLength = false
           const formattedLines = selectedLines.map((line) => {
             if (line.length > MAX_LINE_LENGTH_TEXT_FILE) {
-              linesWereTruncatedInLength = true;
-              return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]';
+              linesWereTruncatedInLength = true
+              return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]'
             }
-            return line;
+            return line
           });
 
-          const contentRangeTruncated = endLine < originalLineCount;
-          const isTruncated = contentRangeTruncated || linesWereTruncatedInLength;
+          const contentRangeTruncated = endLine < originalLineCount
+          const isTruncated = contentRangeTruncated || linesWereTruncatedInLength
 
-          let llmTextContent = `PDF document content from ${relativePathForDisplay}:\n\n`;
+          let llmTextContent = `PDF document content from ${relativePathForDisplay}:\n\n`
           if (contentRangeTruncated) {
-            llmTextContent += `[PDF content truncated: showing lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} total lines. Use offset/limit parameters to view more.]\n`;
+            llmTextContent += `[PDF content truncated: showing lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} total lines. Use offset/limit parameters to view more.]\n`
           } else if (linesWereTruncatedInLength) {
-            llmTextContent += `[PDF content partially truncated: some lines exceeded maximum length of ${MAX_LINE_LENGTH_TEXT_FILE} characters.]\n`;
+            llmTextContent += `[PDF content partially truncated: some lines exceeded maximum length of ${MAX_LINE_LENGTH_TEXT_FILE} characters.]\n`
           }
-          llmTextContent += formattedLines.join('\n');
+          llmTextContent += formattedLines.join('\n')
 
           const displayInfo = isTruncated
             ? `read lines: ${actualStartLine + 1}-${endLine}`
-            : `${endLine} lines`;
+            : `${endLine} lines`
           return {
             llmContent: llmTextContent, // Return as plain text, not inlineData
             returnDisplay: `Read PDF as text: ${relativePathForDisplay} (${displayInfo}${extraction.cacheHit ? ', cached' : ''})`,
             isTruncated,
             originalLineCount,
             linesShown: [actualStartLine + 1, endLine],
-          };
+          }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage = error instanceof Error ? error.message : String(error)
 
           // Provide user-friendly error messages
-          let userFriendlyMessage = '';
+          let userFriendlyMessage = ''
           if (errorMessage.includes('Invalid PDF') || errorMessage.includes('invalid')) {
-            userFriendlyMessage = 'The file appears to be corrupted or not a valid PDF.';
+            userFriendlyMessage = 'The file appears to be corrupted or not a valid PDF.'
           } else if (errorMessage.includes('Encrypted') || errorMessage.includes('password')) {
-            userFriendlyMessage = 'The PDF is password protected and cannot be read.';
+            userFriendlyMessage = 'The PDF is password protected and cannot be read.'
           } else {
-            userFriendlyMessage = 'Unable to extract text from this PDF file.';
+            userFriendlyMessage = 'Unable to extract text from this PDF file.'
           }
 
           return {
             llmContent: `Error reading PDF document ${relativePathForDisplay}: ${userFriendlyMessage}`,
             returnDisplay: `Error reading PDF document: ${relativePathForDisplay}`,
             error: `Error reading PDF document ${filePath}: ${errorMessage}`,
-          };
+          }
         }
       }
       case 'audio':
       case 'video': {
-        const contentBuffer = await fs.promises.readFile(filePath);
-        const base64Data = contentBuffer.toString('base64');
+        const contentBuffer = await fs.promises.readFile(filePath)
+        const base64Data = contentBuffer.toString('base64')
         return {
           llmContent: {
             inlineData: {
@@ -1095,27 +1095,27 @@ export async function processSingleFileContent(
             },
           },
           returnDisplay: `Read ${fileType} file: ${relativePathForDisplay}`,
-        };
+        }
       }
       default: {
         // Should not happen with current detectFileType logic
-        const exhaustiveCheck: never = fileType;
+        const exhaustiveCheck: never = fileType
         return {
           llmContent: `Unhandled file type: ${exhaustiveCheck}`,
           returnDisplay: `Skipped unhandled file type: ${relativePathForDisplay}`,
           error: `Unhandled file type for ${filePath}`,
-        };
+        }
       }
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error)
     const displayPath = path
       .relative(rootDirectory, filePath)
-      .replace(/\\/g, '/');
+      .replace(/\\/g, '/')
     return {
       llmContent: `Error reading file ${displayPath}: ${errorMessage}`,
       returnDisplay: `Error reading file ${displayPath}: ${errorMessage}`,
       error: `Error reading file ${filePath}: ${errorMessage}`,
-    };
+    }
   }
 }

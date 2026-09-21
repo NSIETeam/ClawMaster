@@ -248,5 +248,5 @@ async function initialize(){
   await Promise.all([loadBalance(),loadCodes('active'),loadTxns()])
 }
 initialize();
-</script></body></html>`;
+</script></body></html>`
 }

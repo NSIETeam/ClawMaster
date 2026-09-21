@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 import {
   isKernelOwnedPath,
   validateComponentManifest,
   type ClawMasterComponentManifest,
-} from './componentManifest.js';
+} from './componentManifest.js'
 
 describe('componentManifest', () => {
   it('accepts an organization-owned GUI shell component outside the kernel', () => {
@@ -25,13 +25,13 @@ describe('componentManifest', () => {
         themeTokens: ['components/gov-gui/tokens.css'],
       },
       permissions: [],
-    };
+    }
 
     expect(validateComponentManifest(manifest)).toEqual({
       ok: true,
       errors: [],
       warnings: [],
-    });
+    })
   });
 
   it('rejects organization components that claim kernel-owned paths', () => {
@@ -45,10 +45,10 @@ describe('componentManifest', () => {
       entrypoints: {
         tools: ['packages/core/src/core/turn.ts'],
       },
-    });
+    })
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join('\n')).toContain('must not own kernel paths');
+    expect(result.ok).toBe(false)
+    expect(result.errors.join('\n')).toContain('must not own kernel paths')
   });
 
   it('allows kernel-owned manifests to describe kernel update entrypoints', () => {
@@ -63,15 +63,15 @@ describe('componentManifest', () => {
         runtimeBins: ['packages/core/src/core/turn.ts'],
       },
       permissions: ['model:invoke'],
-    });
+    })
 
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(true)
   });
 
   it('identifies kernel-owned paths with normalized separators', () => {
-    expect(isKernelOwnedPath('packages/core/src/core/subAgent.ts')).toBe(true);
-    expect(isKernelOwnedPath('packages\\core\\src\\policy\\centralPolicy.ts')).toBe(true);
-    expect(isKernelOwnedPath('components/custom/tool.ts')).toBe(false);
+    expect(isKernelOwnedPath('packages/core/src/core/subAgent.ts')).toBe(true)
+    expect(isKernelOwnedPath('packages\\core\\src\\policy\\centralPolicy.ts')).toBe(true)
+    expect(isKernelOwnedPath('components/custom/tool.ts')).toBe(false)
   });
 
   it('rejects entrypoints that escape the component or use absolute paths', () => {
@@ -85,10 +85,10 @@ describe('componentManifest', () => {
       entrypoints: {
         tools: ['../packages/core/src/core/turn.ts', '/tmp/tool.ts'],
       },
-    });
+    })
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.join('\n')).toContain('project-relative paths');
+    expect(result.ok).toBe(false)
+    expect(result.errors.join('\n')).toContain('project-relative paths')
   });
 
   it('rejects duplicate entrypoints and permissions', () => {
@@ -103,10 +103,10 @@ describe('componentManifest', () => {
         tools: ['components/vendor/tool.ts', 'components/vendor/tool.ts'],
       },
       permissions: ['filesystem:read', 'filesystem:read'],
-    });
+    })
 
-    expect(result.ok).toBe(false);
-    expect(result.errors).toContain('entrypoints must not contain duplicate paths');
-    expect(result.errors).toContain('permissions must not contain duplicates');
+    expect(result.ok).toBe(false)
+    expect(result.errors).toContain('entrypoints must not contain duplicate paths')
+    expect(result.errors).toContain('permissions must not contain duplicates')
   });
-});
+})

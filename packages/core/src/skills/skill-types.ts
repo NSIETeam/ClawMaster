@@ -19,32 +19,32 @@
  */
 export interface Marketplace {
   /** Marketplace 唯一标识符（来源于仓库名或目录名） */
-  id: string;
+  id: string
   /** Marketplace 显示名称 */
-  name: string;
+  name: string
   /** Marketplace 描述 */
-  description?: string;
+  description?: string
   /** Marketplace 版本 */
-  version?: string;
+  version?: string
   /** 所有者信息 */
   owner?: {
-    name: string;
-    email?: string;
-  };
+    name: string
+    email?: string
+  }
   /** 来源类型 */
-  source: MarketplaceSource;
+  source: MarketplaceSource
   /** Git 仓库 URL (如果是 Git 来源) */
-  url?: string;
+  url?: string
   /** 本地路径 (如果是本地来源) */
-  path?: string;
+  path?: string
   /** 包含的 Plugins */
-  plugins: Plugin[];
+  plugins: Plugin[]
   /** Marketplace 配置文件路径 (.claude-plugin/marketplace.json) */
-  configPath?: string;
+  configPath?: string
   /** 最后更新时间 */
-  lastUpdated?: Date;
+  lastUpdated?: Date
   /** 是否为官方 Marketplace */
-  official?: boolean;
+  official?: boolean
 }
 
 /**
@@ -79,8 +79,8 @@ export enum SkillSource {
  * Plugin Item - 插件包含的具体项（Skill/Command/Agent）
  */
 export interface PluginItem {
-  path: string;
-  type: SkillType;
+  path: string
+  type: SkillType
 }
 
 /**
@@ -88,45 +88,45 @@ export interface PluginItem {
  */
 export interface Plugin {
   /** Plugin 唯一标识符 (marketplace:plugin-name) */
-  id: string;
+  id: string
   /** Plugin 显示名称 */
-  name: string;
+  name: string
   /** Plugin 描述 */
-  description: string;
+  description: string
   /** 所属 Marketplace ID */
-  marketplaceId: string;
+  marketplaceId: string
   /** Plugin 来源路径（相对于 Marketplace 根目录） */
-  source: string | PluginSource;
+  source: string | PluginSource
   /** 是否为严格模式 */
-  strict: boolean;
+  strict: boolean
   /** 包含的 Skills 路径列表 (Legacy) */
-  skillPaths: string[];
+  skillPaths: string[]
   /** 包含的 Items 列表 (New) */
-  items?: PluginItem[];
+  items?: PluginItem[]
   /** 解析后的 Skill 列表 */
-  skills?: Skill[];
+  skills?: Skill[]
   /** 安装状态 */
-  installed: boolean;
+  installed: boolean
   /** 启用状态 */
-  enabled: boolean;
+  enabled: boolean
   /** 安装时间 */
-  installedAt?: Date;
+  installedAt?: Date
   /** 版本 */
-  version?: string;
+  version?: string
   /** 作者信息 */
-  author?: { name: string; email?: string };
+  author?: { name: string; email?: string }
   /** 主页 */
-  homepage?: string;
+  homepage?: string
   /** 仓库地址 */
-  repository?: string;
+  repository?: string
   /** 许可证 */
-  license?: string;
+  license?: string
   /** 关键字 */
-  keywords?: string[];
+  keywords?: string[]
   /** 分类 */
-  category?: string;
+  category?: string
   /** 标签 */
-  tags?: string[];
+  tags?: string[]
 }
 
 /**
@@ -136,34 +136,34 @@ export interface Plugin {
 export type PluginSource =
   | string  // 相对路径: "./plugin" 或简写: "github:owner/repo"
   | {
-      source: 'github';
-      repo: string;       // owner/repo
-      ref?: string;       // 分支、tag 或 commit hash
-      path?: string;      // 仓库内的子目录路径
-    }
+    source: 'github'
+    repo: string       // owner/repo
+    ref?: string       // 分支、tag 或 commit hash
+    path?: string      // 仓库内的子目录路径
+  }
   | {
-      source: 'git';
-      url: string;        // Git 仓库 URL
-      ref?: string;       // 分支、tag 或 commit hash
-      path?: string;      // 仓库内的子目录路径
-    }
+    source: 'git'
+    url: string        // Git 仓库 URL
+    ref?: string       // 分支、tag 或 commit hash
+    path?: string      // 仓库内的子目录路径
+  }
   | {
-      source: 'url';
-      url: string;        // 直接 URL (保留用于未来支持 tarball)
-    };
+    source: 'url'
+    url: string        // 直接 URL (保留用于未来支持 tarball)
+  };
 
 /**
  * 技能位置信息
  */
 export interface SkillLocation {
   /** 技能来源类型 */
-  type: SkillSource;
+  type: SkillSource
   /** 技能实际文件路径 */
-  path: string;
+  path: string
   /** 根目录路径 */
-  rootPath: string;
+  rootPath: string
   /** 相对路径 */
-  relativePath: string;
+  relativePath: string
 }
 
 /**
@@ -172,43 +172,43 @@ export interface SkillLocation {
  */
 export interface Skill {
   /** Skill 唯一标识符 */
-  id: string;
+  id: string
   /** Skill 类型 */
-  type?: SkillType;
+  type?: SkillType
   /** Skill 名称 (来自 YAML frontmatter 的 name) */
-  name: string;
+  name: string
   /** Skill 描述 (来自 YAML frontmatter 的 description) */
-  description: string;
+  description: string
   /** 所属 Plugin ID */
-  pluginId: string;
+  pluginId: string
   /** 所属 Marketplace ID */
-  marketplaceId: string;
+  marketplaceId: string
   /** Skill 目录路径 */
-  path: string;
+  path: string
   /** SKILL.md 文件路径 */
-  skillFilePath: string;
+  skillFilePath: string
   /** YAML frontmatter 元数据 */
-  metadata: SkillMetadata;
+  metadata: SkillMetadata
   /** Markdown 内容（完整指令） */
-  content?: string;
+  content?: string
   /** 脚本目录路径 */
-  scriptsPath?: string;
+  scriptsPath?: string
   /** 脚本列表 */
-  scripts?: SkillScript[];
+  scripts?: SkillScript[]
   /** 引用文档路径列表 */
-  references?: string[];
+  references?: string[]
   /** License 文件路径 */
-  licensePath?: string;
+  licensePath?: string
   /** 启用状态 */
-  enabled: boolean;
+  enabled: boolean
   /** 加载级别（用于三级加载） */
-  loadLevel: SkillLoadLevel;
+  loadLevel: SkillLoadLevel
   /** 位置信息 */
-  location?: SkillLocation;
+  location?: SkillLocation
   /** 是否为内置技能 */
-  isBuiltIn: boolean;
+  isBuiltIn: boolean
   /** 是否为自定义技能 */
-  isCustom: boolean;
+  isCustom: boolean
 }
 
 /**
@@ -216,17 +216,17 @@ export interface Skill {
  */
 export interface SkillMetadata {
   /** Skill 名称（必需） */
-  name: string;
+  name: string
   /** Skill 描述（必需） */
-  description: string;
+  description: string
   /** License 信息 */
-  license?: string;
+  license?: string
   /** 允许使用的工具白名单 */
-  allowedTools?: string[];
+  allowedTools?: string[]
   /** 依赖的其他 Skills */
-  dependencies?: string[];
+  dependencies?: string[]
   /** 自定义属性 */
-  [key: string]: unknown;
+  [key: string]: unknown
 }
 
 /**
@@ -246,13 +246,13 @@ export enum SkillLoadLevel {
  */
 export interface SkillScript {
   /** 脚本名称 */
-  name: string;
+  name: string
   /** 脚本路径 */
-  path: string;
+  path: string
   /** 脚本类型 */
-  type: ScriptType;
+  type: ScriptType
   /** 脚本描述 */
-  description?: string;
+  description?: string
 }
 
 /**
@@ -274,15 +274,15 @@ export enum ScriptType {
  */
 export interface SkillsSettings {
   /** 启用的 Plugins 记录 {pluginId: enabled} */
-  enabledPlugins: Record<string, boolean>;
+  enabledPlugins: Record<string, boolean>
   /** Marketplace 配置 */
-  marketplaces: MarketplaceConfig[];
+  marketplaces: MarketplaceConfig[]
   /** 安全配置 */
-  security?: SecurityConfig;
+  security?: SecurityConfig
   /** 性能配置 */
-  performance?: PerformanceConfig;
+  performance?: PerformanceConfig
   /** 最后更新时间 */
-  lastUpdated?: string;
+  lastUpdated?: string
 }
 
 /**
@@ -290,17 +290,17 @@ export interface SkillsSettings {
  */
 export interface MarketplaceConfig {
   /** Marketplace ID */
-  id: string;
+  id: string
   /** Marketplace 名称 */
-  name: string;
+  name: string
   /** 来源类型 */
-  source: MarketplaceSource;
+  source: MarketplaceSource
   /** Git URL 或本地路径 */
-  location: string;
+  location: string
   /** 是否启用 */
-  enabled: boolean;
+  enabled: boolean
   /** 添加时间 */
-  addedAt: string;
+  addedAt: string
 }
 
 /**
@@ -308,13 +308,13 @@ export interface MarketplaceConfig {
  */
 export interface SecurityConfig {
   /** 是否启用审计 */
-  enableAudit: boolean;
+  enableAudit: boolean
   /** 信任级别 */
-  trustLevel: 'strict' | 'moderate' | 'permissive';
+  trustLevel: 'strict' | 'moderate' | 'permissive'
   /** 信任的来源列表 */
-  trustedSources: string[];
+  trustedSources: string[]
   /** 是否需要审查 */
-  requireReview: boolean;
+  requireReview: boolean
 }
 
 /**
@@ -322,13 +322,13 @@ export interface SecurityConfig {
  */
 export interface PerformanceConfig {
   /** 是否启用缓存 */
-  enableCache: boolean;
+  enableCache: boolean
   /** 缓存 TTL (秒) */
-  cacheTTL: number;
+  cacheTTL: number
   /** 最大并行加载数 */
-  maxParallelLoads: number;
+  maxParallelLoads: number
   /** 启动时最大加载时间 (毫秒) */
-  maxStartupTime: number;
+  maxStartupTime: number
 }
 
 /**
@@ -336,9 +336,9 @@ export interface PerformanceConfig {
  */
 export interface InstalledPluginsRecord {
   /** 已安装的 Plugins {pluginId: pluginInfo} */
-  plugins: Record<string, InstalledPluginInfo>;
+  plugins: Record<string, InstalledPluginInfo>
   /** 最后更新时间 */
-  lastUpdated: string;
+  lastUpdated: string
 }
 
 /**
@@ -346,25 +346,25 @@ export interface InstalledPluginsRecord {
  */
 export interface InstalledPluginInfo {
   /** Plugin ID */
-  id: string;
+  id: string
   /** Plugin 名称 */
-  name: string;
+  name: string
   /** Plugin 描述 */
-  description?: string;
+  description?: string
   /** Marketplace ID */
-  marketplaceId: string;
+  marketplaceId: string
   /** 本地安装路径（绝对路径） */
-  installPath?: string;
+  installPath?: string
   /** 安装时间 */
-  installedAt: string;
+  installedAt: string
   /** 启用状态 */
-  enabled: boolean;
+  enabled: boolean
   /** 版本（默认 "unknown"） */
-  version?: string;
+  version?: string
   /** Skills 数量 */
-  skillCount: number;
+  skillCount: number
   /** 是否为本地插件（true = 本地路径，false = Git 克隆） */
-  isLocal?: boolean;
+  isLocal?: boolean
 }
 
 // ============================================================================
@@ -380,8 +380,8 @@ export class SkillError extends Error {
     public code: SkillErrorCode,
     public details?: unknown,
   ) {
-    super(message);
-    this.name = 'SkillError';
+    super(message)
+    this.name = 'SkillError'
   }
 }
 
@@ -390,8 +390,8 @@ export class SkillError extends Error {
  */
 export class ValidationError extends SkillError {
   constructor(message: string, details?: unknown) {
-    super(message, SkillErrorCode.VALIDATION_FAILED, details);
-    this.name = 'ValidationError';
+    super(message, SkillErrorCode.VALIDATION_FAILED, details)
+    this.name = 'ValidationError'
   }
 }
 
@@ -400,8 +400,8 @@ export class ValidationError extends SkillError {
  */
 export class MarketplaceError extends SkillError {
   constructor(message: string, code: SkillErrorCode, details?: unknown) {
-    super(message, code, details);
-    this.name = 'MarketplaceError';
+    super(message, code, details)
+    this.name = 'MarketplaceError'
   }
 }
 
@@ -410,8 +410,8 @@ export class MarketplaceError extends SkillError {
  */
 export class PluginError extends SkillError {
   constructor(message: string, code: SkillErrorCode, details?: unknown) {
-    super(message, code, details);
-    this.name = 'PluginError';
+    super(message, code, details)
+    this.name = 'PluginError'
   }
 }
 
@@ -420,8 +420,8 @@ export class PluginError extends SkillError {
  */
 export class SecurityError extends SkillError {
   constructor(message: string, details?: unknown) {
-    super(message, SkillErrorCode.SECURITY_VIOLATION, details);
-    this.name = 'SecurityError';
+    super(message, SkillErrorCode.SECURITY_VIOLATION, details)
+    this.name = 'SecurityError'
   }
 }
 
@@ -481,17 +481,17 @@ export enum SkillErrorCode {
  */
 export interface SkillContextResult {
   /** 注入的 context 字符串 */
-  context: string;
+  context: string
   /** Token 估算数量 */
-  estimatedTokens: number;
+  estimatedTokens: number
   /** 加载的 Skills 数量 */
-  skillCount: number;
+  skillCount: number
   /** 加载级别统计 */
   levelStats: {
-    metadata: number;
-    full: number;
-    resources: number;
-  };
+    metadata: number
+    full: number
+    resources: number
+  }
 }
 
 /**
@@ -499,17 +499,17 @@ export interface SkillContextResult {
  */
 export interface SecurityReport {
   /** Skill ID */
-  skillId: string;
+  skillId: string
   /** 审计时间 */
-  auditTime: Date;
+  auditTime: Date
   /** 是否通过审计 */
-  passed: boolean;
+  passed: boolean
   /** 威胁列表 */
-  threats: SecurityThreat[];
+  threats: SecurityThreat[]
   /** 警告列表 */
-  warnings: string[];
+  warnings: string[]
   /** 信任级别 */
-  trustLevel: 'high' | 'medium' | 'low';
+  trustLevel: 'high' | 'medium' | 'low'
 }
 
 /**
@@ -517,13 +517,13 @@ export interface SecurityReport {
  */
 export interface SecurityThreat {
   /** 威胁类型 */
-  type: ThreatType;
+  type: ThreatType
   /** 威胁描述 */
-  description: string;
+  description: string
   /** 严重程度 */
-  severity: 'critical' | 'high' | 'medium' | 'low';
+  severity: 'critical' | 'high' | 'medium' | 'low'
   /** 建议操作 */
-  recommendation: string;
+  recommendation: string
 }
 
 /**
@@ -547,17 +547,17 @@ export enum ThreatType {
  */
 export interface SkillSearchOptions {
   /** 搜索关键字 */
-  query?: string;
+  query?: string
   /** 筛选 Marketplace */
-  marketplaceId?: string;
+  marketplaceId?: string
   /** 筛选 Plugin */
-  pluginId?: string;
+  pluginId?: string
   /** 仅显示已启用 */
-  enabledOnly?: boolean;
+  enabledOnly?: boolean
   /** 排序方式 */
-  sortBy?: 'name' | 'plugin' | 'marketplace' | 'installedAt';
+  sortBy?: 'name' | 'plugin' | 'marketplace' | 'installedAt'
   /** 排序方向 */
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: 'asc' | 'desc'
 }
 
 /**
@@ -565,17 +565,17 @@ export interface SkillSearchOptions {
  */
 export interface MarketplaceScanResult {
   /** Marketplace 信息 */
-  marketplace: Marketplace;
+  marketplace: Marketplace
   /** 发现的 Plugins 数量 */
-  pluginCount: number;
+  pluginCount: number
   /** 发现的 Skills 数量 */
-  skillCount: number;
+  skillCount: number
   /** 扫描耗时（毫秒） */
-  scanDuration: number;
+  scanDuration: number
   /** 是否有错误 */
-  hasErrors: boolean;
+  hasErrors: boolean
   /** 错误列表 */
-  errors: Array<{ path: string; error: string }>;
+  errors: Array<{ path: string; error: string }>
 }
 
 /**
@@ -596,7 +596,7 @@ export const DEFAULT_SKILLS_SETTINGS: SkillsSettings = {
     maxParallelLoads: 5,
     maxStartupTime: 300, // 300ms
   },
-};
+}
 
 /**
  * 默认已安装 Plugins 记录
@@ -604,7 +604,7 @@ export const DEFAULT_SKILLS_SETTINGS: SkillsSettings = {
 export const DEFAULT_INSTALLED_PLUGINS: InstalledPluginsRecord = {
   plugins: {},
   lastUpdated: new Date().toISOString(),
-};
+}
 
 // ============================================================================
 // Compact catalog projection shared by model tools and the local server.
@@ -614,46 +614,46 @@ export const DEFAULT_INSTALLED_PLUGINS: InstalledPluginsRecord = {
  * Simplified skill information for catalog queries.
  */
 export interface SkillInfo {
-  id: string;
-  name: string;
-  pluginId: string;
-  marketplaceId: string;
-  description: string;
-  path: string;
+  id: string
+  name: string
+  pluginId: string
+  marketplaceId: string
+  description: string
+  path: string
   /** Absolute path to the skill instructions. */
-  skillFilePath: string;
-  enabled: boolean;
+  skillFilePath: string
+  enabled: boolean
 }
 
 /**
  * Marketplace manifest definition
  */
 export interface MarketplaceManifest {
-  name: string;
+  name: string
   owner: {
-    name: string;
-    email: string;
-  };
+    name: string
+    email: string
+  }
   metadata: {
-    description: string;
-    version: string;
-  };
-  plugins: PluginDefinition[];
+    description: string
+    version: string
+  }
+  plugins: PluginDefinition[]
 }
 
 /**
  * Plugin definition in marketplace manifest
  */
 export interface PluginDefinition {
-  name: string;
-  description: string;
-  source: string;
+  name: string
+  description: string
+  source: string
   /**
    * 控制是否自动发现组件
    * - undefined (默认): 自动发现并合并
    * - false: 自动发现并合并（显式声明）
    * - true: 只使用显式定义的组件，禁止自动发现
    */
-  strict?: boolean;
-  skills?: string[];
+  strict?: boolean
+  skills?: string[]
 }

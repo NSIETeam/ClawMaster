@@ -14,11 +14,11 @@
  * 5. 定时增量同步
  */
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import * as crypto from 'crypto';
-import { homedir } from 'os';
-import { OrgMemoryStore } from '../memory/orgMemoryStore.js';
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import * as crypto from 'crypto'
+import { homedir } from 'os'
+import { OrgMemoryStore } from '../memory/orgMemoryStore.js'
 import type {
   CompanyRecord,
   TeamRecord,
@@ -27,45 +27,45 @@ import type {
   Permission,
   LicenseRole,
   FeatureFlag,
-} from '../memory/orgMemoryTypes.js';
+} from '../memory/orgMemoryTypes.js'
 
 /** 企业配置 */
 export interface EnterpriseConfig {
-  companyId: string;
-  companyName: string;
-  appId: string;
-  appSecret: string;
-  adminUserId: string;
-  adminUserName: string;
-  boundAt: string;
+  companyId: string
+  companyName: string
+  appId: string
+  appSecret: string
+  adminUserId: string
+  adminUserName: string
+  boundAt: string
   /** 上次同步时间 */
-  lastSyncAt?: string;
+  lastSyncAt?: string
   /** 飞书 API 域名（国内 open.feishu.cn，国际 open.larksuite.com） */
-  apiDomain?: string;
+  apiDomain?: string
 }
 
-import { getAuditLogger } from './auditLog.js';
+import { getAuditLogger } from './auditLog.js'
 
 /** 飞书部门 */
 interface FeishuDepartment {
-  department_id: string;
-  name: string;
-  parent_department_id: string;
-  leader_user_id?: string;
-  member_count?: number;
+  department_id: string
+  name: string
+  parent_department_id: string
+  leader_user_id?: string
+  member_count?: number
 }
 
 /** 飞书用户 */
 interface FeishuUser {
-  user_id: string;
-  open_id: string;
-  name: string;
-  email?: string;
-  employee_no?: string;
-  department_ids: string[];
-  job_title?: string;
-  is_active: boolean;
-  city?: string;
+  user_id: string
+  open_id: string
+  name: string
+  email?: string
+  employee_no?: string
+  department_ids: string[]
+  job_title?: string
+  is_active: boolean
+  city?: string
 }
 
 /** 岗位标准化映射 */
@@ -109,7 +109,7 @@ const ROLE_NORMALIZE_MAP: Record<string, string> = {
   'COO': 'exec.coo', '运营总监': 'exec.coo',
   'VP': 'exec.vp', '副总裁': 'exec.vp',
   '总监': 'exec.director', '部门负责人': 'exec.director',
-};
+}
 
 /** 岗位 → 部门映射 */
 const ROLE_TO_DEPT: Record<string, string> = {
@@ -121,108 +121,108 @@ const ROLE_TO_DEPT: Record<string, string> = {
   'finance': '财务部',
   'ops': '运营部',
   'exec': '管理层',
-};
+}
 
 /**
  * 企业同步器。
  */
 export class EnterpriseSync {
-  private store: OrgMemoryStore;
-  private enterpriseConfig: EnterpriseConfig | null = null;
-  private configPath: string;
-  private keyPath: string;
-  private static readonly GCM_PREFIX = 'gcm:';
-  private static readonly GCM_IV_BYTES = 12;
-  private syncTimer: ReturnType<typeof setInterval> | null = null;
+  private store: OrgMemoryStore
+  private enterpriseConfig: EnterpriseConfig | null = null
+  private configPath: string
+  private keyPath: string
+  private static readonly GCM_PREFIX = 'gcm:'
+  private static readonly GCM_IV_BYTES = 12
+  private syncTimer: ReturnType<typeof setInterval> | null = null
 
   /** 获取飞书 API 域名（国内默认 open.feishu.cn，国际版 open.larksuite.com） */
   private getApiDomain(): string {
-    return this.enterpriseConfig?.apiDomain || 'https://open.feishu.cn';
+    return this.enterpriseConfig?.apiDomain || 'https://open.feishu.cn'
   }
 
   constructor(_projectRoot: string) {
-    this.store = new OrgMemoryStore(_projectRoot);
-    this.configPath = path.join(homedir(), '.clawmaster-user', 'enterprise.json');
-    this.keyPath = path.join(homedir(), '.clawmaster-user', 'enterprise.key');
+    this.store = new OrgMemoryStore(_projectRoot)
+    this.configPath = path.join(homedir(), '.clawmaster-user', 'enterprise.json')
+    this.keyPath = path.join(homedir(), '.clawmaster-user', 'enterprise.key')
   }
 
   /** 加载企业配置 */
   /** 加载或创建加密密钥 */
   private async loadOrCreateKey(): Promise<Buffer> {
-    await fs.mkdir(path.dirname(this.keyPath), { recursive: true });
+    await fs.mkdir(path.dirname(this.keyPath), { recursive: true })
     try {
-      return await fs.readFile(this.keyPath);
+      return await fs.readFile(this.keyPath)
     } catch {
-      const key = crypto.randomBytes(32);
-      await fs.writeFile(this.keyPath, key, { mode: 0o600 });
-      return key;
+      const key = crypto.randomBytes(32)
+      await fs.writeFile(this.keyPath, key, { mode: 0o600 })
+      return key
     }
   }
 
   /** AES-256-GCM 加密 */
   private encryptSecret(plain: string, key: Buffer): string {
-    const iv = crypto.randomBytes(EnterpriseSync.GCM_IV_BYTES);
-    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-    const encrypted = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
-    const tag = cipher.getAuthTag();
-    return `${EnterpriseSync.GCM_PREFIX}${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
+    const iv = crypto.randomBytes(EnterpriseSync.GCM_IV_BYTES)
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+    const encrypted = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()])
+    const tag = cipher.getAuthTag()
+    return `${EnterpriseSync.GCM_PREFIX}${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`
   }
 
   /** AES-256-GCM 解密 */
   private decryptSecret(payload: string, key: Buffer): string {
-    const body = payload.slice(EnterpriseSync.GCM_PREFIX.length);
-    const [ivHex, tagHex, encHex] = body.split(':');
-    if (!ivHex || !tagHex || !encHex) throw new Error('Malformed GCM payload');
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
-    decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
-    return Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]).toString('utf8');
+    const body = payload.slice(EnterpriseSync.GCM_PREFIX.length)
+    const [ivHex, tagHex, encHex] = body.split(':')
+    if (!ivHex || !tagHex || !encHex) throw new Error('Malformed GCM payload')
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'))
+    decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+    return Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]).toString('utf8')
   }
 
   async loadConfig(): Promise<EnterpriseConfig | null> {
     try {
-      const raw = await fs.readFile(this.configPath, 'utf-8');
-      const parsed = JSON.parse(raw);
+      const raw = await fs.readFile(this.configPath, 'utf-8')
+      const parsed = JSON.parse(raw)
       // 解密 appSecret
       if (parsed.appSecret && parsed.appSecret.startsWith(EnterpriseSync.GCM_PREFIX)) {
-        const key = await this.loadOrCreateKey();
-        parsed.appSecret = this.decryptSecret(parsed.appSecret, key);
+        const key = await this.loadOrCreateKey()
+        parsed.appSecret = this.decryptSecret(parsed.appSecret, key)
       }
-      this.enterpriseConfig = parsed;
-      return this.enterpriseConfig;
+      this.enterpriseConfig = parsed
+      return this.enterpriseConfig
     } catch {
-      return null;
+      return null
     }
   }
 
   /** 保存企业配置（appSecret 加密存储） */
   async saveConfig(config: EnterpriseConfig): Promise<void> {
-    const key = await this.loadOrCreateKey();
+    const key = await this.loadOrCreateKey()
     const toSave = {
       ...config,
       appSecret: this.encryptSecret(config.appSecret, key),
-    };
-    await fs.mkdir(path.dirname(this.configPath), { recursive: true });
-    await fs.writeFile(this.configPath, JSON.stringify(toSave, null, 2), { mode: 0o600 });
+    }
+    await fs.mkdir(path.dirname(this.configPath), { recursive: true })
+    await fs.writeFile(this.configPath, JSON.stringify(toSave, null, 2), { mode: 0o600 })
     // 内存里保留明文版本（运行时用）
-    this.enterpriseConfig = config;
+    this.enterpriseConfig = config
   }
 
   /** 获取 tenant_access_token */
   async getTenantToken(): Promise<string> {
-    const config = this.enterpriseConfig || await this.loadConfig();
-    if (!config) throw new Error('企业未绑定，请先运行 enterprise setup');
+    const config = this.enterpriseConfig || await this.loadConfig()
+    if (!config) throw new Error('企业未绑定，请先运行 enterprise setup')
 
     const res = await fetch(`${this.getApiDomain()}/open-apis/auth/v3/tenant_access_token/internal`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ app_id: config.appId, app_secret: config.appSecret }),
-    });
-    if (!res.ok) throw new Error(`获取 token 失败: HTTP ${res.status}`);
-    const data = await res.json() as { tenant_access_token?: string; code?: number; msg?: string };
+    })
+    if (!res.ok) throw new Error(`获取 token 失败: HTTP ${res.status}`)
+    const data = await res.json() as { tenant_access_token?: string; code?: number; msg?: string }
     if (!data.tenant_access_token) {
-      throw new Error(`获取 token 失败: ${data.msg || 'unknown error'}`);
+      throw new Error(`获取 token 失败: ${data.msg || 'unknown error'}`)
     }
-    return data.tenant_access_token;
+    return data.tenant_access_token
   }
 
   /**
@@ -230,27 +230,27 @@ export class EnterpriseSync {
    * 拉取所有部门 + 所有在职人员，写入 OrgMemoryStore。
    */
   async syncAll(): Promise<{ departments: number; users: number }> {
-    const config = this.enterpriseConfig || await this.loadConfig();
-    if (!config) throw new Error('企业未绑定');
+    const config = this.enterpriseConfig || await this.loadConfig()
+    if (!config) throw new Error('企业未绑定')
 
-    const token = await this.getTenantToken();
+    const token = await this.getTenantToken()
 
     // 1. 确保 company 记录存在
-    const data = await this.store.load();
-    if (!data.companies.find((c) => c.id === config.companyId)) {
+    const data = await this.store.load()
+    if (!data.companies.find(c => c.id === config.companyId)) {
       const company: CompanyRecord = {
         id: config.companyId,
         name: config.companyName,
         ownerUserId: config.adminUserId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      };
-      data.companies.push(company);
+      }
+      data.companies.push(company)
     }
 
     // 2. 拉取部门树
-    const departments = await this.fetchAllDepartments(token);
-    const teams: TeamRecord[] = departments.map((dept) => ({
+    const departments = await this.fetchAllDepartments(token)
+    const teams: TeamRecord[] = departments.map(dept => ({
       id: dept.department_id,
       companyId: config.companyId,
       name: dept.name,
@@ -258,16 +258,16 @@ export class EnterpriseSync {
       memberUserIds: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    }));
+    }))
 
     // 3. 拉取在职人员
-    const feishuUsers = await this.fetchAllUsers(token);
+    const feishuUsers = await this.fetchAllUsers(token)
 
     // 4. 转换为 UserProfileRecord
     const users: UserProfileRecord[] = feishuUsers
-      .filter((u) => u.is_active)
+      .filter(u => u.is_active)
       .map((u) => {
-        const normalizedRole = normalizeRole(u.job_title || '');
+        const normalizedRole = normalizeRole(u.job_title || '')
         return {
           id: u.open_id,
           companyId: config.companyId,
@@ -280,73 +280,73 @@ export class EnterpriseSync {
           commonTasks: undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        };
+        }
       });
 
     // 5. 更新 teams 的 memberUserIds
-    const teamMap = new Map(teams.map((t) => [t.id, t]));
+    const teamMap = new Map(teams.map(t => [t.id, t]))
     for (const user of users) {
       for (const teamId of user.teamIds) {
-        const team = teamMap.get(teamId);
+        const team = teamMap.get(teamId)
         if (team && !team.memberUserIds.includes(user.id)) {
-          team.memberUserIds.push(user.id);
+          team.memberUserIds.push(user.id)
         }
       }
     }
 
     // 6. 写入 store（全量替换）
-    data.teams = teams;
-    data.users = users;
+    data.teams = teams
+    data.users = users
 
     // 6.5 自动生成权限许可（基于飞书组织架构角色推断）
     //    离职用户（不在本次同步的 users 列表中）的 License 标记为 revoked
-    const activeUserIds = new Set(users.map((u) => u.id));
-    const now = new Date().toISOString();
-    const oldLicenses = data.licenses || [];
+    const activeUserIds = new Set(users.map(u => u.id))
+    const now = new Date().toISOString()
+    const oldLicenses = data.licenses || []
 
     // 保留旧 License 但撤销离职用户的
     const preservedLicenses = oldLicenses.map((lic) => {
       if (!activeUserIds.has(lic.assigneeUserId) && !lic.revokedAt) {
-        return { ...lic, revokedAt: now };
+        return { ...lic, revokedAt: now }
       }
-      return lic;
+      return lic
     });
 
     // 为在职用户生成新 License（如果已有则更新，不重复创建）
-    const existingLicenseUserIds = new Set(preservedLicenses.map((l) => l.assigneeUserId));
+    const existingLicenseUserIds = new Set(preservedLicenses.map(l => l.assigneeUserId))
     const newLicenses = users
-      .filter((user) => !existingLicenseUserIds.has(user.id))
+      .filter(user => !existingLicenseUserIds.has(user.id))
       .map((user) => {
-        const isAdmin = user.id === config.adminUserId;
-        const userRole = inferUserRole(user.id, isAdmin, teams, user.role);
-        return createLicenseForUser(user.id, config.companyId, userRole, user.teamIds[0]);
+        const isAdmin = user.id === config.adminUserId
+        const userRole = inferUserRole(user.id, isAdmin, teams, user.role)
+        return createLicenseForUser(user.id, config.companyId, userRole, user.teamIds[0])
       });
 
     // 更新已有在职用户的 License（角色可能变了）
     for (const user of users) {
-      const isAdmin = user.id === config.adminUserId;
-      const userRole = inferUserRole(user.id, isAdmin, teams, user.role);
-      const newPermissions = PERMISSION_SETS[userRole];
-      const newFeatures = FEATURE_SETS[userRole];
-      const newLicenseRole = LICENSE_ROLE_MAP[userRole];
+      const isAdmin = user.id === config.adminUserId
+      const userRole = inferUserRole(user.id, isAdmin, teams, user.role)
+      const newPermissions = PERMISSION_SETS[userRole]
+      const newFeatures = FEATURE_SETS[userRole]
+      const newLicenseRole = LICENSE_ROLE_MAP[userRole]
 
       // 找到该用户所有未撤销的 License
       const activeLicenses = preservedLicenses
         .map((l, i) => ({ lic: l, idx: i }))
-        .filter(({ lic }) => lic.assigneeUserId === user.id && !lic.revokedAt);
+        .filter(({ lic }) => lic.assigneeUserId === user.id && !lic.revokedAt)
 
-      if (activeLicenses.length === 0) continue; // 新用户已在上面处理
+      if (activeLicenses.length === 0) continue // 新用户已在上面处理
 
       // 只保留第一条，撤销多余的（防止重复 License）
       for (let j = 1; j < activeLicenses.length; j++) {
         preservedLicenses[activeLicenses[j].idx] = {
           ...activeLicenses[j].lic,
           revokedAt: now,
-        };
+        }
       }
 
       // 更新保留的那条
-      const lic = activeLicenses[0].lic;
+      const lic = activeLicenses[0].lic
       if (lic.role !== newLicenseRole ||
           lic.permissions.length !== newPermissions.length ||
           !lic.permissions.every((p, i) => p === newPermissions[i])) {
@@ -357,23 +357,23 @@ export class EnterpriseSync {
           features: newFeatures,
           scope: userRole === 'company_admin' ? 'company' : 'team',
           teamId: user.teamIds[0],
-        };
+        }
       }
     }
 
-    data.licenses = [...preservedLicenses, ...newLicenses];
+    data.licenses = [...preservedLicenses, ...newLicenses]
 
-    await this.store.save(data);
+    await this.store.save(data)
 
     // 7. 更新同步时间
-    config.lastSyncAt = new Date().toISOString();
-    await this.saveConfig(config);
+    config.lastSyncAt = new Date().toISOString()
+    await this.saveConfig(config)
 
-    console.log(`[EnterpriseSync] 同步完成: ${departments.length} 个部门, ${users.length} 名员工`);
+    console.log(`[EnterpriseSync] 同步完成: ${departments.length} 个部门, ${users.length} 名员工`)
 
     // 审计日志
     try {
-      const auditor = getAuditLogger();
+      const auditor = getAuditLogger()
       await auditor.log({
         sessionId: 'enterprise_sync',
         userId: config.adminUserId,
@@ -384,9 +384,9 @@ export class EnterpriseSync {
         inputSummary: `companyId=${config.companyId}`,
         outputSummary: `departments=${departments.length}, users=${users.length}`,
         source: 'system',
-      });
+      })
     } catch { /* 不影响主流程 */ }
-    return { departments: departments.length, users: users.length };
+    return { departments: departments.length, users: users.length }
   }
 
   /**
@@ -394,50 +394,50 @@ export class EnterpriseSync {
    * 用于员工登录时自动匹配。
    */
   async getUserDepartment(openId: string): Promise<{
-    department: string;
-    departmentId: string;
-    role: string;
-    normalizedRole: string;
-    name: string;
+    department: string
+    departmentId: string
+    role: string
+    normalizedRole: string
+    name: string
   } | null> {
-    const data = await this.store.load();
-    const user = data.users.find((u) => u.id === openId);
-    if (!user) return null;
+    const data = await this.store.load()
+    const user = data.users.find(u => u.id === openId)
+    if (!user) return null
 
-    const team = data.teams.find((t) => t.id === user.teamIds[0]);
+    const team = data.teams.find(t => t.id === user.teamIds[0])
     return {
       department: team?.name || '未分配',
       departmentId: user.teamIds[0] || 'general',
       role: user.role,
       normalizedRole: user.role,
       name: user.name,
-    };
+    }
   }
 
   /**
    * 获取用户的角色和权限信息。
    */
   async getUserRoleAndPermissions(openId: string): Promise<{
-    role: UserRole;
-    roleLabel: string;
-    permissions: Permission[];
-    features: FeatureFlag[];
-    department: string;
-    name: string;
+    role: UserRole
+    roleLabel: string
+    permissions: Permission[]
+    features: FeatureFlag[]
+    department: string
+    name: string
   } | null> {
-    const data = await this.store.load();
-    const user = data.users.find((u) => u.id === openId);
-    if (!user) return null;
+    const data = await this.store.load()
+    const user = data.users.find(u => u.id === openId)
+    if (!user) return null
 
-    const config = this.enterpriseConfig || await this.loadConfig();
-    const isAdmin = user.id === config?.adminUserId;
-    const team = data.teams.find((t) => t.id === user.teamIds[0]);
-    const userRole = inferUserRole(user.id, isAdmin, data.teams, user.role);
+    const config = this.enterpriseConfig || await this.loadConfig()
+    const isAdmin = user.id === config?.adminUserId
+    const team = data.teams.find(t => t.id === user.teamIds[0])
+    const userRole = inferUserRole(user.id, isAdmin, data.teams, user.role)
 
     // 从 license 记录读取权限
-    const license = data.licenses.find((l) => l.assigneeUserId === openId && !l.revokedAt);
-    const permissions = license?.permissions || PERMISSION_SETS[userRole];
-    const features = license?.features || FEATURE_SETS[userRole];
+    const license = data.licenses.find(l => l.assigneeUserId === openId && !l.revokedAt)
+    const permissions = license?.permissions || PERMISSION_SETS[userRole]
+    const features = license?.features || FEATURE_SETS[userRole]
 
     return {
       role: userRole,
@@ -446,45 +446,45 @@ export class EnterpriseSync {
       features,
       department: team?.name || '未分配',
       name: user.name,
-    };
+    }
   }
 
   /**
    * 检查用户是否有某项权限。
    */
   async checkPermission(openId: string, permission: Permission): Promise<boolean> {
-    const data = await this.store.load();
+    const data = await this.store.load()
     const license = data.licenses.find(
-      (l) => l.assigneeUserId === openId && !l.revokedAt,
-    );
-    return checkUserPermission(license || null, permission);
+      l => l.assigneeUserId === openId && !l.revokedAt,
+    )
+    return checkUserPermission(license || null, permission)
   }
 
   /**
    * 启动定时增量同步（每小时一次）。
    */
   startAutoSync(): void {
-    if (this.syncTimer) return;
+    if (this.syncTimer) return
     this.syncTimer = setInterval(async () => {
       try {
         // 首次或距上次全量超过24小时 → 全量同步
-        const config = this.enterpriseConfig || await this.loadConfig();
-        const lastSync = config?.lastSyncAt ? new Date(config.lastSyncAt).getTime() : 0;
-        const hoursSince = (Date.now() - lastSync) / (1000 * 60 * 60);
+        const config = this.enterpriseConfig || await this.loadConfig()
+        const lastSync = config?.lastSyncAt ? new Date(config.lastSyncAt).getTime() : 0
+        const hoursSince = (Date.now() - lastSync) / (1000 * 60 * 60)
 
         if (hoursSince > 24) {
-          await this.syncAll();
-          console.log('[EnterpriseSync] 全量同步完成');
+          await this.syncAll()
+          console.log('[EnterpriseSync] 全量同步完成')
         } else {
           // 增量同步：只拉取变更的部门和用户
-          await this.syncIncremental();
-          console.log('[EnterpriseSync] 增量同步完成');
+          await this.syncIncremental()
+          console.log('[EnterpriseSync] 增量同步完成')
         }
       } catch (err) {
-        console.warn(`[EnterpriseSync] 定时同步失败: ${err instanceof Error ? err.message : String(err)}`);
+        console.warn(`[EnterpriseSync] 定时同步失败: ${err instanceof Error ? err.message : String(err)}`)
       }
-    }, 60 * 60 * 1000); // 1小时
-    console.log('[EnterpriseSync] 自动同步已启动 (1h interval, full sync every 24h)');
+    }, 60 * 60 * 1000) // 1小时
+    console.log('[EnterpriseSync] 自动同步已启动 (1h interval, full sync every 24h)')
   }
 
   /**
@@ -492,18 +492,18 @@ export class EnterpriseSync {
    * 利用飞书 API 的 page_token 和时间过滤，减少数据传输量。
    */
   private async syncIncremental(): Promise<void> {
-    const config = this.enterpriseConfig || await this.loadConfig();
-    if (!config) throw new Error('企业未绑定');
+    const config = this.enterpriseConfig || await this.loadConfig()
+    if (!config) throw new Error('企业未绑定')
 
-    const token = await this.getTenantToken();
-    const data = await this.store.load();
-    const now = new Date().toISOString();
-    let changed = false;
+    const token = await this.getTenantToken()
+    const data = await this.store.load()
+    const now = new Date().toISOString()
+    let changed = false
 
     // 1. 检查部门变更（拉取部门列表，对比是否有新增/删除）
-    const departments = await this.fetchAllDepartments(token);
-    const existingDeptIds = new Set(data.teams.map((t) => t.id));
-    const newDeptIds = new Set(departments.map((d) => d.department_id));
+    const departments = await this.fetchAllDepartments(token)
+    const existingDeptIds = new Set(data.teams.map(t => t.id))
+    const newDeptIds = new Set(departments.map(d => d.department_id))
 
     // 新增的部门
     for (const dept of departments) {
@@ -516,39 +516,39 @@ export class EnterpriseSync {
           memberUserIds: [],
           createdAt: now,
           updatedAt: now,
-        });
-        changed = true;
+        })
+        changed = true
       }
     }
 
     // 删除的部门（在旧数据里有，新数据里没有）
     data.teams = data.teams.filter((t) => {
       if (!newDeptIds.has(t.id)) {
-        changed = true;
-        return false;
+        changed = true
+        return false
       }
-      return true;
+      return true
     });
 
     // 2. 检查用户变更（拉取用户列表，只更新有变化的）
-    const feishuUsers = await this.fetchAllUsers(token);
+    const feishuUsers = await this.fetchAllUsers(token)
     const activeFeishuUserIds = new Set(
-      feishuUsers.filter((u) => u.is_active).map((u) => u.open_id),
-    );
+      feishuUsers.filter(u => u.is_active).map(u => u.open_id),
+    )
 
     // 撤销离职用户 License
     for (const lic of data.licenses) {
       if (!activeFeishuUserIds.has(lic.assigneeUserId) && !lic.revokedAt) {
-        lic.revokedAt = now;
-        changed = true;
+        lic.revokedAt = now
+        changed = true
       }
     }
 
     // 新增/更新用户
-    const existingUserIds = new Set(data.users.map((u) => u.id));
+    const existingUserIds = new Set(data.users.map(u => u.id))
     for (const fu of feishuUsers) {
-      if (!fu.is_active) continue;
-      const normalizedRole = normalizeRole(fu.job_title || '');
+      if (!fu.is_active) continue
+      const normalizedRole = normalizeRole(fu.job_title || '')
 
       if (!existingUserIds.has(fu.open_id)) {
         // 新用户
@@ -561,32 +561,32 @@ export class EnterpriseSync {
           selfMemory: '',
           createdAt: now,
           updatedAt: now,
-        });
+        })
         // 生成 License
-        const isAdmin = fu.open_id === config.adminUserId;
-        const userRole = inferUserRole(fu.open_id, isAdmin, data.teams, normalizedRole);
-        data.licenses.push(createLicenseForUser(fu.open_id, config.companyId, userRole, fu.department_ids[0]));
-        changed = true;
+        const isAdmin = fu.open_id === config.adminUserId
+        const userRole = inferUserRole(fu.open_id, isAdmin, data.teams, normalizedRole)
+        data.licenses.push(createLicenseForUser(fu.open_id, config.companyId, userRole, fu.department_ids[0]))
+        changed = true
       } else {
         // 更新已有用户（检查部门/岗位是否变了）
-        const idx = data.users.findIndex((u) => u.id === fu.open_id);
+        const idx = data.users.findIndex(u => u.id === fu.open_id)
         if (idx !== -1) {
-          const existing = data.users[idx];
-          const deptChanged = JSON.stringify(existing.teamIds) !== JSON.stringify(fu.department_ids);
-          const roleChanged = existing.role !== normalizedRole;
+          const existing = data.users[idx]
+          const deptChanged = JSON.stringify(existing.teamIds) !== JSON.stringify(fu.department_ids)
+          const roleChanged = existing.role !== normalizedRole
           if (deptChanged || roleChanged) {
             data.users[idx] = {
               ...existing,
               teamIds: fu.department_ids,
               role: normalizedRole,
               updatedAt: now,
-            };
+            }
             // 更新对应 License
-            const isAdmin = fu.open_id === config.adminUserId;
-            const userRole = inferUserRole(fu.open_id, isAdmin, data.teams, normalizedRole);
+            const isAdmin = fu.open_id === config.adminUserId
+            const userRole = inferUserRole(fu.open_id, isAdmin, data.teams, normalizedRole)
             const licIdx = data.licenses.findIndex(
-              (l) => l.assigneeUserId === fu.open_id && !l.revokedAt,
-            );
+              l => l.assigneeUserId === fu.open_id && !l.revokedAt,
+            )
             if (licIdx !== -1) {
               data.licenses[licIdx] = {
                 ...data.licenses[licIdx],
@@ -594,46 +594,46 @@ export class EnterpriseSync {
                 permissions: PERMISSION_SETS[userRole],
                 features: FEATURE_SETS[userRole],
                 teamId: fu.department_ids[0],
-              };
+              }
             }
-            changed = true;
+            changed = true
           }
         }
       }
     }
 
     if (changed) {
-      await this.store.save(data);
-      config.lastSyncAt = now;
-      await this.saveConfig(config);
-      console.log('[EnterpriseSync] 增量同步：检测到变更并已更新');
+      await this.store.save(data)
+      config.lastSyncAt = now
+      await this.saveConfig(config)
+      console.log('[EnterpriseSync] 增量同步：检测到变更并已更新')
 
       // 审计日志
       try {
-        const auditor = getAuditLogger();
+        const auditor = getAuditLogger()
         await auditor.log({
           sessionId: 'enterprise_sync',
           userId: config.adminUserId,
           toolName: 'enterprise_sync',
-          action: `[企业同步] 增量同步：检测到组织架构变更`,
+          action: '[企业同步] 增量同步：检测到组织架构变更',
           category: 'other',
           success: true,
           inputSummary: `companyId=${config.companyId}`,
           outputSummary: 'incremental update applied',
           source: 'system',
-        });
+        })
       } catch { /* 不影响主流程 */ }
     } else {
-      console.log('[EnterpriseSync] 增量同步：无变更');
+      console.log('[EnterpriseSync] 增量同步：无变更')
     }
   }
 
   /** 停止自动同步 */
   stopAutoSync(): void {
     if (this.syncTimer) {
-      clearInterval(this.syncTimer);
-      this.syncTimer = null;
-      console.log('[EnterpriseSync] 自动同步已停止');
+      clearInterval(this.syncTimer)
+      this.syncTimer = null
+      console.log('[EnterpriseSync] 自动同步已停止')
     }
   }
 
@@ -643,79 +643,79 @@ export class EnterpriseSync {
 
   /** 拉取所有部门 */
   private async fetchAllDepartments(token: string): Promise<FeishuDepartment[]> {
-    const departments: FeishuDepartment[] = [];
-    let pageToken: string | undefined;
+    const departments: FeishuDepartment[] = []
+    let pageToken: string | undefined
 
     do {
-      const url = new URL(`${this.getApiDomain()}/open-apis/contact/v3/departments`);
-      url.searchParams.set('page_size', '50');
-      if (pageToken) url.searchParams.set('page_token', pageToken);
-      url.searchParams.set('fetch_child', 'true');
+      const url = new URL(`${this.getApiDomain()}/open-apis/contact/v3/departments`)
+      url.searchParams.set('page_size', '50')
+      if (pageToken) url.searchParams.set('page_token', pageToken)
+      url.searchParams.set('fetch_child', 'true')
 
       const res = await fetch(url.toString(), {
         headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`拉取部门失败: HTTP ${res.status}`);
+      })
+      if (!res.ok) throw new Error(`拉取部门失败: HTTP ${res.status}`)
 
       const data = await res.json() as {
-        code?: number;
-        msg?: string;
+        code?: number
+        msg?: string
         data?: {
-          items?: FeishuDepartment[];
-          page_token?: string;
-          has_more?: boolean;
-        };
-      };
+          items?: FeishuDepartment[]
+          page_token?: string
+          has_more?: boolean
+        }
+      }
 
       if (data.code !== 0 && data.code !== undefined) {
-        throw new Error(`拉取部门失败: ${data.msg}`);
+        throw new Error(`拉取部门失败: ${data.msg}`)
       }
 
       if (data.data?.items) {
-        departments.push(...data.data.items);
+        departments.push(...data.data.items)
       }
-      pageToken = data.data?.has_more ? data.data.page_token : undefined;
-    } while (pageToken);
+      pageToken = data.data?.has_more ? data.data.page_token : undefined
+    } while (pageToken)
 
-    return departments;
+    return departments
   }
 
   /** 拉取所有在职用户 */
   private async fetchAllUsers(token: string): Promise<FeishuUser[]> {
-    const users: FeishuUser[] = [];
-    let pageToken: string | undefined;
+    const users: FeishuUser[] = []
+    let pageToken: string | undefined
 
     do {
-      const url = new URL(`${this.getApiDomain()}/open-apis/contact/v3/users`);
-      url.searchParams.set('page_size', '50');
-      if (pageToken) url.searchParams.set('page_token', pageToken);
+      const url = new URL(`${this.getApiDomain()}/open-apis/contact/v3/users`)
+      url.searchParams.set('page_size', '50')
+      if (pageToken) url.searchParams.set('page_token', pageToken)
 
       const res = await fetch(url.toString(), {
         headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`拉取用户失败: HTTP ${res.status}`);
+      })
+      if (!res.ok) throw new Error(`拉取用户失败: HTTP ${res.status}`)
 
       const data = await res.json() as {
-        code?: number;
-        msg?: string;
+        code?: number
+        msg?: string
         data?: {
-          items?: FeishuUser[];
-          page_token?: string;
-          has_more?: boolean;
-        };
-      };
+          items?: FeishuUser[]
+          page_token?: string
+          has_more?: boolean
+        }
+      }
 
       if (data.code !== 0 && data.code !== undefined) {
-        throw new Error(`拉取用户失败: ${data.msg}`);
+        throw new Error(`拉取用户失败: ${data.msg}`)
       }
 
       if (data.data?.items) {
-        users.push(...data.data.items);
+        users.push(...data.data.items)
       }
-      pageToken = data.data?.has_more ? data.data.page_token : undefined;
-    } while (pageToken);
+      pageToken = data.data?.has_more ? data.data.page_token : undefined
+    } while (pageToken)
 
-    return users;
+    return users
   }
 }
 
@@ -727,27 +727,27 @@ export class EnterpriseSync {
  * 岗位标准化：把飞书的自由文本岗位映射成结构化枚举。
  */
 export function normalizeRole(jobTitle: string): string {
-  if (!jobTitle) return 'general';
+  if (!jobTitle) return 'general'
 
   // 精确匹配
-  const trimmed = jobTitle.trim();
-  if (ROLE_NORMALIZE_MAP[trimmed]) return ROLE_NORMALIZE_MAP[trimmed];
+  const trimmed = jobTitle.trim()
+  if (ROLE_NORMALIZE_MAP[trimmed]) return ROLE_NORMALIZE_MAP[trimmed]
 
   // 模糊匹配（包含关键词）
   for (const [keyword, role] of Object.entries(ROLE_NORMALIZE_MAP)) {
-    if (trimmed.includes(keyword)) return role;
+    if (trimmed.includes(keyword)) return role
   }
 
   // 无法匹配，返回原始文本
-  return trimmed;
+  return trimmed
 }
 
 /**
  * 从标准化岗位推断部门名称。
  */
 export function getDepartmentFromRole(normalizedRole: string): string {
-  const prefix = normalizedRole.split('.')[0];
-  return ROLE_TO_DEPT[prefix] || '通用';
+  const prefix = normalizedRole.split('.')[0]
+  return ROLE_TO_DEPT[prefix] || '通用'
 }
 
 // ============================================================
@@ -755,7 +755,7 @@ export function getDepartmentFromRole(normalizedRole: string): string {
 // ============================================================
 
 /** 用户角色类型（从飞书组织架构推断） */
-export type UserRole = 'company_admin' | 'team_manager' | 'hr' | 'employee';
+export type UserRole = 'company_admin' | 'team_manager' | 'hr' | 'employee'
 
 /** 权限集定义 */
 const PERMISSION_SETS: Record<UserRole, Permission[]> = {
@@ -798,7 +798,7 @@ const PERMISSION_SETS: Record<UserRole, Permission[]> = {
     'skill:company:read',
     'analytics:self:read',
   ],
-};
+}
 
 /** 功能开关定义 */
 const FEATURE_SETS: Record<UserRole, FeatureFlag[]> = {
@@ -806,7 +806,7 @@ const FEATURE_SETS: Record<UserRole, FeatureFlag[]> = {
   team_manager: ['desktop', 'feishu-bot', 'voice-input', 'browser', 'ide', 'ppt', 'docs', 'data-analysis', 'custom-skills', 'team-dashboard'],
   hr: ['desktop', 'feishu-bot', 'voice-input', 'browser', 'ide', 'ppt', 'docs', 'data-analysis', 'custom-skills', 'company-dashboard'],
   employee: ['desktop', 'feishu-bot', 'voice-input', 'browser', 'ide', 'ppt', 'docs', 'data-analysis', 'custom-skills'],
-};
+}
 
 /** LicenseRole 映射 */
 const LICENSE_ROLE_MAP: Record<UserRole, LicenseRole> = {
@@ -814,7 +814,7 @@ const LICENSE_ROLE_MAP: Record<UserRole, LicenseRole> = {
   team_manager: 'manager',
   hr: 'manager',
   employee: 'employee',
-};
+}
 
 /**
  * 推断用户角色：企业管理员 / 部门负责人 / 人事 / 普通员工。
@@ -832,19 +832,19 @@ export function inferUserRole(
   normalizedRole: string,
 ): UserRole {
   // 1. 飞书管理员
-  if (isAdmin) return 'company_admin';
+  if (isAdmin) return 'company_admin'
 
   // 2. 部门负责人
   const isManager = teams.some(
-    (t) => t.managerUserIds.includes(userId),
-  );
-  if (isManager) return 'team_manager';
+    t => t.managerUserIds.includes(userId),
+  )
+  if (isManager) return 'team_manager'
 
   // 3. 人事部
-  if (normalizedRole.startsWith('hr.')) return 'hr';
+  if (normalizedRole.startsWith('hr.')) return 'hr'
 
   // 4. 普通员工
-  return 'employee';
+  return 'employee'
 }
 
 /**
@@ -857,7 +857,7 @@ export function createLicenseForUser(
   role: UserRole,
   teamId?: string,
 ): LicenseRecord {
-  const now = new Date().toISOString();
+  const now = new Date().toISOString()
   return {
     id: `license_${userId}_${Date.now()}`,
     companyId,
@@ -881,17 +881,17 @@ export function createLicenseForUser(
         : ['self', 'session', 'project', 'skill'],
     features: FEATURE_SETS[role],
     startsAt: now,
-  };
+  }
 }
 
 /**
  * 检查用户是否拥有某项权限。
  */
 export function checkUserPermission(license: LicenseRecord | null, permission: Permission): boolean {
-  if (!license) return false;
-  if (license.revokedAt) return false;
-  if (license.expiresAt && new Date(license.expiresAt) < new Date()) return false;
-  return license.permissions.includes(permission);
+  if (!license) return false
+  if (license.revokedAt) return false
+  if (license.expiresAt && new Date(license.expiresAt) < new Date()) return false
+  return license.permissions.includes(permission)
 }
 
 /**
@@ -903,18 +903,18 @@ export function getRoleLabel(role: UserRole): string {
     team_manager: '部门负责人',
     hr: '人事管理',
     employee: '普通员工',
-  };
-  return labels[role];
+  }
+  return labels[role]
 }
 
 /**
  * 全局单例。
  */
-let globalEnterpriseSync: EnterpriseSync | null = null;
+let globalEnterpriseSync: EnterpriseSync | null = null
 
 export function getEnterpriseSync(projectRoot?: string): EnterpriseSync {
   if (!globalEnterpriseSync) {
-    globalEnterpriseSync = new EnterpriseSync(projectRoot || process.cwd());
+    globalEnterpriseSync = new EnterpriseSync(projectRoot || process.cwd())
   }
-  return globalEnterpriseSync;
+  return globalEnterpriseSync
 }

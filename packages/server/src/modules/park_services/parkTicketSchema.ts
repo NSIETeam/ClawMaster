@@ -5,9 +5,9 @@
 import type {
   DatabaseHandle,
   DatabaseSchemaContributor,
-} from '../data_platform/index.js';
+} from '../data_platform/index.js'
 
-const SAFE_ORGANIZATION_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
+const SAFE_ORGANIZATION_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/
 
 const TICKET_EVENTS_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ticket_events (
@@ -28,7 +28,7 @@ const TICKET_EVENTS_TABLE_SQL = `
     FOREIGN KEY (ticket_id) REFERENCES it_tickets(id) ON DELETE CASCADE,
     FOREIGN KEY (actor_account_id) REFERENCES accounts(id)
   );
-`;
+`
 
 function ensureOrganizationColumn(
   database: DatabaseHandle,
@@ -37,20 +37,20 @@ function ensureOrganizationColumn(
 ): void {
   const columns = database
     .prepare(`PRAGMA table_info(${table})`)
-    .all() as Array<{ name: string }>;
-  if (!columns.some((column) => column.name === 'organization_id')) {
+    .all() as Array<{ name: string }>
+  if (!columns.some(column => column.name === 'organization_id')) {
     database.exec(
       `ALTER TABLE ${table} ADD COLUMN organization_id TEXT NOT NULL DEFAULT '${defaultOrganizationId}'`,
-    );
+    )
   }
 }
 
 function ensureTicketColumns(database: DatabaseHandle): void {
   const columns = database
     .prepare('PRAGMA table_info(it_tickets)')
-    .all() as Array<{ name: string }>;
-  const existing = new Set(columns.map((column) => column.name));
-  const hadCreatorUpdateReadAt = existing.has('creator_update_read_at');
+    .all() as Array<{ name: string }>
+  const existing = new Set(columns.map(column => column.name))
+  const hadCreatorUpdateReadAt = existing.has('creator_update_read_at')
   for (const name of [
     'park_id',
     'service_id',
@@ -75,7 +75,7 @@ function ensureTicketColumns(database: DatabaseHandle): void {
     'creator_update_read_at',
   ]) {
     if (!existing.has(name)) {
-      database.exec(`ALTER TABLE it_tickets ADD COLUMN ${name} TEXT`);
+      database.exec(`ALTER TABLE it_tickets ADD COLUMN ${name} TEXT`)
     }
   }
   if (!hadCreatorUpdateReadAt) {
@@ -84,7 +84,7 @@ function ensureTicketColumns(database: DatabaseHandle): void {
       SET creator_update_at = COALESCE(response_at, completed_at),
           creator_update_read_at = COALESCE(updated_at, created_at)
       WHERE creator_update_read_at IS NULL
-    `);
+    `)
   }
 }
 
@@ -99,50 +99,50 @@ function backfillParkApplicationNumbers(database: DatabaseHandle): void {
        ORDER BY park_id, created_at, rowid`,
     )
     .all() as Array<{
-    ticket_order: number;
-    id: string;
-    park_id: string;
-    application_number: string | null;
-    created_at: string;
-    business_date_key: string | null;
-  }>;
-  const lastSequenceByParkDate = new Map<string, number>();
+    ticket_order: number
+    id: string
+    park_id: string
+    application_number: string | null
+    created_at: string
+    business_date_key: string | null
+  }>
+  const lastSequenceByParkDate = new Map<string, number>()
   for (const row of rows) {
-    if (!row.application_number) continue;
+    if (!row.application_number) continue
     if (!/^\d{11}$/.test(row.application_number)) {
-      throw new Error(`Invalid park application number on ticket ${row.id}`);
+      throw new Error(`Invalid park application number on ticket ${row.id}`)
     }
-    const dateKey = row.application_number.slice(0, 8);
-    const sequence = Number(row.application_number.slice(8));
+    const dateKey = row.application_number.slice(0, 8)
+    const sequence = Number(row.application_number.slice(8))
     if (!Number.isInteger(sequence) || sequence < 1 || sequence > 999) {
-      throw new Error(`Invalid park application sequence on ticket ${row.id}`);
+      throw new Error(`Invalid park application sequence on ticket ${row.id}`)
     }
-    const key = `${row.park_id}:${dateKey}`;
+    const key = `${row.park_id}:${dateKey}`
     lastSequenceByParkDate.set(
       key,
       Math.max(lastSequenceByParkDate.get(key) ?? 0, sequence),
-    );
+    )
   }
 
   const assign = database.prepare(
     `UPDATE it_tickets SET application_number = ?
      WHERE id = ? AND application_number IS NULL`,
-  );
+  )
   for (const row of rows) {
-    if (row.application_number) continue;
-    const dateKey = row.business_date_key;
+    if (row.application_number) continue
+    const dateKey = row.business_date_key
     if (!dateKey || !/^\d{8}$/.test(dateKey)) {
-      throw new Error(`Invalid created_at on park ticket ${row.id}`);
+      throw new Error(`Invalid created_at on park ticket ${row.id}`)
     }
-    const key = `${row.park_id}:${dateKey}`;
-    const sequence = (lastSequenceByParkDate.get(key) ?? 0) + 1;
+    const key = `${row.park_id}:${dateKey}`
+    const sequence = (lastSequenceByParkDate.get(key) ?? 0) + 1
     if (sequence > 999) {
       throw new Error(
         `Park ${row.park_id} exceeded 999 applications on ${dateKey}`,
-      );
+      )
     }
-    assign.run(`${dateKey}${String(sequence).padStart(3, '0')}`, row.id);
-    lastSequenceByParkDate.set(key, sequence);
+    assign.run(`${dateKey}${String(sequence).padStart(3, '0')}`, row.id)
+    lastSequenceByParkDate.set(key, sequence)
   }
 
   const seedCounter = database.prepare(
@@ -155,14 +155,14 @@ function backfillParkApplicationNumbers(database: DatabaseHandle): void {
          excluded.last_sequence
        ),
        updated_at = datetime('now')`,
-  );
+  )
   for (const [key, sequence] of lastSequenceByParkDate) {
-    const separator = key.lastIndexOf(':');
+    const separator = key.lastIndexOf(':')
     seedCounter.run(
       key.slice(0, separator),
       key.slice(separator + 1),
       sequence,
-    );
+    )
   }
 }
 
@@ -171,19 +171,19 @@ export function migrateLegacyParkTicketEvents(database: DatabaseHandle): void {
     .prepare(
       "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ticket_events'",
     )
-    .get() as { sql?: string } | undefined;
+    .get() as { sql?: string } | undefined
   if (
     !table?.sql ||
     (table.sql.includes("'transfer'") && table.sql.includes("'release'"))
-  ) return;
+  ) return
 
   const columns = new Set(
     (
       database.prepare('PRAGMA table_info(ticket_events)').all() as Array<{
-        name: string;
+        name: string
       }>
-    ).map((column) => column.name),
-  );
+    ).map(column => column.name),
+  )
   const requiredColumns = [
     'id',
     'organization_id',
@@ -195,16 +195,16 @@ export function migrateLegacyParkTicketEvents(database: DatabaseHandle): void {
     'response_type',
     'response_text',
     'created_at',
-  ];
-  if (!requiredColumns.every((column) => columns.has(column))) return;
+  ]
+  if (!requiredColumns.every(column => columns.has(column))) return
 
-  database.exec('PRAGMA foreign_keys = OFF');
-  database.exec('BEGIN IMMEDIATE');
+  database.exec('PRAGMA foreign_keys = OFF')
+  database.exec('BEGIN IMMEDIATE')
   try {
     database.exec(
       'ALTER TABLE ticket_events RENAME TO ticket_events_legacy_v10',
-    );
-    database.exec(TICKET_EVENTS_TABLE_SQL);
+    )
+    database.exec(TICKET_EVENTS_TABLE_SQL)
     database.exec(`
       INSERT INTO ticket_events (
         id, organization_id, ticket_id, actor_account_id, action,
@@ -216,16 +216,16 @@ export function migrateLegacyParkTicketEvents(database: DatabaseHandle): void {
       FROM ticket_events_legacy_v10;
       DROP TABLE ticket_events_legacy_v10;
       COMMIT;
-    `);
+    `)
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      database.exec('ROLLBACK')
     } catch {
       // Preserve the migration error.
     }
-    throw error;
+    throw error
   } finally {
-    database.exec('PRAGMA foreign_keys = ON');
+    database.exec('PRAGMA foreign_keys = ON')
   }
 }
 
@@ -261,22 +261,22 @@ export function migrateLegacyTicketNotifications(
       ON ticket_notification_tasks(status, due_at);
     CREATE INDEX IF NOT EXISTS idx_ticket_notification_tasks_ticket
       ON ticket_notification_tasks(ticket_id, recipient_account_id, status);
-  `);
+  `)
 
   // 旧表 status CHECK 缺少 pending/cancelled 时重建。
   const table = database
     .prepare(
       "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ticket_notifications'",
     )
-    .get() as { sql?: string } | undefined;
-  if (!table?.sql || table.sql.includes("'pending'")) return;
+    .get() as { sql?: string } | undefined
+  if (!table?.sql || table.sql.includes("'pending'")) return
   const columns = new Set(
     (
       database.prepare('PRAGMA table_info(ticket_notifications)').all() as Array<{
-        name: string;
+        name: string
       }>
-    ).map((column) => column.name),
-  );
+    ).map(column => column.name),
+  )
   const requiredColumns = [
     'id',
     'organization_id',
@@ -287,15 +287,15 @@ export function migrateLegacyTicketNotifications(
     'status',
     'detail',
     'created_at',
-  ];
-  if (!requiredColumns.every((column) => columns.has(column))) return;
+  ]
+  if (!requiredColumns.every(column => columns.has(column))) return
 
-  database.exec('PRAGMA foreign_keys = OFF');
-  database.exec('BEGIN IMMEDIATE');
+  database.exec('PRAGMA foreign_keys = OFF')
+  database.exec('BEGIN IMMEDIATE')
   try {
     database.exec(
       'ALTER TABLE ticket_notifications RENAME TO ticket_notifications_legacy_escalation',
-    );
+    )
     database.exec(`
       CREATE TABLE ticket_notifications (
         id TEXT PRIMARY KEY,
@@ -323,26 +323,26 @@ export function migrateLegacyTicketNotifications(
       FROM ticket_notifications_legacy_escalation;
       DROP TABLE ticket_notifications_legacy_escalation;
       COMMIT;
-    `);
+    `)
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      database.exec('ROLLBACK')
     } catch {
       // Preserve the migration error.
     }
-    throw error;
+    throw error
   } finally {
-    database.exec('PRAGMA foreign_keys = ON');
+    database.exec('PRAGMA foreign_keys = ON')
   }
 }
 
 export function createParkTicketSchemaContributor(input: {
-  defaultOrganizationId: string;
+  defaultOrganizationId: string
 }): DatabaseSchemaContributor {
   if (!SAFE_ORGANIZATION_ID.test(input.defaultOrganizationId)) {
-    throw new Error('Invalid default organization id for park ticket schema');
+    throw new Error('Invalid default organization id for park ticket schema')
   }
-  const defaultOrganizationId = input.defaultOrganizationId;
+  const defaultOrganizationId = input.defaultOrganizationId
 
   return {
     id: 'park_services_tickets',
@@ -449,24 +449,24 @@ export function createParkTicketSchemaContributor(input: {
             ON DELETE CASCADE,
           FOREIGN KEY (organization_id) REFERENCES organizations(id)
         );
-      `);
+      `)
 
       for (const table of [
         'it_tickets',
         'ticket_deliveries',
         'ticket_notifications',
       ]) {
-        ensureOrganizationColumn(database, table, defaultOrganizationId);
+        ensureOrganizationColumn(database, table, defaultOrganizationId)
       }
-      ensureTicketColumns(database);
-      migrateLegacyTicketNotifications(database);
+      ensureTicketColumns(database)
+      migrateLegacyTicketNotifications(database)
       database.exec(
         "UPDATE it_tickets SET service_id = 'repair' WHERE service_id IS NULL OR service_id = ''",
-      );
+      )
       database.exec(
         "UPDATE it_tickets SET status = '待接单' WHERE status = 'open'",
-      );
-      backfillParkApplicationNumbers(database);
+      )
+      backfillParkApplicationNumbers(database)
 
       database.exec(`
         CREATE INDEX IF NOT EXISTS idx_ticket_deliveries_account
@@ -486,7 +486,7 @@ export function createParkTicketSchemaContributor(input: {
           ON ticket_notification_tasks(status, due_at);
         CREATE INDEX IF NOT EXISTS idx_ticket_notification_tasks_ticket
           ON ticket_notification_tasks(ticket_id, recipient_account_id, status);
-      `);
+      `)
     },
-  };
+  }
 }

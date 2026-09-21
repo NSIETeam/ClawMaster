@@ -6,23 +6,23 @@
  * 后台可通过 CLAWMASTER_ENTERPRISE_MODEL_CATALOG 整体替换。
  */
 
-export type EnterpriseModelTier = 'standard' | 'premium';
+export type EnterpriseModelTier = 'standard' | 'premium'
 
 export interface EnterpriseModelInfo {
-  id: `clawmaster:${string}`;
-  displayName: string;
-  vendor: string;
+  id: `clawmaster:${string}`
+  displayName: string
+  vendor: string
   /** API 中转站识别的内部模型键；不是上游 endpoint。 */
-  modelId: string;
-  tier: EnterpriseModelTier;
-  source: 'clawmaster';
-  managed: true;
+  modelId: string
+  tier: EnterpriseModelTier
+  source: 'clawmaster'
+  managed: true
   /** 仅作用户横向比较；真实账本按输入/输出费率结算。 */
-  creditMultiplier: number;
-  inputCreditsPerMTok: number;
-  outputCreditsPerMTok: number;
-  pricingStatus: 'provisional';
-  enabled: true;
+  creditMultiplier: number
+  inputCreditsPerMTok: number
+  outputCreditsPerMTok: number
+  pricingStatus: 'provisional'
+  enabled: true
 }
 
 function managed(
@@ -37,7 +37,7 @@ function managed(
     managed: true,
     pricingStatus: 'provisional',
     enabled: true,
-  };
+  }
 }
 
 /** 国内第一阶段目录：模型族名保持稳定，具体上游版本由中转站后台映射。 */
@@ -112,11 +112,11 @@ export const ENTERPRISE_MODEL_CATALOG: EnterpriseModelInfo[] = [
     inputCreditsPerMTok: 600,
     outputCreditsPerMTok: 2400,
   }),
-];
+]
 
 function isCatalogItem(value: unknown): value is Omit<EnterpriseModelInfo, 'source' | 'managed' | 'pricingStatus' | 'enabled'> {
-  if (!value || typeof value !== 'object') return false;
-  const item = value as Record<string, unknown>;
+  if (!value || typeof value !== 'object') return false
+  const item = value as Record<string, unknown>
   return (
     typeof item['id'] === 'string' &&
     item['id'].startsWith('clawmaster:') &&
@@ -130,21 +130,21 @@ function isCatalogItem(value: unknown): value is Omit<EnterpriseModelInfo, 'sour
     item['inputCreditsPerMTok'] >= 0 &&
     typeof item['outputCreditsPerMTok'] === 'number' &&
     item['outputCreditsPerMTok'] >= 0
-  );
+  )
 }
 
 export function loadEnterpriseModelCatalog(): EnterpriseModelInfo[] {
-  const raw = process.env['CLAWMASTER_ENTERPRISE_MODEL_CATALOG']?.trim();
-  if (!raw) return ENTERPRISE_MODEL_CATALOG;
+  const raw = process.env['CLAWMASTER_ENTERPRISE_MODEL_CATALOG']?.trim()
+  if (!raw) return ENTERPRISE_MODEL_CATALOG
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every(isCatalogItem)) {
-      return ENTERPRISE_MODEL_CATALOG;
+      return ENTERPRISE_MODEL_CATALOG
     }
-    const ids = new Set(parsed.map((item) => item.id));
-    if (ids.size !== parsed.length) return ENTERPRISE_MODEL_CATALOG;
-    return parsed.map((item) => managed(item));
+    const ids = new Set(parsed.map(item => item.id))
+    if (ids.size !== parsed.length) return ENTERPRISE_MODEL_CATALOG
+    return parsed.map(item => managed(item))
   } catch {
-    return ENTERPRISE_MODEL_CATALOG;
+    return ENTERPRISE_MODEL_CATALOG
   }
 }

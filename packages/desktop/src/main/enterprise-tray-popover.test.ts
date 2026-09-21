@@ -1,18 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 import {
   parseEnterpriseMessageTimestamp,
   positionEnterpriseTrayPopover,
   renderEnterpriseTrayPopoverHtml,
   summarizeEnterpriseTrayContacts,
-} from './enterprise-tray-popover.js';
+} from './enterprise-tray-popover.js'
 
 function unread(input: Partial<{
-  id: string;
-  senderAccountId: string;
-  senderName: string;
-  preview: string;
-  createdAt: string;
-  count: number;
+  id: string
+  senderAccountId: string
+  senderName: string
+  preview: string
+  createdAt: string
+  count: number
 }> = {}) {
   return {
     id: 'message-1',
@@ -23,14 +23,14 @@ function unread(input: Partial<{
     preview: '项目方案我已经发给你了，请查收。',
     createdAt: '2026-07-26T08:00:00.000Z',
     ...input,
-  };
+  }
 }
 
 describe('enterprise tray message popover', () => {
   it('treats legacy SQLite timestamps without a timezone as UTC', () => {
     expect(parseEnterpriseMessageTimestamp('2026-07-28 03:51:00')).toBe(
       Date.parse('2026-07-28T03:51:00.000Z'),
-    );
+    )
   });
 
   it('按发送人聚合未读数量并保留最新的真实消息', () => {
@@ -56,7 +56,7 @@ describe('enterprise tray message popover', () => {
         preview: '请看一下附件',
         count: 1,
       }),
-    ]);
+    ])
   });
 
   it('preserves the backend unread count for an encrypted federation contact', () => {
@@ -72,7 +72,7 @@ describe('enterprise tray message popover', () => {
         accountId: 'federation:contact-remote',
         count: 7,
       }),
-    ]);
+    ])
   });
 
   it('渲染美化后的消息摘要并转义不可信内容', () => {
@@ -84,14 +84,14 @@ describe('enterprise tray message popover', () => {
         count: 3,
         createdAt: '2026-07-26T08:00:00.000Z',
       },
-    ], { now: Date.parse('2026-07-26T08:05:00.000Z') });
+    ], { now: Date.parse('2026-07-26T08:05:00.000Z') })
 
-    expect(html).toContain('未读提醒');
-    expect(html).toContain('5 分钟前');
-    expect(html).toContain('&lt;Alice&gt;');
-    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt; 项目方案已更新');
-    expect(html).toContain('clawmaster-tray://message/alice%2F%E7%A0%94%E5%8F%91');
-    expect(html).not.toContain('<img src=x onerror=alert(1)>');
+    expect(html).toContain('未读提醒')
+    expect(html).toContain('5 分钟前')
+    expect(html).toContain('&lt;Alice&gt;')
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt; 项目方案已更新')
+    expect(html).toContain('clawmaster-tray://message/alice%2F%E7%A0%94%E5%8F%91')
+    expect(html).not.toContain('<img src=x onerror=alert(1)>')
   });
 
   it('把浮窗约束在托盘所在显示器的工作区内', () => {
@@ -99,6 +99,6 @@ describe('enterprise tray message popover', () => {
       { x: 1880, y: 1040, width: 24, height: 24 },
       { x: 0, y: 0, width: 1920, height: 1040 },
       { width: 392, height: 420 },
-    )).toEqual({ x: 1516, y: 608 });
+    )).toEqual({ x: 1516, y: 608 })
   });
-});
+})

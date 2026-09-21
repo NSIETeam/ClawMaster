@@ -10,6 +10,6 @@
 
 export const e2eeProductionCapabilities = {
   enabled: false,
-  protocolId: "mls10-openmls-0.8-candidate",
+  protocolId: 'mls10-openmls-0.8-candidate',
   approvalDigest: null,
 } as const

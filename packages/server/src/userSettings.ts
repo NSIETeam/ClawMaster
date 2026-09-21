@@ -17,65 +17,65 @@
  * 走 clawmaster-core 的 ProjectSettingsManager（与 CLI /config agent-style 同源）。
  */
 
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
-import type { MCPServerConfig, WebSearchProvider } from "clawmaster-core";
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type { MCPServerConfig, WebSearchProvider } from 'clawmaster-core';
 
-const SETTINGS_DIR_NAME = ".clawmaster-user";
-const SETTINGS_FILE = "settings.json";
+const SETTINGS_DIR_NAME = '.clawmaster-user';
+const SETTINGS_FILE = 'settings.json';
 
 export function userSettingsFilePath(homeDir = os.homedir()): string {
-  return path.join(homeDir, SETTINGS_DIR_NAME, SETTINGS_FILE);
+  return path.join(homeDir, SETTINGS_DIR_NAME, SETTINGS_FILE)
 }
 
 /** 本文件关心的字段子集（其余字段读时原样保留在 raw 里，写回不丢）。 */
 export interface UserSettingsSubset {
-  healthyUse?: boolean;
+  healthyUse?: boolean
   /** 后台模型任务必须由用户显式开启；新安装和旧配置缺省均关闭。 */
-  backgroundModelTasksEnabled?: boolean;
-  preferredLanguage?: string;
-  mcpServers?: Record<string, MCPServerConfig>;
+  backgroundModelTasksEnabled?: boolean
+  preferredLanguage?: string
+  mcpServers?: Record<string, MCPServerConfig>
   /** 桌面端全局自动授权；仅放行非高危操作。 */
-  authorizationMode?: "manual" | "auto";
-  searchProvider?: WebSearchProvider;
-  searchApiUrl?: string;
-  searchModel?: string;
+  authorizationMode?: 'manual' | 'auto';
+  searchProvider?: WebSearchProvider
+  searchApiUrl?: string
+  searchModel?: string
   /** 管理员为各付费搜索线路填写的单次调用估算费用（人民币）。 */
-  searchProviderCostsCny?: Partial<Record<WebSearchProvider, number>>;
+  searchProviderCostsCny?: Partial<Record<WebSearchProvider, number>>
   /** 每个企业自然月最多发起的供应商请求数；未设置表示不限。 */
-  searchMonthlyRequestQuota?: number;
+  searchMonthlyRequestQuota?: number
   /** 每个企业自然月的预估搜索成本上限（人民币）；未设置表示不限。 */
-  searchMonthlyBudgetCny?: number;
+  searchMonthlyBudgetCny?: number
   /** 仅用于读取历史 CLI 明文配置；桌面端新保存的密钥不会写入这里。 */
-  searchApiKey?: string;
+  searchApiKey?: string
 }
 
 /** 极简 JSON 注释剥离（与 customModels.ts 同一套宽容策略）。 */
 function stripJsonCommentsLoose(input: string): string {
-  let out = input.replace(/\/\*[\s\S]*?\*\//g, "");
+  let out = input.replace(/\/\*[\s\S]*?\*\//g, '');
   out = out
-    .split("\n")
-    .map((line) => (line.trimStart().startsWith("//") ? "" : line))
-    .join("\n");
-  return out;
+    .split('\n')
+    .map(line => (line.trimStart().startsWith('//') ? '' : line))
+    .join('\n');
+  return out
 }
 
 function readRaw(homeDir = os.homedir()): Record<string, unknown> {
-  const filePath = userSettingsFilePath(homeDir);
+  const filePath = userSettingsFilePath(homeDir)
   try {
-    if (!fs.existsSync(filePath)) return {};
-    const text = fs.readFileSync(filePath, "utf-8");
+    if (!fs.existsSync(filePath)) return {}
+    const text = fs.readFileSync(filePath, 'utf-8');
     try {
-      return JSON.parse(text) as Record<string, unknown>;
+      return JSON.parse(text) as Record<string, unknown>
     } catch {
       return JSON.parse(stripJsonCommentsLoose(text)) as Record<
         string,
         unknown
-      >;
+      >
     }
   } catch {
-    return {};
+    return {}
   }
 }
 
@@ -83,18 +83,18 @@ function readRaw(homeDir = os.homedir()): Record<string, unknown> {
 export function loadUserSettingsSubset(
   homeDir = os.homedir(),
 ): UserSettingsSubset {
-  const raw = readRaw(homeDir);
-  const searchProvider = raw['searchProvider'];
+  const raw = readRaw(homeDir)
+  const searchProvider = raw['searchProvider']
   const rawCosts =
     raw['searchProviderCostsCny'] &&
     typeof raw['searchProviderCostsCny'] === 'object'
       ? (raw['searchProviderCostsCny'] as Record<string, unknown>)
-      : {};
-  const searchProviderCostsCny: Partial<Record<WebSearchProvider, number>> = {};
+      : {}
+  const searchProviderCostsCny: Partial<Record<WebSearchProvider, number>> = {}
   for (const provider of ['bing', 'bocha', 'gemini', 'volcengine'] as const) {
-    const value = rawCosts[provider];
+    const value = rawCosts[provider]
     if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
-      searchProviderCostsCny[provider] = value;
+      searchProviderCostsCny[provider] = value
     }
   }
   return {
@@ -144,7 +144,7 @@ export function loadUserSettingsSubset(
       typeof raw['searchApiKey'] === 'string'
         ? (raw['searchApiKey'] as string)
         : undefined,
-  };
+  }
 }
 
 /**
@@ -154,24 +154,24 @@ export function patchUserSettings(
   patch: Partial<UserSettingsSubset>,
   homeDir = os.homedir(),
 ): void {
-  const filePath = userSettingsFilePath(homeDir);
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const raw = readRaw(homeDir);
-  const next = { ...raw, ...patch };
-  const tmp = filePath + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(next, null, 2), "utf-8");
-  fs.renameSync(tmp, filePath);
+  const filePath = userSettingsFilePath(homeDir)
+  const dir = path.dirname(filePath)
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  const raw = readRaw(homeDir)
+  const next = { ...raw, ...patch }
+  const tmp = filePath + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf-8');
+  fs.renameSync(tmp, filePath)
 }
 
 /** 读取 mcpServers 配置（便于单独调用，不必解构整个子集）。 */
 export function loadMcpServers(): Record<string, MCPServerConfig> {
-  return loadUserSettingsSubset().mcpServers ?? {};
+  return loadUserSettingsSubset().mcpServers ?? {}
 }
 
 /** 覆盖写回整份 mcpServers（add/remove 都先在内存改好再整体写回）。 */
 export function saveMcpServers(
   servers: Record<string, MCPServerConfig>,
 ): void {
-  patchUserSettings({ mcpServers: servers });
+  patchUserSettings({ mcpServers: servers })
 }
