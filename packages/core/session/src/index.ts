@@ -275,6 +275,36 @@ function assertCurrentLlmShape(event: Record<string, unknown>, index: number): v
   }
 }
 
+/**
+ * Default the identity fields legacy injection callers omit on message events.
+ * `Session.append` never ran the message-shape assertions (they live on the
+ * seed/adopt paths), so context injections appended `user/message` without
+ * `id`/`role`/`source` and corrupted later loads. Healing at the append site
+ * matches the read-side policy in {@link assertMessageEventShape}: missing
+ * fields default, present-but-wrong values still fail validation there.
+ */
+function healAppendedMessageData(type: SessionEventType, data: unknown): void {
+  if (!isMessageEventType(type)) return
+  if (typeof data !== 'object' || data === null) return
+  const record = data as Record<string, unknown>
+  const message = type === 'user/message' ? record : record['message']
+  if (typeof message !== 'object' || message === null) return
+  const messageRecord = message as Record<string, unknown>
+  if (typeof messageRecord['id'] !== 'string' || messageRecord['id'] === '') {
+    messageRecord['id'] = `appended-${String(type).replace('/', '-')}-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`
+  }
+  if (messageRecord['role'] === undefined || messageRecord['role'] === null) {
+    messageRecord['role'] = MESSAGE_ROLE_BY_TYPE[type]
+  }
+  const source = messageRecord['source']
+  if ((typeof source !== 'object' || source === null
+    || typeof (source as Record<string, unknown>)['kind'] !== 'string'
+    || (source as Record<string, unknown>)['kind'] === '')
+    && type === 'user/message' && Array.isArray(messageRecord['content'])) {
+    messageRecord['source'] = { kind: 'user' }
+  }
+}
+
 /** Validate fields used directly by restored Session lifecycle logic without replaying the embedded stream. */
 function assertAssistantSettlementShape(
   data: Record<string, unknown> | undefined,
@@ -733,6 +763,7 @@ export class Session {
     if (dataSnapshot === undefined) {
       throw new Error(`session event "${type}" carries non-JSON-serializable data`)
     }
+    healAppendedMessageData(type, dataSnapshot)
     const surfaceMetadataSnapshot = snapshotJsonValue(surfaceMetadata)
     if (surfaceMetadataSnapshot === undefined) {
       throw new Error(`session event "${type}" carries non-JSON-serializable surface metadata`)

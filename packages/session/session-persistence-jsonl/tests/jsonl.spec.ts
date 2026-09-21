@@ -516,9 +516,10 @@ describe('JsonlSessionPersistence: stored-format refusals', () => {
   })
   afterEach(async () => { await ctx.fiber.dispose() })
 
-  it('propagates a non-format header failure from stat and list unchanged', async () => {
+  it('keeps stat fail-loud while list quarantines a non-format header failure (D1 isolation)', async () => {
     // Only foreign-version refusals are enriched (stat) or skipped (list);
-    // any other header failure stays fail-loud on both paths.
+    // targeted reads stay fail-loud with the real error, while listing keeps
+    // every other session's history visible instead of vetoing wholesale.
     const id = SessionId('retired-policy-header')
     const path = rawLogPath(root, '/work', id)
     await mkdir(dirname(path), { recursive: true })
@@ -532,7 +533,8 @@ describe('JsonlSessionPersistence: stored-format refusals', () => {
     }
     await writeFile(path, `${JSON.stringify(line)}\n`)
     await expect(ctx.sessionPersistence.stat(id)).rejects.toThrow('retired policy baseline fields')
-    await expect(ctx.sessionPersistence.list()).rejects.toThrow('retired policy baseline fields')
+    const snapshots = await ctx.sessionPersistence.list()
+    expect(snapshots.map((s) => s.header.id)).not.toContain(id)
   })
 
   it('refuses a structurally foreign future header as unsupported, not corrupt or absent', async () => {
@@ -2532,12 +2534,13 @@ describe('JsonlSessionPersistence: edge cases', () => {
       .toThrow(/retired policy baseline fields/)
   })
 
-  it('list rejects a header whose cwd does not identify its physical log', async () => {
+  it('list quarantines a header whose cwd does not identify its physical log (D1 isolation)', async () => {
     const m = meta('misplaced', '/stored')
     await writeLog(ctx.sessionPersistence, m, oneTurnLog())
     await rewriteHeader(rawLogPath(root, m.cwd, m.id), (header) => { header.cwd = '/elsewhere' })
 
-    await expect(ctx.sessionPersistence.list()).rejects.toThrow(/and cwd identify/)
+    const snapshots = await ctx.sessionPersistence.list()
+    expect(snapshots.map((s) => s.header.id)).not.toContain(m.id)
   })
 
   it('accepts an alternate project path only when it identifies the same physical log', async () => {
@@ -2564,7 +2567,8 @@ describe('JsonlSessionPersistence: edge cases', () => {
       isSeeded: false, delegationDepth: 0,
     }) + '\n')
 
-    await expect(ctx.sessionPersistence.list()).rejects.toThrow(/header id cannot name a storage path/)
+    const snapshots = await ctx.sessionPersistence.list()
+    expect(snapshots.map((s) => s.header.id)).not.toContain('')
   })
 
   it('open and list reject one id materialized in multiple project directories', async () => {
@@ -2577,7 +2581,8 @@ describe('JsonlSessionPersistence: edge cases', () => {
     }
 
     await expect(ctx.sessionPersistence.open(id, 'read')).rejects.toThrow(/appears in multiple project directories/)
-    await expect(ctx.sessionPersistence.list()).rejects.toThrow(/appears in multiple project directories/)
+    const snapshots = await ctx.sessionPersistence.list()
+    expect(snapshots.filter((s) => s.header.id === id)).toHaveLength(1)
   })
 
   it('create rejects an id already on disk under a different project directory', async () => {

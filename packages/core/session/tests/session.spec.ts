@@ -431,6 +431,28 @@ describe('Session', () => {
     expect(() => session.append('turn/start', { turn: 1 })).not.toThrow()
   })
 
+  it('heals appended user messages that lack id/role/source before they persist (D2 write side)', () => {
+    // The append path historically skipped the message-shape assertions, so
+    // injections appended bare records that corrupted later loads. Appending
+    // bare content must persist an identified, replayable message.
+    const session = Session.create(SessionId('append-heal'))
+    session.append('turn/start', { turn: 1 })
+    expect(() => {
+      session.append('user/message', {
+        content: [{ type: 'text', text: 'bare injection' }],
+      } as never, { surfaceOp: 'append' })
+    }).not.toThrow()
+    const healed = session.snapshotEvents().at(-1)
+    expect(healed?.type).toBe('user/message')
+    const data = healed?.data as unknown as { id: string, role: string, source: { kind: string } }
+    expect(typeof data.id).toBe('string')
+    expect(data.id).not.toBe('')
+    expect(data.role).toBe('user')
+    expect(data.source.kind).toBe('user')
+    // The healed log re-seeds without corruption.
+    expect(() => Session.create(SessionId('append-heal-replay'), session.snapshotEvents())).not.toThrow()
+  })
+
   it('snapshots message events without validating plugin-owned block details', () => {
     const boundary = snapshotSessionEvent({
       type: 'turn/start',
