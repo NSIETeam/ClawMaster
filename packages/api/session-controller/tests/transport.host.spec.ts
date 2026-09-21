@@ -500,8 +500,11 @@ describe('SessionHistoryController', () => {
     ]) {
       await expect(transport.page(request, signal())).rejects.toMatchObject({ code: 'gateway/bad-request' })
     }
+    // A cursor beyond the stored log (stale projection cache, or a log
+    // truncated by an abnormal shutdown) pages the available prefix: cache
+    // staleness must never brick the history view.
     await expect(transport.page({ address, throughSeq: 0 }, signal()))
-      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+      .resolves.toMatchObject({ records: [], hasMore: false })
 
     const corrupt = await setup()
     const corruptId = SessionId('missing-through-seq')

@@ -86,22 +86,20 @@ export class SessionHistoryController {
     signal.throwIfAborted()
     const sourceLog = source.events
     const sourceCursor: SessionSeqCursor = sourceLog.at(-1)?.seq ?? -1
-    if (throughSeq > sourceCursor) {
-      throw new RemoteError(
-        'gateway/bad-request',
-        `session page through seq ${String(throughSeq)} is past cursor ${String(sourceCursor)}`,
-        {},
-      )
-    }
+    // The stored log is authoritative. A client cursor beyond it — a stale
+    // projection cache, or a log truncated by an abnormal shutdown — pages
+    // the available prefix instead of failing the whole history view: cache
+    // staleness must never brick the conversation.
+    const effectiveThrough = Math.min(throughSeq, sourceCursor)
     /* v8 ignore next -- Session and persistence validation guarantee a dense zero-based event prefix. */
-    if (throughSeq >= 0 && sourceLog[throughSeq]?.seq !== throughSeq) {
-      throw new RemoteError('gateway/internal', `session log does not contain through seq ${String(throughSeq)}`, {})
+    if (effectiveThrough >= 0 && sourceLog[effectiveThrough]?.seq !== effectiveThrough) {
+      throw new RemoteError('gateway/internal', `session log does not contain through seq ${String(effectiveThrough)}`, {})
     }
     const page = paginate(
       sourceLog,
       beforeSeq,
       request.maxMessages ?? DEFAULT_MAX_MESSAGES,
-      throughSeq,
+      effectiveThrough,
     )
     const records = pageRecords(page.events)
     return {
