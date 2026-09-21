@@ -122,6 +122,9 @@ const testIncludes = [
   'packages/*/*/tests/**/*.spec.{ts,tsx}',
   'apps/*/tests/**/*.spec.ts',
   'scripts/**/*.spec.ts',
+  // Release/deployment gate tests (authored as vitest .test.js by the
+  // desktop workline); without this entry they never run in CI.
+  'scripts/tests/*.test.js',
 ]
 
 // The instrumented coverage gate sets this env; the exempt heavy suites then
