@@ -192,6 +192,43 @@ describe('Session', () => {
       .toEqual([unrelatedPrimitiveData])
   })
 
+  it('tolerates legacy gateway-internal tool results and repairs missing message ids', () => {
+    // Regression guard for the incident class that bricked whole histories:
+    // older builds wrote gateway/internal tool results without a message id
+    // (and with loose roles). These are legal protocol events (the source
+    // kind exists in the typert surface), so loading must never fail on them.
+    const gatewayInternal = {
+      type: 'tool/result', seq: 1, time: 1,
+      data: { message: { role: 'user', source: { kind: 'gateway/internal' }, content: [] } },
+      surfaceOp: 'append',
+    } as unknown as SessionEvent
+    const header = {
+      type: 'request/header', seq: 0, time: 1,
+      data: { header: { config: { provider: 'p', model: 'm' } }, reason: 'initial' },
+    } as unknown as SessionEvent
+    const session = Session.create(SessionId('legacy-gateway-internal'), [header, gatewayInternal])
+    expect(session.snapshotEvents().some(event => event.type === 'tool/result')).toBe(true)
+
+    // A non-internal tool result without an id is repaired deterministically
+    // instead of failing the history.
+    const missingId = {
+      type: 'tool/result', seq: 1, time: 1,
+      data: {
+        message: {
+          role: 'user',
+          source: { kind: 'tool', callId: 'call-legacy' },
+          content: [{ type: 'tool-result', toolCallId: 'call-legacy', content: [] }],
+        },
+      },
+      surfaceOp: 'append',
+    } as unknown as SessionEvent
+    const repaired = Session.create(SessionId('legacy-missing-id'), [header, missingId])
+    const repairedToolResult = repaired.snapshotEvents().find(event => event.type === 'tool/result') as unknown as {
+      data: { message: { id: string } }
+    }
+    expect(repairedToolResult?.data.message.id).toBe('recovered-tool-result-1')
+  })
+
   it('validates Assistant settlement fields without replaying embedded streams', () => {
     const id = SessionId('invalid-restored-assistant-stream')
     const header = {
