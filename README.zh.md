@@ -13,6 +13,16 @@ description: ClawMaster WatchDog 桌面版下载、首次使用与 DSH 运行时
 
 ClawMaster 通过 Tauri 桌面为 WatchDog 提供任务委托、审批与会话旁的成果查看空间。模型、Session、工具、审批和插件基础设施直接复用 DSH。
 
+## 当前状态（内核代号 **Dawn**）
+
+> **Agent 开工前必读**：先看 [docs/STATUS-2026-09-21.md](docs/STATUS-2026-09-21.md) 与
+> [docs/DEFECTS-DAWN.md](docs/DEFECTS-DAWN.md)，再执行 `git log --oneline -20` 了解最近变化，然后才动手。
+
+- 基线：dsh 0.1.5-rc.2（harness `72da6c767414dd30`）· desktop 0.2.3 · 会话库 93/93 健康
+- 技能主动调取已验证（企业插件探针 10/10 通过）；在线技能 106 个
+- 自愈：`session-doctor` 每 30 分钟自动运行（launchd `com.clawmaster.session-repair`）
+- 已知缺陷与缓解：见 [DEFECTS-DAWN](docs/DEFECTS-DAWN.md) 的 D1–D12
+
 ## Table of Contents
 
 - [下载安装](#downloads)
@@ -23,7 +33,7 @@ ClawMaster 通过 Tauri 桌面为 WatchDog 提供任务委托、审批与会话�
 
 ## Downloads
 
-从 [GitHub Releases](https://github.com/NSIETeam/ClawMaster-Desktop/releases) 中选择版本附件下载。每个版本附带 `SHA256SUMS.txt`；构建结果和发布说明列明各平台验证情况与签名状态。
+从 [GitHub Releases](https://github.com/NSIETeam/ClawMaster/releases) 中选择版本附件下载。每个版本附带 `SHA256SUMS.txt`；构建结果和发布说明列明各平台验证情况与签名状态。
 
 | 系统 | 架构 | 安装包 |
 | --- | --- | --- |
