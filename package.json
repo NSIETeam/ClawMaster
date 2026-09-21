@@ -189,6 +189,7 @@
     "test:notes-client": "node frontends/notes/scripts/build.mjs && vitest run --config frontends/notes/tests/vitest.client.config.ts",
     "postinstall": "node scripts/install-lefthook.mjs"
   },
+  "dependencies": {},
   "devDependencies": {
     "@deepseek-ai/dsh-agent": "workspace:^",
     "@deepseek-ai/dsh-tool-session-query": "workspace:^",

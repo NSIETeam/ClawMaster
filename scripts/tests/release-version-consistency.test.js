@@ -63,7 +63,12 @@ describe('release version displays', () => {
       path.resolve('.github/workflows/ci.yml'),
       'utf8',
     );
-    expect(ciWorkflow).toMatch(/Install locked dependencies\n\s+run: npm ci/);
+    // Locked installs on CI: either npm ci or pnpm's immutable install.
+    // Unlocked `npm install` / bare `pnpm install` stays forbidden.
+    expect(ciWorkflow).toMatch(
+      /Install locked dependencies\n\s+run: npm ci|Install \(immutable\)\n\s+run: pnpm install --frozen-lockfile/,
+    );
     expect(ciWorkflow).not.toMatch(/run: npm install(?:\s|$)/g);
+    expect(ciWorkflow).not.toMatch(/run: pnpm install(?! --frozen-lockfile)(?:\s|$)/g);
   });
 });
