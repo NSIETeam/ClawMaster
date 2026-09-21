@@ -66,3 +66,17 @@
       测试应删除或补齐文件
 - [ ] `codex/runtime-watchdog` 分支与 beta.3 修了重叠问题（fresh-install
       smoke、symlink），下次 rebase 时注意冲突
+
+## 六、代码图谱（2026-09-21 审查）
+
+对发布路径核心四包 + frontend-static（52 个源文件）做过文件级与符号级
+死代码审查（esbuild metafile + 全仓引用比对），结论：**无死代码**。
+
+- `session/invariant.ts`、`agent-loop/invariant.ts` 由 `sdk-minimal` bundle
+  的 cordis patch 装载（`@deepseek-ai/dsh-session/invariant` 等子路径导出），
+  非死代码
+- `inject`/`apply`/`name` 为 cordis 插件协议导出，由框架调用
+- `frontend-static` 已收敛为单文件包（静态 CSP 后无残留哈希工具）
+
+新组件接入时请保持：每个 src 文件要么被同包 import，要么被 bundle patch
+装载，要么是包 exports 子路径——三者之外即为死代码，提交前删除。
