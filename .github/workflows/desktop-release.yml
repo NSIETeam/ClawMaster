@@ -443,9 +443,89 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  isolated-install-verify:
+    name: Isolated install verification (real browser)
+    needs: build
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Download this run's macos payload
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-macos-arm64
+          path: payload
+
+      - name: Extract the app from the dmg
+        run: |
+          dmg=$(find payload -name '*.dmg' | head -1)
+          test -n "$dmg"
+          hdiutil attach -nobrowse -readonly -mountpoint /Volumes/cm-verify "$dmg"
+          cp -R /Volumes/cm-verify/ClawMaster.app "$RUNNER_TEMP/ClawMaster.app"
+          hdiutil detach /Volumes/cm-verify
+          test -d "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
+
+      - name: First-boot provision and host start (as a real install)
+        run: |
+          cd "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
+          corepack enable
+          pnpm install --prod --no-frozen-lockfile --config.confirmModulesPurge=false
+          test -f node_modules/.modules.yaml
+          export DSH_HOME="$RUNNER_TEMP/dsh-home"
+          mkdir -p "$DSH_HOME"
+          nohup node --import ./desktop-defaults.mjs apps/cli/lib/bin.js web --no-open --host 127.0.0.1 --port 0 > "$RUNNER_TEMP/host.log" 2>&1 &
+          for i in $(seq 1 60); do
+            url=$(grep -oE 'http://127\.0\.0\.1:[0-9]+/\?token=[A-Za-z0-9_-]+' "$RUNNER_TEMP/host.log" | head -1)
+            test -n "$url" && break
+            sleep 2
+          done
+          test -n "$url" || { cat "$RUNNER_TEMP/host.log"; exit 1; }
+          echo "TARGET_URL=$url" >> "$GITHUB_ENV"
+
+      - name: Assert the UI renders in a real browser
+        run: |
+          cd "$RUNNER_TEMP"
+          npm init -y >/dev/null 2>&1
+          npm i playwright >/dev/null 2>&1
+          npx playwright install chromium
+          cat > verify.mjs <<'EOF'
+          import { chromium } from 'playwright'
+          const browser = await chromium.launch()
+          const page = await browser.newPage()
+          const consoleErrors = []
+          page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)) })
+          await page.goto(process.env.TARGET_URL, { waitUntil: 'domcontentloaded' })
+          await page.waitForTimeout(9000)
+          const state = await page.evaluate(() => ({
+            rootChildren: document.getElementById('root')?.children.length ?? -1,
+            loader: window.__ModuleLoader__?.mode ?? 'none',
+            bodyChars: (document.body.innerText || '').length,
+          }))
+          await page.screenshot({ path: 'render-proof.png' })
+          console.log('RENDER_STATE ' + JSON.stringify(state))
+          console.log('CONSOLE_ERRORS ' + JSON.stringify(consoleErrors.slice(0, 5)))
+          await browser.close()
+          // A blank window here has shipped twice (CSP regressions); this gate
+          // fails the release before anything is published.
+          if (!(state.rootChildren > 0 && state.loader === 'live')) process.exit(1)
+          EOF
+          node verify.mjs
+          cp "$RUNNER_TEMP/host.log" ./host.log 2>/dev/null || true
+
+      - name: Upload render proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-render-proof
+          path: |
+            render-proof.png
+            host.log
+          if-no-files-found: warn
+          retention-days: 7
+
   release:
     name: Publish GitHub Release
     if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+    needs: [build, isolated-install-verify]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
