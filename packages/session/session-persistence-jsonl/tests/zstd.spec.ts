@@ -803,7 +803,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       JSON.stringify({ type: 'turn/start' }),
       '',
     ].join('\n')))
-    await expect(ctx.sessionPersistence.list()).rejects.toThrow(/first frame is not exactly one header line/)
+    expect(await ctx.sessionPersistence.list()).toEqual([])
     await expect(ctx.sessionPersistence.open(twoLinesId, 'read'))
       .rejects.toThrow(/first frame is not exactly one header line/)
   })
@@ -824,7 +824,8 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       .rejects.toThrow(/empty or header-less Zstandard session log/)
     await expect(ctx.sessionPersistence.open(SessionId('empty-header'), 'read'))
       .rejects.toThrow(/first frame is not exactly one header line/)
-    await expect(ctx.sessionPersistence.list()).rejects.toThrow(/header frame failed validation/)
+    expect((await ctx.sessionPersistence.list()).map((s) => s.header.id))
+      .not.toContain(SessionId('bad-checksum'))
   })
 })
 

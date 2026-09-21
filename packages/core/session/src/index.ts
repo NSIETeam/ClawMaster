@@ -324,6 +324,32 @@ const MESSAGE_ROLE_BY_TYPE: Record<SurfaceEventType, Message['role']> = {
   'tool/result': 'user',
 }
 
+/**
+ * Default the identity fields legacy injection callers omit on message events;
+ * the append path historically skipped the message-shape assertions (D2).
+ */
+function healAppendedMessageData(type: SessionEventType, data: unknown): void {
+  if (!isMessageEventType(type)) return
+  if (typeof data !== 'object' || data === null) return
+  const record = data as Record<string, unknown>
+  const message = type === 'user/message' ? record : record['message']
+  if (typeof message !== 'object' || message === null) return
+  const messageRecord = message as Record<string, unknown>
+  if (typeof messageRecord['id'] !== 'string' || messageRecord['id'] === '') {
+    messageRecord['id'] = `appended-${String(type).replace('/', '-')}-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`
+  }
+  if (messageRecord['role'] === undefined || messageRecord['role'] === null) {
+    messageRecord['role'] = MESSAGE_ROLE_BY_TYPE[type]
+  }
+  const source = messageRecord['source']
+  if ((typeof source !== 'object' || source === null
+    || typeof (source as Record<string, unknown>)['kind'] !== 'string'
+    || (source as Record<string, unknown>)['kind'] === '')
+    && type === 'user/message' && Array.isArray(messageRecord['content'])) {
+    messageRecord['source'] = { kind: 'user' }
+  }
+}
+
 /** Validate only the event-specific invariants needed to safely replay a message. */
 function assertMessageEventShape(event: Record<string, unknown>, subject: string): void {
   const type = event['type']
@@ -718,6 +744,7 @@ export class Session {
       ...surfaceOpts?.surfaceOp === undefined ? {} : { surfaceOp: surfaceOpts.surfaceOp },
     }
     const dataSnapshot = snapshotJsonValue(data)
+    healAppendedMessageData(type, dataSnapshot)
     if (dataSnapshot === undefined) {
       throw new Error(`session event "${type}" carries non-JSON-serializable data`)
     }

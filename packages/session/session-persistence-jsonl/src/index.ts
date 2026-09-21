@@ -991,11 +991,18 @@ class JsonlSessionPersistence extends SessionPersistence {
           // Listing skips a foreign format while opening its id still refuses
           // with the selected physical location.
           if (error instanceof SessionFormatUnsupportedError) continue
-          throw error
+          // One corrupt log must not veto the whole listing (D1 isolation).
+          this.ctx.logger.warn(
+            `${this.name}: session log "${selected.sourcePath}" skipped from listing: ${error instanceof Error ? error.message : String(error)}`,
+          )
+          continue
         }
         if (header === undefined) continue
         if (ids.has(header.id)) {
-          throw new Error(`duplicate JSONL session id "${header.id}" appears in multiple project directories`)
+          this.ctx.logger.warn(
+            `${this.name}: duplicate JSONL session id "${header.id}" skipped from listing at "${selected.sourcePath}"`,
+          )
+          continue
         }
         ids.add(header.id)
         artifacts.push({ header, path: selected.sourcePath })
