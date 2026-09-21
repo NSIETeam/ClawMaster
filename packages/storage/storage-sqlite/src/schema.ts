@@ -74,6 +74,10 @@ export async function openDatabase(path: string, journalMode: JournalMode): Prom
 }
 
 function configureDatabase(db: DatabaseSync, path: string, journalMode: JournalMode): void {
+  // Wait (bounded) for a sibling writer instead of failing plugin init when
+  // two processes briefly hold the database: a busy timeout keeps open
+  // cooperative across app boot and concurrent headless runs.
+  db.exec('PRAGMA busy_timeout = 8000')
   db.exec('PRAGMA foreign_keys = ON')
   // The validated union is safe to interpolate into a non-bindable PRAGMA.
   db.exec(`PRAGMA journal_mode = ${journalMode.toUpperCase()}`)
