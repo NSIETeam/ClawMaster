@@ -11,6 +11,9 @@ import { mkdir, open } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { StorageError } from '@deepseek-ai/dsh-storage'
 
+/** Milliseconds a database open waits on a sibling writer before failing (D4). */
+const BUSY_TIMEOUT_MS = 8000
+
 /**
  * The on-disk physical layout version, stored in `PRAGMA user_version`.
  * Orthogonal to each unit's own `version` (stamped per unit in the `units`
@@ -63,7 +66,10 @@ export async function openDatabase(path: string, journalMode: JournalMode): Prom
     await mkdir(dirname(actual), { recursive: true, mode: 0o700 })
     await createDatabaseFile(actual)
   }
-  const db = new DatabaseSync(actual)
+  // The constructor-level busy timeout covers the open/handshake window a
+  // PRAGMA cannot: a sibling process holding the database while this process
+  // constructs waits up to 8s instead of failing plugin init (D4).
+  const db = new DatabaseSync(actual, { timeout: BUSY_TIMEOUT_MS })
   try {
     configureDatabase(db, actual, journalMode)
     return db
@@ -77,7 +83,7 @@ function configureDatabase(db: DatabaseSync, path: string, journalMode: JournalM
   // Wait (bounded) for a sibling writer instead of failing plugin init when
   // two processes briefly hold the database: a busy timeout keeps open
   // cooperative across app boot and concurrent headless runs.
-  db.exec('PRAGMA busy_timeout = 8000')
+  db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`)
   db.exec('PRAGMA foreign_keys = ON')
   // The validated union is safe to interpolate into a non-bindable PRAGMA.
   db.exec(`PRAGMA journal_mode = ${journalMode.toUpperCase()}`)
