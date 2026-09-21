@@ -15,13 +15,13 @@ ClawMaster 通过 Tauri 桌面为 WatchDog 提供任务委托、审批与会话�
 
 ## 当前状态（内核代号 **Dawn**）
 
-> **Agent 开工前必读**：先看 [docs/STATUS-2026-09-21.md](docs/STATUS-2026-09-21.md) 与
-> [docs/DEFECTS-DAWN.md](docs/DEFECTS-DAWN.md)，再执行 `git log --oneline -20` 了解最近变化，然后才动手。
+> **Agent 开工前必读**：先看 [docs/STATUS-2026-09-21.zh.md](docs/STATUS-2026-09-21.zh.md) 与
+> [docs/DEFECTS-DAWN.zh.md](docs/DEFECTS-DAWN.zh.md)，再执行 `git log --oneline -20` 了解最近变化，然后才动手。
 
-- 基线：dsh 0.1.5-rc.2（harness `72da6c767414dd30`）· desktop 0.2.3 · 会话库 93/93 健康
+- 基线：desktop 0.0.1beta（2026-09-21 版本重置）· dsh 0.1.5-rc.2（harness `72da6c767414dd30`）· 会话库 93/93 健康
 - 技能主动调取已验证（企业插件探针 10/10 通过）；在线技能 106 个
 - 自愈：`session-doctor` 每 30 分钟自动运行（launchd `com.clawmaster.session-repair`）
-- 已知缺陷与缓解：见 [DEFECTS-DAWN](docs/DEFECTS-DAWN.md) 的 D1–D12
+- 已知缺陷与缓解：见 [DEFECTS-DAWN](docs/DEFECTS-DAWN.zh.md) 的 D1–D12
 
 ## Table of Contents
 
