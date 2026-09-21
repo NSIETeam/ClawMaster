@@ -266,7 +266,7 @@ patchedDependencies:
   '@electron/osx-sign@1.3.3': 280e7b2816caf01423097d24e79107a66afeb563a348630ce9928ae8499a5861
   '@nanmicoder/dsh-agent-teams@0.1.17': 40792cb1cbc6e85507262405f0e3526e3e584c8ef19195d0fbc56fd8b7221fe5
   '@openviking/dsh-memory-plugin@0.3.0': 1ac11f6a20844f1620d176c09b4520d434830128e676ceb43c9af2d8e5f95b91
-  '@xmanrui/dsh-im@4.20.0': d65de3c3853294342923d4e302d3fe56baadd6fd7975336c3f86a91fd053b028
+  '@xmanrui/dsh-im@4.20.0': 1a852edf827f286994c1aee4689bca77efd629613f3537e53d2d37b837db48e3
   '@yao-pkg/pkg@6.21.0': 28edd2180c36691c481522ef81f6f6614505f45e491aad542ac4663d4e6b3ff8
   dsh-better-sidebar@0.19.1: 0bea306b21f7a30cf91a98bd35c829585dc3f0ea8f246bb1732f24af7ad73582
   dsh-routing-suite@0.1.2: 252d8ffce63014aca24e19b892b86ae7dd21e2a01eb8070b82d803c5215b64fc
@@ -1096,7 +1096,7 @@ importers:
         version: 0.3.0(patch_hash=1ac11f6a20844f1620d176c09b4520d434830128e676ceb43c9af2d8e5f95b91)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-mcp-client@packages+mcp+mcp-client)(@deepseek-ai/dsh-session-projection@packages+session+session-projection)(@deepseek-ai/dsh-skill-filesystem@packages+skill+skill-filesystem)
       '@xmanrui/dsh-im':
         specifier: 4.20.0
-        version: 4.20.0(patch_hash=d65de3c3853294342923d4e302d3fe56baadd6fd7975336c3f86a91fd053b028)(debug@4.4.3(supports-color@9.4.0))(supports-color@9.4.0)
+        version: 4.20.0(patch_hash=1a852edf827f286994c1aee4689bca77efd629613f3537e53d2d37b837db48e3)(debug@4.4.3(supports-color@9.4.0))(supports-color@9.4.0)
       clawmaster-sys-prompt:
         specifier: workspace:*
         version: link:../clawmaster-sys-prompt
@@ -10547,7 +10547,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@xmanrui/dsh-im@4.20.0(patch_hash=d65de3c3853294342923d4e302d3fe56baadd6fd7975336c3f86a91fd053b028)(debug@4.4.3(supports-color@9.4.0))(supports-color@9.4.0)':
+  '@xmanrui/dsh-im@4.20.0(patch_hash=1a852edf827f286994c1aee4689bca77efd629613f3537e53d2d37b837db48e3)(debug@4.4.3(supports-color@9.4.0))(supports-color@9.4.0)':
     dependencies:
       '@tencent-connect/qqbot-connector': 1.2.0
       '@tencent-connect/qqbot-nodejs': 1.0.4

@@ -17,7 +17,7 @@
     "clientBrandedLocaleCount": 36,
     "clientLocaleCopy": "Exact Chinese and English display entries preserve Host diagnostic keys, user-supplied strings, and technical identifiers."
   },
-  "patchSha256": "d65de3c3853294342923d4e302d3fe56baadd6fd7975336c3f86a91fd053b028",
+  "patchSha256": "1a852edf827f286994c1aee4689bca77efd629613f3537e53d2d37b837db48e3",
   "upstreamSha256": {
     "lib/client.js": "14625c46b1294e71cfed5ca3f92f36ab07e3b270be2ed3de586b4932afc823f0",
     "lib/index.js": "0a8cc173cfff339a084f1d580160c57af85bd541f03e169f713c486749ecdc68",
@@ -66,7 +66,7 @@
   },
   "patchedSha256": {
     "lib/client.js": "9264b5801b701d9c479d84bbcb09a5516013ade7ae058b83d162accc372d5967",
-    "lib/index.js": "7bdf3eceb6fdb59300810c89f549d637c1e09a1df35797608d2509356aef3635",
+    "lib/index.js": "7c6bb43f63236b82f325b26e30b4beb615a4ddcb79f3fa1429f38b87cf62c344",
     "package.json": "813fc0d08e7ce77ae38c954e6a2859c9579cc21cdf4c476dbeca4614575122fa",
     "plugin-src/client/channels/dingtalk/index.js": "13c9e80b834060cf0e3e7c8cbdbe024c09e75cd3013b9ad49d14cf2846ba4b8b",
     "plugin-src/client/channels/feishu/index.js": "07bd62ea60edb3c265f27d09faa4bd0244b74ced1aa079262ace5d78bf0576c4",
