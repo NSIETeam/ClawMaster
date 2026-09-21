@@ -318,8 +318,12 @@ describe('Session', () => {
       {
         name: 'source',
         event: {
-          type: 'user/message', seq: 0, time: 1, surfaceOp: 'append',
-          data: { ...user, source: null },
+          type: 'assistant/message', seq: 0, time: 1, surfaceOp: 'append',
+          data: {
+            turn: 1,
+            step: 1,
+            message: { ...assistant, source: null },
+          },
         },
         message: 'message has invalid source',
       },
@@ -414,6 +418,17 @@ describe('Session', () => {
         name,
       ).toThrow(message)
     }
+  })
+
+  it('heals legacy context injections that lack id/role/source on user messages', () => {
+    // Skill-catalog replays and memory recalls persisted bare `user/message`
+    // events with content only; one such event must not fail history replay.
+    const event = {
+      type: 'user/message', seq: 0, time: 1, surfaceOp: 'append',
+      data: { content: [{ type: 'text', text: 'legacy injection' }] },
+    } as unknown as SessionEvent
+    const session = Session.create(SessionId('healed-legacy'), [event])
+    expect(() => session.append('turn/start', { turn: 1 })).not.toThrow()
   })
 
   it('snapshots message events without validating plugin-owned block details', () => {

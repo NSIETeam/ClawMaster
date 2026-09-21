@@ -151,10 +151,10 @@ if (!previewWindow.clawmaster) {
       }
     },
 
-    appVersion: () => Promise.resolve('0.0.2-beta.3-browser-preview'),
+    appVersion: () => Promise.resolve('0.1.5-rc.2-browser-preview'),
     updateCheck: () => Promise.resolve({
       status: 'up-to-date',
-      currentVersion: '0.0.2-beta.3',
+      currentVersion: '0.1.5-rc.2',
       latestVersion: null,
     }),
     getWorkspaceDirectories: async () => ({

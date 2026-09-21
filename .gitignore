@@ -50,3 +50,5 @@ native/system/test/bin/
 .clawmaster/
 output/
 outputs/
+
+!packages/desktop/src/renderer/css.d.ts

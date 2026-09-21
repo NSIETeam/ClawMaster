@@ -39,7 +39,7 @@ describe('web app browser startup', () => {
     const dist = join(root, 'dist')
     mkdirSync(dist)
     const index = join(dist, 'index.html')
-    writeFileSync(index, '<!doctype html><title>ready</title>')
+    writeFileSync(index, '<!doctype html><head><title>ready</title></head>')
     internals.resolveDistIndex = () => index
 
     const webserverModule = join(root, 'webserver.mjs')

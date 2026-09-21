@@ -324,7 +324,12 @@ const MESSAGE_ROLE_BY_TYPE: Record<SurfaceEventType, Message['role']> = {
   'tool/result': 'user',
 }
 
-/** Validate only the event-specific invariants needed to safely replay a message. */
+/** Validate only the event-specific invariants needed to safely replay a message.
+  *
+  * Legacy context injections (skill-catalog replays, memory recalls, time context)
+  * persisted `user/message` events without `id`/`role`/`source`. Missing fields are
+  * healed in place so one legacy write cannot fail the whole history replay;
+  * present-but-wrong values still throw. */
 function assertMessageEventShape(event: Record<string, unknown>, subject: string): void {
   const type = event['type']
   if (!isMessageEventType(type)) return
@@ -333,21 +338,28 @@ function assertMessageEventShape(event: Record<string, unknown>, subject: string
     ? data as Record<string, unknown>
     : undefined
   const message = type === 'user/message' ? record : record?.['message']
-  if (typeof message !== 'object' || message === null
-    || typeof (message as Record<string, unknown>)['id'] !== 'string'
-    || (message as Record<string, unknown>)['id'] === '') {
+  if (typeof message !== 'object' || message === null) {
     throw new Error(`${subject} lacks an identified message`)
   }
   const messageRecord = message as Record<string, unknown>
   const expectedRole = MESSAGE_ROLE_BY_TYPE[type]
-  if (messageRecord['role'] !== expectedRole) {
+  if (typeof messageRecord['id'] !== 'string' || messageRecord['id'] === '') {
+    messageRecord['id'] = `recovered-${String(type).replace('/', '-')}-${subject}`
+  }
+  if (messageRecord['role'] === undefined || messageRecord['role'] === null) {
+    messageRecord['role'] = expectedRole
+  } else if (messageRecord['role'] !== expectedRole) {
     throw new Error(`${subject} message must have role "${expectedRole}"`)
   }
   const source = messageRecord['source']
   if (typeof source !== 'object' || source === null
     || typeof (source as Record<string, unknown>)['kind'] !== 'string'
     || (source as Record<string, unknown>)['kind'] === '') {
-    throw new Error(`${subject} message has invalid source`)
+    if (type === 'user/message' && Array.isArray(messageRecord['content'])) {
+      messageRecord['source'] = { kind: 'user' }
+    } else {
+      throw new Error(`${subject} message has invalid source`)
+    }
   }
   if (!Array.isArray(messageRecord['content'])) {
     throw new Error(`${subject} message has invalid content`)
