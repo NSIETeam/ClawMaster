@@ -153,6 +153,47 @@ test('every Windows build command uses PowerShell with native failures enabled b
   assert.match(version.run, /release-channel\.mjs \$env:RELEASE_TAG/)
 })
 
+/** Every step the workflow runs under PowerShell, whichever runner it selects. */
+function powershellSteps() {
+  const found = []
+  for (const job of Object.values(workflow.jobs)) {
+    for (const step of job.steps) {
+      if (step.run && (step.shell ?? job.defaults?.run?.shell) === 'pwsh') found.push(step)
+    }
+  }
+  return found
+}
+
+/** Braces outside quoted literals; PowerShell refuses to run a script whose count is not zero. */
+function braceBalance(script) {
+  const bare = script.replace(/'[^'\n]*'/gu, "''").replace(/"[^"\n]*"/gu, '""')
+  return (bare.match(/\{/gu) ?? []).length - (bare.match(/\}/gu) ?? []).length
+}
+
+test('the version sources and the published tag history are checked before any platform build', () => {
+  const steps = workflow.jobs.build.steps
+  const validateIndex = steps.findIndex(step => step.name === 'Validate release version')
+  const commands = steps[validateIndex].run.split('\n').map(line => line.trim())
+  const wanted = [
+    'node apps/desktop-tauri/scripts/desktop-version.mjs --check',
+    'node apps/desktop-tauri/scripts/release-channel.mjs $env:RELEASE_TAG',
+    'node apps/desktop-tauri/scripts/release-version-guard.mjs --check $env:RELEASE_TAG',
+  ]
+  const positions = wanted.map(command => commands.indexOf(command))
+  for (const [index, position] of positions.entries()) assert.ok(position >= 0, wanted[index])
+  assert.deepEqual(positions, [...positions].sort((left, right) => left - right))
+  assert.ok(validateIndex < steps.findIndex(step => step.name === 'Build desktop bundles'))
+  assert.ok(validateIndex < steps.findIndex(step => step.name === 'Stage release assets'))
+})
+
+test('every PowerShell step is a complete script', () => {
+  const scripts = powershellSteps()
+  assert.ok(scripts.length > 0)
+  for (const step of scripts) assert.equal(braceBalance(step.run), 0, step.name)
+  const staged = scripts.find(step => step.name === 'Stage release assets')
+  assert.notEqual(braceBalance(`${staged.run}\n}`), 0, 'a stray closing brace must be rejected')
+})
+
 const pwsh = process.env.CLAWMASTER_TEST_PWSH || 'pwsh'
 const probe = spawnSync(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$PSVersionTable.PSVersion.ToString()'], {
   encoding: 'utf8', timeout: 10000,
@@ -214,5 +255,23 @@ if (calls.length === Number(process.env.CLAWMASTER_TEST_FAIL_AT)) process.exit(2
         }
       }
     }
+  }
+})
+
+test('PowerShell parses every workflow script a runner will execute', {
+  skip: pwshAvailable ? false : 'PowerShell is unavailable; CI requires it',
+}, t => {
+  const root = mkdtempSync(join(tmpdir(), 'ClawMaster workflow parse '))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const wrapper = join(root, 'parse.ps1')
+  writeFileSync(wrapper, '[scriptblock]::Create((Get-Content -Raw -LiteralPath $args[0])) | Out-Null\n')
+  for (const step of powershellSteps()) {
+    const script = join(root, 'step.ps1')
+    writeFileSync(script, step.run)
+    const result = spawnSync(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', wrapper, script], {
+      cwd: root, encoding: 'utf8', timeout: 30000,
+    })
+    assert.equal(result.error, undefined, `${step.name}: ${result.error}`)
+    assert.equal(result.status, 0, `${step.name}: ${result.stderr}`)
   }
 })

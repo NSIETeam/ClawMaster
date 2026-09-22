@@ -89,7 +89,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
           $PSNativeCommandUseErrorActionPreference = $true
+          node apps/desktop-tauri/scripts/desktop-version.mjs --check
           node apps/desktop-tauri/scripts/release-channel.mjs $env:RELEASE_TAG
+          node apps/desktop-tauri/scripts/release-version-guard.mjs --check $env:RELEASE_TAG
           $expectedCommit = if ('${{ github.event_name }}' -eq 'workflow_dispatch' -and '${{ inputs.publish }}' -ne 'true') { '${{ github.sha }}' } else { (git rev-parse "${env:RELEASE_TAG}^{commit}").Trim() }
           if ((git rev-parse HEAD).Trim() -ne $expectedCommit) { throw 'Checkout differs from the selected release candidate' }
           "DSH_DESKTOP_RELEASE_COMMIT=$expectedCommit" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -421,10 +423,6 @@ jobs:
             $source = Get-Item $converted
             $signature = Get-Item "$($updater.FullName).sig" -ErrorAction Stop
             Copy-Item $source.FullName "release-assets/clawmaster-$version-macos-$env:ASSET_ARCH.dmg"
-            $updaterDestination = "release-assets/clawmaster-$version-macos-$env:ASSET_ARCH.app.tar.gz"
-            Copy-Item $updater.FullName $updaterDestination
-            Copy-Item $signature.FullName "$updaterDestination.sig"
-          }
             $updaterDestination = "release-assets/clawmaster-$version-macos-$env:ASSET_ARCH.app.tar.gz"
             Copy-Item $updater.FullName $updaterDestination
             Copy-Item $signature.FullName "$updaterDestination.sig"
