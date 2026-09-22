@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "surfaces": [
+    {
+      "id": "workspace-file-write",
+      "surface": "A tool writes, replaces, moves or deletes a file.",
+      "enforcer": "packages/fs/fs-sandbox/src/index.ts",
+      "authorization": "packages/sandbox/sandbox/src/roots.ts",
+      "mechanism": "path-allow-list",
+      "evidence": ["packages/fs/fs-sandbox/tests/fs-sandbox.spec.ts"],
+      "status": "enforced"
+    },
+    {
+      "id": "shell-command",
+      "surface": "A tool runs a shell command, and the processes that command starts.",
+      "enforcer": "packages/shell/bash-sandbox/src/index.ts",
+      "authorization": "packages/sandbox/sandbox/src/roots.ts",
+      "mechanism": "path-allow-list",
+      "evidence": ["packages/shell/bash-sandbox/tests/sandbox.spec.ts"],
+      "status": "enforced"
+    },
+    {
+      "id": "office-document-save",
+      "surface": "The local Office editor writes the open document back to the workspace.",
+      "enforcer": "frontends/office/src/services.ts",
+      "authorization": { "external": "The workspace upload implementation the Host wires in: the editor sends the revision it opened as If-Match and that implementation decides." },
+      "mechanism": "revision-precondition",
+      "evidence": ["frontends/office/tests/browser.test.mjs"],
+      "status": "enforced"
+    },
+    {
+      "id": "business-record-write",
+      "surface": "A caller creates, edits, submits or reviews an enterprise record such as a contact, an inventory item, an order or a task.",
+      "enforcer": "frontends/dsh/src/governance-access.ts",
+      "authorization": "frontends/dsh/src/governance-identity.ts",
+      "mechanism": "role-check",
+      "evidence": ["frontends/dsh/tests/governance-access.test.mjs"],
+      "status": "enforced"
+    },
+    {
+      "id": "desktop-automation",
+      "surface": "A native automation step acts on the operator's desktop.",
+      "enforcer": "frontends/rpa/src/index.ts",
+      "authorization": "packages/interaction/user-approval/src/index.ts",
+      "mechanism": "user-approval",
+      "evidence": ["frontends/rpa/tests/native-lifecycle.test.mjs"],
+      "status": "enforced"
+    },
+    {
+      "id": "update-artifact-acceptance",
+      "surface": "An update artifact is downloaded and accepted for installation.",
+      "enforcer": "frontends/updates/src/download.ts",
+      "authorization": { "external": "The signature trust root configured for the release channel: an expected hash or a signature verifier supplied by the updater's configuration." },
+      "mechanism": "signature-verification",
+      "evidence": ["frontends/updates/tests/components.test.mjs"],
+      "status": "enforced"
+    },
+    {
+      "id": "network-egress",
+      "surface": "A tool, model provider or MCP server opens an outbound network connection.",
+      "status": "unenforced",
+      "reason": "No component in this checkout gates outbound traffic. The sandbox vocabulary covers file effects only and says so: `packages/sandbox/sandbox/src/index.ts` — \u201cNetwork and process visibility are outside this vocabulary.\u201d The sandbox modes confine file effects, and no egress allow-list or deny-list exists to name.",
+      "evidence": ["packages/sandbox/sandbox/src/index.ts"]
+    },
+    {
+      "id": "automated-code-execution",
+      "surface": "A tool runs model-written code in a worker thread.",
+      "status": "unclassified",
+      "reason": "This inventory has not established the gate. `packages/code-runtime/code-runtime-worker-thread/src/index.ts` documents model code as having bash-equivalent trust with an empty environment and measured budgets, but which component refuses an out-of-budget or out-of-namespace call is not established here.",
+      "evidence": ["packages/code-runtime/code-runtime-worker-thread/tests/budget.spec.ts"]
+    },
+    {
+      "id": "mcp-tool-call",
+      "surface": "A model request reaches a tool that a configured MCP server exposes.",
+      "status": "unclassified",
+      "reason": "This inventory has not established the gate. No approval or refusal reference appears in `packages/mcp/mcp-client/src/index.ts`, and whether the tool layer's approval applies to server-provided tools is not established here.",
+      "evidence": ["packages/mcp/mcp-client/tests/egress.spec.ts"]
+    },
+    {
+      "id": "runtime-plugin-mount",
+      "surface": "The agent inspects or mounts a plugin or service at runtime.",
+      "status": "unclassified",
+      "reason": "This inventory has not established the gate. `packages/README.md` describes `packages/extensions/` as \u201cAgent runtime self-modification: live plugin/service inspection and model-written mount/unmount\u201d, and no refusal path for a mount has been identified here.",
+      "evidence": ["packages/README.md"]
+    }
+  ]
+}
