@@ -21,7 +21,11 @@ export default defineConfig({
     fileParallelism: false,
     maxWorkers: 1,
     testTimeout: 600_000,
-    hookTimeout: 120_000,
+    // Seeding scenarios (agent-continuation provisions two full source
+    // workspaces per file) is setup cost, not a measured budget; on loaded
+    // CI runners it legitimately exceeds the 2-minute default and fails the
+    // gate before any benchmark runs.
+    hookTimeout: 600_000,
     disableConsoleIntercept: true,
   },
 })
