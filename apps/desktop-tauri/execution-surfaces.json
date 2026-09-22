@@ -29,6 +29,20 @@
       "status": "enforced"
     },
     {
+      "id": "powershell-command",
+      "surface": "A tool runs a PowerShell command, and the processes that command starts.",
+      "status": "unenforced",
+      "reason": "The guard reviews a configured name list, and its default omits this provider: `frontends/guard/src/policy.ts` \u2014 `shellTools: ['bash', 'shell', 'run_command', 'exec']`. `shellCommandOf` in the same file returns `undefined` for any name off that list, so the call reaches the pipeline as \u201cNot a reviewed shell call.\u201d The installed harness does expose the tool and would accept the name: `packages/shell/tool-pwsh/src/index.ts` declares `name: 'pwsh'` with the same command argument as bash \u2014 \u201ccommand: { type: 'string', required: true, description: 'The PowerShell command to execute.' }\u201d \u2014 and the persistent provider `packages/shell/tool-pwsh-persistent/src/index.ts` uses that same name. The name is not added here because the classifier is written for POSIX command lines and no test measures it against PowerShell text, so admitting `pwsh` to the default would put every Windows deployment into enforcing review of an unmeasured rule set; a false positive is not free, because enforcement decides (`frontends/guard/src/policy.ts` \u2014 \u201ccritical denies, high asks, everything else passes\u201d).",
+      "evidence": ["packages/shell/tool-pwsh/src/index.ts", "packages/shell/tool-pwsh/tests/tools.spec.ts"]
+    },
+    {
+      "id": "terminal-input",
+      "surface": "A tool writes input to a persistent terminal session, and the shell there runs it.",
+      "status": "unenforced",
+      "reason": "No name list can cover it, because the guard reads the reviewed text from one argument name and this tool uses another. `frontends/guard/src/policy.ts` \u2014 \u201cconst command = args['command']\u201d \u2014 while `packages/terminal/tool-terminal/src/index.ts` declares \u201cname: 'terminal_send'\u201d with \u201ctext: { type: 'string', required: true, description: 'UTF-8 text to write to the terminal.' }\u201d and submits Enter by default. Adding `terminal_send` to `shellTools` would therefore still produce an unreviewed call. Covering this surface additionally needs the guard to map a tool name to the argument carrying its command text, which widens the configuration surface, and it needs the classifier measured against interactive input rather than whole command lines.",
+      "evidence": ["packages/terminal/tool-terminal/src/index.ts", "packages/terminal/tool-terminal/tests/tools.spec.ts"]
+    },
+    {
       "id": "automated-code-execution",
       "surface": "A tool runs model-written code in a worker thread.",
       "status": "unenforced",
