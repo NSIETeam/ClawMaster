@@ -44,6 +44,8 @@ body[data-ds-dark-theme] .cm-dsh-brand-mark > .cm-dsh-brand-dark { display: bloc
 .cm-home-health dd[data-health="attention"],.cm-home-health dd[data-health="disconnected"] { color:#b54735; }
 .cm-home-health dd[data-health="connected"],.cm-home-health dd[data-health="observed"] { color:#238267; }
 .cm-home-health dd[data-health="unobserved"] { color:var(--cm-muted); }
+.cm-home-health .cm-home-attention { margin:0; font-size:13px; font-weight:600; color:var(--cm-muted); }
+.cm-home-health .cm-home-attention[data-health="attention"] { color:#b54735; }
 .cm-home-health small { color:var(--cm-muted); font-size:11px; line-height:1.45; }
 .cm-home-system-details { border-top:1px solid var(--cm-line); padding-top:8px; }
 .cm-home-system-details > summary { width:max-content; color:var(--cm-muted); font-size:11px; cursor:pointer; }

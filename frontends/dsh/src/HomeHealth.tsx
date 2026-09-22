@@ -18,6 +18,11 @@ export function HomeHealth({ locale, state }: { locale: ProductLocale; state: Ho
   const scheduleHealth = state.schedule.error || state.schedule.offline + state.schedule.degraded + state.schedule.failed + state.schedule.uncertain > 0
     || (state.schedule.total !== null && state.schedule.online === 0) ? 'attention'
     : state.schedule.total === null ? 'unobserved' : 'observed';
+  const attentionLayers = [
+    state.app === 'connected' ? undefined : copy.healthApp,
+    scheduleHealth === 'attention' ? copy.healthSchedule : undefined,
+    state.business.error || state.business.review + state.business.failed + state.business.overdue > 0 ? copy.healthBusiness : undefined,
+  ].filter((layer): layer is string => layer !== undefined);
   return <section className="cm-home-health" aria-label={copy.healthHeading}>
     <div className="cm-home-outcomes">
       <h2>{copy.healthHeading}</h2>
@@ -27,6 +32,10 @@ export function HomeHealth({ locale, state }: { locale: ProductLocale; state: Ho
         </dd><small>{copy.businessNextStep}</small></div>
       </dl>
     </div>
+    <p className="cm-home-attention" role="status" data-health={attentionLayers.length === 0 ? 'observed' : 'attention'}>
+      {attentionLayers.length === 0 ? copy.healthObserved
+        : copy.healthAttention.replace('{layers}', attentionLayers.join(locale === 'zh-CN' ? '、' : ', '))}
+    </p>
     <details className="cm-home-system-details">
       <summary>{copy.systemDetails}</summary>
       <dl>

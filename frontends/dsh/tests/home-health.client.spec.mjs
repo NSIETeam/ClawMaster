@@ -1,8 +1,11 @@
-import { expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { HomeHealth } from '../src/HomeHealth.tsx';
 import { hasRecordedModelResponse, observeModelResponses } from '../src/home-model-evidence.ts';
+
+// Each case must read its own render: without cleanup a later case sees the text of every earlier one.
+afterEach(cleanup);
 
 it('counts only durable assistant messages as model-response evidence', () => {
   expect(hasRecordedModelResponse({ entries: [{ type: 'event', event: { type: 'assistant/message', data: { interrupted: false } } }] })).toBe(true);
@@ -58,6 +61,42 @@ it('reports missing worker observations and unavailable business data without in
   expect(screen.getByText('尚未在已载入会话中观察到成功响应').getAttribute('data-health')).toBe('unverified');
   expect(screen.getByText('读取失败，请刷新巡检状态').getAttribute('data-health')).toBe('attention');
   expect(screen.getByText('业务任务暂不可读取，请刷新后核对。').getAttribute('data-health')).toBe('attention');
+});
+
+it('names the layers that need attention without being expanded', () => {
+  render(createElement(HomeHealth, { locale: 'en-US', state: {
+    app: 'connected', model: 'verified',
+    schedule: { error: false, observedAt: null, total: 2, online: 1, offline: 1, degraded: 0, failed: 0, uncertain: 0 },
+    business: { total: 3, review: 1, failed: 0, overdue: 0, error: false },
+  } }));
+  const line = screen.getByText(/Needs attention: .+/);
+  expect(line.closest('details')).toBe(null);
+  expect(line.getAttribute('data-health')).toBe('attention');
+  expect(line.textContent).toContain('Scheduled execution');
+  expect(line.textContent).toContain('Business outcomes');
+  expect(line.textContent).toContain('does not replace checking the records');
+});
+
+it('states that each layer is observed separately when nothing needs attention', () => {
+  render(createElement(HomeHealth, { locale: 'en-US', state: {
+    app: 'connected', model: 'unverified',
+    schedule: { error: false, observedAt: null, total: 1, online: 1, offline: 0, degraded: 0, failed: 0, uncertain: 0 },
+    business: { total: 0, review: 0, failed: 0, overdue: 0, error: false },
+  } }));
+  const line = screen.getByText(/Each layer is observed separately/);
+  expect(line.closest('details')).toBe(null);
+  expect(line.getAttribute('data-health')).toBe('observed');
+});
+
+it('does not treat an unobserved model as a layer that needs attention', () => {
+  render(createElement(HomeHealth, { locale: 'zh-CN', state: {
+    app: 'connected', model: 'unverified',
+    schedule: { error: false, observedAt: null, total: null, online: 0, offline: 0, degraded: 0, failed: 0, uncertain: 0 },
+    business: { total: 0, review: 0, failed: 0, overdue: 0, error: false },
+  } }));
+  const line = screen.getByText(/各层状态分别观测/);
+  expect(line.textContent).not.toContain('模型');
+  expect(line.getAttribute('data-health')).toBe('observed');
 });
 
 it('reports a recorded model response without claiming current provider availability', () => {
