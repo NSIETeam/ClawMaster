@@ -20,9 +20,10 @@ import { globSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
+const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 const HOST_CSP = new URL('../../../packages/host/frontend-static/src/index.ts', import.meta.url).pathname
 const TAURI_CONF = new URL('../src-tauri/tauri.conf.json', import.meta.url).pathname
-const CLIENT_GLOBS = ['packages/client/**/src/**/*.{ts,tsx}', 'frontends/dsh/src/**/*.{ts,tsx}']
+const CLIENT_GLOBS = [`${REPO_ROOT}/packages/client/**/src/**/*.{ts,tsx}`, `${REPO_ROOT}/frontends/dsh/src/**/*.{ts,tsx}`]
 const CHROME_PAGES = ['../shell.js', '../splash.js']
 
 /** @param {string} path @returns {string} The source with whole-line comments removed. */
@@ -52,7 +53,7 @@ function isBrowserBundleSource(path) {
 
 test('no browser bundle or packaged chrome script evaluates source at runtime', () => {
   const bundles = globSync(CLIENT_GLOBS).filter(isBrowserBundleSource)
-  assert.ok(bundles.length > 0, 'expected browser bundle sources to inspect')
+  assert.ok(bundles.length > 200, `expected the client and product webview sources under the repository root, saw ${bundles.length}`)
   const chrome = CHROME_PAGES.map(relative => fileURLToPath(new URL(relative, import.meta.url)))
   for (const path of chrome) assert.doesNotThrow(() => readFileSync(path), path)
   const found = [...bundles, ...chrome].flatMap(path => runtimeEvaluators(codeOf(path)).map(hit => `${path}: ${hit.trim()}`))
