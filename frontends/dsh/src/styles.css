@@ -44,6 +44,8 @@ body[data-ds-dark-theme] .cm-dsh-brand-mark > .cm-dsh-brand-dark { display: bloc
 .cm-home-health dd[data-health="attention"],.cm-home-health dd[data-health="disconnected"] { color:#b54735; }
 .cm-home-health dd[data-health="connected"],.cm-home-health dd[data-health="observed"] { color:#238267; }
 .cm-home-health dd[data-health="unobserved"] { color:var(--cm-muted); }
+.cm-home-health .cm-home-attention { margin:0; font-size:13px; font-weight:600; color:var(--cm-muted); }
+.cm-home-health .cm-home-attention[data-health="attention"] { color:#b54735; }
 .cm-home-health small { color:var(--cm-muted); font-size:11px; line-height:1.45; }
 .cm-home-system-details { border-top:1px solid var(--cm-line); padding-top:8px; }
 .cm-home-system-details > summary { width:max-content; color:var(--cm-muted); font-size:11px; cursor:pointer; }
@@ -119,3 +121,9 @@ body[data-ds-dark-theme] .cm-dsh-brand-mark > .cm-dsh-brand-dark { display: bloc
 .cm-tutorial-settings > p { color: var(--dsw-alias-label-secondary, #697383); font-size: 13px; line-height: 1.6; }
 .cm-tutorial-settings .cm-tutorial { padding: 12px 0; }
 @media (max-width: 480px) { .cm-tutorial { padding: 20px; } .cm-tutorial header h2 { font-size: 22px; } .cm-tutorial-step { min-height: 220px; } .cm-tutorial footer > div { width: 100%; justify-content: flex-end; } }
+
+/* A failed panel keeps its space and states what failed, instead of rendering an empty region. */
+.cm-render-failure { display:grid; gap:8px; padding:14px 16px; border:1px solid var(--cm-line); border-left:3px solid #c2410c; border-radius:12px; background:var(--cm-surface); }
+.cm-render-failure h2 { margin:0; font-size:14px; }
+.cm-render-failure p { margin:0; color:var(--dsw-alias-label-secondary, #697383); font-size:13px; line-height:1.6; word-break:break-word; }
+.cm-render-failure button { justify-self:start; padding:4px 10px; font-size:13px; }

@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "shell-permission-posture",
+      "promise": "The desktop shell loads only its own bundled content and grants native window commands to the main WebView alone.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["apps/desktop-tauri/src-tauri/tauri.conf.json", "apps/desktop-tauri/src-tauri/capabilities/default.json"],
+      "evidence": ["apps/desktop-tauri/scripts/shell-permission-posture.test.mjs"],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "verified"
+    },
+    {
+      "id": "file-write-containment",
+      "promise": "A file mutation from a tool is refused when its target falls outside the writable roots the standing mode grants.",
+      "source": ["packages/fs/fs-sandbox/src/index.ts", "packages/sandbox/sandbox/src/roots.ts"],
+      "code": ["packages/fs/fs-sandbox/src/index.ts"],
+      "evidence": ["packages/fs/fs-sandbox/tests/fs-sandbox.spec.ts"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "task-acceptance-separation",
+      "promise": "A submitting member cannot accept their own task result, and a stale revision is refused instead of committed.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["frontends/dsh/src/watchdog-tasks.ts"],
+      "evidence": ["frontends/dsh/tests/watchdog-tasks.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "responsibility-history",
+      "promise": "A backup, a later mutation and a restore still trace the mutation to the actor and the approved revision.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["frontends/dsh/src/governance-audit.ts"],
+      "evidence": ["frontends/dsh/tests/governance-audit.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "enterprise-identity-fails-closed",
+      "promise": "A foreign or missing identity is refused on the registered enterprise routes without falling back to the local operator.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["frontends/dsh/src/governance-access.ts"],
+      "evidence": ["frontends/dsh/tests/governance-access.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "office-save-stays-local",
+      "promise": "Office editing requires no model call, external document server or cloud upload, and a concurrent change is reported as a conflict.",
+      "source": ["frontends/office/README.md"],
+      "code": ["frontends/office/src/services.ts"],
+      "evidence": ["frontends/office/tests/browser.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified",
+      "requires": [
+        "DSH_OFFICE_SIDEBAR_PACKAGE_ROOT pointing at the patched sidebar package",
+        "a Chromium browser for Playwright"
+      ]
+    },
+    {
+      "id": "release-source-binding",
+      "promise": "A release build refuses a changed checkout and records the commit, lockfile digests and a dirty marker for development output.",
+      "source": ["apps/desktop-tauri/scripts/build-provenance.mjs"],
+      "code": ["apps/desktop-tauri/scripts/build-provenance.mjs", "apps/desktop-tauri/scripts/build-inventory.mjs"],
+      "evidence": ["apps/desktop-tauri/scripts/build-provenance.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "release-acceptance-signature",
+      "promise": "A platform installer is accepted only with operating-system publisher verification, and a substitute signature is refused.",
+      "source": ["apps/desktop-tauri/acceptance/README.md"],
+      "code": ["apps/desktop-tauri/scripts/release-acceptance.mjs"],
+      "evidence": ["apps/desktop-tauri/scripts/release-acceptance.test.mjs"],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "verified"
+    },
+    {
+      "id": "updater-component-manifest",
+      "promise": "The updater manifest pins the component and patch digests a candidate ships.",
+      "source": ["apps/desktop-tauri/scripts/generate-updater-manifest.mjs"],
+      "code": ["apps/desktop-tauri/scripts/generate-updater-manifest.mjs"],
+      "evidence": ["apps/desktop-tauri/scripts/generate-updater-manifest.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "runtime-identity-cannot-be-remembered",
+      "promise": "The runtime reports shell, Host, hot-updated component and patch identities with an observation time, and a remembered value cannot override a live read.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["frontends/dsh/src/runtime-governance.ts"],
+      "evidence": ["frontends/dsh/tests/runtime-governance.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "release-evidence-copy",
+      "promise": "Reviewed acceptance evidence joins a release without replacing an original build asset.",
+      "source": ["apps/desktop-tauri/scripts/copy-release-evidence.mjs"],
+      "code": ["apps/desktop-tauri/scripts/copy-release-evidence.mjs"],
+      "evidence": ["apps/desktop-tauri/scripts/copy-release-evidence.test.mjs"],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "verified"
+    },
+    {
+      "id": "release-build-signing-identity",
+      "promise": "A release build is signed with an operating-system publisher identity rather than an ad-hoc signature.",
+      "source": ["apps/desktop-tauri/acceptance/README.md"],
+      "code": [".github/workflows/desktop-release.yml"],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "unevidenced",
+      "reason": "The release workflow signs macOS with an ad-hoc identity and then verifies it in a way that an ad-hoc signature also passes: `.github/workflows/desktop-release.yml` sets `APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && '-' || '' }}` and runs `codesign --verify --deep --strict`, and no notarization step exists anywhere (`grep -ri notarytool .github/ apps/desktop-tauri/src-tauri/tauri.conf.json` returns nothing). The acceptance policy these lanes are graded against requires a Developer ID notarized signature, so the pipeline and its own policy disagree. Whether the release environment supplies a real identity is not visible from this checkout; the acceptance README records the certificates as external prerequisites."
+    },
+    {
+      "id": "acceptance-run-records",
+      "promise": "Each platform lane's acceptance result is recorded and can be cited for a candidate.",
+      "source": ["apps/desktop-tauri/acceptance/README.md"],
+      "code": ["apps/desktop-tauri/scripts/release-acceptance.mjs"],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "unevidenced",
+      "reason": "The checkout holds the acceptance contract and its checker but no result: `apps/desktop-tauri/acceptance/` contains only the bilingual README triplet, with no per-platform record of the OS version, package digest, log or outcome. The checker takes its manifest from outside the repository (`.github/workflows/desktop-release.yml` fetches `${{ inputs.acceptance_ref }}` and validates `release-assets/acceptance-manifest.json`), so evidence can exist without being citable from the source tree."
+    }
+  ]
+}

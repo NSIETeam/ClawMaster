@@ -46,13 +46,20 @@ ClawMaster Guard 是 ClawMaster 围绕智能体工作所做的审查层，覆盖
 - name: '@clawmaster/dsh-guard'
   config:
     mode: observe
-    shellTools: [bash, shell, run_command, exec]
+    shellTools:
+      - bash
+      - shell
+      - run_command
+      - exec
+      - {name: terminal_send, argument: text}
     denyPaths: ['/Users/me/Documents']
     allowPaths: ['/tmp/scratch']
     resultReview: archive
     resultProject: ClawMaster
     planReview: enforce
 ```
+
+`shellTools` 的条目要么是裸工具名（审查它的 `command` 参数），要么是 `{name, argument}`，用于把同一段命令文本放在别的参数里的工具——上面的 `terminal_send` 默认项就是这种写法。默认值就是这份清单本身。
 
 `mode: observe` 是在真正信任规则集之前用真实工作负载衡量它的方式：guard 会记录判定并继续委派。
 
@@ -86,7 +93,8 @@ ClawMaster Guard 是 ClawMaster 围绕智能体工作所做的审查层，覆盖
 - 命令行是被读取的，不是被求值的：通过变量、`eval`、脚本文件或解释器（`python -c "shutil.rmtree(…)"`）在运行时拼出的命令不会被解析成真实目标。`denyPaths` 与规则集是兜底，而不是沙箱。
 - 只读[目标探查](src/probe.ts)绝不会朝宽松方向做决定。它只往理由里补事实，并能拒绝那些解析后落入受保护前缀的目标；它不会因为某个路径看起来很小或不存在就放行命令。
 - 非 shell 工具不被审查。通过自身 API 删除的工具（例如笔记库自己的删除）保留其自带的审批闸门。
+- `shellTools` 是一份名字清单，因此清单之外任何能跑 shell 的工具都完全不被审查，而且这种缺失是静默的。默认覆盖 `bash`、`shell`、`run_command`、`exec` 与 `terminal_send`；PowerShell 提供者（`pwsh`）被有意排除在外，因为分类器读的是 POSIX 命令行，而这里没有任何用例在 PowerShell 文本上度量过它。
 
 ## 验证
 
-`npm --prefix frontends/guard test` 先构建再运行测试套件：100 条用例覆盖上表的风险判定、目标展开、`sudo`/`env` 前缀、子 shell 与命令链、引号内文字不得误报、决定映射、`observe` 模式、`allowPaths`/`denyPaths`、workdir 解析，以及挂载本身——包括「拒绝不会抵达管线」和「审查抛错时改为委派而不是弄坏智能体」。只读目标探查有独立用例，跑在真实的临时目录树上：文件/目录/链接/缺失路径各自报告什么、探查数量上限、解析后落入受保护前缀的链接、只是解析到别处的普通路径、探查抛错，以及缺失目标绝不被放行。结果审查另有专属用例：从代表性事件还原事实、无法识别的载荷、命令只取首行、合成出的审查文本、按会话缓冲、`off` 开关、笔记库缺失，以及写入失败。方案审查覆盖五条规则、强制与建议两种模式、两个阶段的默认档位，以及它是否真的接在同一条 `tools/pre-execute` 管线上。
+`npm --prefix frontends/guard test` 先构建再运行测试套件：106 条用例覆盖上表的风险判定、目标展开、`sudo`/`env` 前缀、子 shell 与命令链、引号内文字不得误报、决定映射、`observe` 模式、`allowPaths`/`denyPaths`、workdir 解析，以及挂载本身——包括「拒绝不会抵达管线」和「审查抛错时改为委派而不是弄坏智能体」。只读目标探查有独立用例，跑在真实的临时目录树上：文件/目录/链接/缺失路径各自报告什么、探查数量上限、解析后落入受保护前缀的链接、只是解析到别处的普通路径、探查抛错，以及缺失目标绝不被放行。结果审查另有专属用例：从代表性事件还原事实、无法识别的载荷、命令只取首行、合成出的审查文本、按会话缓冲、`off` 开关、笔记库缺失，以及写入失败。方案审查覆盖五条规则、强制与建议两种模式、两个阶段的默认档位，以及它是否真的接在同一条 `tools/pre-execute` 管线上。

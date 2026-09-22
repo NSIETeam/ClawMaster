@@ -112,7 +112,8 @@ const RuntimeRecord = z.object({
 
 type RuntimeInventory = z.infer<typeof runtimeInventorySchema>;
 
-type RuntimeObservation = {
+/** Current Host facts as one observation; the component-health route projects this and nothing else. */
+export type RuntimeObservation = {
   available: boolean; observedAt: string; reason: string | null;
   identity: null | {
     startedAtUnixMs: number; desktopVersion: string; harnessVersion: string;

@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ComponentType } from 'react';
 import { BrandMark, BrandName, HeroMark, Workbench, WorkbenchIcon } from './Workbench.tsx';
 import { connectionLabel, enterpriseTabTypes, observeBetterSidebar, recentSessions, type FrontendServices, type Observable, type WorkbenchRuntimeProps } from './services.ts';
 import { productCopy, type ProductLocale } from './locales/frontend.ts';
@@ -13,6 +13,8 @@ import styles from './styles.css';
 import taskStyles from './task-board.css';
 import { TaskBoard } from './TaskBoard.tsx';
 import { WatchdogTaskClient } from './watchdog-task-client.ts';
+import { RuntimeHealthClient } from './runtime-health-client.ts';
+import { RenderBoundary } from './RenderBoundary.tsx';
 import { WatchdogScheduleClient } from './watchdog-schedule-client.ts';
 import { ScheduleBoard } from './ScheduleBoard.tsx';
 import { taskAttentionSummary, type TaskRecord } from './watchdog-task-format.ts';
@@ -45,11 +47,21 @@ export function apply(ctx: FrontendServices): void {
   }, 'clawmaster: pending task submissions');
   const scheduleClient = new WatchdogScheduleClient();
   ctx.effect(() => () => scheduleClient.dispose(), 'clawmaster: schedule client');
+  const runtimeClient = new RuntimeHealthClient();
+  ctx.effect(() => () => runtimeClient.dispose(), 'clawmaster: component health client');
   ctx.effect(() => () => taskClient.dispose(), 'clawmaster: business task client');
   const initialEntry = createInitialEntry(ctx, lifetime.signal);
   const onboarding = ctx.settingsScope.bind({ namespace: ONBOARDING_NAMESPACE, decode: decodeOnboarding });
   ctx.effect(() => () => lifetime.abort(), 'clawmaster: navigation lifetime');
   const selectedLocale = (): ProductLocale => ctx.locale.getSnapshot().active.startsWith('zh') ? 'zh-CN' : 'en-US';
+  // A panel that throws during render would otherwise leave its region blank, or blank the window
+  // when the shell's own tree is the one that threw. Every surface registered below carries its own
+  // boundary so the failure stays local, visible and retryable.
+  function bounded<P extends object>(scope: string, Panel: ComponentType<P>): ComponentType<P> {
+    return function BoundedPanel(props: P) {
+      return <RenderBoundary locale={selectedLocale()} scope={scope}><Panel {...props} /></RenderBoundary>;
+    };
+  }
   function useLocale(): ProductLocale {
     const snapshot = useSnapshot(ctx.locale);
     return snapshot.active.startsWith('zh') ? 'zh-CN' : 'en-US';
@@ -105,6 +117,8 @@ export function apply(ctx: FrontendServices): void {
     const connection = useSnapshot(ctx.connection.state);
     const taskState = useSyncExternalStore(taskClient.subscribe, taskClient.getSnapshot, taskClient.getSnapshot);
     const scheduleState = useSyncExternalStore(scheduleClient.subscribe, scheduleClient.getSnapshot, scheduleClient.getSnapshot);
+    const runtimeState = useSyncExternalStore(runtimeClient.subscribe, runtimeClient.getSnapshot, runtimeClient.getSnapshot);
+    useEffect(() => { void runtimeClient.refresh(); }, []);
     const taskSummary = taskAttentionSummary(taskState.tasks);
     const [model, setModel] = useState<'unverified' | 'verified'>('unverified');
     useEffect(() => {
@@ -119,7 +133,9 @@ export function apply(ctx: FrontendServices): void {
         schedule: { error: scheduleState.error !== null, observedAt: scheduleState.observedAt, total: scheduleState.workerSummary?.total ?? null,
           online: scheduleState.workerSummary?.online ?? 0, offline: scheduleState.workerSummary?.offline ?? 0, degraded: scheduleState.workerSummary?.degraded ?? 0,
           failed: scheduleState.attentionSummary?.failed ?? 0, uncertain: scheduleState.attentionSummary?.uncertain ?? 0 },
-        business: { total: taskSummary.total, review: taskSummary.awaitingReview, failed: taskSummary.failed, overdue: taskSummary.overdue, error: taskState.error !== null } }}
+        business: { total: taskSummary.total, review: taskSummary.awaitingReview, failed: taskSummary.failed, overdue: taskSummary.overdue, error: taskState.error !== null },
+        components: { observed: runtimeState.observed, available: runtimeState.available, components: runtimeState.components,
+          disabled: runtimeState.disabled.length, refused: runtimeState.refused, observedAt: runtimeState.observedAt } }}
       locale={locale}
       sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}
       sessionsLoading={snapshot.phase === 'pending' || workspaces.phase === 'pending'}
@@ -131,7 +147,7 @@ export function apply(ctx: FrontendServices): void {
       onStart={(goal, cadence) => actions.start(goal, cadence, locale)}
       onModule={module => actions.open(module, locale)}
       onOpenSession={id => ctx.uiWorkspace.openSession(id)}
-      onRefresh={() => ctx.sessions.refresh()}
+      onRefresh={async () => { await ctx.sessions.refresh(); await runtimeClient.refresh(); }}
       businessTasks={<><TaskBoard client={taskClient} locale={locale}
         sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}
         onOpenSession={id => ctx.uiWorkspace.openSession(id)}
@@ -218,13 +234,15 @@ export function apply(ctx: FrontendServices): void {
       <WatchdogTutorial locale={locale} onFinish={async () => { await acknowledgeTutorial(); close(); openWatchdog(); }} />
     </div>;
   }
+  const BoundedTutorialOnboarding = bounded('settings.onboarding', TutorialOnboarding);
   ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding', id: 'clawmaster-watchdog', order: -200,
-  }, TutorialOnboarding));
+  }, BoundedTutorialOnboarding));
+  const BoundedTutorialSettings = bounded('settings.section', TutorialSettings);
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section', id: 'clawmaster-watchdog', order: 15,
     label: () => onboardingCopy(selectedLocale()).settingsTitle,
-  }, TutorialSettings));
+  }, BoundedTutorialSettings));
   function ComponentSettings({ module, close }: { module: 'crm' | 'erp'; close(): void }) {
     const locale = useLocale();
     const copy = productCopy(locale);
@@ -245,13 +263,13 @@ export function apply(ctx: FrontendServices): void {
   observeBetterSidebar(ctx, betterSidebar => {
     const unregister: (() => void)[] = [];
     try {
-      for (const [module, Component, order] of [['crm', ConnectedCRM, 200], ['erp', ConnectedERP, 210]] as const) {
+      for (const [module, Component, order] of [['crm', bounded('crm', ConnectedCRM), 200], ['erp', bounded('erp', ConnectedERP), 210]] as const) {
         unregister.push(betterSidebar.registerTab({
           id: enterpriseTabTypes[module], single: true, order,
           title: () => productCopy(selectedLocale())[module],
           description: () => productCopy(selectedLocale())[`${module}Hint`],
           icon: size => <WorkbenchIcon size={size} />, component: () => <Component />,
-          settings: { render: ({ close }) => <ComponentSettings module={module} close={close} /> },
+          settings: { render: ({ close }) => <RenderBoundary locale={selectedLocale()} scope={`${module}.settings`}><ComponentSettings module={module} close={close} /></RenderBoundary> },
         }));
       }
     } catch (error) {
@@ -266,7 +284,7 @@ export function apply(ctx: FrontendServices): void {
     return null;
   }
   ctx.slots.inject('main', () => {
-    const unregister = ctx.slots.register({ name: 'main', key: 'clawmaster' }, ConnectedWorkbench);
+    const unregister = ctx.slots.register({ name: 'main', key: 'clawmaster' }, bounded('main', ConnectedWorkbench));
     ctx.slots.inject('shell.overlay', () => ctx.slots.register({
       name: 'shell.overlay', id: 'clawmaster-initial-entry',
     }, InitialEntry));
