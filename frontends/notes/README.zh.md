@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 概述
 
-ClawMaster 内置本地笔记库，支持 Markdown 编辑、预览、双向链接、反向链接、标签与全文搜索。你可以让 agent 把完成的工作记录成笔记，或者先提出一处改动并把 diff 给你看、在你确认之前不写入任何内容；每一处触及笔记的写入都需要你批准。笔记库由产品自建，不依赖 Obsidian。已保存的笔记仍是普通文件；未保存的草稿在本次应用会话内保留在内存中。
+ClawMaster 内置本地笔记库，支持 Markdown 编辑、预览、双向链接、反向链接、标签与全文搜索。桌面工作台采用用户熟悉的 Obsidian 信息架构：活动栏与笔记库树负责导航，中央文档区专注阅读和编辑，折叠式上下文检查器集中展示批注、反向链接、标签与待审建议。你可以让 agent 把完成的工作记录成笔记，或者先提出一处改动并把 diff 给你看、在你确认之前不写入任何内容；每一处触及笔记的写入都需要你批准。笔记库由产品自建，不依赖 Obsidian。已保存的笔记仍是普通文件；未保存的草稿在本次应用会话内保留在内存中。
 
 ## 目录
 
@@ -69,7 +69,7 @@ ClawMaster 内置本地笔记库，支持 Markdown 编辑、预览、双向链�
 
 [实时刷新](src/watcher.ts)在每次版本请求时扫描文件元数据，并合并并发扫描。它不使用原生监听或后台定时器。版本还包含建议摘要，因此创建或丢弃建议无需修改笔记即可刷新列表。扫描失败会报告给调用方，允许重试。
 
-[面板](src/client.tsx)按宿主自身的界面样式设计，而不是一个通用列表。[树](src/tree.ts)由笔记 id 推导出文件夹，使行真正具备层级：行高 34px、图标间距 6px、行内缩进为 `depth * 22 + 6`，与宿主文件管理器资源管理器使用的尺寸一致。[图标](src/icons.tsx)是同一套 16px 网格上的内联 SVG，因此模块不携带位图资源。
+[面板](src/client.tsx)由四个区域组成：活动栏、笔记库树、文档区和上下文检查器。文档始终是视觉中心；容器变窄时先隐藏检查器，再收敛为文档区加活动栏。[树](src/tree.ts)由笔记 id 推导出文件夹，使行真正具备层级；[图标](src/icons.tsx)仍是同一套 16px 网格上的内联 SVG，因此模块不携带位图资源。
 
 </details>
 
@@ -106,4 +106,4 @@ node frontends/notes/scripts/build.mjs --check
 <a id="further-exploration"></a>
 ## 延伸阅读
 
-[Agent Note](../../.agents/notes/implemented/feature/2026-09-13-clawmaster-notes-vault.zh.md)记录了本模块为何存在、存储与审阅模型背后的决策，以及已验证的内容。
+[笔记库 Agent Note](../../.agents/notes/implemented/feature/2026-09-13-clawmaster-notes-vault.zh.md)记录存储与审阅模型。[工作台 Agent Note](../../.agents/notes/implemented/feature/2026-09-21-obsidian-style-knowledge-workspaces.zh.md)记录共用的交互与图谱可视化决策。

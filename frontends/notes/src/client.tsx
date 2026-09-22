@@ -392,34 +392,49 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
   }, []);
 
   return <section className="cm-notes" aria-label={copy.tab}>
-    <div className="cm-notes-bar">
+    <nav className="cm-notes-rail" aria-label={copy.tab}>
+      <span className="cm-notes-brand" aria-hidden="true"><NotesIcon size={20} /></span>
+      <button type="button" className="cm-notes-rail-button" data-active="true" aria-label={copy.vault} title={copy.vault}>
+        <NoteIcon size={18} />
+      </button>
+      <button type="button" className="cm-notes-rail-button" aria-label={copy.search} title={copy.search}
+        onClick={() => document.querySelector<HTMLInputElement>('.cm-notes-search input')?.focus()}>
+        <SearchIcon size={18} />
+      </button>
+      <button type="button" className="cm-notes-rail-button" aria-label={`${copy.open} ${copy.todayNote}`} title={copy.todayNote} onClick={() => void openToday()}>
+        <CalendarIcon size={18} />
+      </button>
+      <span className="cm-notes-rail-spacer" />
+      <button type="button" className="cm-notes-rail-button" aria-label={`${copy.open} ${copy.newNote}`} title={copy.newNote} onClick={() => setCreating(true)}>
+        <PlusIcon size={18} />
+      </button>
+    </nav>
+
+    <aside className="cm-notes-explorer">
+      <header className="cm-notes-pane-head">
+        <h2>{copy.vault}</h2>
+        <button type="button" className="cm-notes-icon-button" aria-label={copy.newNote} title={copy.newNote} onClick={() => setCreating(value => !value)}>
+          <PlusIcon size={15} />
+        </button>
+      </header>
       <div className="cm-notes-search">
         <SearchIcon size={14} className="cm-notes-glyph" />
         <input value={query} placeholder={copy.searchPlaceholder} aria-label={copy.search}
           onChange={event => setQuery(event.target.value)}
           onKeyDown={event => { if (event.key === 'Enter') void runSearch(); }} />
         {query !== ''
-          && <button type="button" className="cm-notes-clear" onClick={() => { setQuery(''); setMatches(undefined); }}>{copy.cancel}</button>}
+          && <button type="button" className="cm-notes-clear" onClick={() => { setQuery(''); setMatches(undefined); }} aria-label={copy.cancel}>×</button>}
       </div>
-      <div className="cm-notes-tools">
-        <button type="button" className="cm-notes-tool" onClick={() => void openToday()}>
-          <CalendarIcon size={14} />{copy.todayNote}
-        </button>
-        <button type="button" className="cm-notes-tool" onClick={() => setCreating(value => !value)}>
-          <PlusIcon size={14} />{copy.newNote}
-        </button>
-      </div>
-    </div>
-    {refreshError && <div role="alert"><p>{refreshError}</p>
-      <button type="button" onClick={() => void refresh()}>{copy.retry}</button>
-    </div>}
-    {creating && <div className="cm-notes-create">
-      <input autoFocus value={newName} placeholder={copy.noteName} aria-label={copy.noteName}
-        onChange={event => setNewName(event.target.value)}
-        onKeyDown={event => { if (event.key === 'Enter') void createNote(); }} />
-      <button type="button" onClick={() => void createNote()}>{copy.create}</button>
-    </div>}
-    <div className="cm-notes-body">
+      {creating && <div className="cm-notes-create">
+        <input autoFocus value={newName} placeholder={copy.noteName} aria-label={copy.noteName}
+          onChange={event => setNewName(event.target.value)}
+          onKeyDown={event => { if (event.key === 'Enter') void createNote(); }} />
+        <button type="button" onClick={() => void createNote()}>{copy.create}</button>
+      </div>}
+      {matches !== undefined && <div className="cm-notes-explorer-label">
+        <span>{copy.results}</span><span>{matches.length}</span>
+      </div>}
+      <div className="cm-notes-body">
       {matches !== undefined
         ? matches.length === 0
           ? <p className="cm-notes-empty">{copy.noResults}</p>
@@ -460,11 +475,23 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
                   the note name for assistive technology ("Alpha Unsaved", not "AlphaUnsaved"). */}
               {drafts.has(row.id) && <>{' '}<small className="cm-notes-badge">{copy.dirty}</small></>}
             </button>)}
-    </div>
-    {open && <div className="cm-notes-editor">
-      <div className="cm-notes-head">
-        <h2>{open.title}</h2>
-        <div className="cm-notes-actions">
+      </div>
+      <button type="button" className="cm-notes-daily" onClick={() => void openToday()}>
+        <CalendarIcon size={14} /><span>{copy.todayNote}</span>
+      </button>
+    </aside>
+
+    <main className="cm-notes-workspace">
+      {refreshError && <div className="cm-notes-alert" role="alert"><p>{refreshError}</p>
+        <button type="button" onClick={() => void refresh()}>{copy.retry}</button>
+      </div>}
+      {open ? <div className="cm-notes-editor">
+        <div className="cm-notes-tabstrip"><div className="cm-notes-tab" data-dirty={dirty}>
+          <NoteIcon size={13} /><span>{open.title}</span>{dirty && <i />}
+        </div></div>
+        <div className="cm-notes-head">
+          <div className="cm-notes-title-wrap"><span className="cm-notes-path">{open.id}</span><h1>{open.title}</h1></div>
+          <div className="cm-notes-actions">
           {!isCanvas && <button type="button" className="cm-notes-action" disabled={status.state === 'saving'}
             onClick={() => { setRenaming(open.id); setRenameDraft(open.id.replace(/\.md$/, '')); }}>
             <RenameIcon size={14} />{copy.rename}
@@ -479,8 +506,8 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
           <button type="button" className="cm-notes-action" disabled={status.state === 'saving'} onClick={() => setConfirmation('delete')}>
             <TrashIcon size={14} />{copy.delete}
           </button>
+          </div>
         </div>
-      </div>
       {confirmation && <div role="alertdialog" aria-label={confirmation === 'delete' ? copy.delete : copy.conflictReload}>
         <p>{confirmation === 'delete' ? copy.deleteConfirm : copy.reloadConfirm}</p>
         <button type="button" onClick={() => setConfirmation(undefined)}>{copy.cancel}</button>
@@ -507,7 +534,8 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
         <button type="button" onClick={() => setRenaming(undefined)}>{copy.cancel}</button>
         <button type="button" onClick={() => void renameNote(renameDraft)}>{copy.rename}</button>
       </div>}
-      {isCanvas
+        <div className="cm-notes-document">
+        {isCanvas
         ? <>
           <p className="cm-notes-canvas-notice"><InfoIcon size={13} />{copy.canvasReadOnly}</p>
           <pre className="cm-notes-canvas">{draft}</pre>
@@ -520,8 +548,17 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
             else drafts.set(open.id, { note: open, text });
           }} />
           : <div className="cm-notes-preview">{blocks.map((block, index) => <BlockView key={index} block={block} onWiki={openWiki} />)}</div>}
-      <div className="cm-notes-side">
-        <h3 className="cm-notes-section"><CommentIcon size={13} />{copy.annotations}</h3>
+        </div>
+      </div> : <div className="cm-notes-welcome">
+        <NotesIcon size={32} /><h2>{copy.tab}</h2><p>{copy.empty}</p>
+        <button type="button" onClick={() => setCreating(true)}><PlusIcon size={15} />{copy.newNote}</button>
+      </div>}
+    </main>
+
+    <aside className="cm-notes-inspector">
+      <details open className="cm-notes-inspector-section">
+        <summary><CommentIcon size={13} />{copy.annotations}<span>{annotations.length}</span></summary>
+        <div className="cm-notes-inspector-content">
         {annotations.length === 0 ? <p>{copy.noAnnotations}</p> : annotations.map(mark => (
           <div key={mark.annotationId} className="cm-notes-mark" data-kind={mark.kind} data-source={mark.source}>
             <div className="cm-notes-mark-head">
@@ -535,7 +572,23 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
             <p className="cm-notes-mark-body">{mark.body}</p>
           </div>
         ))}
-        <h3 className="cm-notes-section"><ProposalIcon size={13} />{copy.proposals}</h3>
+        </div>
+      </details>
+      <details open className="cm-notes-inspector-section">
+        <summary><BacklinkIcon size={13} />{copy.backlinks}<span>{backlinks.length}</span></summary>
+        <div className="cm-notes-inspector-content">
+          {backlinks.length === 0 ? <p>{copy.noBacklinks}</p> : backlinks.map(entry => <button key={entry.id} type="button" className="cm-notes-item" disabled={status.state === 'saving'} onClick={() => void openNote(entry.id)}><span>{entry.title}</span></button>)}
+        </div>
+      </details>
+      <details open className="cm-notes-inspector-section">
+        <summary><TagIcon size={13} />{copy.tags}<span>{tags.length}</span></summary>
+        <div className="cm-notes-inspector-content cm-notes-tags">
+          {tags.length === 0 ? <p>{copy.noTags}</p> : tags.map(tag => <span key={tag.tag} className="cm-notes-chip">{tag.tag} · {tag.count}</span>)}
+        </div>
+      </details>
+      <details open className="cm-notes-inspector-section">
+        <summary><ProposalIcon size={13} />{copy.proposals}<span>{proposals.length}</span></summary>
+        <div className="cm-notes-inspector-content">
         {proposals.length === 0 ? <p>{copy.noProposals}</p> : proposals.map(entry => <div key={entry.proposal.proposalId} className="cm-notes-proposal">
           <button type="button" className="cm-notes-item" disabled={status.state === 'saving'}
             onClick={() => void openNote(entry.proposal.id)}><span>{entry.proposal.id}</span></button>
@@ -545,12 +598,9 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
             <button type="button" disabled={status.state === 'saving'} onClick={() => void discardProposal(entry.proposal.proposalId)}>{copy.discardProposal}</button>
           </div>
         </div>)}
-        <h3 className="cm-notes-section"><BacklinkIcon size={13} />{copy.backlinks}</h3>
-        {backlinks.length === 0 ? <p>{copy.noBacklinks}</p> : backlinks.map(entry => <button key={entry.id} type="button" className="cm-notes-item" disabled={status.state === 'saving'} onClick={() => void openNote(entry.id)}><span>{entry.title}</span></button>)}
-        <h3 className="cm-notes-section"><TagIcon size={13} />{copy.tags}</h3>
-        {tags.length === 0 ? <p>{copy.noTags}</p> : tags.map(tag => <span key={tag.tag} className="cm-notes-chip">{tag.tag} · {tag.count}</span>)}
-      </div>
-    </div>}
+        </div>
+      </details>
+    </aside>
     <div className="cm-notes-notice" role="status" data-state={status.state}>
       <span className="cm-notes-status" data-state={status.state}>{dirty ? copy.dirty : copy[status.state === 'conflict' ? 'conflict' : status.state === 'error' ? 'error' : status.state === 'saving' ? 'saving' : status.state === 'saved' ? 'saved' : 'vault']}</span>
       {status.state === 'conflict' && open && <button type="button" onClick={() => setConfirmation('reload')}>{copy.conflictReload}</button>}

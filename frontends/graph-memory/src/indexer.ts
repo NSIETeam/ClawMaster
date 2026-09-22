@@ -3,8 +3,8 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, relative, sep } from 'node:path';
 import { z } from 'zod';
-import { buildGraph, contentHash, type IndexedDocument, wikiLinks } from './algorithms.ts';
-import type { GraphSnapshot } from './model.ts';
+import { buildGraph, contentHash, wikiLinks } from './algorithms.ts';
+import type { GraphSnapshot, IndexedDocument } from './model.ts';
 
 export interface NotesAccess {
   readonly root: string;
@@ -90,9 +90,13 @@ function tagsOf(text: string): string[] {
   return [...tags];
 }
 
-async function noteDocuments(access: NotesAccess): Promise<IndexedDocument[]> {
+async function noteDocuments(access: NotesAccess, previous: readonly IndexedDocument[] = []): Promise<IndexedDocument[]> {
   const entries = await access.list();
+  const cached = new Map(previous.filter(document => document.kind === 'note').map(document => [document.path, document]));
   return Promise.all(entries.map(async entry => {
+    const retained = cached.get(entry.id);
+    if (retained !== undefined && retained.mtimeMs === entry.mtimeMs && retained.size === entry.size
+      && retained.meta['source'] === 'notes' && retained.meta['vault'] === access.root) return retained;
     const note = await access.read(entry.id);
     return {
       id: `note:${entry.id.replace(/\.[^.]+$/, '')}`, kind: 'note' as const, path: entry.id,
@@ -168,16 +172,32 @@ async function memoryDocuments(config: GraphIndexConfig, signal?: AbortSignal): 
   return { documents, location: credential.url, errors };
 }
 
-/** Refresh the graph without copying source documents or writing long-term memory. */
+/** Refresh the graph without copying source documents or writing long-term memory.
+ * @param access - Read-only Notes access.
+ * @param config - Enabled sources and graph thresholds.
+ * @param signal - Optional cancellation signal.
+ * @returns one complete graph snapshot.
+ */
 export async function indexSources(access: NotesAccess, config: GraphIndexConfig, signal?: AbortSignal): Promise<GraphSnapshot> {
+  return (await indexSourcesIncremental(access, config, [], signal)).graph;
+}
+
+/** Refresh with reusable source records so unchanged notes are not read or parsed again.
+ * @param access - Read-only Notes access.
+ * @param config - Enabled sources and graph thresholds.
+ * @param previous - Validated derived records from the preceding generation.
+ * @param signal - Optional cancellation signal.
+ * @returns the complete graph and the source records that produced it.
+ */
+export async function indexSourcesIncremental(access: NotesAccess, config: GraphIndexConfig, previous: readonly IndexedDocument[], signal?: AbortSignal): Promise<{ graph: GraphSnapshot; documents: IndexedDocument[] }> {
   signal?.throwIfAborted();
-  const notes = await noteDocuments(access);
+  const notes = await noteDocuments(access, previous);
   signal?.throwIfAborted();
   const memory = await memoryDocuments(config, signal);
   const fileGroups = await Promise.all(config.fileSources.map(async source => ({ source, documents: await fileDocuments(source) })));
   signal?.throwIfAborted();
   const documents = [...notes, ...memory.documents, ...fileGroups.flatMap(group => group.documents)];
-  return buildGraph(documents, {
+  const graph = buildGraph(documents, {
     generatedAt: new Date().toISOString(), threshold: config.similarityThreshold, topK: config.similarPerDocument,
     sources: [
       { id: 'notes', kind: 'notes', label: 'ClawMaster 笔记', location: access.root, documents: notes.length },
@@ -186,4 +206,5 @@ export async function indexSources(access: NotesAccess, config: GraphIndexConfig
     ],
     errors: memory.errors,
   });
+  return { graph, documents };
 }

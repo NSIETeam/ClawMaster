@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 摘要
 
-Graph Memory 让 agent 通过同一条排序路径检索笔记与长期记忆，并在侧边栏展示同一批主题和相似文件。ClawMaster Desktop 内置这个层。每条结果都会说明触发召回的命中词或图关系。索引是位于笔记库之外的派生状态，刷新只读 OpenViking，不向其中写入。
+Graph Memory 让 agent 通过同一条排序路径检索笔记与长期记忆，并把同一批证据渲染成交互式关系网络。ClawMaster Desktop 内置这个层。每条结果都会说明触发召回的命中词或图关系。索引是位于笔记库之外的派生状态，刷新只读 OpenViking，不向其中写入。
 
 ## 目录
 
@@ -31,7 +31,11 @@ ClawMaster Desktop 在默认 profile 中安装此 bundle。它的 patch 关闭 N
 
 `graph_memory_query` 用同一套 BM25 排序检索笔记正文与 OpenViking 记忆，并沿 wiki 链接、词法相似、重复关系和主题扩展结果。`graph_memory_refresh` 在进程内重建派生快照，向模型返回生成时间及文档、节点、边的数量，而非完整索引。`graph_memory_plan_writeback` 把结论、决定和证据分到笔记，把偏好和稳定事实分到记忆；它以预览形式返回互相的 `[[链接]]`，不执行写入。
 
-侧边栏列出主题页和带依据的相似文件对。额外文件目录通过 `fileSources` 显式启用。Markdown 与文本文件贡献可检索正文；演示文稿、电子表格、PDF、图片及其他二进制文件只贡献名称、路径、大小、时间戳和扩展名。
+侧边栏在确定性的力导向布局中绘制已存储的节点和边。搜索会高亮匹配节点；类型筛选可显示或隐藏笔记、记忆、文件、标签、主题和未解析链接；全局模式与一跳局部模式控制图谱范围。画布支持平移与缩放；选中节点后，检查器展示其来源、类型、连接数和带依据的关系。为保证大型索引仍能流畅呈现，画布最多绘制当前可见节点中连接度最高的 140 个，但不会改变存储的图或查询结果。
+
+刷新操作会在 Graph Memory 存储单元中缓存通过校验的源文档。路径、笔记库、大小和修改时间均未变化的笔记会复用该记录；只有新增或发生变化的笔记会在重建完整派生图之前重新读取和解析。缓存不是用户内容，可以随图索引一起删除。
+
+额外文件目录通过 `fileSources` 显式启用。Markdown 与文本文件贡献可检索正文；演示文稿、电子表格、PDF、图片及其他二进制文件只贡献名称、路径、大小、时间戳和扩展名。
 
 文件结果在所有平台上都用 `/` 分隔目录。文件的后备标题使用文件名；配置的来源路径和文本正文保留原始字符。
 
@@ -69,6 +73,7 @@ npm --prefix frontends/graph-memory run test:real-vault
 
 - [ClawMaster Notes](../notes/README.zh.md)负责笔记读取、写入、修订与批注。
 - [桌面打包](../../apps/desktop-tauri/README.zh.md)负责 bundle 安装与重启行为。
+- [知识工作台 Agent Note](../../.agents/notes/implemented/feature/2026-09-21-obsidian-style-knowledge-workspaces.zh.md)记录图谱呈现的取舍。
 
 -----
 

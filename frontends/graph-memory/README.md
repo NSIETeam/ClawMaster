@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Graph Memory lets the agent search notes and long-term memory through one ranking path, then shows the same topics and similar files in the sidebar. ClawMaster Desktop includes this layer. Each result names the matching terms or graph edge that caused the recall. The index is derived state outside the note vault, and refresh reads OpenViking without writing to it.
+Graph Memory lets the agent search notes and long-term memory through one ranking path, then renders the same evidence as an interactive relationship network. ClawMaster Desktop includes this layer. Each result names the matching terms or graph edge that caused the recall. The index is derived state outside the note vault, and refresh reads OpenViking without writing to it.
 
 ## Table of Contents
 
@@ -31,7 +31,11 @@ ClawMaster Desktop installs this bundle in its default profile. Its patch disabl
 
 `graph_memory_query` searches note bodies and OpenViking memory with one BM25 ranking and expands results over wiki links, lexical similarity, duplicate relations, and topics. `graph_memory_refresh` rebuilds the derived snapshot in process and returns its generation time and document, node and edge counts instead of the entire index. `graph_memory_plan_writeback` classifies conclusions, decisions, and evidence for notes, and preferences and stable facts for memory; it returns reciprocal `[[links]]` as a preview and writes nothing.
 
-The sidebar lists topic pages and evidence-backed similar-file pairs. Additional file directories are opt-in through `fileSources`. Markdown and text files contribute searchable text; presentations, spreadsheets, PDFs, images, and other binary files contribute names, paths, sizes, timestamps, and extensions only.
+The sidebar draws the stored nodes and edges on a deterministic force layout. Search highlights matching nodes; kind filters show or hide notes, memory, files, tags, topics and unresolved links; global and one-hop local modes control graph scope. The canvas pans and zooms, and selecting a node shows its source, type, connection count and evidence-backed relations in an inspector. Rendering is capped at the 140 highest-degree visible nodes so a large index stays responsive without changing the stored graph or query results.
+
+Refresh caches validated source documents in the Graph Memory storage unit. A note whose path, vault, size and modification time are unchanged reuses that record; changed and new notes alone are read and parsed before the complete derived graph is rebuilt. The cache is not user content and may be deleted with the graph index.
+
+Additional file directories are opt-in through `fileSources`. Markdown and text files contribute searchable text; presentations, spreadsheets, PDFs, images, and other binary files contribute names, paths, sizes, timestamps, and extensions only.
 
 File results use `/` between directories on every platform. A file's fallback title uses its filename; configured source locations and text contents retain their original characters.
 
@@ -69,6 +73,7 @@ The lexical parser and graph algorithms are adapted from the reviewed dependency
 
 - [ClawMaster Notes](../notes/README.md) owns note reads, writes, revisions, and annotations.
 - [Desktop packaging](../../apps/desktop-tauri/README.md) owns bundle installation and restart behavior.
+- The [knowledge-workspace Agent Note](../../.agents/notes/implemented/feature/2026-09-21-obsidian-style-knowledge-workspaces.md) records the graph presentation trade-offs.
 
 -----
 

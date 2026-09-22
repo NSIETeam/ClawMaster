@@ -1,6 +1,6 @@
 /** Direct in-process graph reads over one durable snapshot. */
 import { graphQuerySchema, type GraphQuery, type GraphQueryResult } from './protocol.ts';
-import type { GraphEdge, GraphNode, GraphSnapshot } from './model.ts';
+import type { GraphEdge, GraphNode, GraphSnapshot, IndexedDocument } from './model.ts';
 import { GraphStore } from './store.ts';
 import { tokenize } from './algorithms.ts';
 
@@ -14,6 +14,11 @@ export class GraphMemoryEngine {
   /** Return the last complete snapshot. */
   graph(): Promise<GraphSnapshot> {
     return this.store.read();
+  }
+
+  /** Return rebuildable source records used to skip unchanged note reads. */
+  documents(): Promise<IndexedDocument[]> {
+    return this.store.readDocuments();
   }
 
   /** Query the snapshot directly; no subprocess or shell bridge is involved. */
@@ -99,8 +104,8 @@ export class GraphMemoryEngine {
   }
 
   /** Publish a fully built graph from the in-process indexer. */
-  async replace(snapshot: GraphSnapshot): Promise<GraphSnapshot> {
-    await this.store.replace(snapshot);
+  async replace(snapshot: GraphSnapshot, documents?: readonly IndexedDocument[]): Promise<GraphSnapshot> {
+    await this.store.replace(snapshot, documents);
     return snapshot;
   }
 

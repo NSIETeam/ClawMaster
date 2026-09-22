@@ -31,6 +31,21 @@ export const graphSourceSchema = z.object({
   documents: z.number().int().nonnegative(),
 }).strict();
 
+/** Rebuildable source document cached between graph generations. */
+export const indexedDocumentSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['note', 'memory', 'file']),
+  path: z.string(),
+  title: z.string(),
+  text: z.string(),
+  tags: z.array(z.string()),
+  links: z.array(z.string()),
+  hash: z.string().min(1),
+  mtimeMs: z.number().finite(),
+  size: z.number().int().nonnegative(),
+  meta: z.record(z.string(), z.unknown()),
+}).strict();
+
 export const graphSnapshotSchema = z.object({
   schemaVersion: z.literal(1),
   generatedAt: z.string(),
@@ -44,6 +59,8 @@ export const graphSnapshotSchema = z.object({
 export type GraphNode = z.infer<typeof graphNodeSchema>;
 export type GraphEdge = z.infer<typeof graphEdgeSchema>;
 export type GraphSnapshot = z.infer<typeof graphSnapshotSchema>;
+/** One validated source record retained only to accelerate graph rebuilds. */
+export type IndexedDocument = z.infer<typeof indexedDocumentSchema>;
 
 /** Empty state before the first successful refresh. */
 export function emptyGraphSnapshot(): GraphSnapshot {

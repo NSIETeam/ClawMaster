@@ -14,6 +14,7 @@ test('panel renders topic pages and evidence-backed similar files', () => {
     locale: 'zh-CN', data: { graph, themes: [topic], similar: { [note.id]: [{ edge, node: memory }], [memory.id]: [{ edge, node: note }] },
   } }));
   assert.match(html, /统一检索/);
-  assert.match(html, /架构决定 ↔ 产品偏好/);
+  assert.match(html, /<strong>产品偏好<\/strong>/);
+  assert.doesNotMatch(html, /架构决定 ↔ 产品偏好/);
   assert.match(html, /共同词：GraphRAG/);
 });

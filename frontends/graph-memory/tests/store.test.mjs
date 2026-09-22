@@ -5,12 +5,15 @@ import { GraphStore } from '../src/store.ts';
 
 function memoryStorage() {
   let global = null;
+  const tables = { documents: {} };
   let open = false;
   let closed = false;
   const unit = {
-    async loadAll() { if (closed) throw new Error('closed'); return { tables: {}, global }; },
+    async loadAll() { if (closed) throw new Error('closed'); return { tables: structuredClone(tables), global }; },
     async setGlobal(value) { if (closed) throw new Error('closed'); global = structuredClone(value); },
-    async putRecord() {}, async deleteRecord() {}, async close() { closed = true; open = false; },
+    async putRecord(table, key, value) { tables[table][key] = structuredClone(value); },
+    async deleteRecord(table, key) { delete tables[table][key]; },
+    async close() { closed = true; open = false; },
   };
   const backend = { kv: { async open(descriptor) { assert.equal(open, false); open = true; assert.equal(descriptor.name, 'clawmaster_graph_memory'); return unit; } }, async close() {} };
   return { storage: { backend: { get(name) { assert.equal(name, 'sqlite'); return backend; } } }, state: () => global };
@@ -42,6 +45,17 @@ test('graph snapshot is persisted through ctx.storage as one validated replaceme
   await store.replace(snapshot);
   assert.deepEqual(fixture.state(), snapshot);
   assert.deepEqual(await store.read(), snapshot);
+  await store.close();
+});
+
+test('source document cache retains valid records and drops removed ones', async () => {
+  const fixture = memoryStorage();
+  const store = await GraphStore.open(fixture.storage);
+  const document = { id: 'note:a', kind: 'note', path: 'a.md', title: 'A', text: '# A', tags: [], links: [], hash: 'a', mtimeMs: 1, size: 3, meta: { source: 'notes', vault: '/vault' } };
+  await store.replace(snapshot, [document]);
+  assert.deepEqual(await store.readDocuments(), [document]);
+  await store.replace(snapshot, []);
+  assert.deepEqual(await store.readDocuments(), []);
   await store.close();
 });
 

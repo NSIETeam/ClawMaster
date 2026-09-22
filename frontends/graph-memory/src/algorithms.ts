@@ -1,20 +1,8 @@
 /** Dependency-free parsing, graph construction and retrieval derived from the reviewed GraphRAG package. */
 import { createHash } from 'node:crypto';
-import type { GraphEdge, GraphNode, GraphSnapshot } from './model.ts';
+import type { GraphEdge, GraphNode, GraphSnapshot, IndexedDocument } from './model.ts';
 
-export interface IndexedDocument {
-  id: string;
-  kind: 'note' | 'memory' | 'file';
-  path: string;
-  title: string;
-  text: string;
-  tags: string[];
-  links: string[];
-  hash: string;
-  mtimeMs: number;
-  size: number;
-  meta: Record<string, unknown>;
-}
+export type { IndexedDocument } from './model.ts';
 
 const DOCUMENT_KINDS = new Set<GraphNode['kind']>(['note', 'memory', 'file']);
 

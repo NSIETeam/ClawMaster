@@ -6,7 +6,7 @@ import ToolRuntime, { type ToolDefinition } from '@deepseek-ai/dsh-tools';
 import { GraphMemoryEngine, panelProjection } from './engine.ts';
 import { GraphStore } from './store.ts';
 import { planWriteback, tokenize } from './algorithms.ts';
-import { indexSources, type GraphIndexConfig, type NotesAccess } from './indexer.ts';
+import { indexSourcesIncremental, type GraphIndexConfig, type NotesAccess } from './indexer.ts';
 import { graphQueryOutput, graphRefreshOutput } from './tool-schemas.ts';
 import {
   GRAPH_MEMORY_GRAPH_PATH, GRAPH_MEMORY_QUERY_PATH, GRAPH_MEMORY_REFRESH_PATH,
@@ -140,7 +140,10 @@ export async function apply(ctx: GraphMemoryHostContext, config: GraphMemoryHost
     const notes = ctx.get?.('clawmasterNotes') as NotesAccess | undefined;
     if (notes === undefined) throw new Error('Graph Memory requires the ClawMaster Notes access service.');
     const indexConfig: GraphIndexConfig = options;
-    const refresh = async (signal?: AbortSignal) => engine.replace(await indexSources(notes, indexConfig, signal));
+    const refresh = async (signal?: AbortSignal) => {
+      const indexed = await indexSourcesIncremental(notes, indexConfig, await engine.documents(), signal);
+      return engine.replace(indexed.graph, indexed.documents);
+    };
     const ensureIndex = async (signal?: AbortSignal) => (await engine.graph()).generatedAt === '' ? refresh(signal) : engine.graph();
     ctx.provide?.(GRAPH_MEMORY_ACCESS_KEY, engine);
     const removals: Array<() => void | Promise<void>> = [];

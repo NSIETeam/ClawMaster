@@ -4,7 +4,36 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { test } from 'node:test';
-import { indexSources } from '../src/indexer.ts';
+import { contentHash } from '../src/algorithms.ts';
+import { indexSources, indexSourcesIncremental } from '../src/indexer.ts';
+
+const config = {
+  memory: 'off', includePeerMemory: false, maxMemoryEntries: 1,
+  similarityThreshold: 0.18, similarPerDocument: 3, fileSources: [],
+};
+
+test('incremental refresh reads only notes whose metadata changed', async () => {
+  const entries = [
+    { id: 'alpha.md', title: 'Alpha', size: 7, mtimeMs: 1 },
+    { id: 'beta.md', title: 'Beta', size: 6, mtimeMs: 1 },
+  ];
+  const bodies = new Map([['alpha.md', '# Alpha'], ['beta.md', '# Beta']]);
+  const reads = [];
+  const notes = {
+    root: '/vault', async list() { return entries.map(entry => ({ ...entry })); },
+    async read(id) { reads.push(id); const text = bodies.get(id); return { id, title: id.replace('.md', ''), text, revision: `sha256-${contentHash(text)}`, links: [], tags: [] }; },
+  };
+  const first = await indexSourcesIncremental(notes, config, []);
+  assert.deepEqual(reads, ['alpha.md', 'beta.md']);
+  const second = await indexSourcesIncremental(notes, config, first.documents);
+  assert.deepEqual(reads, ['alpha.md', 'beta.md']);
+  entries[1].mtimeMs = 2;
+  entries[1].size = 14;
+  bodies.set('beta.md', '# Beta changed');
+  const third = await indexSourcesIncremental(notes, config, second.documents);
+  assert.deepEqual(reads, ['alpha.md', 'beta.md', 'beta.md']);
+  assert.equal(third.documents.find(document => document.path === 'beta.md').text, '# Beta changed');
+});
 
 test('binary files contribute metadata but never body bytes', async t => {
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-graph-memory-'));

@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-ClawMaster includes a local notebook for Markdown editing, previews, wiki links, backlinks, tags and text search. You can ask the agent to record finished work as notes, or to propose an edit and show you the diff before anything is written, and you approve each write that touches a note. The product creates its own vault without requiring Obsidian. Saved notes remain ordinary files; unsaved drafts remain in memory for the current application session.
+ClawMaster includes a local notebook for Markdown editing, previews, wiki links, backlinks, tags and text search. Its desktop workbench follows the familiar Obsidian information architecture: an activity rail and vault explorer keep navigation separate from a focused document surface, while a collapsible context inspector groups annotations, backlinks, tags and proposals. You can ask the agent to record finished work as notes, or to propose an edit and show you the diff before anything is written, and you approve each write that touches a note. The product creates its own vault without requiring Obsidian. Saved notes remain ordinary files; unsaved drafts remain in memory for the current application session.
 
 ## Table of Contents
 
@@ -69,7 +69,7 @@ The [retrieval policy](src/context.ts) behind related notes is pure and testable
 
 [Live refresh](src/watcher.ts) scans file metadata on each revision request and coalesces concurrent scans. It uses neither native watching nor a background timer. The revision also includes the proposal digest, so creating or discarding a proposal refreshes its list without changing any note. A failed scan is reported to the caller and can be retried.
 
-The [panel](src/client.tsx) is styled as host chrome rather than a generic list. [Tree](src/tree.ts) derives folders from note ids so rows nest, with 34px rows, a 6px icon gap and `depth * 22 + 6` inline indentation — the metrics the host's own file-manager explorer uses. [Icons](src/icons.tsx) are inline SVG glyphs on one 16px grid, so the module ships no raster asset.
+The [panel](src/client.tsx) uses a four-region workbench: activity rail, vault explorer, document surface and context inspector. The document remains the visual focus; narrow containers first remove the inspector and then collapse to the document plus activity rail. [Tree](src/tree.ts) derives folders from note ids so rows nest, while [icons](src/icons.tsx) remain inline SVG glyphs on one 16px grid and add no raster asset.
 
 </details>
 
@@ -106,4 +106,4 @@ These checks exercise synthetic files and controlled browser responses. They do 
 <a id="further-exploration"></a>
 ## Further Exploration
 
-The [Agent Note](../../.agents/notes/implemented/feature/2026-09-13-clawmaster-notes-vault.md) records why the module exists, the decisions behind the storage and review model, and what was verified.
+The [vault Agent Note](../../.agents/notes/implemented/feature/2026-09-13-clawmaster-notes-vault.md) records the storage and review model. The [workspace Agent Note](../../.agents/notes/implemented/feature/2026-09-21-obsidian-style-knowledge-workspaces.md) records the shared interaction and graph-visualization decisions.
