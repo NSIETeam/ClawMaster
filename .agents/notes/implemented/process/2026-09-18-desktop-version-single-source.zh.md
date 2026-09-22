@@ -6,11 +6,11 @@ Status: implemented
 
 ## Problem
 
-桌面包清单、Cargo 清单和 Tauri 配置分别保存了发布版本。安装包命名与发布证据通过不同构建路径读取这些值，因此只修改其中一处可能导致安装包显示的版本与元数据或证据不一致。
+桌面包清单、Cargo 清单与锁文件、Tauri 配置分别保存了发布版本。安装包命名与发布证据通过不同构建路径读取这些值，因此只修改其中一处可能导致安装包显示的版本与元数据或证据不一致。
 
 ## Decision
 
-`apps/desktop-tauri/version.json` 是桌面发布版本的唯一来源。`npm run version:sync` 会生成 `package.json`、`src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json` 中的 `version` 字段；`npm run version:check` 会拒绝任何不一致。Tauri 前端准备阶段会在创建 `dist` 或打包源码前执行检查。Cargo 构建脚本还会独立对比规范版本及三个生成版本，因此直接执行原生构建也会在版本漂移时失败。
+`apps/desktop-tauri/version.json` 是桌面发布版本的唯一来源。`npm run version:sync` 会生成 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 中的 `dsh-desktop` 条目，以及 `src-tauri/tauri.conf.json` 中的 `version` 字段；`npm run version:check` 会拒绝任何不一致。Tauri 前端准备阶段会在创建 `dist` 或打包源码前执行检查，发布工作流也会在两个平台构建前执行它。Cargo 构建脚本还会独立对比包清单、自身 crate 版本与 Tauri 配置同规范版本是否一致，因此直接执行原生构建也会失败；而带 `--locked` 的 Cargo 构建会拒绝仍然记录其他版本的锁文件。
 
 安装包版本元数据来自 Cargo，bundle 来源记录和发布验收则接收桌面 package 版本。两者都由同一文件生成，并在 Tauri 构建前检查；发布标签校验器也会要求 package 与 Tauri 版本一致。同步命令只修改版本字段，并保留清单中的其他内容。
 
@@ -26,4 +26,4 @@ Status: implemented
 
 ## Verification
 
-`scripts/desktop-version.test.mjs` 会验证版本一致性、拒绝每份生成清单中的漂移、确定性地修复漂移，并验证规范版本无效时不会修改生成文件。`prepare-dist.mjs` 会执行检查，`src-tauri/build.rs` 会在 Cargo 构建时再次执行。上述检查可以防止源码版本漂移，但不能证明平台安装包已在真实支持设备上签名、安装、重启或回滚。
+`scripts/desktop-version.test.mjs` 会验证版本一致性、拒绝每份生成文件中的漂移、确定性地修复漂移、只改写 `Cargo.lock` 中的桌面条目，并验证规范版本无效或锁文件缺少该条目时都不会修改生成文件。`prepare-dist.mjs` 会执行检查，`src-tauri/build.rs` 会在 Cargo 构建时再次执行。上述检查可以防止源码版本漂移，但不能证明平台安装包已在真实支持设备上签名、安装、重启或回滚。
