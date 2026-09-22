@@ -20,7 +20,9 @@ The third status is the point of the design. An inventory offering only `enforce
 
 ## Consequences
 
-The shipped inventory is deliberately partial: six surfaces name a gate; network egress is recorded as unenforced, quoting the sandbox module's own statement that network and process visibility are outside its vocabulary; and automated code execution, MCP tool calls and runtime plugin mounts are recorded as unclassified together with what is missing. Adding a surface to the product without adding it here is not detected — the inventory only guarantees that every surface it does list is accounted for.
+The shipped inventory names eight gates and five gaps. The gaps are named individually because they are different gaps: a host-only plugin activates with no request and no approval, because that activation branch precedes the approval block; nothing decides admission for an MCP tool call, so the mount that chooses the servers and the call itself are one ungated seam; no destination allow-list exists for outbound traffic, and the single refusal that does exist covers one tool and checks an address class rather than a permitted host; model-written code is confined in a worker without any approval gating it, and the runtime's own module records that confinement as containment rather than as a gate; and nothing gates a write to the user-layer harness configuration.
+
+Adding a surface to the product without adding it here is not detected. The inventory guarantees that every surface it does list is accounted for, and nothing more.
 
 `enforced` is a claim that a gate exists, not that the gate is sufficient. The checker resolves paths and field forms; it does not judge whether the mechanism an entry names actually stops the change it claims to stop. That judgement stays with review, the same limit the capability ledger records for its own evidence paths.
 

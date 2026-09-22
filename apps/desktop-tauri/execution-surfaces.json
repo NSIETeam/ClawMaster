@@ -5,36 +5,59 @@
       "id": "workspace-file-write",
       "surface": "A tool writes, replaces, moves or deletes a file.",
       "enforcer": "packages/fs/fs-sandbox/src/index.ts",
-      "authorization": "packages/sandbox/sandbox/src/roots.ts",
+      "authorization": "packages/sandbox/sandbox-policy/src/session-mode.ts",
       "mechanism": "path-allow-list",
       "evidence": ["packages/fs/fs-sandbox/tests/fs-sandbox.spec.ts"],
+      "status": "enforced"
+    },
+    {
+      "id": "workspace-write-escalation",
+      "surface": "A tool asks for a strictly wider sandbox mode than the session holds.",
+      "enforcer": "packages/fs/tool-fs/src/sandbox.ts",
+      "authorization": "packages/sandbox/sandbox/src/escalation.ts",
+      "mechanism": "user-approval",
+      "evidence": ["packages/sandbox/sandbox/tests/escalation.spec.ts"],
       "status": "enforced"
     },
     {
       "id": "shell-command",
       "surface": "A tool runs a shell command, and the processes that command starts.",
       "enforcer": "packages/shell/bash-sandbox/src/index.ts",
-      "authorization": "packages/sandbox/sandbox/src/roots.ts",
+      "authorization": "packages/sandbox/sandbox/src/escalation.ts",
       "mechanism": "path-allow-list",
-      "evidence": ["packages/shell/bash-sandbox/tests/sandbox.spec.ts"],
+      "evidence": ["packages/shell/tool-bash/tests/tools.spec.ts"],
       "status": "enforced"
+    },
+    {
+      "id": "automated-code-execution",
+      "surface": "A tool runs model-written code in a worker thread.",
+      "status": "unenforced",
+      "reason": "Nothing approves or admits it. The worker is confined — an empty environment, a heap cap, wall-time and busy-time budgets, and a terminated synchronous loop — but the module records that confinement as containment rather than as a gate: `packages/code-runtime/code-runtime-worker-thread/src/index.ts` \u2014 \u201cThis is containment, not a security boundary: model code has bash-equivalent trust despite an empty environment, a heap cap, measured event-loop busy-time and wall-time budgets.\u201d No approval record gates `run_code` or the workflow worker on these paths. The one server-side brake is a resource budget, not a permission: `frontends/dsh/src/runtime-governance.ts` \u2014 \u201cif (activeHeavyTools >= limits.maxConcurrentHeavyTools)\u201d.",
+      "evidence": ["packages/code-runtime/code-runtime-worker-thread/tests/budget.spec.ts"]
+    },
+    {
+      "id": "mcp-tool-call",
+      "surface": "A model request reaches a tool that a configured MCP server exposes, over stdio or streamable-http.",
+      "status": "unenforced",
+      "reason": "Nothing decides admission. `packages/mcp/mcp-client/src/transport.ts` builds the stdio transport from the configured command, arguments, environment and working directory verbatim, and the streamable-http transport from the configured URL; the only refusals in the package are the serverName pattern (`packages/mcp/mcp-client/src/index.ts` \u2014 `const SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/`) and a namespace collision. The call is registered into the shared tool registry (`packages/mcp/mcp-client/src/tools.ts` \u2014 `ctx.tools.register(definition)`), but the only pre-execute listeners that could decide a non-shell name are scoped elsewhere: `frontends/dsh/src/permission-governance.ts` returns immediately unless the session origin is a subagent, and `frontends/guard/src/policy.ts` answers \u201cNot a reviewed shell call.\u201d A search of the package for an approval reference returns nothing.",
+      "evidence": ["packages/mcp/mcp-client/tests/mcp-client.spec.ts"]
     },
     {
       "id": "office-document-save",
       "surface": "The local Office editor writes the open document back to the workspace.",
       "enforcer": "frontends/office/src/services.ts",
-      "authorization": { "external": "The workspace upload implementation the Host wires in: the editor sends the revision it opened as If-Match and that implementation decides." },
+      "authorization": "apps/desktop-tauri/patches/dsh-better-sidebar@0.19.1.office-save.patch",
       "mechanism": "revision-precondition",
-      "evidence": ["frontends/office/tests/browser.test.mjs"],
+      "evidence": ["frontends/office/tests/browser.test.mjs", "apps/desktop-tauri/scripts/office-save.test.mjs"],
       "status": "enforced"
     },
     {
       "id": "business-record-write",
       "surface": "A caller creates, edits, submits or reviews an enterprise record such as a contact, an inventory item, an order or a task.",
-      "enforcer": "frontends/dsh/src/governance-access.ts",
-      "authorization": "frontends/dsh/src/governance-identity.ts",
-      "mechanism": "role-check",
-      "evidence": ["frontends/dsh/tests/governance-access.test.mjs"],
+      "enforcer": "frontends/dsh/src/enterprise-tools.ts",
+      "authorization": "frontends/dsh/src/governance-access.ts",
+      "mechanism": "user-approval",
+      "evidence": ["frontends/dsh/tests/enterprise-tools.test.mjs"],
       "status": "enforced"
     },
     {
@@ -43,45 +66,47 @@
       "enforcer": "frontends/rpa/src/index.ts",
       "authorization": "packages/interaction/user-approval/src/index.ts",
       "mechanism": "user-approval",
-      "evidence": ["frontends/rpa/tests/native-lifecycle.test.mjs"],
+      "evidence": ["frontends/rpa/tests/bridge.test.mjs"],
       "status": "enforced"
+    },
+    {
+      "id": "plugin-mount-client-package",
+      "surface": "A plugin that ships client code is mounted into the running application.",
+      "enforcer": "packages/extensions/cordis-host-runner/src/index.ts",
+      "authorization": "packages/interaction/user-approval/src/index.ts",
+      "mechanism": "user-approval",
+      "evidence": ["packages/extensions/cordis-host-runner/tests/runner.spec.ts"],
+      "status": "enforced"
+    },
+    {
+      "id": "plugin-mount-host-only-package",
+      "surface": "A plugin with no client code is mounted into the running application.",
+      "status": "unenforced",
+      "reason": "A host-only dynamic package activates with no request and no approval. The approval block is preceded by an unconditional activation branch: `packages/extensions/cordis-host-runner/src/index.ts` \u2014 \u201cif (plan.definition.clientCode === undefined) { const started = await this.activate(plan, undefined, false, attempt); if (started.ok) return this.runResponse(plan.plugin, started) }\u201d, while the approval that follows it computes `requiresApproval` from the client-package grants. The package's own test names the behaviour: `packages/extensions/cordis-host-runner/tests/runner.spec.ts` \u2014 \u201cit('starts a host-only package immediately, with no request and no approval'\u201d.",
+      "evidence": ["packages/extensions/cordis-host-runner/tests/runner.spec.ts"]
+    },
+    {
+      "id": "harness-configuration-edit",
+      "surface": "Something writes the harness configuration that selects which plugins and MCP servers load.",
+      "status": "unenforced",
+      "reason": "No writer gate exists. A search across the application, package and frontend trees finds only readers and templates for the user-layer configuration, and the only guidance is a comment in `apps/cli/src/profile-boot.ts` \u2014 \u201cEdit cordis.patch.yml, not this file.\u201d This matters because the same file chooses the MCP servers of the surface above: mount access and MCP admission are one seam, and neither side of it is gated.",
+      "evidence": ["apps/cli/src/profile-boot.ts"]
+    },
+    {
+      "id": "network-egress",
+      "surface": "A tool, model provider or MCP server opens an outbound network connection to a destination of its own choosing.",
+      "status": "unenforced",
+      "reason": "No destination allow-list exists. Routing is configured (proxy policy) and the sandbox says the subject is outside its scope \u2014 `packages/sandbox/sandbox/src/index.ts` \u2014 \u201cNetwork and process visibility are outside this vocabulary.\u201d One refusal does exist and covers one tool only: `web_fetch` rejects a host that resolves to a non-public address (`packages/web/web-fetch-http/src/network.ts` \u2014 \u201cthrows WebError('WEB_BLOCKED_URL')\u201d), which is an address-class check rather than a permitted-host set. A search for an allow-list across the web, MCP client and LLM packages returns nothing.",
+      "evidence": ["packages/web/web-fetch-http/src/network.ts"]
     },
     {
       "id": "update-artifact-acceptance",
       "surface": "An update artifact is downloaded and accepted for installation.",
-      "enforcer": "frontends/updates/src/download.ts",
-      "authorization": { "external": "The signature trust root configured for the release channel: an expected hash or a signature verifier supplied by the updater's configuration." },
+      "enforcer": "frontends/updates/src/catalog.ts",
+      "authorization": "frontends/updates/src/keys.ts",
       "mechanism": "signature-verification",
-      "evidence": ["frontends/updates/tests/components.test.mjs"],
+      "evidence": ["frontends/updates/tests/catalog.test.mjs"],
       "status": "enforced"
-    },
-    {
-      "id": "network-egress",
-      "surface": "A tool, model provider or MCP server opens an outbound network connection.",
-      "status": "unenforced",
-      "reason": "No component in this checkout gates outbound traffic. The sandbox vocabulary covers file effects only and says so: `packages/sandbox/sandbox/src/index.ts` — \u201cNetwork and process visibility are outside this vocabulary.\u201d The sandbox modes confine file effects, and no egress allow-list or deny-list exists to name.",
-      "evidence": ["packages/sandbox/sandbox/src/index.ts"]
-    },
-    {
-      "id": "automated-code-execution",
-      "surface": "A tool runs model-written code in a worker thread.",
-      "status": "unclassified",
-      "reason": "This inventory has not established the gate. `packages/code-runtime/code-runtime-worker-thread/src/index.ts` documents model code as having bash-equivalent trust with an empty environment and measured budgets, but which component refuses an out-of-budget or out-of-namespace call is not established here.",
-      "evidence": ["packages/code-runtime/code-runtime-worker-thread/tests/budget.spec.ts"]
-    },
-    {
-      "id": "mcp-tool-call",
-      "surface": "A model request reaches a tool that a configured MCP server exposes.",
-      "status": "unclassified",
-      "reason": "This inventory has not established the gate. No approval or refusal reference appears in `packages/mcp/mcp-client/src/index.ts`, and whether the tool layer's approval applies to server-provided tools is not established here.",
-      "evidence": ["packages/mcp/mcp-client/tests/egress.spec.ts"]
-    },
-    {
-      "id": "runtime-plugin-mount",
-      "surface": "The agent inspects or mounts a plugin or service at runtime.",
-      "status": "unclassified",
-      "reason": "This inventory has not established the gate. `packages/README.md` describes `packages/extensions/` as \u201cAgent runtime self-modification: live plugin/service inspection and model-written mount/unmount\u201d, and no refusal path for a mount has been identified here.",
-      "evidence": ["packages/README.md"]
     }
   ]
 }
