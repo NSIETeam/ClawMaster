@@ -1,12 +1,23 @@
-name: CSP Render Verify (0.0.1-beta.1)
+name: CSP Render Verify
 
+# Renders a built desktop payload in a real browser and fails when the window is
+# blank. The inputs name the repository, run and artifact, so the same probe can be
+# pointed at the current release candidate instead of only the historical beta.1
+# payload whose blank window it was written for.
 on:
   workflow_dispatch:
     inputs:
-      run_id:
-        description: CI run id whose desktop-macos-arm64 artifact should be rendered
+      repository:
+        description: Repository holding the desktop build run to render
         required: true
-        default: '35450188820'
+        default: NSIETeam/ClawMaster
+      run_id:
+        description: Desktop build run id whose macOS artifact should be rendered
+        required: true
+      artifact:
+        description: Build artifact name holding the packaged app
+        required: true
+        default: desktop-macos-arm64
 
 permissions:
   contents: read
@@ -18,31 +29,38 @@ concurrency:
 
 jobs:
   render-verify:
-    name: Render the beta.1 payload in a real browser
+    name: Render the payload in a real browser
     runs-on: macos-15
     timeout-minutes: 40
+    env:
+      RENDER_REPOSITORY: ${{ inputs.repository }}
+      RENDER_RUN_ID: ${{ inputs.run_id }}
+      RENDER_ARTIFACT: ${{ inputs.artifact }}
     steps:
-      - name: Download the beta.1 macos payload
+      - name: Download the macOS payload
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           mkdir -p "$RUNNER_TEMP/payload"
-          gh run download "${{ inputs.run_id }}" --repo NSIETeam/ClawMaster-Desktop \
-            -n desktop-macos-arm64 -D "$RUNNER_TEMP/payload"
+          gh run download "$RENDER_RUN_ID" --repo "$RENDER_REPOSITORY" -n "$RENDER_ARTIFACT" -D "$RUNNER_TEMP/payload"
+          test -n "$(find "$RUNNER_TEMP/payload" -name '*.dmg' | head -1)"
           find "$RUNNER_TEMP/payload" -maxdepth 2 | head -20
 
       - name: Extract the app from the dmg
         run: |
+          set -euo pipefail
           dmg=$(find "$RUNNER_TEMP/payload" -name '*.dmg' | head -1)
           test -n "$dmg"
           hdiutil attach -nobrowse -readonly -mountpoint /Volumes/cm-verify "$dmg"
           cp -R /Volumes/cm-verify/ClawMaster.app "$RUNNER_TEMP/ClawMaster.app"
           hdiutil detach /Volumes/cm-verify
           test -d "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
-          echo "app extracted"
+          echo "app extracted from $RENDER_REPOSITORY run $RENDER_RUN_ID"
 
       - name: First-boot provision (pnpm install, as a real install would)
         run: |
+          set -euo pipefail
           cd "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
           corepack enable
           pnpm install --prod --no-frozen-lockfile --config.confirmModulesPurge=false
@@ -50,10 +68,12 @@ jobs:
 
       - name: Start the web host exactly like the supervisor does
         run: |
+          set -euo pipefail
           cd "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
           export DSH_HOME="$RUNNER_TEMP/dsh-home"
           mkdir -p "$DSH_HOME"
           nohup /usr/bin/env node --import ./desktop-defaults.mjs apps/cli/lib/bin.js web --no-open --host 127.0.0.1 --port 0 > "$RUNNER_TEMP/host.log" 2>&1 &
+          url=''
           for i in $(seq 1 60); do
             url=$(grep -oE 'http://127\.0\.0\.1:[0-9]+/\?token=[A-Za-z0-9_-]+' "$RUNNER_TEMP/host.log" | head -1)
             test -n "$url" && break
@@ -65,6 +85,7 @@ jobs:
 
       - name: Render in a real browser and assert
         run: |
+          set -euo pipefail
           cd "$RUNNER_TEMP"
           npm init -y >/dev/null 2>&1
           npm i playwright >/dev/null 2>&1
@@ -103,7 +124,7 @@ jobs:
         with:
           name: csp-render-proof
           path: |
-            render-proof.png
+            ${{ runner.temp }}/render-proof.png
             ${{ runner.temp }}/host.log
           if-no-files-found: warn
           retention-days: 7
