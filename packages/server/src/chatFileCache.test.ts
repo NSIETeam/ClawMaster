@@ -35,7 +35,7 @@ describe('cacheChatFiles', () => {
     expect(filePart.value.filePath).not.toBe(sourcePath)
     expect(filePart.value.filePath.startsWith(path.join(cacheDir, 'session-1'))).toBe(true)
     await expect(fs.readFile(filePart.value.filePath, 'utf8')).resolves.toBe('hello cache')
-  });
+  })
 
   it('fails loudly when a referenced file is missing', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-chat-cache-'))
@@ -51,7 +51,7 @@ describe('cacheChatFiles', () => {
         { baseDir: path.join(root, 'cache') },
       ),
     ).rejects.toThrow(/ENOENT/)
-  });
+  })
 
   it('rejects relative file paths before caching', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-chat-cache-'))
@@ -67,7 +67,7 @@ describe('cacheChatFiles', () => {
         { baseDir: path.join(root, 'cache') },
       ),
     ).rejects.toThrow('附件路径必须是绝对路径')
-  });
+  })
 
   it('snapshots directory references and rewrites history to the session cache', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-chat-cache-'))
@@ -99,7 +99,7 @@ describe('cacheChatFiles', () => {
     expect((await fs.stat(path.join(folderPart.value.folderPath, 'empty'))).isDirectory()).toBe(
       true,
     )
-  });
+  })
 
   it('rejects symbolic links anywhere below a directory attachment', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-chat-cache-'))
@@ -126,7 +126,7 @@ describe('cacheChatFiles', () => {
       ),
     ).rejects.toThrow('目录附件包含符号链接')
     await expect(fs.readdir(path.join(cacheDir, 'session-link'))).resolves.toEqual([])
-  });
+  })
 
   it('enforces aggregate directory limits and rolls back earlier snapshots', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-chat-cache-'))
@@ -149,7 +149,7 @@ describe('cacheChatFiles', () => {
       ),
     ).rejects.toThrow('目录附件总容量超过')
     await expect(fs.readdir(path.join(cacheDir, 'session-limit'))).resolves.toEqual([])
-  });
+  })
 
   it('rejects directory trees deeper than the configured limit', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-chat-cache-'))
@@ -166,5 +166,5 @@ describe('cacheChatFiles', () => {
         { baseDir: path.join(root, 'cache'), maxDirectoryDepth: 1 },
       ),
     ).rejects.toThrow('目录附件嵌套深度超过 1 层')
-  });
+  })
 })

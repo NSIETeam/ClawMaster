@@ -22,12 +22,12 @@ describe('SessionCheckpointService', () => {
     process.env.CLAWMASTER_USER_DIR = tempDir
     service = new SessionCheckpointService(tempDir)
     resetCheckpointService()
-  });
+  })
 
   afterEach(async () => {
     delete process.env.CLAWMASTER_USER_DIR
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
-  });
+  })
 
   describe('save and load', () => {
     it('should save and load a checkpoint', async () => {
@@ -51,12 +51,12 @@ describe('SessionCheckpointService', () => {
       expect(loaded!.title).toBe('Test Session')
       expect(loaded!.turnCount).toBe(5)
       expect(loaded!.lastTaskSummary).toContain('auth')
-    });
+    })
 
     it('should return null for non-existent session', async () => {
       const loaded = await service.load('nonexistent-session')
       expect(loaded).toBeNull()
-    });
+    })
   })
 
   describe('listAll', () => {
@@ -88,7 +88,7 @@ describe('SessionCheckpointService', () => {
       const all = await service.listAll()
       expect(all.length).toBe(2)
       expect(all[0].sessionId).toBe('newer') // 最新的在前
-    });
+    })
   })
 
   describe('status', () => {
@@ -97,7 +97,7 @@ describe('SessionCheckpointService', () => {
       expect(s.totalCheckpoints).toBe(0)
       expect(s.latest).toBeNull()
       expect(s.hasPendingTask).toBe(false)
-    });
+    })
 
     it('should detect stalled checkpoint as pending', async () => {
       // 保存一个 "卡住的" 检查点（lastActiveAt 是 60 分钟前）
@@ -116,7 +116,7 @@ describe('SessionCheckpointService', () => {
       const s = await service.status()
       expect(s.totalCheckpoints).toBe(1)
       expect(s.hasPendingTask).toBe(true)
-    });
+    })
   })
 
   describe('delete', () => {
@@ -138,7 +138,7 @@ describe('SessionCheckpointService', () => {
 
       const loaded = await service.load('to-delete')
       expect(loaded).toBeNull()
-    });
+    })
   })
 
   describe('formatStatus', () => {
@@ -159,6 +159,6 @@ describe('SessionCheckpointService', () => {
       expect(typeof formatted).toBe('string')
       expect(formatted).toContain('Checkpoint Status')
       expect(formatted).toContain('Format Test Session')
-    });
+    })
   })
-});
+})

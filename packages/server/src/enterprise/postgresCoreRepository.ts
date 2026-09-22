@@ -596,7 +596,7 @@ function messageView(row: MessageRow): E2eeDirectMessageView {
           ciphertextSize,
           nonce: reference.nonce,
         }
-      });
+      })
     })(),
   }
 }
@@ -966,7 +966,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         )
       }
       await logAudit('account_created', organizationId, null, { accountId: id }, client)
-    });
+    })
     return (await getAccount(id, organizationId))!
   }
 
@@ -1079,7 +1079,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         }
       }
       await logAudit('account_updated', organizationId, null, { accountId }, client)
-    });
+    })
     return (await getAccount(accountId, organizationId))!
   }
 
@@ -1118,7 +1118,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
       )
       await logAudit('account_deleted', organizationId, null, { accountId }, client)
       return Number(deleted.rowCount ?? 0) === 1
-    });
+    })
   }
 
   async function authenticateAccount(
@@ -1424,7 +1424,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         return true
       }
       return false
-    });
+    })
   }
 
   async function createOrganizationPosition(raw: {
@@ -1554,7 +1554,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         return true
       }
       return false
-    });
+    })
   }
 
   async function listAuditLogs(
@@ -1675,7 +1675,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         approvalState: firstDevice ? 'approved' : 'pending',
       }, client)
       return deviceView(inserted.rows[0]!)
-    });
+    })
   }
 
   async function listE2eeDevices(raw: {
@@ -1764,7 +1764,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         [organizationId, accountId, targetDeviceId],
       )
       return deviceView(updated.rows[0]!)
-    });
+    })
   }
 
   async function revokeE2eeDevice(raw: {
@@ -1795,7 +1795,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
       })
       await logAudit('e2ee_device_revoked', organizationId, null, { accountId, deviceId }, client)
       return true
-    });
+    })
   }
 
   async function listE2eeKeyTransparency(raw: {
@@ -2082,7 +2082,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         ],
       )
       return mlsKeyPackageView(inserted.rows[0]!)
-    });
+    })
   }
 
   async function listMlsKeyPackageInventory(raw: {
@@ -2187,7 +2187,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         [organizationId, accountId, deviceId, reference],
       )
       return true
-    });
+    })
   }
 
   async function claimMlsKeyPackage(
@@ -2310,7 +2310,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         ],
       )
       return claimed.rows[0] ? mlsKeyPackageView(claimed.rows[0]) : null
-    });
+    })
   }
 
   async function appendMlsTransportEvent(
@@ -2712,7 +2712,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         )
       }
       return mlsEventView(inserted.rows[0]!)
-    });
+    })
   }
 
   async function listMlsTransportEvents(raw: {
@@ -3099,7 +3099,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         rateBucketsDeleted: deletedRateBuckets.rows.length,
         conversationsAdvanced: floors.size,
       }
-    });
+    })
   }
 
   async function sendE2eeDirectMessage(
@@ -3335,7 +3335,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         [normalized.messageId],
       )
       return messageView(stored.rows[0]!)
-    });
+    })
   }
 
   async function listE2eeDirectMessages(raw: {
@@ -3365,7 +3365,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         [organizationId, accountId, peerAccountId, limit],
       )
       return result.rows.reverse().map(messageView)
-    });
+    })
   }
 
   async function getE2eeAttachmentAuthority(raw: {
@@ -3606,7 +3606,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         accepted: Boolean(consent),
         acceptedAt: consent ? new Date(consent.accepted_at).getTime() : null,
       }
-    });
+    })
     return {
       ...dataGovernanceConfiguration(),
       documents,
@@ -3861,7 +3861,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
         { accountId: account.id, deletedAt },
         client,
       )
-    });
+    })
     return {
       accountId: account.id,
       deletedAt,

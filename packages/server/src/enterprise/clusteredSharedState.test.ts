@@ -76,7 +76,7 @@ describe('clustered enterprise shared state', () => {
       'raw-session-token',
     )
     expect(deps.values.size).toBe(0)
-  });
+  })
 
   it('mirrors a durable PostgreSQL login block into Redis', async () => {
     const deps = dependencies()
@@ -96,7 +96,7 @@ describe('clustered enterprise shared state', () => {
       String(now + 120_000),
       120_000,
     )
-  });
+  })
 
   it('shares account presence across replicas without exposing account ids in keys', async () => {
     const deps = dependencies()
@@ -143,5 +143,5 @@ describe('clustered enterprise shared state', () => {
         lastSeenAt: '2026-08-01T00:00:00.000Z',
       },
     ])
-  });
+  })
 })

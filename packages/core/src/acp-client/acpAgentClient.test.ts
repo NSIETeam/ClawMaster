@@ -154,4 +154,4 @@ describe('runDelegatedTask', () => {
     expect(result.error).toBeTruthy()
     expect(result.error).toContain('Claude Code')
   }, 30_000)
-});
+})

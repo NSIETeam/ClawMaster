@@ -107,14 +107,14 @@ export class PluginInstaller {
           SkillsPaths.MARKETPLACE_ROOT,
           marketplaceId,
           pluginLocalPath,
-        );
+        )
       } else {
         // 兜底：使用插件名
         installPath = path.join(
           SkillsPaths.MARKETPLACE_ROOT,
           marketplaceId,
           plugin.name,
-        );
+        )
       }
 
       // 判断是否为本地插件（基于 plugin.source 而非 marketplace.source）
@@ -456,7 +456,7 @@ export class PluginInstaller {
           }
         }
         return false
-      };
+      }
 
       // 新增：允许 skills/ 作为容器目录（子目录内含 SKILL.md）
       const hasNestedSkillDir = async (dirPath: string): Promise<boolean> => {
@@ -473,7 +473,7 @@ export class PluginInstaller {
           }
         }
         return false
-      };
+      }
 
       for (const item of plugin.items) {
         const fullPath = path.join(marketplacePath, item.path)
@@ -638,7 +638,7 @@ export class PluginInstaller {
       // 检查缓存是否已存在
       if (await fs.pathExists(cachePath)) {
         console.log(`[PluginInstaller] Plugin already cached: ${cachePath}`)
-        return;
+        return
       }
 
       // 提取 Git URL

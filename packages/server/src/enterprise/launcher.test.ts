@@ -87,5 +87,5 @@ Module._load = function (request, parent, isMain) {
     })
     expect(result.stdout).toContain('http://127.0.0.1:8123')
     expect(result.stdout).not.toContain('http://0.0.0.0:8123')
-  });
+  })
 })

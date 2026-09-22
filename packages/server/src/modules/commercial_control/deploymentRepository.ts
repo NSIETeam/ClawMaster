@@ -257,7 +257,7 @@ function telemetryPayloadIsOperational(
     if (value === null || typeof value === 'boolean') return true
     if (typeof value === 'number') return Number.isFinite(value)
     return typeof value === 'string' && value.length <= 256
-  });
+  })
 }
 
 function telemetryEnvelopeIsOperational(
@@ -1149,7 +1149,7 @@ export function ensureDeploymentLicenseSecretsEncrypted(
       const payload = safeJsonObject(JSON.parse(row.raw_json))
       if (LICENSE_ENCRYPTED_SECRETS_FIELD in payload) {
         restoreLicensePayload(store, payload, row.id)
-        continue;
+        continue
       }
       const hasSecret = LICENSE_SECRET_FIELDS.some(
         field => typeof payload[field] === 'string' && payload[field] !== '',
@@ -1248,7 +1248,7 @@ export async function flushTelemetryQueue(
           )
           .run('local telemetry integrity mismatch', row.id)
         result.discarded += 1
-        continue;
+        continue
       }
       if (
         telemetryContainsContent(payload) ||
@@ -1262,7 +1262,7 @@ export async function flushTelemetryQueue(
           )
           .run('local telemetry schema is not approved', row.id)
         result.discarded += 1
-        continue;
+        continue
       }
       events.push({
         id: row.id,
@@ -1322,7 +1322,7 @@ export async function flushTelemetryQueue(
          WHERE id = ?`,
       )
       for (const row of validRows) statement.run(now, row.id)
-    });
+    })
     result.sent = validRows.length
   } catch (error) {
     const message = safeErrorMessage(error)

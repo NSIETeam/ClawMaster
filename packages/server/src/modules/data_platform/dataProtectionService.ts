@@ -335,7 +335,7 @@ export function createDataProtectionService(
       mode: 0o600,
     })
     fs.renameSync(temporary, statusPath)
-  };
+  }
 
   const refreshCapacity = () => {
     const free = availableBytes(backupDirectory)
@@ -344,7 +344,7 @@ export function createDataProtectionService(
       availableBytes: free,
       capacityWarning: free !== null && free < minimumFreeBytes,
     }
-  };
+  }
 
   const prune = async (directory: string) => {
     const cutoff = now().getTime() - retentionDays * 24 * 60 * 60 * 1000
@@ -366,7 +366,7 @@ export function createDataProtectionService(
       mode: 0o600,
     })
     await rename(temporary, target)
-  };
+  }
 
   const replicate = async (archivePath: string) => {
     if (!replicaDirectory) return
@@ -383,7 +383,7 @@ export function createDataProtectionService(
       errorOnExist: true,
     })
     await prune(replicaDirectory)
-  };
+  }
 
   function sweepOrphanAttachments(): number {
     ensureRuntimeDirectories()
@@ -640,7 +640,7 @@ export function createDataProtectionService(
         if (!stopped) schedule(intervalMs)
       }, delay)
       timer.unref?.()
-    };
+    }
     schedule(firstDelay)
     return () => {
       stopped = true

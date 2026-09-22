@@ -81,7 +81,7 @@ describe('incremental patch store', () => {
       installedArtifactPath: result.record.artifactPath,
       installedActiveCssPath: result.record.activeCssPath,
     })
-  });
+  })
 
   it('keeps previous active patch metadata in rollback receipt', async () => {
     const root = await tempRoot()
@@ -113,7 +113,7 @@ describe('incremental patch store', () => {
     expect(secondInstall.receipt.previousArtifactPath).toBe(firstInstall.record.artifactPath)
     expect(secondInstall.receipt.previousActiveCssPath).toBe(firstInstall.record.activeCssPath)
     expect(await readActiveRendererCssPatch(root)).toBe('.a{color:blue}')
-  });
+  })
 
   it('rejects unsafe ids, unsafe bundle paths and unsupported targets', async () => {
     const root = await tempRoot()
@@ -145,5 +145,5 @@ describe('incremental patch store', () => {
       downloadedFilePath: source,
       rootDir: root,
     })).resolves.toEqual({ ok: false, error: 'unsupported patch target: desktop/main-js' })
-  });
+  })
 })

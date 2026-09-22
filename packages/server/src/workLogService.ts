@@ -189,7 +189,7 @@ export function summarizeWorkLog(
     lines.push('', '成果一览：')
     workResults.forEach((entry, index) => {
       lines.push(`${index + 1}. ${entry.taskTitle || entry.action}`)
-    });
+    })
   }
   lines.push(
     '',
@@ -349,7 +349,7 @@ function buildReportMarkdown(
       `   - 任务：${truncateText(cleanText(entry.userInput, '未记录原始任务'), 160)}`,
       `   - 摘要：${truncateText(cleanText(entry.details, '已完成相关处理'), 260)}`,
     )
-  });
+  })
   if (reportEntries.length > 8) {
     lines.push(`- 另有 ${reportEntries.length - 8} 项记录已归档在当天工作日志中。`)
   }

@@ -166,7 +166,7 @@ export function ChatView({
       setShowJump(hasUnread)
     }
     setScrolled(el.scrollTop > 4)
-  };
+  }
 
   // 消息变化：贴底则自动跟随到底；离底时——
   //   · 条数增加（真·新消息）→ 标记未读、弹浮标；
@@ -210,11 +210,11 @@ export function ChatView({
     stickRef.current = true
     setHasUnread(false)
     setShowJump(false)
-  };
+  }
 
   const copy = (text: string) => {
     void navigator.clipboard?.writeText(text)
-  };
+  }
 
   // 斜杠命令 `/copy`（对齐 CLI）：复制最近一条 ClawMaster 回复的纯文本。
   // 无可复制内容时静默（面板描述已说明语义，空会话点它没有副作用）。
@@ -226,11 +226,11 @@ export function ChatView({
       .join('')
       .trim()
     if (text) copy(text)
-  };
+  }
 
   const fillDraft = (text: string) => {
     setDraft(d => ({ text, n: d.n + 1 }))
-  };
+  }
 
   // 飞书会话内发言：source 仍是 'local'（app 内本地输入），
   // server 据会话归属（feishuChatId）决定回推飞书。

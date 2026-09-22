@@ -297,7 +297,7 @@ function formatProfileForFile(profile: MemoryPackage['profile'], sourceName: str
     text += `### Preferred Tools\n${profile.preferredTools.map(t => `- ${t}`).join('\n')}\n\n`
   }
   if (profile.efficiencyBenchmarks.length > 0) {
-    text += '### Efficiency Benchmarks\n';
+    text += '### Efficiency Benchmarks\n'
     for (const b of profile.efficiencyBenchmarks) {
       text += `- ${b.task}: avg ${b.avgMinutes}min (${b.trend})\n`
     }
@@ -308,7 +308,7 @@ function formatProfileForFile(profile: MemoryPackage['profile'], sourceName: str
 }
 
 function formatDocRefsForFile(refs: MemoryPackage['documentRefs']): string {
-  let text = '## Inherited Document References\n';
+  let text = '## Inherited Document References\n'
   for (const ref of refs) {
     text += `- ${ref.title} (${ref.type})`
     if (ref.feishuDocToken) text += ` token: ${ref.feishuDocToken}`
@@ -319,7 +319,7 @@ function formatDocRefsForFile(refs: MemoryPackage['documentRefs']): string {
 }
 
 function formatDecisionsForFile(decisions: MemoryPackage['decisionHistory']): string {
-  let text = '## Inherited Decision History\n';
+  let text = '## Inherited Decision History\n'
   for (const d of decisions) {
     text += `- [${d.date}] ${d.decision}\n`
   }

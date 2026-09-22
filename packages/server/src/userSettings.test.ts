@@ -29,7 +29,7 @@ describe('background model task user setting', () => {
     expect(
       loadUserSettingsSubset(temporaryHome()).backgroundModelTasksEnabled,
     ).toBe(false)
-  });
+  })
 
   it('is enabled only by an explicit persisted true value', () => {
     const home = temporaryHome()
@@ -38,5 +38,5 @@ describe('background model task user setting', () => {
 
     patchUserSettings({ backgroundModelTasksEnabled: false }, home)
     expect(loadUserSettingsSubset(home).backgroundModelTasksEnabled).toBe(false)
-  });
+  })
 })

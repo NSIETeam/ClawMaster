@@ -27,7 +27,7 @@ describe('clustered enterprise infrastructure configuration', () => {
         },
       }),
     ).rejects.toThrow(/requires both/i)
-  });
+  })
 
   it('forbids a local legacy fallback on a multi-replica deployment', async () => {
     await expect(
@@ -40,7 +40,7 @@ describe('clustered enterprise infrastructure configuration', () => {
         },
       }),
     ).rejects.toThrow(/one migration-window replica/i)
-  });
+  })
 
   it('rejects an attachment limit above the desktop E2EE protocol limit', async () => {
     await expect(
@@ -51,5 +51,5 @@ describe('clustered enterprise infrastructure configuration', () => {
         },
       }),
     ).rejects.toThrow(/E2EE protocol limit/i)
-  });
+  })
 })

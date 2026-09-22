@@ -41,7 +41,7 @@ describe('NativeTokenizerRuntime', () => {
     await expect(runtime.count('hello')).resolves.toEqual({ status: 'fallback' })
     await expect(runtime.truncate('hello world', 1)).resolves.toEqual({ status: 'fallback' })
     expect(bridge.calls).toEqual([])
-  });
+  })
 
   it('counts and truncates through Rust when native core is available', async () => {
     const bridge = createBridge({ enabled: true })
@@ -58,13 +58,13 @@ describe('NativeTokenizerRuntime', () => {
       'tokenizer.supported_models',
     ])
     expect(bridge.calls[0].params).toEqual({ model: 'gpt-4' })
-  });
+  })
 
   it('fails fast in required mode when native tokenizer calls fail', async () => {
     const bridge = createBridge({ enabled: true, required: true, fail: true })
     const runtime = new NativeTokenizerRuntime({ bridge })
 
     await expect(runtime.count('hello')).rejects.toThrow('native tokenizer unavailable')
-  });
+  })
 })
 

@@ -143,7 +143,7 @@ export class NativeCoreBridge {
 
       this.pending.set(id, { resolve, reject, timer })
       this.child?.stdin.write(`${JSON.stringify(request)}\n`)
-    });
+    })
   }
 
   async close(): Promise<void> {
@@ -170,15 +170,15 @@ export class NativeCoreBridge {
     this.child.stdout.on('data', (chunk: Buffer) => this.consumeStdout(chunk.toString('utf8')))
     this.child.stderr.on('data', (chunk: Buffer) => {
       this.rejectPending(new Error(chunk.toString('utf8').trim() || 'native core stderr'))
-    });
+    })
     this.child.on('error', (error) => {
       this.child = undefined
       this.rejectPending(error)
-    });
+    })
     this.child.on('exit', (code) => {
       this.child = undefined
       this.rejectPending(new Error(`native core exited with code ${code ?? 'unknown'}`))
-    });
+    })
   }
 
   private consumeStdout(text: string): void {

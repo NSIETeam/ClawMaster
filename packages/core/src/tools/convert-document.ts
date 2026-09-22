@@ -44,9 +44,9 @@ async function preflightBinaries(names: string[]): Promise<string | null> {
         const out = (stdout || stderr || '').trim()
         if (err) { if (out) { resolve(out); return } reject(err); return }
         resolve(out)
-      });
+      })
     })
-  };
+  }
   const report = await new DoctorService(gatedRunner).check()
   const missing = report.checks.filter(c => wanted.has(c.name) && !c.present)
   if (missing.length === 0) return null
@@ -56,10 +56,14 @@ async function preflightBinaries(names: string[]): Promise<string | null> {
 }
 
 export interface ConvertDocumentToolParams {
-  input_path?: string; input_paths?: string[]
-  output_format: string; output_path?: string
+  input_path?: string
+  input_paths?: string[]
+  output_format: string
+  output_path?: string
   engine?: 'pandoc' | 'libreoffice' | 'auto'
-  options?: string; merge?: boolean; compress?: number
+  options?: string
+  merge?: boolean
+  compress?: number
 }
 
 export class ConvertDocumentTool extends BaseTool<ConvertDocumentToolParams, ToolResult> {
@@ -140,7 +144,7 @@ DEPENDENCIES: pandoc + libreoffice. macOS: brew install pandoc libreoffice. Wind
   async shouldConfirmExecute(p: ConvertDocumentToolParams, _s: AbortSignal): Promise<ToolCallConfirmationDetails | false> {
     if (this.config.getApprovalMode() === ApprovalMode.YOLO) return false
     if (this.validateToolParams(p)) return false
-    return { type:'exec', title:'Confirm: '+this.getDescription(p), command:'convert_document', rootCommand:'convert_document', onConfirm: async ()=>{} };
+    return { type:'exec', title:'Confirm: '+this.getDescription(p), command:'convert_document', rootCommand:'convert_document', onConfirm: async ()=>{} }
   }
 
   async execute(p: ConvertDocumentToolParams, _s: AbortSignal): Promise<ToolResult> {

@@ -72,7 +72,7 @@ describe('PostgreSQL enterprise core authority', () => {
     }
     expect(migration!.sql).toContain('token_hash TEXT PRIMARY KEY')
     expect(migration!.sql).not.toContain('token TEXT PRIMARY KEY')
-  });
+  })
 
   it('enforces attachment tenant and account ownership in PostgreSQL', () => {
     const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
@@ -90,7 +90,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(migration!.sql).toContain(
       'CREATE TABLE direct_message_attachment_objects',
     )
-  });
+  })
 
   it('installs PostgreSQL authority for invitations, SMS registration and legal consent', () => {
     const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
@@ -109,7 +109,7 @@ describe('PostgreSQL enterprise core authority', () => {
     }
     expect(migration!.sql).toContain('code_hash TEXT NOT NULL UNIQUE')
     expect(migration!.sql).not.toContain('code TEXT NOT NULL')
-  });
+  })
 
   it('installs tenant-bound PostgreSQL authority for the remaining business domains', () => {
     const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
@@ -134,7 +134,7 @@ describe('PostgreSQL enterprise core authority', () => {
     )
     expect(migration!.sql).toContain('payload_ciphertext TEXT NOT NULL')
     expect(migration!.sql).not.toContain('payload_plaintext')
-  });
+  })
 
   it('binds MLS attachment objects to one generation and device roster', () => {
     const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
@@ -153,7 +153,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(migration!.sql).toContain(
       'attachment_objects_mls_authorization_all_or_none',
     )
-  });
+  })
 
   it('requires an exact policy hash before PostgreSQL reports current consent', async () => {
     const references = currentLegalDocumentReferences()
@@ -184,7 +184,7 @@ describe('PostgreSQL enterprise core authority', () => {
       false,
     ])
     expect(profile.currentConsentComplete).toBe(false)
-  });
+  })
 
   it('records both current document hashes in one PostgreSQL transaction', async () => {
     const statements: Array<{ sql: string; values: readonly unknown[] }> = []
@@ -214,7 +214,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(statements[1]!.values).toContain(references[0]!.hash)
     expect(statements[2]!.values).toContain(references[1]!.hash)
     expect(client.release).toHaveBeenCalledOnce()
-  });
+  })
 
   it('installs opaque MLS transport tables without plaintext or private-key columns', () => {
     const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
@@ -232,7 +232,7 @@ describe('PostgreSQL enterprise core authority', () => {
       expect(migration!.sql).toContain(`CREATE TABLE ${table}`)
     }
     expect(migration!.sql).not.toMatch(/plaintext|private_key/i)
-  });
+  })
 
   it('installs durable PostgreSQL MLS resource governance', () => {
     const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
@@ -245,7 +245,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(migration!.sql).toContain('CREATE TABLE mls_resource_rate_buckets')
     expect(migration!.sql).toContain('retention_floor_sequence')
     expect(migration!.sql).toContain('expires_at')
-  });
+  })
 
   it('installs versioned MLS group-session history for explicit resets', () => {
     const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
@@ -259,7 +259,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(migration!.sql).toContain('active_generation')
     expect(migration!.sql).toContain('session_generation')
     expect(migration!.sql).toContain('mls_group_sessions_active')
-  });
+  })
 
   it('indexes exact-device inbound Welcome discovery without indexing payloads', () => {
     const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
@@ -275,7 +275,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(migration!.sql).toContain('recipient_device_id')
     expect(migration!.sql).toContain("WHERE event_type = 'welcome'")
     expect(migration!.sql).not.toContain('payload')
-  });
+  })
 
   it('indexes exact-device unclaimed KeyPackage inventory without key bytes', () => {
     const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
@@ -289,7 +289,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(migration!.sql).toContain('device_id')
     expect(migration!.sql).toContain('WHERE claimed_at IS NULL')
     expect(migration!.sql).not.toContain('key_package)')
-  });
+  })
 
   it('checks for a recoverable claim before locking a new KeyPackage', async () => {
     const statements: Array<{ sql: string; values: readonly unknown[] }> = []
@@ -366,7 +366,7 @@ describe('PostgreSQL enterprise core authority', () => {
       expect.arrayContaining(['BEGIN', 'COMMIT']),
     )
     expect(client.release).toHaveBeenCalledOnce()
-  });
+  })
 
   it('discovers PostgreSQL Welcome peers only through the active device generation', async () => {
     const statements: Array<{ sql: string; values: readonly unknown[] }> = []
@@ -419,7 +419,7 @@ describe('PostgreSQL enterprise core authority', () => {
       'acc_aaron',
       25,
     ])
-  });
+  })
 
   it('lists PostgreSQL unclaimed KeyPackage references for the exact device', async () => {
     const statements: Array<{ sql: string; values: readonly unknown[] }> = []
@@ -482,7 +482,7 @@ describe('PostgreSQL enterprise core authority', () => {
       'bob-device',
       expect.any(String),
     ])
-  });
+  })
 
   it('retires an unclaimed PostgreSQL KeyPackage under a device row lock', async () => {
     const statements: string[] = []
@@ -524,7 +524,7 @@ describe('PostgreSQL enterprise core authority', () => {
     ).toBe(true)
     expect(statements).toEqual(expect.arrayContaining(['BEGIN', 'COMMIT']))
     expect(client.release).toHaveBeenCalledOnce()
-  });
+  })
 
   it('binds an initial PostgreSQL MLS Commit and Welcome to one KeyPackage claim', async () => {
     const statements: Array<{ sql: string; values: readonly unknown[] }> = []
@@ -733,7 +733,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(statements.map(statement => statement.sql).join('\n')).not.toMatch(
       /plaintext|private_key/i,
     )
-  });
+  })
 
   it('atomically retires the active PostgreSQL MLS group during reset', async () => {
     const statements: Array<{ sql: string; values: readonly unknown[] }> = []
@@ -872,7 +872,7 @@ describe('PostgreSQL enterprise core authority', () => {
       ]),
     )
     expect(statements.at(-1)?.sql.trim()).toBe('COMMIT')
-  });
+  })
 
   it('rolls back PostgreSQL MLS writes when the durable rate bucket is full', async () => {
     const statements: string[] = []
@@ -913,7 +913,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(
       statements.some(sql => sql.includes('INSERT INTO mls_transport_events')),
     ).toBe(false)
-  });
+  })
 
   it('advances retention floors before bounded PostgreSQL MLS cleanup', async () => {
     const statements: string[] = []
@@ -976,7 +976,7 @@ describe('PostgreSQL enterprise core authority', () => {
       statements.find(sql => sql.includes('UPDATE mls_conversations')),
     ).toContain('retention_floor_sequence = GREATEST')
     expect(statements.at(-1)?.trim()).toBe('COMMIT')
-  });
+  })
 
   it('normalizes mainland phone numbers without importing the SQLite repository', () => {
     expect(normalizePostgresEnterprisePhone('138 0013 8000')).toBe(
@@ -988,7 +988,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(() => normalizePostgresEnterprisePhone('10086')).toThrow(
       'phone is invalid',
     )
-  });
+  })
 
   it('stores only a SHA-256 session token digest in PostgreSQL', async () => {
     const queries: Array<{ sql: string; values: readonly unknown[] }> = []
@@ -1011,7 +1011,7 @@ describe('PostgreSQL enterprise core authority', () => {
       createHash('sha256').update(session.token).digest('hex'),
     )
     expect(queries[0]!.values).not.toContain(session.token)
-  });
+  })
 
   it('shares login throttling without persisting the account identifier', async () => {
     const queries: Array<{ sql: string; values: readonly unknown[] }> = []
@@ -1032,7 +1032,7 @@ describe('PostgreSQL enterprise core authority', () => {
       createHash('sha256').update('admin@example.com').digest('hex'),
     )
     expect(queries[0]!.values).not.toContain('Admin@Example.COM')
-  });
+  })
 
   it('claims only expired unbound S3 objects outside legal hold', async () => {
     const queries: string[] = []
@@ -1070,7 +1070,7 @@ describe('PostgreSQL enterprise core authority', () => {
       'NOT EXISTS (\n             SELECT 1 FROM direct_message_attachment_objects',
     )
     expect(queries[0]).toContain("migration_state = 'orphan_cleaning'")
-  });
+  })
 
   it('rolls back an account transaction when PostgreSQL rejects a write', async () => {
     const statements: string[] = []
@@ -1118,7 +1118,7 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(statements[0]).toBe('BEGIN')
     expect(statements.at(-1)).toBe('ROLLBACK')
     expect(client.release).toHaveBeenCalledOnce()
-  });
+  })
 
   it('fails closed when an active enterprise seat has no verified License admission', async () => {
     const client: PostgresClientLike = {
@@ -1162,7 +1162,7 @@ describe('PostgreSQL enterprise core authority', () => {
       expect.anything(),
     )
     expect(client.release).toHaveBeenCalledOnce()
-  });
+  })
 
   it('allows the explicit bootstrap bypass only for the first administrator', async () => {
     const client: PostgresClientLike = {
@@ -1205,7 +1205,7 @@ describe('PostgreSQL enterprise core authority', () => {
         bootstrapFirstAdministrator: true,
       }),
     ).rejects.toThrow('deployment license changed during seat admission')
-  });
+  })
 
   it('rejects inline E2EE attachment bodies after the shared S3 route is mounted', async () => {
     const pool: PostgresPoolLike = {
@@ -1237,5 +1237,5 @@ describe('PostgreSQL enterprise core authority', () => {
       }),
     ).rejects.toThrow('must be uploaded before sending the message')
     expect(pool.connect).not.toHaveBeenCalled()
-  });
+  })
 })

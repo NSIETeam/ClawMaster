@@ -561,7 +561,7 @@ export class MarketplaceManager {
         for (const possiblePath of possiblePaths) {
           if (await fs.pathExists(possiblePath)) {
             sourcePath = possiblePath
-            break;
+            break
           }
         }
       }
@@ -573,7 +573,7 @@ export class MarketplaceManager {
           `[MarketplaceManager] Remote plugin ${pluginDef.name} not yet downloaded\n` +
           '  Will be cloned when user installs this plugin\n' +
           `  Source: ${JSON.stringify(pluginDef.source)}`,
-        );
+        )
         // sourcePath 保持为空，后续逻辑会跳过此插件的详细解析
       }
     } else {
@@ -605,7 +605,7 @@ export class MarketplaceManager {
             `Failed to read plugin.json for ${pluginDef.name}\n` +
             `  Path: ${manifestPath}\n` +
             `  Error: ${e instanceof Error ? e.message : String(e)}`,
-          );
+          )
         }
       }
       // Note: If no plugin.json found, that's OK for Claude Code plugins
@@ -616,7 +616,7 @@ export class MarketplaceManager {
         `  Expected source: ${sourcePath}\n` +
         `  Marketplace path: ${marketplacePath}\n` +
         `  Source definition: ${pluginDef.source}`,
-      );
+      )
     }
 
     // 3. Resolve Skills/Commands/Agents
@@ -790,7 +790,7 @@ export class MarketplaceManager {
         p.name.toLowerCase().includes(lowerQuery) ||
         p.description.toLowerCase().includes(lowerQuery) ||
         (p.keywords && p.keywords.some(k => k.toLowerCase().includes(lowerQuery))),
-    );
+    )
   }
 
   /**

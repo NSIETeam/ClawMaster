@@ -28,7 +28,7 @@ describe('web search runtime', () => {
       'result',
     )
     expect(getCachedWebSearchResult('clawmaster search', 302_001)).toBeUndefined()
-  });
+  })
 
   it('opens a provider circuit after three failures and closes it after cooldown', () => {
     for (let index = 0; index < 3; index += 1) {
@@ -44,7 +44,7 @@ describe('web search runtime', () => {
     expect(canAttemptSearchProvider('bocha', 2000, 'org-a').allowed).toBe(false)
     expect(canAttemptSearchProvider('bocha', 2000, 'org-b').allowed).toBe(true)
     expect(canAttemptSearchProvider('bocha', 62_000, 'org-a').allowed).toBe(true)
-  });
+  })
 
   it('isolates usage and estimated cost by tenant', () => {
     recordSearchProviderAttempt({
@@ -74,7 +74,7 @@ describe('web search runtime', () => {
     expect(a.estimatedCostCny).toBe(0.02)
     expect(b.totalAttempts).toBe(1)
     expect(b.totalSuccesses).toBe(0)
-  });
+  })
 
   it('does not share cached results across tenants', () => {
     cacheWebSearchResult(
@@ -90,7 +90,7 @@ describe('web search runtime', () => {
     expect(
       getCachedWebSearchResult('private enterprise query', 2000, 'org-b'),
     ).toBeUndefined()
-  });
+  })
 
   it('classifies actionable provider failures', () => {
     expect(classifySearchError('HTTP 429 Too Many Requests')).toBe(
@@ -100,5 +100,5 @@ describe('web search runtime', () => {
     expect(classifySearchError('captcha verification page')).toBe(
       'verification',
     )
-  });
+  })
 })

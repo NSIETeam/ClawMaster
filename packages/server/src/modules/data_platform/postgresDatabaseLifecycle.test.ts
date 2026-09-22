@@ -94,7 +94,7 @@ describe('PostgreSQL database lifecycle', () => {
     expect(pool.released).toBe(1)
     await lifecycle.close()
     expect(pool.ended).toBe(1)
-  });
+  })
 
   it('refuses changed or future migrations and rolls back', async () => {
     const changed = new FakePostgres()
@@ -121,7 +121,7 @@ describe('PostgreSQL database lifecycle', () => {
         migrations,
       }).initialize(),
     ).rejects.toThrow(/schema version 3.*current version 2/i)
-  });
+  })
 
   it('does not declare a read-only standby ready for a write-serving instance', async () => {
     const pool = new FakePostgres()
@@ -129,5 +129,5 @@ describe('PostgreSQL database lifecycle', () => {
     const lifecycle = createPostgresDatabaseLifecycle({ pool, migrations })
 
     await expect(lifecycle.initialize()).rejects.toThrow(/read-only standby/i)
-  });
+  })
 })

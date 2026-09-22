@@ -125,7 +125,7 @@ afterEach(async () => {
   await Promise.all(temporaryRoots.splice(0).map(root => (
     fs.rm(root, { recursive: true, force: true })
   )))
-});
+})
 
 describe('account data sync', () => {
   it('protects account mirrors and never writes plaintext when protection is unavailable', async () => {
@@ -178,7 +178,7 @@ describe('account data sync', () => {
       accountDataSyncIdentityKey(IDENTITY),
       'personal_memory.json',
     ))).rejects.toMatchObject({ code: 'ENOENT' })
-  });
+  })
 
   it('restores personal memory, worklogs and generated skills on a new device', async () => {
     const first = await makeDevice('source')
@@ -262,7 +262,7 @@ describe('account data sync', () => {
       path.join(second.userRoot, 'skills', 'auto-project-review', 'profile.json'),
       'utf8',
     )).toContain('"source":"learned"')
-  });
+  })
 
   it('keeps managed files isolated while switching accounts on one computer', async () => {
     const device = await makeDevice('switch')
@@ -289,7 +289,7 @@ describe('account data sync', () => {
     await service.activate(identityB)
     expect(await fs.readFile(memoryPath, 'utf8')).toContain('Account B private preference')
     expect(await fs.readFile(memoryPath, 'utf8')).not.toContain('Account A private preference')
-  });
+  })
 
   it('erases managed personal data and the account mirror after account deletion', async () => {
     const device = await makeDevice('erase')
@@ -332,7 +332,7 @@ describe('account data sync', () => {
     await expect(fs.stat(path.join(device.userRoot, 'skills', 'auto-private', 'SKILL.md')))
       .rejects.toMatchObject({ code: 'ENOENT' })
     await expect(fs.stat(mirrorRoot)).rejects.toMatchObject({ code: 'ENOENT' })
-  });
+  })
 
   it('merges a concurrent remote memory update and retries with the latest version', async () => {
     const device = await makeDevice('conflict')
@@ -360,5 +360,5 @@ describe('account data sync', () => {
       .find(file => file.path === 'memory/global.md')?.content
     expect(remoteMemory).toContain('Local fact from this computer')
     expect(remoteMemory).toContain('Remote fact from another computer')
-  });
+  })
 })

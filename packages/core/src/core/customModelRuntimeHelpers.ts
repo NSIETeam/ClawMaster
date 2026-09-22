@@ -41,7 +41,7 @@ export async function readStreamWithIdleTimeout<T>(
       (err as { isRetryable?: boolean }).isRetryable = true
       reject(err)
     }, timeoutMs)
-  });
+  })
 
   try {
     return await Promise.race([reader.read(), timeoutPromise])
@@ -99,7 +99,7 @@ export function resolveEnvVar(value: string): string {
   return value.replace(envVarRegex, (match, varName1, varName2) => {
     const varName = varName1 || varName2
     return process.env[varName] || match
-  });
+  })
 }
 
 /**
@@ -238,7 +238,7 @@ export function shouldRetryCustomModel(error: Error): boolean {
 
   // ✅ 检查错误消息中的 429
   if (error.message.includes('429')) {
-    console.warn('[CustomModel] Rate limit detected in message, will retry...');
+    console.warn('[CustomModel] Rate limit detected in message, will retry...')
     return true
   }
 

@@ -17,11 +17,11 @@ let home: string
 
 beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-search-config-'))
-});
+})
 
 afterEach(() => {
   fs.rmSync(home, { recursive: true, force: true })
-});
+})
 
 describe('搜索 API 配置持久化', () => {
   it('公开配置写 settings.json，API Key 单独以 0600 保存且读取视图不泄漏', () => {
@@ -55,7 +55,7 @@ describe('搜索 API 配置持久化', () => {
     }
     expect(fs.readFileSync(path.join(home, '.clawmaster-user', 'settings.json'), 'utf8'))
       .not.toContain('ark-secret-key')
-  });
+  })
 
   it('API Key 留空保留旧密钥；clearApiKey 才清除', () => {
     saveSearchConfig(
@@ -77,7 +77,7 @@ describe('搜索 API 配置持久化', () => {
     )
     expect(loadSearchConfigView(home).hasApiKey).toBe(false)
     expect(loadSearchRuntimeConfig(home).apiKey).toBeUndefined()
-  });
+  })
 
   it('首次从旧版明文配置保存时迁移密钥并清除 settings.json 中的明文', () => {
     const settingsDir = path.join(home, '.clawmaster-user')
@@ -106,5 +106,5 @@ describe('搜索 API 配置持久化', () => {
     expect(persisted).not.toHaveProperty('searchApiKey')
     expect(persisted.unrelatedSetting).toBe('keep-me')
     expect(loadSearchRuntimeConfig(home).apiKey).toBe('migrated-secret-key')
-  });
+  })
 })

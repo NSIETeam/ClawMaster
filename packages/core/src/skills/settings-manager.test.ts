@@ -38,13 +38,13 @@ describe('SettingsManager', () => {
     )
 
     manager = new SettingsManager()
-  });
+  })
 
   afterEach(async () => {
     // 清理测试目录
     await fs.remove(testRoot)
     vi.restoreAllMocks()
-  });
+  })
 
   describe('initialize', () => {
     it('should create directory structure', async () => {
@@ -54,14 +54,14 @@ describe('SettingsManager', () => {
       expect(await fs.pathExists(SkillsPaths.SKILLS_ROOT)).toBe(true)
       expect(await fs.pathExists(SkillsPaths.MARKETPLACE_ROOT)).toBe(true)
       expect(await fs.pathExists(SkillsPaths.BACKUP_DIR)).toBe(true)
-    });
+    })
 
     it('should create default config files', async () => {
       await manager.initialize()
 
       expect(await fs.pathExists(SkillsPaths.SETTINGS_FILE)).toBe(true)
       expect(await fs.pathExists(SkillsPaths.INSTALLED_PLUGINS_FILE)).toBe(true)
-    });
+    })
 
     it('should not overwrite existing config files', async () => {
       await manager.initialize()
@@ -76,13 +76,13 @@ describe('SettingsManager', () => {
 
       const settings = await newManager.readSettings()
       expect(settings.enabledPlugins['test:plugin']).toBe(true)
-    });
+    })
   })
 
   describe('settings operations', () => {
     beforeEach(async () => {
       await manager.initialize()
-    });
+    })
 
     it('should read and write settings', async () => {
       const settings = await manager.readSettings()
@@ -91,7 +91,7 @@ describe('SettingsManager', () => {
 
       const loaded = await manager.readSettings()
       expect(loaded.enabledPlugins['test:plugin']).toBe(true)
-    });
+    })
 
     it('should update settings with updater function', async () => {
       await manager.updateSettings(settings => ({
@@ -101,7 +101,7 @@ describe('SettingsManager', () => {
 
       const settings = await manager.readSettings()
       expect(settings.enabledPlugins['test:plugin']).toBe(true)
-    });
+    })
 
     it('should backup settings before writing', async () => {
       const settings = await manager.readSettings()
@@ -112,27 +112,27 @@ describe('SettingsManager', () => {
 
       const backups = await fs.readdir(SkillsPaths.BACKUP_DIR)
       expect(backups.length).toBeGreaterThan(0)
-    });
+    })
   })
 
   describe('enabledPlugins management', () => {
     beforeEach(async () => {
       await manager.initialize()
       manager.clearCache() // 清除缓存确保干净状态
-    });
+    })
 
     it('should enable plugin', async () => {
       await manager.enablePlugin('test:plugin')
 
       expect(await manager.isPluginEnabled('test:plugin')).toBe(true)
-    });
+    })
 
     it('should disable plugin', async () => {
       await manager.enablePlugin('test:plugin')
       await manager.disablePlugin('test:plugin')
 
       expect(await manager.isPluginEnabled('test:plugin')).toBe(false)
-    });
+    })
 
     it('should get all enabled plugins', async () => {
       await manager.enablePlugin('test:plugin1')
@@ -142,13 +142,13 @@ describe('SettingsManager', () => {
       const enabled = await manager.getEnabledPlugins()
       expect(enabled).toContain('test:plugin2')
       expect(enabled).not.toContain('test:plugin1')
-    });
+    })
   })
 
   describe('marketplace configuration', () => {
     beforeEach(async () => {
       await manager.initialize()
-    });
+    })
 
     const mockMarketplace: MarketplaceConfig = {
       id: 'test-marketplace',
@@ -165,13 +165,13 @@ describe('SettingsManager', () => {
       const marketplaces = await manager.getMarketplaces()
       expect(marketplaces).toHaveLength(1)
       expect(marketplaces[0].id).toBe('test-marketplace')
-    });
+    })
 
     it('should throw error when adding duplicate marketplace', async () => {
       await manager.addMarketplace(mockMarketplace)
 
       await expect(manager.addMarketplace(mockMarketplace)).rejects.toThrow()
-    });
+    })
 
     it('should remove marketplace', async () => {
       await manager.addMarketplace(mockMarketplace)
@@ -179,7 +179,7 @@ describe('SettingsManager', () => {
 
       const marketplaces = await manager.getMarketplaces()
       expect(marketplaces).toHaveLength(0)
-    });
+    })
 
     it('should update marketplace', async () => {
       await manager.addMarketplace(mockMarketplace)
@@ -190,7 +190,7 @@ describe('SettingsManager', () => {
 
       const marketplaces = await manager.getMarketplaces()
       expect(marketplaces[0].enabled).toBe(false)
-    });
+    })
   })
 
   describe('installed plugins', () => {
@@ -209,20 +209,20 @@ describe('SettingsManager', () => {
         enabled: true,
         skillCount: 5,
       }
-    });
+    })
 
     it('should add installed plugin', async () => {
       await manager.addInstalledPlugin(mockPlugin)
 
       const plugin = await manager.getInstalledPlugin(mockPlugin.id)
       expect(plugin?.name).toBe('Test Plugin')
-    });
+    })
 
     it('should throw error when adding duplicate plugin', async () => {
       await manager.addInstalledPlugin(mockPlugin)
 
       await expect(manager.addInstalledPlugin(mockPlugin)).rejects.toThrow()
-    });
+    })
 
     it('should remove installed plugin', async () => {
       await manager.addInstalledPlugin(mockPlugin)
@@ -230,7 +230,7 @@ describe('SettingsManager', () => {
 
       const plugin = await manager.getInstalledPlugin(mockPlugin.id)
       expect(plugin).toBeNull()
-    });
+    })
 
     it('should update installed plugin', async () => {
       await manager.addInstalledPlugin(mockPlugin)
@@ -241,7 +241,7 @@ describe('SettingsManager', () => {
 
       const plugin = await manager.getInstalledPlugin(mockPlugin.id)
       expect(plugin?.enabled).toBe(false)
-    });
+    })
 
     it('should get all installed plugins', async () => {
       const plugin1 = { ...mockPlugin, id: `test:plugin1-${Date.now()}` }
@@ -254,20 +254,20 @@ describe('SettingsManager', () => {
       expect(plugins.length).toBeGreaterThanOrEqual(2)
       expect(plugins.some(p => p.id === plugin1.id)).toBe(true)
       expect(plugins.some(p => p.id === plugin2.id)).toBe(true)
-    });
+    })
   })
 
   describe('cache management', () => {
     beforeEach(async () => {
       await manager.initialize()
-    });
+    })
 
     it('should cache settings', async () => {
       const settings1 = await manager.readSettings()
       const settings2 = await manager.readSettings()
 
       expect(settings1).toBe(settings2) // 同一对象引用
-    });
+    })
 
     it('should clear cache', async () => {
       await manager.readSettings()
@@ -277,7 +277,7 @@ describe('SettingsManager', () => {
       const settings2 = await manager.readSettings()
 
       expect(settings1).toBe(settings2) // 重新缓存
-    });
+    })
 
     it('should reload configurations', async () => {
       await manager.enablePlugin('test:plugin')
@@ -295,7 +295,7 @@ describe('SettingsManager', () => {
 
       const loaded = await manager.readSettings()
       expect(loaded.enabledPlugins['manual:plugin']).toBe(true)
-    });
+    })
   })
 
   describe('InstalledPluginInfo schema', () => {
@@ -318,6 +318,6 @@ describe('SettingsManager', () => {
       expect(pluginInfo.installPath).toBeDefined()
       expect(pluginInfo.isLocal).toBeDefined()
       expect(pluginInfo.version).toBe('unknown')
-    });
+    })
   })
-});
+})

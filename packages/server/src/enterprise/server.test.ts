@@ -215,7 +215,7 @@ async function startIsolated(
     server.listen(0, '127.0.0.1', () => {
       server.off('error', reject)
       resolve()
-    });
+    })
   })
   servers.push(server)
   const port = (server.address() as AddressInfo).port
@@ -228,7 +228,7 @@ beforeEach(() => {
   process.env.CLAWMASTER_ENTERPRISE_DIR = tmpDir
   servers = []
   closeDatabases = []
-});
+})
 
 describe('数据治理自助闭环', { timeout: 30_000 }, () => {
   it('License 受限时仍允许查看规则、导出和注销本人数据', async () => {
@@ -298,7 +298,7 @@ describe('数据治理自助闭环', { timeout: 30_000 }, () => {
       accountId: account.id,
     })
     expect(database.getAccountBySession(token)).toBeNull()
-  });
+  })
 })
 
 afterEach(async () => {
@@ -353,7 +353,7 @@ describe('本地 Agent 配对路由默认关闭', { timeout: 30_000 }, () => {
     }
   })
 
-});
+})
 
 // 首个用例会动态加载完整企业服务模块；并行全量回归时冷启动可能超过 Vitest
 // 默认 5 秒。给隔离服务套件留出确定余量，避免把模块编译争用误报成鉴权失败。
@@ -366,7 +366,7 @@ describe('管理端鉴权：受保护路由需正确 token', { timeout: 15_000 }
     expect(res.status).toBe(401)
     const body = await res.json()
     expect(body.error).toMatch(/unauthorized/i)
-  });
+  })
 
   it('完全不带 token 访问受保护路由 → 401', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -387,7 +387,7 @@ describe('管理端鉴权：受保护路由需正确 token', { timeout: 15_000 }
     const res = await fetch(`${base}/enterprise/report?token=${ADMIN_TOKEN}`)
     expect(res.status).toBe(401)
     expect(await res.json()).toHaveProperty('error')
-  });
+  })
 
   it('带正确 token（x-clawmaster-admin-token header）→ 放行 200', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -396,7 +396,7 @@ describe('管理端鉴权：受保护路由需正确 token', { timeout: 15_000 }
     })
     expect(res.status).toBe(200)
     expect(await res.json()).toHaveProperty('employees')
-  });
+  })
 
   it('带正确 token（Bearer）→ 放行 200', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -405,7 +405,7 @@ describe('管理端鉴权：受保护路由需正确 token', { timeout: 15_000 }
     })
     expect(res.status).toBe(200)
     expect(await res.json()).toHaveProperty('logs')
-  });
+  })
 
   it('鉴权阶段数据库异常由 handler 收口为不泄露内部细节的 500', async () => {
     const { server } = await startIsolated(ADMIN_TOKEN)
@@ -463,7 +463,7 @@ describe('管理端鉴权：受保护路由需正确 token', { timeout: 15_000 }
       error: '企业服务暂时不可用，请稍后重试',
     })
     expect(responseBody).not.toMatch(/database|sqlite|closed/i)
-  });
+  })
 })
 
 describe('tokensMatch 长度不等短路（不抛，稳定返回 401）', () => {
@@ -474,7 +474,7 @@ describe('tokensMatch 长度不等短路（不抛，稳定返回 401）', () => 
       headers: { 'x-clawmaster-admin-token': 'x' },
     })
     expect(res.status).toBe(401) // 不是 500 → 证明短路生效
-  });
+  })
 
   it('错误 token 长度远长于真 token → 同样 401 不 500', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -483,7 +483,7 @@ describe('tokensMatch 长度不等短路（不抛，稳定返回 401）', () => 
       headers: { 'x-clawmaster-admin-token': longWrong },
     })
     expect(res.status).toBe(401)
-  });
+  })
 
   it('等长但不同的 token → 401（timingSafeEqual 正常比对失败）', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -493,7 +493,7 @@ describe('tokensMatch 长度不等短路（不抛，稳定返回 401）', () => 
       headers: { 'x-clawmaster-admin-token': sameLenWrong },
     })
     expect(res.status).toBe(401)
-  });
+  })
 })
 
 describe('正式公网启动的部署身份安全门', () => {
@@ -520,7 +520,7 @@ describe('正式公网启动的部署身份安全门', () => {
 
     expect(String(error)).toContain('CLAWMASTER_APP_VERSION')
     expect(String(error)).toContain('CLAWMASTER_BUILD_COMMIT')
-  });
+  })
 
   it('非 loopback 监听拒绝短 SHA；loopback 开发在无构建标识时仍可启动', async () => {
     process.env.CLAWMASTER_ENTERPRISE_PORT = '0'
@@ -569,7 +569,7 @@ describe('正式公网启动的部署身份安全门', () => {
     servers.push(server)
     await new Promise<void>(resolve => server.once('listening', resolve))
     expect((server.address() as AddressInfo).port).toBeGreaterThan(0)
-  });
+  })
 
   it('非 loopback 监听接受调用方显式传入的版本和完整提交，不强制依赖进程环境', async () => {
     process.env.CLAWMASTER_ENTERPRISE_PORT = '7777'
@@ -589,7 +589,7 @@ describe('正式公网启动的部署身份安全门', () => {
     await new Promise<void>(resolve => server.once('listening', resolve))
     expect((server.address() as AddressInfo).port).toBeGreaterThan(0)
     expect((server.address() as AddressInfo).port).not.toBe(7777)
-  });
+  })
 })
 
 describe('可信反向代理客户端地址解析', () => {
@@ -606,7 +606,7 @@ describe('可信反向代理客户端地址解析', () => {
         trustedProxyAddresses: ['10.0.0.5'],
       }),
     ).toBe('203.0.113.10')
-  });
+  })
 
   it('仅对 loopback 或明确可信直连代理按 trustedProxyHops 取 XFF 客户端', async () => {
     const mod: ServerModule = await import('./server.js')
@@ -622,7 +622,7 @@ describe('可信反向代理客户端地址解析', () => {
         { trustedProxyHops: 2, trustedProxyAddresses: ['10.0.0.5'] },
       ),
     ).toBe('198.51.100.23')
-  });
+  })
 
   it('XFF 格式非法、重复 header 或链长不足时 fail closed 回落直连地址', async () => {
     const mod: ServerModule = await import('./server.js')
@@ -638,7 +638,7 @@ describe('可信反向代理客户端地址解析', () => {
       ).toBe('127.0.0.1')
     }
   })
-});
+})
 
 describe('受保护 vs 公开路由边界', () => {
   it('公开路由 /enterprise/health 无 token 也可达 200', async () => {
@@ -1016,7 +1016,7 @@ describe('受保护 vs 公开路由边界', () => {
     )
     await vi.waitFor(() => {
       expect(billingCalls.filter(url => url.endsWith('/capture'))).toHaveLength(1)
-    });
+    })
     expect(db.getKnowledge(undefined, undefined, 'org_default')).toHaveLength(0)
 
     const replay = await request('knowledge:e2e:2')
@@ -1113,7 +1113,7 @@ describe('受保护 vs 公开路由边界', () => {
     const body = await health.json() as { capabilities: string[] }
     expect(body.capabilities).toContain('modular_update_push_v1')
     expect(body).not.toHaveProperty('deployment')
-  });
+  })
 
   it('账号恢复接口只读写当前账号快照，并返回可重试的版本冲突', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1198,11 +1198,11 @@ describe('受保护 vs 公开路由边界', () => {
       }, (response) => {
         response.resume()
         response.on('end', () => resolve(response.statusCode ?? 0))
-      });
+      })
       request.on('error', reject)
       request.write(chunkedBody.subarray(0, splitAt))
       setImmediate(() => request.end(chunkedBody.subarray(splitAt)))
-    });
+    })
     expect(chunkedStatus).toBe(200)
 
     const restored = await fetch(base + '/enterprise/account-sync', {
@@ -1245,12 +1245,12 @@ describe('受保护 vs 公开路由边界', () => {
     })
     expect(conflict.status).toBe(409)
     await expect(conflict.json()).resolves.toMatchObject({ currentVersion: 1 })
-  });
+  })
   it('企业知识库无登录会话不可读取', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
     const res = await fetch(`${base}/enterprise/knowledge`)
     expect(res.status).toBe(401)
-  });
+  })
 
   it('未配置静态 token 时，本机管理路由仍必须使用管理员登录会话', async () => {
     const { base } = await startIsolated('') // 显式空 token
@@ -1281,7 +1281,7 @@ describe('受保护 vs 公开路由边界', () => {
         })
       ).status,
     ).toBe(200)
-  });
+  })
 
   it('本机模式拒绝第三方网页跨域改写企业邀请码，并只向已登录管理员保留同源能力', async () => {
     const { base } = await startIsolated('')
@@ -1322,7 +1322,7 @@ describe('受保护 vs 公开路由边界', () => {
       )
       request.on('error', reject)
       request.end()
-    });
+    })
     expect(rebindingStatus).toBe(403)
     expect(db.getOrganizationInvite(db.DEFAULT_ORGANIZATION_ID)).toBeNull()
 
@@ -1341,19 +1341,19 @@ describe('受保护 vs 公开路由边界', () => {
     })
     expect(sameOrigin.status).toBe(201)
     expect(db.getOrganizationInvite(db.DEFAULT_ORGANIZATION_ID)).not.toBeNull()
-  });
+  })
 
   it('未知路由 → 404', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
     const res = await fetch(`${base}/enterprise/nope`)
     expect(res.status).toBe(404)
-  });
+  })
 
   it('OPTIONS 预检 → 204', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
     const res = await fetch(`${base}/enterprise/report`, { method: 'OPTIONS' })
     expect(res.status).toBe(204)
-  });
+  })
 })
 
 describe('园区资源后台与用户端资源接口', () => {
@@ -1368,7 +1368,7 @@ describe('园区资源后台与用户端资源接口', () => {
 
     const denied = await fetch(`${base}/enterprise/park-settings`)
     expect(denied.status).toBe(401)
-  });
+  })
 
   it('管理员可设置车位并创建会议室，成员只读取本企业启用资源', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1481,7 +1481,7 @@ describe('园区资源后台与用户端资源接口', () => {
       ]),
       meetingSlots: expect.any(Array),
     })
-  });
+  })
 
   it('普通企业管理员不能越权修改产业园资源', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1510,7 +1510,7 @@ describe('园区资源后台与用户端资源接口', () => {
     await expect(response.json()).resolves.toEqual({
       error: '当前企业不是产业园管理方',
     })
-  });
+  })
 })
 
 describe('公网企业引入链接与公开落地页', () => {
@@ -1531,7 +1531,7 @@ describe('公网企业引入链接与公开落地页', () => {
       `https://join.clawmaster.example/enterprise/join/${invite.code}`,
     )
     expect(invite.link).not.toContain('evil.example')
-  });
+  })
 
   it('进程选项可覆盖环境公网基址，便于不同部署使用自己的 HTTPS 地址', async () => {
     process.env.CLAWMASTER_ENTERPRISE_DIR = tmpDir
@@ -1548,7 +1548,7 @@ describe('公网企业引入链接与公开落地页', () => {
     expect(created.publicBaseUrl).toBe(
       'https://from-option.clawmaster.example/company',
     )
-  });
+  })
 
   it('有效链接返回干净落地页、App 唤起按钮、邀请码与严格安全头，不泄露企业名称', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1583,7 +1583,7 @@ describe('公网企业引入链接与公开落地页', () => {
     expect(html).toContain(`clawmaster://enterprise/join?invite=${invite.code}`)
     expect(html).not.toContain(secretName)
     expect(html).not.toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
-  });
+  })
 
   it('不存在或格式恶意的邀请码返回 404，且不会反射未转义输入', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1595,7 +1595,7 @@ describe('公网企业引入链接与公开落地页', () => {
     )
     expect(injected.status).toBe(404)
     expect(await injected.text()).not.toContain('<script>alert(1)</script>')
-  });
+  })
 
   it('过期与换新后撤销的链接均返回 410，不再提供 App 唤起入口', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1626,7 +1626,7 @@ describe('公网企业引入链接与公开落地页', () => {
     expect(await revokedResponse.text()).not.toContain(
       'clawmaster://enterprise/join',
     )
-  });
+  })
 })
 
 describe('report/dashboard 路由基本可达', () => {
@@ -1636,7 +1636,7 @@ describe('report/dashboard 路由基本可达', () => {
     expect(res.status).toBe(302)
     expect(res.headers.get('location')).toBe('/enterprise/admin')
     expect(res.headers.get('cache-control')).toBe('no-store')
-  });
+  })
 
   it('admin 网页无需静态 token 即可打开，并提供管理员账号登录与完整账号编辑入口', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1719,7 +1719,7 @@ describe('report/dashboard 路由基本可达', () => {
     expect(html).toContain('/enterprise/deployment/data-protection/backup')
     expect(html).toContain('多企业管理')
     expect(html).not.toContain(ADMIN_TOKEN)
-  });
+  })
 
   it('平台管理页通过手动令牌创建并列出多个企业，不在 HTML 中泄露平台令牌', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1801,7 +1801,7 @@ describe('report/dashboard 路由基本可达', () => {
     expect(html).toContain('if(!TOKEN)')
     expect(html).toMatch(/status===401\s*\|\|\s*r\.status===403/)
     expect(html).not.toContain(ADMIN_TOKEN)
-  });
+  })
 
   it('积分管理只用 DOM 与 textContent 渲染服务端字段，杜绝存储型 XSS', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1820,7 +1820,7 @@ describe('report/dashboard 路由基本可达', () => {
     expect(html).toContain('encodeURIComponent(id)')
     expect(html).not.toMatch(/\+code\.(?:code|status|redeemedBy|id)\+/)
     expect(html).not.toMatch(/\+row\.(?:accountName|description|type)\+/)
-  });
+  })
 
   it('dashboard 公开返回安全页面外壳，令牌只允许从 sessionStorage 或表单输入', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1846,7 +1846,7 @@ describe('report/dashboard 路由基本可达', () => {
     )
     expect(queryToken.status).toBe(400)
     expect(queryToken.headers.get('cache-control')).toBe('no-store')
-  });
+  })
 
   it('report 端到端：logTask 后 laborPerToken 不爆表（cost=0 场景经服务端也被兜底）', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1903,7 +1903,7 @@ describe('report/dashboard 路由基本可达', () => {
     // 关键：绝不再出现天文数字，封顶 ≤ 50。
     expect(r.laborPerTokenCNY).toBeLessThanOrEqual(50)
     expect(Number.isFinite(r.laborPerTokenCNY)).toBe(true)
-  });
+  })
 
   it('POST /enterprise/task 无登录先返回 401', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -1913,7 +1913,7 @@ describe('report/dashboard 路由基本可达', () => {
       body: JSON.stringify({ employee_id: 'e1' }), // 缺 task_type
     })
     expect(res.status).toBe(401)
-  });
+  })
 })
 
 describe('预设账号登录、管理与标签工单投递 API', () => {
@@ -1969,7 +1969,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
         })
       ).status,
     ).toBe(401)
-  });
+  })
 
   it('账号不存在和密码错误都返回同一 401，不泄露预设账号清单', async () => {
     const { base } = await seedAccount(ADMIN_TOKEN, {
@@ -2036,7 +2036,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     expect((await login('138 0013 8000', 'wrong-password')).status).toBe(401)
     const phoneBlocked = await login('+86 138-0013-8000', 'wrong-password')
     expect(phoneBlocked.status).toBe(429)
-  });
+  })
 
   it('密码登录成功会清理失败计数，时间窗过期会衰减，限流表达到上限会淘汰旧键', async () => {
     let now = 1_000
@@ -2076,7 +2076,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     expect((await login('second-key', 'wrong-password')).status).toBe(401)
     expect((await login('third-key', 'wrong-password')).status).toBe(401)
     expect((await login('oldest-key', 'wrong-password')).status).toBe(401)
-  });
+  })
 
   it('显式信任一层反向代理时按真实客户端 IP 隔离，且取最靠近代理的 XFF 地址防伪造', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null, {
@@ -2107,7 +2107,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     expect((await login('192.0.2.99, 203.0.113.10')).status).toBe(429)
     // 另一真实客户端仍有自己的失败预算，不会被同机 Caddy 的 loopback 地址连坐。
     expect((await login('198.51.100.20')).status).toBe(429)
-  });
+  })
 
   it('独立客户端 IP 桶限制跨账号密码喷洒，不因更换 identifier 绕过', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null, {
@@ -2134,7 +2134,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     expect((await login('user-c', '203.0.113.50')).status).toBe(429)
     expect((await login('user-d', '203.0.113.50')).status).toBe(429)
     expect((await login('user-d', '198.51.100.60')).status).toBe(401)
-  });
+  })
 
   it('管理员专用登录只给管理员创建会话，普通成员被拒绝且不留下孤儿会话', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -2198,7 +2198,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
         .get() as { count: number }
     ).count
     expect(sessionsAfterAdmin).toBe(sessionsBefore + 1)
-  });
+  })
 
   it('园区服务推送要求管理员账号会话，并写入接收成员的真实私聊', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -2328,7 +2328,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
         expect.objectContaining({ event: 'e2ee_device_revoked' }),
       ]),
     )
-  });
+  })
 
   it('requires a signed approval for a second E2EE device and exposes its transparency chain', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -2416,7 +2416,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
         expect.objectContaining({ event: 'e2ee_device_approved' }),
       ]),
     )
-  });
+  })
 
   it('relays one-time MLS KeyPackages and opaque epoch-bound events without activating MLS chat', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -2439,7 +2439,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       })
       expect(response.status).toBe(200)
       return ((await response.json()) as { token: string }).token
-    };
+    }
     const aliceToken = await login('mls-route-alice', 'alice-password')
     const bobToken = await login('mls-route-bob', 'bob-password')
     const aliceDevice = await registerRouteE2eeDevice({
@@ -2688,7 +2688,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       })
       expect(response.status).toBe(200)
       return ((await response.json()) as { token: string }).token
-    };
+    }
     const aliceToken = await login('file-route-alice', 'alice-password')
     const bobToken = await login('file-route-bob', 'bob-password')
     const charlieToken = await login('file-route-charlie', 'charlie-password')
@@ -2807,7 +2807,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       })
       expect(response.status).toBe(200)
       return ((await response.json()) as { token: string }).token
-    };
+    }
     const aliceToken = await login('atoa-route-alice', 'alice-password')
     const bobToken = await login('atoa-route-bob', 'bob-password')
     const aliceDevice = await registerRouteE2eeDevice({
@@ -3130,7 +3130,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       account: { id: registered.account.id },
       token: expect.any(String),
     })
-  });
+  })
 
   it('普通注册无需企业邀请码，并给每个账号创建互相隔离的个人空间', async () => {
     const sent: Array<{ phone: string; code: string }> = []
@@ -3178,7 +3178,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       )
       expect(verify.status).toBe(200)
       return verify.json()
-    };
+    }
 
     const first = await registerPersonal('13500135000', '个人一号')
     const second = await registerPersonal('13600136000', '个人二号')
@@ -3190,7 +3190,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     expect(first.account.organizationId).not.toBe(
       second.account.organizationId,
     )
-  });
+  })
 
   it('短信服务未配置时注册入口返回 503', async () => {
     const { base } = await seedAccount(ADMIN_TOKEN, {
@@ -3210,7 +3210,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     expect(await unavailable.json()).toEqual({
       error: '短信注册暂不可用，请稍后重试',
     })
-  });
+  })
 
   it('注册短信发送失败会释放挑战，用户可立刻重试而不会被冷却时间误伤', async () => {
     let succeeds = false
@@ -3240,7 +3240,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     })
     expect(second.status).toBe(200)
     expect(await second.json()).toHaveProperty('challengeId')
-  });
+  })
 
   it('管理员会话可查看、新增、修改全部账号；普通账号不可访问', async () => {
     const { base } = await seedAccount(ADMIN_TOKEN, {
@@ -3336,7 +3336,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     })
     expect(list.status).toBe(200)
     expect((await list.json()).accounts).toHaveLength(3)
-  });
+  })
 
   it('管理员可删除本企业其他账号，删除后旧会话失效且目录不再返回', async () => {
     const { base } = await seedAccount(ADMIN_TOKEN, {
@@ -3408,7 +3408,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     await expect(selfDelete.json()).resolves.toEqual({
       error: '不能删除当前登录账号',
     })
-  });
+  })
 
   it('新增账号支持 disabled，并明确拒绝非法 status 而不是静默创建 active 账号', async () => {
     const { base } = await seedAccount(ADMIN_TOKEN, {
@@ -3476,7 +3476,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
         .listAccounts()
         .some(account => account.username === 'invalid-status-user'),
     ).toBe(false)
-  });
+  })
 
   it('新增或编辑账号时重复绑定手机号 → 409，不把数据约束错误暴露成 500', async () => {
     const { base } = await seedAccount(ADMIN_TOKEN, {
@@ -3531,7 +3531,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     expect(await update.json()).toEqual({ error: '手机号已绑定其他账号' })
     expect(db.getAccount(first.id)?.phone).toBe('+8613800138000')
     expect(db.getAccount(second.id)?.phone).toBe('+8613900139000')
-  });
+  })
 
   it('账号管理拒绝非法手机号和少于 8 位的新密码，不把输入错误暴露成 500', async () => {
     const { base } = await seedAccount(ADMIN_TOKEN, {
@@ -3610,7 +3610,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       body: JSON.stringify({ identifier: 'staff', password: 'staff-password' }),
     })
     expect(oldPassword.status).toBe(200)
-  });
+  })
 
   it('企业必须保留一名可登录管理员，并在密码、状态或权限变化后永久撤销旧会话', async () => {
     const { base } = await seedAccount(ADMIN_TOKEN, {
@@ -3756,7 +3756,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       isAdmin: true,
       status: 'active',
     })
-  });
+  })
 
   it('提交 IT 报修后，只有对应标签账号能在收件箱真实收到工单', async () => {
     const { base } = await seedAccount(ADMIN_TOKEN, {
@@ -3813,7 +3813,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       headers: { authorization: `Bearer ${itTwoToken}` },
     })
     expect((await inboxTwo.json()).tickets).toHaveLength(0)
-  });
+  })
 
   it('园区报修由客服一次回复并转交工程部，且真实调用短信与飞书通道', async () => {
     const smsSend = vi.fn(async () => true)
@@ -3869,7 +3869,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
         body: JSON.stringify({ identifier, password }),
       })
       return (await response.json()).token
-    };
+    }
     const reporterToken = await login('repair.reporter', 'reporter-password')
     const workerToken = await login('repair.worker', 'worker-password')
     const blockedBeforeJoining = await fetch(`${base}/enterprise/tickets`, {
@@ -4036,7 +4036,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       expect.stringContaining('转交任务'),
       expect.stringContaining('检查墙面开关'),
     )
-  });
+  })
 
   it('跨企业园区专员和管理员兜底处理工单后向创建者发送全部进度回执', async () => {
     const smsSend = vi.fn(async () => true)
@@ -4694,7 +4694,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       })
       expect(response.status).toBe(200)
       return (await response.json()).token
-    };
+    }
     const adminToken = await login(
       'park.http.admin',
       'park-http-admin-password',
@@ -4942,7 +4942,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
     )
     expect((await accepted.json()).ticket.status).toBe('处理中')
   }, 30_000)
-});
+})
 
 describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
   async function login(
@@ -5067,7 +5067,7 @@ describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
     )
     expect(revoked.status).toBe(200)
     expect(await revoked.json()).toEqual({ ok: true })
-  });
+  })
 
   it('积分路由只将领域错误映射为 400，底层数据库异常统一收口为不泄露细节的 500', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null)
@@ -5513,7 +5513,7 @@ describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
     expect(
       racedAccounts.filter(account => account.accountType === 'personal'),
     ).toHaveLength(1)
-  });
+  })
 
   it('企业管理员只能查看和修改本企业账号，并可在后台手动生成新的 7 天邀请码', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null)
@@ -5653,7 +5653,7 @@ describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
       organization: { id: alpha.id, name: 'Alpha 科技' },
       invite: { code: secondInvite.code, status: 'active' },
     })
-  });
+  })
 
   it('模型返回的 Token 用量按登录账号归属，重复消息幂等且企业管理员看不到别家数据', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null)
@@ -5797,7 +5797,7 @@ describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
     expect(
       accounts.find(account => account.id === alphaStaff.id)?.usage,
     ).toMatchObject({ totalTokens: 150, requestCount: 1 })
-  });
+  })
 
   it('成员任务与知识接口必须登录且不能用其他企业的员工 ID', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null)
@@ -6001,7 +6001,7 @@ describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
     const ownReviewPayload = JSON.stringify(await ownReviewQueue.json())
     expect(ownReviewPayload).toContain(highImpactBody.content)
     expect(ownReviewPayload).not.toContain(autoKnowledgeBody.content)
-  });
+  })
 
   it('普通成员只能读取全局知识和本人部门知识，department query 不能跨部门越权', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null)
@@ -6480,7 +6480,7 @@ describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
       body: JSON.stringify({ name: '越权企业', slug: 'forbidden' }),
     })
     expect(denied.status).toBe(403)
-  });
+  })
 
   it('平台工作台按所选企业隔离面板数据，并从企业清单排除个人空间', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null)
@@ -6702,7 +6702,7 @@ describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
     )
     expect(deleted.status).toBe(200)
     expect(db.getAccount(betaMember.id, beta.id)).toBeNull()
-  });
+  })
 
   it('平台创建企业、首位管理员和邀请是原子事务，管理员冲突不会留下孤儿企业', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null)
@@ -6750,7 +6750,7 @@ describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
           .get() as { count: number }
       ).count,
     ).toBe(0)
-  });
+  })
   it('platform can provision a park admin organization and park admins can list tenant organizations', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN, null)
     const db = await import('./db.js')
@@ -7149,7 +7149,7 @@ describe('B2B 企业隔离、邀请码与 Token 用量 API', () => {
       ]),
     )
   }, 30_000)
-});
+})
 
 describe('企业 Skill 市场 HTTP 闭环', () => {
   async function login(
@@ -7326,4 +7326,4 @@ describe('企业 Skill 市场 HTTP 闭环', () => {
     })
     expect(disabledMarket.status).toBe(403)
   }, 30_000)
-});
+})

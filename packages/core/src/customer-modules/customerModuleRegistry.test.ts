@@ -39,7 +39,7 @@ describe('CustomerModuleRegistry', () => {
 
     const enabled = await subject.approveAndEnable('com.acme.report', '1.0.0', [{ kind: 'model', paid: true }])
     expect(enabled.enabled).toBe(true)
-  });
+  })
 
   it('requires manual approval for every upgrade and reports added permissions', async () => {
     const subject = registry()
@@ -51,14 +51,14 @@ describe('CustomerModuleRegistry', () => {
     expect(staged.version).toBe('1.0.0')
     expect(staged.pendingUpgrade?.version).toBe('1.1.0')
     expect(subject.permissionDiff([], next.permissions).added).toEqual(next.permissions)
-  });
+  })
 
   it('does not enable a module when any declared permission was not approved', async () => {
     const subject = registry()
     await subject.stageInstall(manifest('1.0.0', [{ kind: 'model', paid: true }]))
     await expect(subject.approveAndEnable('com.acme.report', '1.0.0', []))
       .rejects.toThrow(/all declared/)
-  });
+  })
 
   it('uninstall keeps scoped data unless separately cleared', async () => {
     const store = new InMemoryCustomerModuleRegistryStore()
@@ -70,10 +70,10 @@ describe('CustomerModuleRegistry', () => {
     expect(await store.readData('com.acme.report', 'key')).toBe('value')
     await subject.clearData('com.acme.report')
     expect(await store.readData('com.acme.report', 'key')).toBeNull()
-  });
+  })
 
   it('fails closed when a marketplace signature is not trusted', async () => {
     const subject = new CustomerModuleRegistry(new InMemoryCustomerModuleRegistryStore())
     await expect(subject.stageInstall(manifest('1.0.0'))).rejects.toThrow(/not trusted/)
-  });
+  })
 })

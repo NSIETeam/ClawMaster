@@ -22,7 +22,7 @@ export class PluginStructureAnalyzer {
     const isDir = async (p: string) => {
       const fullPath = path.join(this.pluginDir, p)
       return (await exists(p)) && (await fs.stat(fullPath)).isDirectory()
-    };
+    }
 
     // 检查关键文件和目录
     const hasPluginJson = await exists('plugin.json')
@@ -64,6 +64,6 @@ export class PluginStructureAnalyzer {
         scripts: hasScripts,
       },
       detectedFormat,
-    };
+    }
   }
 }

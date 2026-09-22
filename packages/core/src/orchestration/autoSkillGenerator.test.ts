@@ -83,7 +83,7 @@ beforeEach(async () => {
   process.env['CLAWMASTER_USER_DIR'] = root
   workLogMock.readDateRange.mockReset().mockResolvedValue(repeatedPatternLogs())
   workLogMock.log.mockClear()
-});
+})
 
 afterEach(async () => {
   stopAutoSkillScanner()
@@ -93,7 +93,7 @@ afterEach(async () => {
   await Promise.all(
     tempDirs.splice(0).map(dir => fs.rm(dir, { recursive: true, force: true })),
   )
-});
+})
 
 describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
   it('中文工作步骤生成可被 SkillLoader 接受的稳定 ASCII 名称', () => {
@@ -106,7 +106,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
 
     expect(name).toMatch(/^auto-[a-z0-9-]+$/u)
     expect(name).not.toContain('自动')
-  });
+  })
 
   it('候选默认指向用户级 ~/.clawmaster-user/skills，而不是当前项目', async () => {
     const candidates = await generateSkillCandidates(fakeConfig)
@@ -117,7 +117,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     )
     expect(candidates[0].filePath).not.toContain(path.join('.clawmaster', 'skills'))
     await expect(fs.access(candidates[0].filePath)).rejects.toThrow()
-  });
+  })
 
   it('只有最终业务成果重复时，也会生成业务流程型 Skill 候选', async () => {
     workLogMock.readDateRange.mockResolvedValueOnce(repeatedWorkResultLogs())
@@ -128,7 +128,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     expect(candidate).toBeDefined()
     expect(candidate?.skillContent).toContain('业务交付流程')
     expect(candidate?.skillContent).toContain('已观察到的典型需求')
-  });
+  })
 
   it('把同类成果的真实失败吸收到边界说明，而不是伪造百分百成功', async () => {
     const logs = repeatedWorkResultLogs()
@@ -145,7 +145,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     expect(candidate?.failureLessons).toContain('缺少品牌色导致交付返工')
     expect(candidate?.skillContent).toContain('缺少品牌色导致交付返工')
     expect(candidate?.evidence?.join('\n')).toContain('成功率 75%')
-  });
+  })
 
   it('使用跨会话稳定个人知识增强 Skill 的步骤依据', async () => {
     workLogMock.readDateRange.mockResolvedValueOnce(repeatedWorkResultLogs())
@@ -165,7 +165,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
 
     expect(candidate?.knowledgeEvidence).toHaveLength(1)
     expect(candidate?.evidence?.join('\n')).toContain('个人知识证据')
-  });
+  })
 
   it('确认增强已有 Skill 时保留旧版本并写入证据签名', async () => {
     const skillDir = path.join(resolveAutoSkillSkillsDir(), 'auto-copywriting')
@@ -193,7 +193,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
 
     expect(await fs.readFile(skillPath, 'utf8')).toContain('clawmaster-auto-skill-evidence:')
     expect(await fs.readdir(path.join(skillDir, 'history'))).toHaveLength(1)
-  });
+  })
 
   it('扫描只暂存候选，用户明确确认后才写 SKILL.md', async () => {
     const staged = await scanAndStageSkillCandidates(fakeConfig, () => 'user-1')
@@ -208,7 +208,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
       '此 Skill 由 ClawMaster 从你的工作日志中自动发现并生成',
     )
     expect(await listPendingSkillCandidates()).toEqual([])
-  });
+  })
 
   it('stores portable pending paths and rehydrates them on another device', async () => {
     const sourceRoot = process.env['CLAWMASTER_USER_DIR']!
@@ -241,7 +241,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     expect(restored.filePath).toBe(expectedPath)
     await expect(confirmPendingSkill(restored.id)).resolves.toBe(expectedPath)
     await expect(fs.readFile(expectedPath, 'utf8')).resolves.toContain(`name: ${candidate.name}`)
-  });
+  })
 
   it('用户拒绝后移出待确认区，并且后续扫描不会重复推荐', async () => {
     const [candidate] = await scanAndStageSkillCandidates(fakeConfig, () => 'user-1')
@@ -250,14 +250,14 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
 
     expect(await listPendingSkillCandidates()).toEqual([])
     expect(await generateSkillCandidates(fakeConfig)).toEqual([])
-  });
+  })
 
   it('已经确认生成的 Skill 不会再次进入候选区', async () => {
     const [candidate] = await scanAndStageSkillCandidates(fakeConfig, () => 'user-1')
     await confirmPendingSkill(candidate.id)
 
     expect(await generateSkillCandidates(fakeConfig)).toEqual([])
-  });
+  })
 
   it('即使候选数据被篡改，也不能把 Skill 写到用户 skills 目录之外', async () => {
     const [candidate] = await generateSkillCandidates(fakeConfig)
@@ -267,7 +267,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
       confirmAndSaveSkill({ ...candidate, filePath: outsidePath }),
     ).rejects.toThrow('只能写入用户级 skills 目录')
     await expect(fs.access(outsidePath)).rejects.toThrow()
-  });
+  })
 
   it('后台扫描完成后通知桌面刷新候选，但仍不自动安装', async () => {
     let resolveStaged!: (candidates: Awaited<ReturnType<typeof listPendingSkillCandidates>>) => void
@@ -287,7 +287,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     expect(onCandidatesStaged).toHaveBeenCalledTimes(1)
     expect(candidates).toHaveLength(1)
     await expect(fs.access(candidates[0].filePath)).rejects.toThrow()
-  });
+  })
 
   it('后台付费能力未获用户明确授权时不登记扫描任务', () => {
     const started = startAutoSkillScanner(fakeConfig, () => 'user-1', {
@@ -297,5 +297,5 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     })
 
     expect(started).toBe(false)
-  });
+  })
 })

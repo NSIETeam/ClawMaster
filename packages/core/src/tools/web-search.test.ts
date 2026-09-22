@@ -60,11 +60,11 @@ describe('parseBingResults', () => {
     })
     expect(items[1].title).toBe('Second Result')
     expect(items[1].snippet).toBe('第二条摘要，包含中文。')
-  });
+  })
 
   it('无 b_algo 块时返回空数组（由调用方 fail-loud）', () => {
     expect(parseBingResults('<html><body>captcha page</body></html>')).toEqual([])
-  });
+  })
 })
 
 describe('parseBingRssResults', () => {
@@ -81,11 +81,11 @@ describe('parseBingRssResults', () => {
         snippet: '第二条 RSS 摘要。',
       },
     ])
-  });
+  })
 
   it('验证码 HTML 不会被误解析为 RSS 结果', () => {
     expect(parseBingRssResults('<html>captcha</html>')).toEqual([])
-  });
+  })
 })
 
 describe('WebSearchTool', () => {
@@ -93,17 +93,17 @@ describe('WebSearchTool', () => {
     vi.unstubAllGlobals()
     vi.useRealTimers()
     resetWebSearchRuntimeForTests()
-  });
+  })
 
   it('工具名已改为 web_search', () => {
     expect(WebSearchTool.Name).toBe('web_search')
-  });
+  })
 
   it('参数校验：空 query 拒绝', async () => {
     const tool = new WebSearchTool(makeConfig())
     const result = await tool.execute({ query: '   ' }, new AbortController().signal)
     expect(String(result.llmContent)).toContain('Invalid parameters')
-  });
+  })
 
   describe('bing provider（默认）', () => {
     it('解析 HTML fixture 并输出编号列表', async () => {
@@ -137,7 +137,7 @@ describe('WebSearchTool', () => {
       expect(result.sources?.[0]?.web?.uri).toBe(
         'https://example.com/first?x=1&y=2',
       )
-    });
+    })
 
     it('HTML 线路被验证码拦截时自动切到 RSS，不把线路错误丢给用户', async () => {
       const fetchMock = vi
@@ -160,7 +160,7 @@ describe('WebSearchTool', () => {
       expect(fetchMock.mock.calls[1][0]).toContain('format=rss')
       expect(String(result.llmContent)).toContain('1. RSS First & Best')
       expect(String(result.llmContent)).not.toContain('Error:')
-    });
+    })
 
     it('页面结构不认识时 fail-loud 返回明确错误，而不是静默空结果', async () => {
       vi.stubGlobal(
@@ -181,7 +181,7 @@ describe('WebSearchTool', () => {
       const content = String(result.llmContent)
       expect(content).toContain('Error')
       expect(content).toContain('RSS response contained no parseable results')
-    });
+    })
 
     it('HTTP 非 200 时 fail-loud 报状态码', async () => {
       vi.stubGlobal(
@@ -204,7 +204,7 @@ describe('WebSearchTool', () => {
       )
       expect(String(result.llmContent)).toContain('429')
       expect(String(result.returnDisplay)).toContain('429')
-    });
+    })
 
     it('15 秒无响应则超时并报明确错误', async () => {
       vi.useFakeTimers()
@@ -227,7 +227,7 @@ describe('WebSearchTool', () => {
       await vi.advanceTimersByTimeAsync(15001)
       const result = await pending
       expect(String(result.llmContent)).toContain('timed out after')
-    });
+    })
   })
 
   describe('bocha provider', () => {
@@ -290,7 +290,7 @@ describe('WebSearchTool', () => {
       expect(content).not.toContain('short snippet')
       expect(content).toContain('2. Bocha Second')
       expect(content).toContain('only snippet')
-    });
+    })
 
     it('自定义线路没配 key 时自动回到内置搜索，不要求小白用户排查配置', async () => {
       const fetchMock = vi.fn().mockResolvedValue(
@@ -312,7 +312,7 @@ describe('WebSearchTool', () => {
       expect(content).toContain('provider: bing')
       expect(content).toContain('First & Best Result')
       expect(fetchMock).toHaveBeenCalledTimes(1)
-    });
+    })
 
     it('博查失败后自动切到已配置的火山方舟', async () => {
       const fetchMock = vi
@@ -369,7 +369,7 @@ describe('WebSearchTool', () => {
         'https://ark.example.com/responses',
       )
       expect(String(result.llmContent)).toContain('provider: volcengine')
-    });
+    })
 
     it('博查和火山均失败后继续切到 Bing', async () => {
       const fetchMock = vi
@@ -406,7 +406,7 @@ describe('WebSearchTool', () => {
 
       expect(fetchMock).toHaveBeenCalledTimes(3)
       expect(String(result.llmContent)).toContain('provider: bing')
-    });
+    })
 
     it('相同查询短时间内直接命中缓存', async () => {
       const fetchMock = vi
@@ -423,7 +423,7 @@ describe('WebSearchTool', () => {
 
       expect(fetchMock).toHaveBeenCalledTimes(1)
       expect(String(cached.returnDisplay)).toContain('近期搜索缓存')
-    });
+    })
 
     it('响应结构不对时 fail-loud', async () => {
       vi.stubGlobal(
@@ -443,7 +443,7 @@ describe('WebSearchTool', () => {
         new AbortController().signal,
       )
       expect(String(result.llmContent)).toContain('unexpected response shape')
-    });
+    })
   })
 
   describe('volcengine provider（火山方舟 Responses API）', () => {
@@ -511,7 +511,7 @@ describe('WebSearchTool', () => {
         title: '官方资料',
         uri: 'https://example.com/ark-source',
       })
-    });
+    })
 
     it('缺少 API Key 或模型时自动使用内置线路', async () => {
       const fetchMock = vi.fn().mockResolvedValue(
@@ -536,7 +536,7 @@ describe('WebSearchTool', () => {
       expect(String(result.llmContent)).toContain('provider: bing')
       expect(String(result.llmContent)).toContain('First & Best Result')
       expect(fetchMock).toHaveBeenCalledTimes(1)
-    });
+    })
   })
 
   describe('gemini provider（保留的 grounding 分支）', () => {
@@ -566,9 +566,9 @@ describe('WebSearchTool', () => {
       )
       expect(setTools).toHaveBeenCalledWith([{ googleSearch: {} }])
       expect(String(result.llmContent)).toContain('grounded answer')
-    });
+    })
   })
-});
+})
 
 describe('rankWebSearchResults', () => {
   it('deduplicates tracking URLs and prioritizes official sources', () => {
@@ -593,5 +593,5 @@ describe('rankWebSearchResults', () => {
     ])
     expect(ranked[0].url).toBe('https://service.gov.cn/policy')
     expect(ranked).toHaveLength(1)
-  });
+  })
 })

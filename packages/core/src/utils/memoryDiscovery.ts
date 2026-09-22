@@ -190,7 +190,7 @@ async function getClawMasterMdFilePathsInternal(
           logger.debug(
             `Reached ultimate stop directory for upward scan: ${currentDir}`,
           )
-        break;
+        break
       }
 
       currentDir = path.dirname(currentDir)

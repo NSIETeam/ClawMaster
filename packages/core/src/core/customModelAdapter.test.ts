@@ -23,31 +23,31 @@ describe('parseJSONSafe - JSON parsing robustness', () => {
       if (!parseJSONSafeExport) return // Skip if not exported
       const result = parseJSONSafeExport('{"pattern": "TODO", "path": "/src"}')
       expect(result).toEqual({ pattern: 'TODO', path: '/src' })
-    });
+    })
 
     it('should parse valid JSON array', () => {
       if (!parseJSONSafeExport) return
       const result = parseJSONSafeExport('[1, 2, 3]')
       expect(result).toEqual([1, 2, 3])
-    });
+    })
 
     it('should return empty object for empty string', () => {
       if (!parseJSONSafeExport) return
       expect(parseJSONSafeExport('')).toEqual({})
       expect(parseJSONSafeExport('  ')).toEqual({})
-    });
+    })
 
     it('should return empty object for null/undefined strings', () => {
       if (!parseJSONSafeExport) return
       expect(parseJSONSafeExport('null')).toEqual({})
       expect(parseJSONSafeExport('undefined')).toEqual({})
-    });
+    })
 
     it('should return object directly if already an object', () => {
       if (!parseJSONSafeExport) return
       const obj = { pattern: 'test' }
       expect(parseJSONSafeExport(obj as unknown)).toBe(obj)
-    });
+    })
   })
 
   describe('incomplete JSON repair', () => {
@@ -58,28 +58,28 @@ describe('parseJSONSafe - JSON parsing robustness', () => {
       // 应该能修复并返回至少 pattern 字段
       expect(result.__parseError).toBeUndefined()
       expect(result.pattern).toBe('TODO')
-    });
+    })
 
     it('should repair JSON missing closing brace', () => {
       if (!parseJSONSafeExport) return
       const result = parseJSONSafeExport('{"pattern": "TODO"')
       expect(result.__parseError).toBeUndefined()
       expect(result.pattern).toBe('TODO')
-    });
+    })
 
     it('should repair JSON with incomplete string value', () => {
       if (!parseJSONSafeExport) return
       const result = parseJSONSafeExport('{"pattern": "TO')
       // 可能无法完全修复，但不应该崩溃
       expect(result).toBeDefined()
-    });
+    })
 
     it('should repair JSON array missing closing bracket', () => {
       if (!parseJSONSafeExport) return
       const result = parseJSONSafeExport('[1, 2, 3')
       expect(result.__parseError).toBeUndefined()
       expect(Array.isArray(result)).toBe(true)
-    });
+    })
   })
 
   describe('error cases with __parseError marker', () => {
@@ -88,14 +88,14 @@ describe('parseJSONSafe - JSON parsing robustness', () => {
       const result = parseJSONSafeExport('this is not json at all')
       expect(result.__parseError).toBe(true)
       expect(result.__rawArgs).toBe('this is not json at all')
-    });
+    })
 
     it('should include __errorMessage for debugging', () => {
       if (!parseJSONSafeExport) return
       const result = parseJSONSafeExport('invalid{{{')
       expect(result.__parseError).toBe(true)
       expect(result.__errorMessage).toBeDefined()
-    });
+    })
   })
 
   describe('edge cases', () => {
@@ -103,25 +103,25 @@ describe('parseJSONSafe - JSON parsing robustness', () => {
       if (!parseJSONSafeExport) return
       const result = parseJSONSafeExport('  { "pattern" : "TODO" }  ')
       expect(result).toEqual({ pattern: 'TODO' })
-    });
+    })
 
     it('should handle nested objects', () => {
       if (!parseJSONSafeExport) return
       const result = parseJSONSafeExport('{"outer": {"inner": "value"}}')
       expect(result).toEqual({ outer: { inner: 'value' } })
-    });
+    })
 
     it('should handle escaped characters', () => {
       if (!parseJSONSafeExport) return
       const result = parseJSONSafeExport('{"pattern": "test\\"quoted\\""}')
       expect(result.pattern).toBe('test"quoted"')
-    });
+    })
   })
-});
+})
 describe('customModelAdapter - Image Content Support', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-  });
+  })
 
   describe('OpenAI image format conversion', () => {
     it('should convert Gemini inlineData to OpenAI image_url format', async () => {
@@ -137,7 +137,7 @@ describe('customModelAdapter - Image Content Support', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'openai' as const,
@@ -180,7 +180,7 @@ describe('customModelAdapter - Image Content Support', () => {
           url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
         },
       })
-    });
+    })
 
     it('should handle multiple images in a single message', async () => {
       let capturedBody: LooseJson
@@ -195,7 +195,7 @@ describe('customModelAdapter - Image Content Support', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'openai' as const,
@@ -223,7 +223,7 @@ describe('customModelAdapter - Image Content Support', () => {
       expect(capturedBody.messages[0].content).toHaveLength(3)
       expect(capturedBody.messages[0].content[1].image_url.url).toBe('data:image/jpeg;base64,base64data1')
       expect(capturedBody.messages[0].content[2].image_url.url).toBe('data:image/png;base64,base64data2')
-    });
+    })
 
     it('should parse reasoning_content from OpenAI compatible model unary response', async () => {
       const mockResponse = {
@@ -267,7 +267,7 @@ describe('customModelAdapter - Image Content Support', () => {
       expect(parts).toHaveLength(2)
       expect(parts?.[0]).toEqual({ reasoning: 'Let me analyze the request...' })
       expect(parts?.[1]).toEqual({ text: 'Here is the final result.' })
-    });
+    })
 
     it('should attach reasoning_content in contentsToMessages when tool calls are present', async () => {
       let capturedBody: LooseJson
@@ -287,7 +287,7 @@ describe('customModelAdapter - Image Content Support', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'openai' as const,
@@ -327,7 +327,7 @@ describe('customModelAdapter - Image Content Support', () => {
       expect(capturedBody.messages[1].reasoning_content).toBe('I need to use a tool to fetch info.')
       expect(capturedBody.messages[2].role).toBe('tool')
       expect(capturedBody.messages[2].tool_call_id).toBe(capturedBody.messages[1].tool_calls[0].id)
-    });
+    })
 
     it('should NOT attach reasoning_content in contentsToMessages when no tool calls are present', async () => {
       let capturedBody: LooseJson
@@ -347,7 +347,7 @@ describe('customModelAdapter - Image Content Support', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'openai' as const,
@@ -382,7 +382,7 @@ describe('customModelAdapter - Image Content Support', () => {
       expect(capturedBody.messages[1].role).toBe('assistant')
       expect(capturedBody.messages[1].content).toBe('Hello there!')
       expect(capturedBody.messages[1].reasoning_content).toBeUndefined()
-    });
+    })
   })
 
   describe('Anthropic image format conversion', () => {
@@ -400,7 +400,7 @@ describe('customModelAdapter - Image Content Support', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -446,7 +446,7 @@ describe('customModelAdapter - Image Content Support', () => {
           data: 'iVBORw0KGgoAAAANSUhEUg==',
         },
       })
-    });
+    })
 
     it('should handle multiple images in a single message', async () => {
       let capturedBody: LooseJson
@@ -462,7 +462,7 @@ describe('customModelAdapter - Image Content Support', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -496,14 +496,14 @@ describe('customModelAdapter - Image Content Support', () => {
         type: 'image',
         source: { type: 'base64', media_type: 'image/webp', data: 'base64data2' },
       })
-    });
+    })
   })
-});
+})
 
 describe('customModelAdapter - Anthropic API Compatibility', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-  });
+  })
 
   describe('System message format', () => {
     it('should convert system messages to Anthropic array format', async () => {
@@ -520,7 +520,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -553,7 +553,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
         text: 'You are a helpful assistant.',
         cache_control: { type: 'ephemeral' },
       })
-    });
+    })
 
     it('should auto-add cache_control to system messages', async () => {
       let capturedBody: LooseJson
@@ -569,7 +569,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -596,7 +596,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
 
       // cache_control should be auto-added to system messages
       expect(capturedBody.system[0].cache_control).toEqual({ type: 'ephemeral' })
-    });
+    })
 
     it('should auto-add cache_control to last user message text block', async () => {
       let capturedBody: LooseJson
@@ -612,7 +612,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -639,7 +639,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       // Only the last text block should have cache_control
       expect(capturedBody.messages[0].content[0].cache_control).toBeUndefined()
       expect(capturedBody.messages[0].content[1].cache_control).toEqual({ type: 'ephemeral' })
-    });
+    })
 
     it('should only add cache_control to the LAST user message in multi-turn conversation', async () => {
       let capturedBody: LooseJson
@@ -655,7 +655,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -696,7 +696,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       // Last user message: only the LAST text block should have cache_control
       expect(capturedBody.messages[2].content[0].cache_control).toBeUndefined()
       expect(capturedBody.messages[2].content[1].cache_control).toEqual({ type: 'ephemeral' })
-    });
+    })
 
     it('should discard empty or whitespace-only text blocks from user and system messages', async () => {
       let capturedBody: LooseJson
@@ -712,7 +712,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -754,7 +754,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       expect(capturedBody.messages[0].content).toHaveLength(1)
       expect(capturedBody.messages[0].content[0].text).toBe('Hello')
       expect(capturedBody.messages[0].content[0].cache_control).toEqual({ type: 'ephemeral' })
-    });
+    })
 
     it('should auto-add cache_control to other non-text block types if no text block is present in user message', async () => {
       let capturedBody: LooseJson
@@ -770,7 +770,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -802,7 +802,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       expect(capturedBody.messages[0].content).toHaveLength(1)
       expect(capturedBody.messages[0].content[0].type).toBe('image')
       expect(capturedBody.messages[0].content[0].cache_control).toEqual({ type: 'ephemeral' })
-    });
+    })
   })
 
   describe('Extended thinking support', () => {
@@ -822,7 +822,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -836,7 +836,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body as string)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -869,7 +869,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       expect(capturedBody.thinking.effort).toBeUndefined()
       expect(capturedBody.thinking.budget_tokens).toBeUndefined()
       expect(responses.length).toBeGreaterThan(0)
-    });
+    })
 
     it('should use adaptive thinking schema for hyphenated Claude Opus 4.7 in auto mode', async () => {
       let capturedBody: LooseJson
@@ -885,7 +885,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body as string)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -914,7 +914,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       expect(capturedBody.output_config).toEqual({ effort: 'high' })
       expect(capturedBody.thinking.effort).toBeUndefined()
       expect(capturedBody.thinking.budget_tokens).toBeUndefined()
-    });
+    })
 
     it('should use budget_tokens capped at 10000 when enableThinking is true', async () => {
       let capturedBody: LooseJson
@@ -930,7 +930,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -960,7 +960,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       })
       // max_tokens should be at least 32000 for thinking mode
       expect(capturedBody.max_tokens).toBeGreaterThanOrEqual(32000)
-    });
+    })
 
     it('should auto-enable thinking for all Anthropic models when enableThinking is undefined', async () => {
       let capturedBody: LooseJson
@@ -976,7 +976,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -1003,7 +1003,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
         type: 'enabled',
         budget_tokens: 31999,
       })
-    });
+    })
 
     it('should respect explicit enableThinking=false to disable thinking', async () => {
       let capturedBody: LooseJson
@@ -1019,7 +1019,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -1043,7 +1043,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
 
       // Should respect explicit disable
       expect(capturedBody.thinking).toBeUndefined()
-    });
+    })
 
     it('should parse thinking content blocks as reasoning in response', async () => {
       const mockResponse = {
@@ -1085,7 +1085,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       // thinking content is mapped to reasoning format for UI display
       expect(parts?.[0]).toEqual({ reasoning: 'Let me think about this...' })
       expect(parts?.[1]).toEqual({ text: 'Here is my answer' })
-    });
+    })
   })
 
   describe('Tool input_schema with additionalProperties', () => {
@@ -1103,7 +1103,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'anthropic' as const,
@@ -1140,9 +1140,9 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
       expect(capturedBody.tools).toHaveLength(1)
       expect(capturedBody.tools[0].input_schema.additionalProperties).toBe(false)
       expect(capturedBody.tools[0].input_schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema')
-    });
+    })
   })
-});
+})
 
 describe('customModelAdapter - Streaming Tool Calls', () => {
   describe('OpenAI streaming', () => {
@@ -1165,7 +1165,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -1216,7 +1216,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       const toolCallResponse = responses.find((r) => {
         const parts = r.candidates?.[0]?.content?.parts
         return parts && parts.some((p: LooseJson) => p.functionCall)
-      });
+      })
 
       expect(toolCallResponse).toBeDefined()
       if (toolCallResponse) {
@@ -1229,7 +1229,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       // 关键测试：验证 functionCalls getter 存在
       expect(toolCallResponse?.functionCalls).toBeDefined()
       expect(toolCallResponse?.functionCalls?.[0]?.name).toBe('search')
-    });
+    })
 
     it('should trim leading and trailing spaces from tool names in streaming', async () => {
       const mockResponse = {
@@ -1248,7 +1248,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -1295,7 +1295,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       const toolCallResponse = responses.find((r) => {
         const parts = r.candidates?.[0]?.content?.parts
         return parts && parts.some((p: LooseJson) => p.functionCall)
-      });
+      })
 
       expect(toolCallResponse).toBeDefined()
       if (toolCallResponse) {
@@ -1306,7 +1306,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
         expect(functionCall?.args).toEqual({ absolute_path: '/file.txt' })
       }
     })
-  });
+  })
 
   describe('Claude streaming', () => {
     it('should aggregate tool input deltas and yield complete tool call on content_block_stop', async () => {
@@ -1330,7 +1330,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -1378,7 +1378,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       const toolCallResponse = responses.find((r) => {
         const parts = r.candidates?.[0]?.content?.parts
         return parts && parts.some((p: LooseJson) => p.functionCall)
-      });
+      })
 
       expect(toolCallResponse).toBeDefined()
       if (toolCallResponse) {
@@ -1391,7 +1391,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       // Key test: Verify functionCalls getter exists
       expect(toolCallResponse?.functionCalls).toBeDefined()
       expect(toolCallResponse?.functionCalls?.[0]?.name).toBe('search')
-    });
+    })
 
     it('should correctly parse and accumulate token usage and cache info from stream', async () => {
       const mockResponse = {
@@ -1415,7 +1415,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -1467,7 +1467,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       expect(usageResponse.usageMetadata.cacheReadInputTokens).toBe(0)
       // 保留原始的非缓存输入 token
       expect(usageResponse.usageMetadata.uncachedInputTokens).toBe(3)
-    });
+    })
 
     it('should handle non-standard Anthropic-compatible providers that return token usage only in message_delta', async () => {
       // 模拟非标准兼容厂商（如 GLM-4 的 Anthropic 兼容接口）的响应格式：
@@ -1492,7 +1492,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -1543,7 +1543,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       expect(usageResponse.usageMetadata.cacheReadInputTokens).toBe(12928)
       // 非缓存输入 token
       expect(usageResponse.usageMetadata.uncachedInputTokens).toBe(19)
-    });
+    })
 
     it('should stream thinking_delta as reasoning in real-time', async () => {
       // 模拟 Anthropic thinking 流式响应：thinking 块通过多个 thinking_delta 分块传来
@@ -1569,7 +1569,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -1610,24 +1610,24 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       const reasoningResponses = responses.filter((r) => {
         const parts = r.candidates?.[0]?.content?.parts
         return parts && parts.some((p: LooseJson) => p.reasoning !== undefined)
-      });
+      })
 
       expect(reasoningResponses.length).toBe(3) // 3 个 thinking_delta 块
 
       // 验证每个 reasoning 块的内容
       const reasoningTexts = reasoningResponses.map(r =>
         r.candidates[0].content.parts.find((p: LooseJson) => p.reasoning)?.reasoning,
-      );
+      )
       expect(reasoningTexts).toEqual(['Let me ', 'think about ', 'this...'])
 
       // 验证 text 响应也正常
       const textResponse = responses.find((r) => {
         const parts = r.candidates?.[0]?.content?.parts
         return parts && parts.some((p: LooseJson) => p.text !== undefined)
-      });
+      })
       expect(textResponse).toBeDefined()
       expect(textResponse?.candidates[0].content.parts[0].text).toBe('Here is my answer')
-    });
+    })
 
     it('should trim leading and trailing spaces from tool names', async () => {
       const mockResponse = {
@@ -1647,7 +1647,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -1694,7 +1694,7 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       const toolCallResponse = responses.find((r) => {
         const parts = r.candidates?.[0]?.content?.parts
         return parts && parts.some((p: LooseJson) => p.functionCall)
-      });
+      })
 
       expect(toolCallResponse).toBeDefined()
       if (toolCallResponse) {
@@ -1705,13 +1705,13 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
         expect(functionCall?.args).toEqual({ absolute_path: '/file.txt' })
       }
     })
-  });
+  })
 })
 
 describe('customModelAdapter - OpenAI Responses API', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-  });
+  })
 
   describe('Non-streaming', () => {
     it('should call /responses endpoint and parse output items', async () => {
@@ -1727,7 +1727,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
               type: 'message',
               content: [
                 { type: 'output_text', text: 'Hello from Responses API!' },
-              ]
+              ],
             },
           ],
           usage: { input_tokens: 50, output_tokens: 10, total_tokens: 60 },
@@ -1738,7 +1738,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
         capturedUrl = url
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'openai-responses' as const,
@@ -1771,7 +1771,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       // Verify input format: simple text message
       expect(capturedBody.input).toEqual([
         { role: 'user', content: 'Hello!' },
-      ]);
+      ])
 
       // Verify response parsing
       const parts = result.candidates?.[0]?.content?.parts
@@ -1781,7 +1781,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       // Verify usage
       expect(result.usageMetadata?.promptTokenCount).toBe(50)
       expect(result.usageMetadata?.candidatesTokenCount).toBe(10)
-    });
+    })
 
     it('should format multi-turn conversation with function calls as flat items', async () => {
       let capturedBody: LooseJson
@@ -1800,7 +1800,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'openai-responses' as const,
@@ -1862,7 +1862,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       // Item 5: second function_call_output
       expect(input[5].type).toBe('function_call_output')
       expect(input[5].call_id).toBe('call_def')
-    });
+    })
 
     it('should convert uppercase schema types to lowercase in tool parameters', async () => {
       let capturedBody: LooseJson
@@ -1881,7 +1881,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'openai-responses' as const,
@@ -1931,7 +1931,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       expect(tool.parameters.properties.ignore.items.type).toBe('string')
       expect(tool.parameters.properties.file_filtering_options.type).toBe('object')
       expect(tool.parameters.properties.file_filtering_options.properties.respect_git_ignore.type).toBe('boolean')
-    });
+    })
 
     it('should coerce string-typed numeric schema keywords to numbers', async () => {
       let capturedBody: LooseJson
@@ -1948,7 +1948,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'openai-responses' as const,
@@ -2006,7 +2006,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       expect(tool.parameters.properties.paths.type).toBe('array')
       expect(tool.parameters.properties.paths.items.type).toBe('string')
       expect(tool.parameters.properties.limit.type).toBe('number')
-    });
+    })
 
     it('should parse function_call output items', async () => {
       const mockResponse = {
@@ -2065,7 +2065,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       // Verify functionCalls getter
       expect(result.functionCalls).toBeDefined()
       expect(result.functionCalls?.[0]?.name).toBe('search')
-    });
+    })
   })
 
   describe('Streaming', () => {
@@ -2086,7 +2086,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -2125,7 +2125,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       const textResponses = responses.filter((r) => {
         const parts = r.candidates?.[0]?.content?.parts
         return parts && parts.some((p: LooseJson) => p.text)
-      });
+      })
       expect(textResponses).toHaveLength(2)
       expect(textResponses[0].candidates[0].content.parts[0].text).toBe('Hello ')
       expect(textResponses[1].candidates[0].content.parts[0].text).toBe('World!')
@@ -2135,7 +2135,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       expect(usageResponse).toBeDefined()
       expect(usageResponse.usageMetadata.promptTokenCount).toBe(10)
       expect(usageResponse.usageMetadata.candidatesTokenCount).toBe(5)
-    });
+    })
 
     it('should stream function calls from Responses API', async () => {
       const mockResponse = {
@@ -2156,7 +2156,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
               read: vi.fn(async () => {
                 if (index < chunks.length) {
                   const value = new TextEncoder().encode(chunks[index])
-                  index++;
+                  index++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -2202,7 +2202,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       const toolCallResponse = responses.find((r) => {
         const parts = r.candidates?.[0]?.content?.parts
         return parts && parts.some((p: LooseJson) => p.functionCall)
-      });
+      })
 
       expect(toolCallResponse).toBeDefined()
       if (toolCallResponse) {
@@ -2215,7 +2215,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       // Verify functionCalls getter
       expect(toolCallResponse?.functionCalls).toBeDefined()
       expect(toolCallResponse?.functionCalls?.[0]?.name).toBe('search')
-    });
+    })
 
     it('should request reasoning.summary="detailed" for gpt-5.x to actually emit thinking', async () => {
       // Probe-confirmed (2026-05-26): EasyRouter gateway silently drops
@@ -2234,7 +2234,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
               read: vi.fn(async () => {
                 if (i < chunks.length) {
                   const value = new TextEncoder().encode(chunks[i])
-                  i++;
+                  i++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -2247,7 +2247,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       global.fetch = vi.fn().mockImplementation(async (_url, options) => {
         capturedBody = JSON.parse(options.body)
         return mockResponse
-      });
+      })
 
       const modelConfig = {
         provider: 'openai-responses' as const,
@@ -2268,7 +2268,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       expect(capturedBody.reasoning.summary).toBe('detailed')
       // auto + auto → effort defaults to 'medium' (so the model actually thinks).
       expect(capturedBody.reasoning.effort).toBe('medium')
-    });
+    })
 
     it('should yield reasoning chunks from response.reasoning_summary_text.delta', async () => {
       const mockResponse = {
@@ -2287,7 +2287,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
               read: vi.fn(async () => {
                 if (i < chunks.length) {
                   const value = new TextEncoder().encode(chunks[i])
-                  i++;
+                  i++
                   return { done: false, value }
                 }
                 return { done: true, value: undefined }
@@ -2315,17 +2315,17 @@ describe('customModelAdapter - OpenAI Responses API', () => {
 
       const reasoningParts = responses.flatMap(r =>
         (r.candidates?.[0]?.content?.parts || []).filter((p: LooseJson) => 'reasoning' in p),
-      );
+      )
       expect(reasoningParts).toHaveLength(2)
       expect(reasoningParts[0].reasoning).toBe('Let me think… ')
       expect(reasoningParts[1].reasoning).toBe('the answer is 9.')
 
       const textParts = responses.flatMap(r =>
         (r.candidates?.[0]?.content?.parts || []).filter((p: LooseJson) => 'text' in p),
-      );
+      )
       expect(textParts).toHaveLength(1)
       expect(textParts[0].text).toBe('9 sheep.')
-    });
+    })
 
     it('non-stream path: outputToParts maps reasoning items to { reasoning } parts', async () => {
       const mockResponse = {
@@ -2368,9 +2368,9 @@ describe('customModelAdapter - OpenAI Responses API', () => {
       expect((reasoning[1] as LooseJson).reasoning).toBe('Answer: 9.')
       expect(text).toHaveLength(1)
       expect((text[0] as LooseJson).text).toBe('9 sheep.')
-    });
+    })
   })
-});
+})
 
 // ============================================================================
 // Gemini native (GenAI v1beta) — provider 'gemini'
@@ -2379,7 +2379,7 @@ describe('customModelAdapter - OpenAI Responses API', () => {
 describe('callGeminiNativeModel', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-  });
+  })
 
   it('完整请求体默认不落盘，只有显式 FILE_DEBUG=1 才允许诊断 dump', () => {
     expect(shouldDumpGeminiRequest({})).toBe(false)
@@ -2387,7 +2387,7 @@ describe('callGeminiNativeModel', () => {
     expect(shouldDumpGeminiRequest({ FILE_DEBUG: '1' })).toBe(true)
     expect(shouldDumpGeminiRequest({ FILE_DEBUG: '1', NODE_ENV: 'test' })).toBe(false)
     expect(shouldDumpGeminiRequest({ FILE_DEBUG: '1', VITEST: 'true' })).toBe(false)
-  });
+  })
 
   it('builds /v1beta/models/{id}:generateContent URL with ?key= and forwards thinkingConfig for Gemini 2.5', async () => {
     let capturedUrl: string | undefined
@@ -2405,7 +2405,7 @@ describe('callGeminiNativeModel', () => {
           usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 1, totalTokenCount: 6 },
         }),
       }
-    });
+    })
 
     const modelConfig = {
       provider: 'gemini' as const,
@@ -2428,7 +2428,7 @@ describe('callGeminiNativeModel', () => {
     const parts = result.candidates?.[0]?.content?.parts
     expect(parts?.[0]).toEqual({ text: '9' })
     expect(result.usageMetadata?.promptTokenCount).toBe(5)
-  });
+  })
 
   it('uses thinkingLevel for Gemini 3 / 3.5 family', async () => {
     let capturedBody: LooseJson
@@ -2440,7 +2440,7 @@ describe('callGeminiNativeModel', () => {
           candidates: [{ content: { role: MESSAGE_ROLES.MODEL, parts: [{ text: 'ok' }] } }],
         }),
       }
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-3.5-flash',
@@ -2456,7 +2456,7 @@ describe('callGeminiNativeModel', () => {
     expect(typeof tc.thinkingLevel).toBe('string')
     expect(tc.thinkingBudget).toBeUndefined()
     expect(tc.includeThoughts).toBe(true)
-  });
+  })
 
   it('disables thinking when modelConfig.thinking.mode === "off"', async () => {
     let capturedBody: LooseJson
@@ -2468,7 +2468,7 @@ describe('callGeminiNativeModel', () => {
           candidates: [{ content: { role: MESSAGE_ROLES.MODEL, parts: [{ text: 'ok' }] } }],
         }),
       }
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-2.5-pro',
@@ -2482,7 +2482,7 @@ describe('callGeminiNativeModel', () => {
       { contents: [{ role: MESSAGE_ROLES.USER, parts: [{ text: 'hi' }] }] },
     )
     expect(capturedBody.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 })
-  });
+  })
 
   it('normalises a string systemInstruction to canonical { parts: [{ text }] }', async () => {
     // The /v1beta endpoint rejects raw strings with HTTP 500
@@ -2498,7 +2498,7 @@ describe('callGeminiNativeModel', () => {
           candidates: [{ content: { role: MESSAGE_ROLES.MODEL, parts: [{ text: 'ok' }] } }],
         }),
       }
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-2.5-flash',
@@ -2514,7 +2514,7 @@ describe('callGeminiNativeModel', () => {
       },
     )
     expect(capturedBody.systemInstruction).toEqual({ parts: [{ text: 'You are helpful.' }] })
-  });
+  })
 
   it('normalises a { text } shorthand systemInstruction to canonical form', async () => {
     let capturedBody: LooseJson
@@ -2524,7 +2524,7 @@ describe('callGeminiNativeModel', () => {
         ok: true,
         json: async () => ({ candidates: [{ content: { role: MESSAGE_ROLES.MODEL, parts: [{ text: 'ok' }] } }] }),
       }
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-2.5-flash',
@@ -2540,7 +2540,7 @@ describe('callGeminiNativeModel', () => {
       },
     )
     expect(capturedBody.systemInstruction).toEqual({ parts: [{ text: 'Be concise.' }] })
-  });
+  })
 
   it('passes through a canonical systemInstruction unchanged', async () => {
     let capturedBody: LooseJson
@@ -2550,7 +2550,7 @@ describe('callGeminiNativeModel', () => {
         ok: true,
         json: async () => ({ candidates: [{ content: { role: MESSAGE_ROLES.MODEL, parts: [{ text: 'ok' }] } }] }),
       }
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-2.5-flash',
@@ -2567,7 +2567,7 @@ describe('callGeminiNativeModel', () => {
       },
     )
     expect(capturedBody.systemInstruction).toEqual(canonical)
-  });
+  })
 
   it('sanitises contents: folds { reasoning } / { thought:true } back to thought parts and preserves thoughtSignature', async () => {
     // Gemini 3.x with thinking requires thoughtSignature to round-trip.
@@ -2581,7 +2581,7 @@ describe('callGeminiNativeModel', () => {
         ok: true,
         json: async () => ({ candidates: [{ content: { role: MESSAGE_ROLES.MODEL, parts: [{ text: 'ok' }] } }] }),
       }
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-3.5-flash',
@@ -2619,7 +2619,7 @@ describe('callGeminiNativeModel', () => {
     ])
     // No `reasoning` key remains — adapters projected fields are folded back.
     expect(JSON.stringify(capturedBody.contents)).not.toContain('"reasoning"')
-  });
+  })
 
   it('drops empty / unknown parts so Gemini never sees an empty Content (HTTP 400)', async () => {
     let capturedBody: LooseJson
@@ -2629,7 +2629,7 @@ describe('callGeminiNativeModel', () => {
         ok: true,
         json: async () => ({ candidates: [{ content: { role: MESSAGE_ROLES.MODEL, parts: [{ text: 'ok' }] } }] }),
       }
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-2.5-flash',
@@ -2647,7 +2647,7 @@ describe('callGeminiNativeModel', () => {
 
     expect(capturedBody.contents).toHaveLength(1)
     expect(capturedBody.contents[0].parts).toEqual([{ text: 'hi' }])
-  });
+  })
 
   it('passes through canonical functionCall / functionResponse parts unchanged', async () => {
     let capturedBody: LooseJson
@@ -2657,7 +2657,7 @@ describe('callGeminiNativeModel', () => {
         ok: true,
         json: async () => ({ candidates: [{ content: { role: MESSAGE_ROLES.MODEL, parts: [{ text: 'ok' }] } }] }),
       }
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-2.5-flash',
@@ -2684,7 +2684,7 @@ describe('callGeminiNativeModel', () => {
     expect(capturedBody.contents[2].parts[0]).toEqual({
       functionResponse: { name: 'search', response: { ok: true } },
     })
-  });
+  })
 
   it('maps a thought:true part to { reasoning } on the unary response', async () => {
     global.fetch = vi.fn().mockResolvedValue({
@@ -2718,7 +2718,7 @@ describe('callGeminiNativeModel', () => {
     expect(parts).toHaveLength(2)
     expect(parts[0]).toEqual({ reasoning: 'Let me think about this step by step.' })
     expect(parts[1]).toEqual({ text: 'Final answer is 9.' })
-  });
+  })
 
   // ────────────────────────────────────────────────────────────────────────
   // Cache-token field normalisation
@@ -2770,7 +2770,7 @@ describe('callGeminiNativeModel', () => {
     // Other counts are untouched.
     expect(usage.promptTokenCount).toBe(3514)
     expect(usage.candidatesTokenCount).toBe(23)
-  });
+  })
 
   it('omits cacheReadInputTokens on cache miss (round 1) so downstream `|| 0` fallbacks behave identically', async () => {
     global.fetch = vi.fn().mockResolvedValue({
@@ -2805,13 +2805,13 @@ describe('callGeminiNativeModel', () => {
     // Downstream code uses `(usage as any).cacheReadInputTokens || 0`, which
     // handles `undefined` correctly.
     expect(usage.cacheReadInputTokens).toBeUndefined()
-  });
+  })
 })
 
 describe('callGeminiNativeModelStream', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-  });
+  })
 
   function mockSseResponse(chunks: string[]) {
     return {
@@ -2823,7 +2823,7 @@ describe('callGeminiNativeModelStream', () => {
             read: vi.fn(async () => {
               if (i < chunks.length) {
                 const value = new TextEncoder().encode(chunks[i])
-                i++;
+                i++
                 return { done: false, value }
               }
               return { done: true, value: undefined }
@@ -2884,14 +2884,14 @@ describe('callGeminiNativeModelStream', () => {
     const usage = responses.find((r: LooseJson) => r.usageMetadata)
     expect(usage).toBeDefined()
     expect(usage.usageMetadata.totalTokenCount).toBe(20)
-  });
+  })
 
   it('builds streaming URL with ?alt=sse&key= and rewrites /v1 → /v1beta', async () => {
     let capturedUrl: string | undefined
     global.fetch = vi.fn().mockImplementation(async (url) => {
       capturedUrl = String(url)
       return mockSseResponse([])
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-3.5-flash',
@@ -2908,14 +2908,14 @@ describe('callGeminiNativeModelStream', () => {
     expect(capturedUrl).toBe(
       'https://llm-endpoint.net/v1beta/models/gemini-3.5-flash:streamGenerateContent?alt=sse&key=k',
     )
-  });
+  })
 
   it('preserves a /v1beta-style baseUrl without rewriting it', async () => {
     let capturedUrl: string | undefined
     global.fetch = vi.fn().mockImplementation(async (url) => {
       capturedUrl = String(url)
       return mockSseResponse([])
-    });
+    })
     const modelConfig = {
       provider: 'gemini' as const,
       modelId: 'gemini-2.5-pro',
@@ -2932,7 +2932,7 @@ describe('callGeminiNativeModelStream', () => {
     expect(capturedUrl).toBe(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse&key=k',
     )
-  });
+  })
 
   // ────────────────────────────────────────────────────────────────────────
   // Cache-token field normalisation on the SSE path.
@@ -2977,7 +2977,7 @@ describe('callGeminiNativeModelStream', () => {
     expect(u.cachedContentTokenCount).toBe(3059)   // original preserved
     expect(u.cacheReadInputTokens).toBe(3059)      // alias added
     expect(u.promptTokenCount).toBe(3514)
-  });
+  })
 })
 
 // ----------------------------------------------------------------------------
@@ -3023,7 +3023,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     expect(out['type']).toBe('OBJECT')
     expect(out['properties']).toEqual({ name: { type: 'STRING' } })
     expect(out['required']).toEqual(['name'])
-  });
+  })
 
   it('does not mutate its input', () => {
     const input = {
@@ -3034,7 +3034,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     const before = JSON.stringify(input)
     sanitiseGeminiToolSchemaExport(input)
     expect(JSON.stringify(input)).toBe(before)
-  });
+  })
 
   it('normalises lowercase JSON-Schema types to the GenAI uppercase Type enum', () => {
     const out = sanitiseGeminiToolSchemaExport({
@@ -3054,7 +3054,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     expect(out.properties.active.type).toBe('BOOLEAN')
     expect(out.properties.tags.type).toBe('ARRAY')
     expect(out.properties.tags.items.type).toBe('STRING')
-  });
+  })
 
   it('passes through already-uppercase types unchanged (built-in tool shape)', () => {
     const out = sanitiseGeminiToolSchemaExport({
@@ -3063,7 +3063,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     }) as LooseJson
     expect(out.type).toBe('OBJECT')
     expect(out.properties.p.type).toBe('STRING')
-  });
+  })
 
   it('converts `const: x` to `enum: [x]` (Gemini supports enum only)', () => {
     const out = sanitiseGeminiToolSchemaExport({
@@ -3072,7 +3072,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     }) as LooseJson
     expect(out.const).toBeUndefined()
     expect(out.enum).toEqual(['fixed-value'])
-  });
+  })
 
   it('does not overwrite an existing `enum` when `const` is also present', () => {
     const out = sanitiseGeminiToolSchemaExport({
@@ -3082,7 +3082,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     }) as LooseJson
     expect(out.const).toBeUndefined()
     expect(out.enum).toEqual(['x', 'y'])
-  });
+  })
 
   it('folds oneOf / allOf into anyOf (the only multi-schema combinator Gemini accepts)', () => {
     const out = sanitiseGeminiToolSchemaExport({
@@ -3098,7 +3098,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     expect(out.anyOf[1].type).toBe('INTEGER')
     expect(out.anyOf[2].type).toBe('OBJECT')
     expect(out.anyOf[2].properties.a.type).toBe('STRING')
-  });
+  })
 
   it('preserves all Gemini Schema fields per @google/genai typings', () => {
     const out = sanitiseGeminiToolSchemaExport({
@@ -3122,7 +3122,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     expect(out.pattern).toBe('^a')
     expect(out.propertyOrdering).toEqual(['a', 'b'])
     expect(out.required).toEqual(['a'])
-  });
+  })
 
   it('cleans nested $schema inside `items` and `properties` recursively', () => {
     const out = sanitiseGeminiToolSchemaExport({
@@ -3144,7 +3144,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     expect(out.properties.nested.items.$schema).toBeUndefined()
     expect(out.properties.nested.items.additionalProperties).toBeUndefined()
     expect(out.properties.nested.items.properties.x.type).toBe('STRING')
-  });
+  })
 
   it('handles primitives / null / undefined / arrays at the top level gracefully', () => {
     expect(sanitiseGeminiToolSchemaExport(null)).toBeNull()
@@ -3153,7 +3153,7 @@ describe('sanitiseGeminiToolSchema - GenAI v1beta schema cleanup', () => {
     expect(sanitiseGeminiToolSchemaExport('s')).toBe('s')
     expect(sanitiseGeminiToolSchemaExport([{ $schema: 'x', type: 'string' }]))
       .toEqual([{ type: 'STRING' }])
-  });
+  })
 })
 
 describe('sanitiseGeminiTools - functionDeclarations cleanup at the wire boundary', () => {
@@ -3209,7 +3209,7 @@ describe('sanitiseGeminiTools - functionDeclarations cleanup at the wire boundar
     expect(mcp.parameters.required).toEqual([])
     // Crucially, the serialised payload contains zero "$schema" tokens.
     expect(JSON.stringify(out)).not.toContain('$schema')
-  });
+  })
 
   it('does not mutate the caller\'s tools array (so other adapter branches keep their JSON-Schema view)', () => {
     const tools = [{
@@ -3221,7 +3221,7 @@ describe('sanitiseGeminiTools - functionDeclarations cleanup at the wire boundar
     const before = JSON.stringify(tools)
     sanitiseGeminiToolsExport(tools)
     expect(JSON.stringify(tools)).toBe(before)
-  });
+  })
 
   it('passes through non-array / weird input verbatim instead of throwing', () => {
     expect(sanitiseGeminiToolsExport(undefined)).toBeUndefined()
@@ -3230,7 +3230,7 @@ describe('sanitiseGeminiTools - functionDeclarations cleanup at the wire boundar
     // tool object missing functionDeclarations is left as-is.
     const weird = [{ random: 'shape' }]
     expect(sanitiseGeminiToolsExport(weird)).toEqual(weird)
-  });
+  })
 
   it('end-to-end: callGeminiNativeModel\'s wire body has no $schema / additionalProperties for MCP tools', async () => {
     let capturedBody: LooseJson
@@ -3242,7 +3242,7 @@ describe('sanitiseGeminiTools - functionDeclarations cleanup at the wire boundar
           candidates: [{ content: { role: MESSAGE_ROLES.MODEL, parts: [{ text: 'ok' }] } }],
         }),
       }
-    });
+    })
 
     const modelConfig = {
       provider: 'gemini' as const,
@@ -3285,5 +3285,5 @@ describe('sanitiseGeminiTools - functionDeclarations cleanup at the wire boundar
     expect(capturedBody.tools[0].functionDeclarations[0].name).toBe('query-docs')
     expect(capturedBody.tools[0].functionDeclarations[0].parameters.type).toBe('OBJECT')
     expect(capturedBody.tools[0].functionDeclarations[0].parameters.properties.libraryId.type).toBe('STRING')
-  });
+  })
 })

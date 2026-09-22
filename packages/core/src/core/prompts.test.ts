@@ -22,7 +22,7 @@ describe('prompts', () => {
       expect(isGemini3Model('gemini3-pro')).toBe(true)
       expect(isGemini3Model('gemini-2.0-flash')).toBe(false)
       expect(isGemini3Model(undefined)).toBe(false)
-    });
+    })
   })
 
   describe('getCoreSystemPrompt - Environment Differences', () => {
@@ -31,7 +31,7 @@ describe('prompts', () => {
       const prompt = getDynamicSystemPrompt(undefined, workspace)
       expect(prompt).not.toContain('# Git Repository')
       fs.rmSync(workspace, { recursive: true, force: true })
-    });
+    })
 
     it('按会话工作目录发现 LLM Wiki，不使用进程启动目录', () => {
       const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-prompt-wiki-'))
@@ -44,7 +44,7 @@ describe('prompts', () => {
 
       fs.rmSync(workspace, { recursive: true, force: true })
       fs.rmSync(withoutWiki, { recursive: true, force: true })
-    });
+    })
 
     it('requires a user-facing outcome summary after tool work', () => {
       const prompt = getCoreSystemPrompt(undefined, false)
@@ -52,26 +52,26 @@ describe('prompts', () => {
       expect(prompt).toContain('what was completed')
       expect(prompt).toContain('verification')
       expect(prompt).toContain('Never finish with only a task count')
-    });
+    })
 
     it('makes financial computation fail closed', () => {
       const prompt = getCoreSystemPrompt(undefined, false)
       expect(prompt).toContain('Financial computation: fail closed')
       expect(prompt).toContain('deterministic, auditable calculation tool')
       expect(prompt).toContain('must never calculate, estimate, infer, or fill in financial numbers itself')
-    });
+    })
 
     it('should include VSCode-specific instructions when isVSCode is true', () => {
       const prompt = getCoreSystemPrompt(undefined, true)
       expect(prompt).toContain('interactive VSCode assistant')
       // 验证是否包含 lint 检查的描述
       expect(prompt).toContain('read_lints')
-    });
+    })
 
     it('should use CLI instructions when isVSCode is false', () => {
       const prompt = getCoreSystemPrompt(undefined, false)
       expect(prompt).toContain('runs locally on their computer')
-    });
+    })
 
     it('should include Feishu-specific instructions when isFeishu is true', () => {
       const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', undefined, undefined, undefined, true)
@@ -79,7 +79,7 @@ describe('prompts', () => {
       expect(prompt).toContain('Mobile-Friendly Layout Guidelines')
       expect(prompt).toContain('Strict Guidelines for Sending Files & Media')
       expect(prompt).toContain('Prudence & Spam Prevention')
-    });
+    })
   })
 
   describe('getCoreSystemPrompt - Model Differences', () => {
@@ -87,12 +87,12 @@ describe('prompts', () => {
       const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', 'gemini-3-flash')
       expect(prompt).toContain('strictly grounded to the information provided in context')
       expect(prompt).toContain('Context is Truth')
-    });
+    })
 
     it('should use standard instructions for other models', () => {
       const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', 'gemini-1.5-pro')
       expect(prompt).not.toContain('Context is Truth')
-    });
+    })
   })
 
   describe('getCoreSystemPrompt - Agent Style Differences', () => {
@@ -100,19 +100,19 @@ describe('prompts', () => {
       const prompt = getCoreSystemPrompt(undefined, false, undefined, 'codex')
       expect(prompt).toContain('FAST EXECUTION MODE')
       expect(prompt).toContain('NO NARRATION')
-    });
+    })
 
     it('should use work-code instructions for the legacy cursor style id', () => {
       const prompt = getCoreSystemPrompt(undefined, false, undefined, 'cursor')
       expect(prompt).toContain('WORK CODE MODE')
       expect(prompt).toContain('STATUS UPDATES')
-    });
+    })
 
     it('should use collaborative-progress instructions for the legacy windsurf style id', () => {
       const prompt = getCoreSystemPrompt(undefined, false, undefined, 'windsurf')
       expect(prompt).toContain('COLLABORATIVE PROGRESS MODE')
       expect(prompt).toContain('Work independently and collaboratively')
-    });
+    })
 
     it.each([
       ['codex', 'FAST EXECUTION MODE'],
@@ -129,7 +129,7 @@ describe('prompts', () => {
       expect(prompt).not.toMatch(
         /CODEX MODE|CURSOR MODE|AUGMENT MODE|ANTIGRAVITY MODE|WINDSURF MODE|powered by GPT-5|You are Augment Agent|You are Antigravity|You are Cascade|augment_code_snippet|AI Flow/i,
       )
-    });
+    })
 
     it('keeps the selected enterprise-office mode when the active model is Gemini 3', () => {
       const prompt = getCoreSystemPrompt(
@@ -144,7 +144,7 @@ describe('prompts', () => {
       expect(prompt).toContain('Context is Truth')
       expect(prompt).toMatch(/documents.*meetings.*schedules.*spreadsheets.*research/is)
       expect(prompt).toContain('wait for approval before executing it')
-    });
+    })
   })
 
   describe('getCoreSystemPrompt - Language Preference', () => {
@@ -152,7 +152,7 @@ describe('prompts', () => {
       const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', undefined, '简体中文')
       // 检查加粗格式
       expect(prompt).toContain('**Language Preference:** Please always use "简体中文" to reply to the user.')
-    });
+    })
   })
 
   describe('getCoreSystemPrompt - Custom Model Info', () => {
@@ -161,12 +161,12 @@ describe('prompts', () => {
         provider: 'openai',
         modelId: 'gpt-4o',
         baseUrl: 'https://api.openai.com/v1',
-      };
+      }
       const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', undefined, undefined, customModel)
       // 检查 Markdown 行内代码格式
       expect(prompt).toContain('**Current Model:** `gpt-4o`')
       expect(prompt).toContain('served by user-configured endpoint `https://api.openai.com/v1`')
-    });
+    })
 
     it('labels OpenAI Responses endpoints correctly', () => {
       const customModel = {
@@ -187,7 +187,7 @@ describe('prompts', () => {
 
       expect(prompt).toContain('using OpenAI Responses-compatible protocol')
       expect(prompt).not.toContain('using Anthropic-compatible protocol')
-    });
+    })
 
     it('keeps the active model as the final identity source and separates helper models', () => {
       const prompt = getCoreSystemPrompt(
@@ -213,7 +213,7 @@ describe('prompts', () => {
       expect(prompt).toContain(
         'Displaying or sending an existing image does not require visual recognition',
       )
-    });
+    })
 
     it('does not tell an actual Gemini model to deny its configured model identity', () => {
       const prompt = getCoreSystemPrompt(
@@ -229,7 +229,7 @@ describe('prompts', () => {
         'If the model shown here is Gemini or from Google, say so accurately',
       )
       expect(identityAnchor).not.toContain('do not claim to be Gemini')
-    });
+    })
   })
 
   describe('getCoreSystemPrompt - Skills Context', () => {
@@ -249,13 +249,13 @@ describe('prompts', () => {
       expect(prompt).toContain('# Available Skills')
       expect(prompt).toContain('<available_skills>')
       expect(prompt).toContain('test-skill')
-    });
+    })
   })
 
   describe('getCoreSystemPrompt - LLM Wiki Context Injection', () => {
     afterEach(() => {
       vi.restoreAllMocks()
-    });
+    })
 
     // 仅当探测到 .llm-wiki/index.md 时返回 true，其它路径透传真实结果
     function mockWikiPresent(present: boolean) {
@@ -281,13 +281,13 @@ describe('prompts', () => {
       const prompt = getCoreSystemPrompt(undefined, false)
       expect(prompt).toContain('# LLM Wiki')
       expect(prompt).toContain('.llm-wiki/')
-    });
+    })
 
     it('should NOT inject the LLM Wiki section when the wiki is absent', () => {
       mockWikiPresent(false)
       const prompt = getCoreSystemPrompt(undefined, false)
       expect(prompt).not.toContain('# LLM Wiki')
-    });
+    })
 
     it('should proactively guide the AI to consult the wiki before exploring', () => {
       mockWikiPresent(true)
@@ -298,7 +298,7 @@ describe('prompts', () => {
       // 必须明确建议优先查阅 index，而不是直接盲目搜索代码库
       expect(section).toContain('.llm-wiki/index.md')
       expect(section).toMatch(/consult[\s\S]*index\.md/i)
-    });
+    })
 
     it('should still retain the wiki maintenance instructions', () => {
       mockWikiPresent(true)
@@ -307,7 +307,7 @@ describe('prompts', () => {
       expect(section).toContain('requires no command or initialization')
       expect(section).toContain('.llm-wiki/raw/')
       expect(section).toContain('Do not require the user')
-    });
+    })
 
     it('should place the LLM Wiki section after the dynamic boundary (cache-safe)', () => {
       mockWikiPresent(true)
@@ -316,7 +316,7 @@ describe('prompts', () => {
       const wikiIdx = prompt.indexOf('# LLM Wiki')
       expect(boundaryIdx).toBeGreaterThanOrEqual(0)
       expect(wikiIdx).toBeGreaterThan(boundaryIdx)
-    });
+    })
   })
 
   describe('formatCompactSummary', () => {
@@ -325,7 +325,7 @@ describe('prompts', () => {
       const result = formatCompactSummary(raw)
       expect(result).toContain('<state_snapshot>Important content</state_snapshot>')
       expect(result).not.toContain('<analysis>')
-    });
+    })
 
     it('should strip <analysis> tags when no <summary> tag exists', () => {
       const raw = '<analysis>Thinking process...</analysis>\n<state_snapshot>Direct content</state_snapshot>'
@@ -333,23 +333,23 @@ describe('prompts', () => {
       expect(result).toContain('<state_snapshot>Direct content</state_snapshot>')
       expect(result).not.toContain('<analysis>')
       expect(result).not.toContain('Thinking process')
-    });
+    })
 
     it('should return original text when no tags present', () => {
       const raw = 'Plain text summary without any tags'
       const result = formatCompactSummary(raw)
       expect(result).toBe('Plain text summary without any tags')
-    });
+    })
 
     it('should handle empty input', () => {
       expect(formatCompactSummary('')).toBe('')
       expect(formatCompactSummary('   ')).toBe('')
-    });
+    })
 
     it('should handle multiple <analysis> blocks', () => {
       const raw = '<analysis>First analysis</analysis>\nMiddle text\n<analysis>Second analysis</analysis>\n<summary>Final result</summary>'
       const result = formatCompactSummary(raw)
       expect(result).toBe('Final result')
-    });
+    })
   })
-});
+})

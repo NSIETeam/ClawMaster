@@ -30,5 +30,5 @@ describe('SQLite customer module marketplace store', () => {
     restored.recordInstall(unsigned.id, unsigned.version, 'receipt-1')
     expect(restored.get(unsigned.id, unsigned.version)?.installCount).toBe(1)
     database.close()
-  });
+  })
 })

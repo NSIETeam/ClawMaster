@@ -24,7 +24,7 @@ describe('ClawMasterClient A2A 隔离上下文', () => {
     }])
     expect(parts[0]?.text).not.toContain('Working Directory')
     expect(parts[0]?.text).not.toContain('PROJECT STRUCTURE')
-  });
+  })
 
   it('禁用工具时连 ClawMasterChat 初始生成配置也保持空工具集', () => {
     const getFunctionDeclarations = vi.fn(() => [{ name: 'read_file' }])
@@ -33,7 +33,7 @@ describe('ClawMasterClient A2A 隔离上下文', () => {
     expect(getFunctionDeclarations).not.toHaveBeenCalled()
     expect(buildInitialChatTools(false, { getFunctionDeclarations }))
       .toEqual([{ functionDeclarations: [{ name: 'read_file' }] }])
-  });
+  })
 
   it('隔离模式只使用 A2A 最小规则，不构建含本机文件与 Skills 的完整系统提示', () => {
     const buildFullSystemInstruction = vi.fn(() => [
@@ -57,7 +57,7 @@ describe('ClawMasterClient A2A 隔离上下文', () => {
     expect(prompt).not.toContain('/Users/felix/private-project')
     expect(prompt).not.toContain('.llm-wiki')
     expect(prompt).not.toContain('GLOBAL_SKILLS_METADATA')
-  });
+  })
 
   it('puts initialized Skills and relevant layered memory in the final model instruction', async () => {
     const skills = await import('../skills/skills-integration.js')
@@ -88,5 +88,5 @@ describe('ClawMasterClient A2A 隔离上下文', () => {
     expect(instruction).toContain('# Relevant Memory')
     expect(instruction).toContain('data visualization must cite sources')
     vi.restoreAllMocks()
-  });
+  })
 })

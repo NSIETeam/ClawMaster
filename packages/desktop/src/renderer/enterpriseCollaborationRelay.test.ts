@@ -102,7 +102,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       account,
       dependencies(),
     )).rejects.toThrow('action')
-  });
+  })
   it('list_members 返回真实 active 企业树成员和可用于后续动作的账号 ID', async () => {
     const deps = dependencies()
     const result = await executeEnterpriseCollaborationRelay(
@@ -118,7 +118,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
         expect.objectContaining({ id: 'peer-1', name: 'Alice' }),
       ],
     })
-  });
+  })
 
   it('发送前校验目标仍是当前组织 active 成员，并返回真实服务端消息', async () => {
     const deps = dependencies()
@@ -152,7 +152,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
         deps,
       ),
     ).rejects.toThrow('不在当前企业组织树')
-  });
+  })
 
   it('ask_peer_clawmaster 发送严格协议请求，不能伪造即时回答', async () => {
     const deps = dependencies()
@@ -175,7 +175,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       action: 'ask_peer_clawmaster',
       status: 'waiting_for_peer_permission',
     })
-  });
+  })
 
   it('consult_peer_clawmaster 打开真实双方协商流程，而不是只改消息标签', async () => {
     const deps = dependencies()
@@ -198,7 +198,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       status: 'waiting_for_peer_permission',
       message: { id: 'consult-1' },
     })
-  });
+  })
 
   it('企业管理员可通过真实账号更新接口安排同组织成员的部门与职位', async () => {
     const deps = dependencies()
@@ -229,7 +229,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
         role: '产品负责人',
       },
     })
-  });
+  })
 
   it('非管理员不能任命职位，非法字段也不会到达账号更新接口', async () => {
     const deps = dependencies()
@@ -255,7 +255,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       deps,
     )).rejects.toThrow('未知字段')
     expect(deps.updateAccount).not.toHaveBeenCalled()
-  });
+  })
 
   it('个人账号和非法参数 fail closed，不调用任何企业 IPC', async () => {
     const deps = dependencies()
@@ -274,5 +274,5 @@ describe('enterprise_collaboration renderer 真实中继', () => {
       ),
     ).rejects.toThrow('question')
     expect(deps.getOrganizationView).not.toHaveBeenCalled()
-  });
+  })
 })

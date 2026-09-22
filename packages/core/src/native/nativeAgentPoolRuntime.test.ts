@@ -42,7 +42,7 @@ describe('NativeAgentPoolRuntime', () => {
       registered: false,
     })
     expect(bridge.calls).toEqual([])
-  });
+  })
 
   it('creates and registers agents through Rust when native core is available', async () => {
     const bridge = createBridge({ enabled: true })
@@ -63,14 +63,14 @@ describe('NativeAgentPoolRuntime', () => {
     ])
     expect(bridge.calls[0].params).toMatchObject({ max_memory_mb: 64, max_agents: 2 })
     expect(bridge.calls[2].params).toMatchObject({ memory_mb: 9 })
-  });
+  })
 
   it('fails fast in required mode when native calls fail', async () => {
     const bridge = createBridge({ enabled: true, required: true, fail: true })
     const runtime = new NativeAgentPoolRuntime({ bridge })
 
     await expect(runtime.register('agent-1')).rejects.toThrow('native unavailable')
-  });
+  })
 
   it('sizes the shared native pool for workflow and task agents together', async () => {
     const bridge = createBridge({ enabled: true })
@@ -81,5 +81,5 @@ describe('NativeAgentPoolRuntime', () => {
     expect(bridge.calls[0].params).toMatchObject({
       max_agents: getAgentResourceBudget().workflowMaxConcurrencyCeiling,
     })
-  });
+  })
 })

@@ -38,7 +38,7 @@ describe('file encryption key provider', () => {
       'configured encryption key file does not exist',
     )
     expect(fs.existsSync(keyPath)).toBe(false)
-  });
+  })
 
   it('clears cached key bytes without changing the key file', () => {
     const keyPath = path.join(temporaryDirectory(), 'field.key')
@@ -57,5 +57,5 @@ describe('file encryption key provider', () => {
     expect(cached).toEqual(Buffer.alloc(32))
     expect(provider.getKey()).toEqual(original)
     expect(fs.readFileSync(keyPath)).toEqual(original)
-  });
+  })
 })

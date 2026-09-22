@@ -253,7 +253,7 @@ export class AudioReaderTool extends BaseTool<AudioReaderToolParams, ToolResult>
 
     const currentModelNote = currentModelPlan
       ? `ClawMaster first tried the current audio-capable model, but it failed: ${modelError || 'unknown error'}.\n`
-      : 'ClawMaster checked the current model, but it is not marked as audio-capable.\n';
+      : 'ClawMaster checked the current model, but it is not marked as audio-capable.\n'
     return {
       llmContent:
         'Audio transcription setup is needed.\n\n' +
@@ -403,7 +403,7 @@ async function transcribeWithLocalBridge(filePath: string): Promise<string | nul
     : [
       { command: 'python3', prefixArgs: [] },
       { command: 'python', prefixArgs: [] },
-    ];
+    ]
   for (const py of pyCommands) {
     try {
       const result = await execFileAsync(

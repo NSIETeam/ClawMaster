@@ -140,7 +140,7 @@ describe('data protection service', () => {
     })
     restored.close()
     database.close()
-  });
+  })
 
   it('retains the newest minimum even when old backups exceed retention', async () => {
     const root = fs.mkdtempSync(
@@ -192,5 +192,5 @@ describe('data protection service', () => {
     expect(status.lastError).toBeNull()
     expect(status.backupCount).toBe(3)
     database.close()
-  });
+  })
 })

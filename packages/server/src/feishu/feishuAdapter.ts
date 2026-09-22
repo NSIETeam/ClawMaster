@@ -265,7 +265,7 @@ export class FeishuAdapter {
     if (this.gateway) {
       // 已在跑：幂等返回，不重复建网关/心跳（避免双守护互相拆台）。
       logWarn('飞书网关已在运行，忽略重复 start。')
-      return;
+      return
     }
     this.stopped = false
 
@@ -282,7 +282,7 @@ export class FeishuAdapter {
     }
     if (!this.creds) {
       logWarn('未发现飞书凭证（~/.clawmaster-user/feishu-credentials.json），飞书网关跳过启动。')
-      return;
+      return
     }
 
     // 2) 会话淘汰监听：会话被 store 容量淘汰时，连带摘除其回推桥订阅
@@ -298,7 +298,7 @@ export class FeishuAdapter {
         this.bridged.delete(sessionId)
       }
       this.replyTargets.delete(sessionId)
-    });
+    })
 
     // 3) 建网关并接线（缺省 new FeishuGateway；测试可注入 fake）。
     const creds = this.creds
@@ -315,7 +315,7 @@ export class FeishuAdapter {
         `飞书网关断开${error ? `：${error.message}` : ''}，转入自动重连。`,
       )
       this.scheduleReconnect(this.lastDisconnectReason)
-    };
+    }
     // SDK 内部自愈事件（可选回调；真 gateway 已透传，老 fake 不接也不影响）：
     // 自愈期间状态如实标记「未连接/重连中」，自愈成功等价于一次 onReady。
     gateway.onReconnecting = () => {
@@ -664,7 +664,7 @@ export class FeishuAdapter {
             'Persistent Feishu session message is missing',
             1,
           )
-          continue;
+          continue
         }
         const result = await this.runTurn(
           record.sessionId,

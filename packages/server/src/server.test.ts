@@ -37,7 +37,7 @@ import type {
   ServerToClient,
   SessionSummary,
   ClawMasterMessage,
-  type MessageContent,
+  MessageContent,
 } from './protocol.js';
 
 let tmpHome: string;

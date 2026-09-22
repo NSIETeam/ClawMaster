@@ -36,7 +36,7 @@ afterEach(async () => {
   await Promise.all(
     tempRoots.splice(0).map(root => fs.rm(root, { recursive: true, force: true })),
   )
-});
+})
 
 const waitUntil = async (cb: () => boolean, timeout = 5000) => {
   const start = Date.now()
@@ -45,7 +45,7 @@ const waitUntil = async (cb: () => boolean, timeout = 5000) => {
     await new Promise(resolve => setTimeout(resolve, 50))
   }
   throw new Error('Timeout waiting for condition')
-};
+}
 
 class MockTool extends BaseTool<Record<string, unknown>, ToolResult> {
   shouldConfirm = false
@@ -166,7 +166,7 @@ describe('CoreToolScheduler', () => {
     expect(completed[0]?.status).toBe('error')
     expect(completed[0]?.response?.error?.message).toContain('计划模式')
     expect(mockTool.executeFn).not.toHaveBeenCalled()
-  });
+  })
 
   it('allows read-only investigation tools while plan mode is active', async () => {
     const mockTool = new MockTool('read_file')
@@ -206,7 +206,7 @@ describe('CoreToolScheduler', () => {
     }, new AbortController().signal)
 
     expect(mockTool.executeFn).toHaveBeenCalledOnce()
-  });
+  })
 
   it('writes an audit record when a confirmation is denied', async () => {
     const auditRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-audit-confirm-'))
@@ -263,7 +263,7 @@ describe('CoreToolScheduler', () => {
     await waitUntil(() => {
       const calls = scheduler.getToolCalls()
       return calls.length > 0 && calls[0].status === 'awaiting_approval'
-    });
+    })
     await scheduler.handleConfirmationResponse(
       'audit-call',
       ToolConfirmationOutcome.Cancel,
@@ -289,7 +289,7 @@ describe('CoreToolScheduler', () => {
     expect(entry.success).toBe(false)
     expect(entry.riskLevel).toBe('high')
     expect(entry.inputSummary).toContain('rm -rf ./target')
-  });
+  })
 
   it('should cancel a tool call if the signal is aborted before confirmation', async () => {
     const mockTool = new MockTool()
@@ -342,7 +342,7 @@ describe('CoreToolScheduler', () => {
     const completedCalls = onAllToolCallsComplete.mock
       .calls[0][0] as ToolCall[]
     expect(completedCalls[0].status).toBe('cancelled')
-  });
+  })
 })
 
 describe('CoreToolScheduler with payload', () => {
@@ -395,7 +395,7 @@ describe('CoreToolScheduler with payload', () => {
     await waitUntil(() => {
       const calls = scheduler.getToolCalls()
       return calls.length > 0 && calls[0].status === 'awaiting_approval'
-    });
+    })
 
     const payload: ToolConfirmationPayload = { newContent: 'final version' }
     await scheduler.handleConfirmationResponse(
@@ -414,7 +414,7 @@ describe('CoreToolScheduler with payload', () => {
     expect(mockTool.executeFn).toHaveBeenCalledWith({
       newContent: 'final version',
     })
-  });
+  })
 })
 
 describe('convertToFunctionResponse', () => {
@@ -431,7 +431,7 @@ describe('convertToFunctionResponse', () => {
         response: { output: 'Simple text output' },
       },
     })
-  });
+  })
 
   it('should handle llmContent as a single Part with text', () => {
     const llmContent: Part = { text: 'Text from Part object' }
@@ -443,7 +443,7 @@ describe('convertToFunctionResponse', () => {
         response: { output: 'Text from Part object' },
       },
     })
-  });
+  })
 
   it('should handle llmContent as a PartListUnion array with a single text Part', () => {
     const llmContent: PartListUnion = [{ text: 'Text from array' }]
@@ -455,7 +455,7 @@ describe('convertToFunctionResponse', () => {
         response: { output: 'Text from array' },
       },
     })
-  });
+  })
 
   it('should handle llmContent with inlineData', () => {
     const llmContent: Part = {
@@ -474,7 +474,7 @@ describe('convertToFunctionResponse', () => {
       },
       llmContent,
     ])
-  });
+  })
 
   it('should handle llmContent with fileData', () => {
     const llmContent: Part = {
@@ -493,7 +493,7 @@ describe('convertToFunctionResponse', () => {
       },
       llmContent,
     ])
-  });
+  })
 
   it('should handle llmContent as an array of multiple Parts (text and inlineData)', () => {
     const llmContent: PartListUnion = [
@@ -512,7 +512,7 @@ describe('convertToFunctionResponse', () => {
       },
       ...llmContent,
     ])
-  });
+  })
 
   it('should handle llmContent as an array with a single inlineData Part', () => {
     const llmContent: PartListUnion = [
@@ -531,7 +531,7 @@ describe('convertToFunctionResponse', () => {
       },
       ...llmContent,
     ])
-  });
+  })
 
   it('should handle llmContent as a generic Part (not text, inlineData, or fileData)', () => {
     const llmContent: Part = { functionCall: { name: 'test', args: {} } }
@@ -543,7 +543,7 @@ describe('convertToFunctionResponse', () => {
         response: { output: 'Tool execution succeeded.' },
       },
     })
-  });
+  })
 
   it('should handle empty string llmContent', () => {
     const llmContent = ''
@@ -555,7 +555,7 @@ describe('convertToFunctionResponse', () => {
         response: { output: '' },
       },
     })
-  });
+  })
 
   it('should handle llmContent as a string array (like read-many-files)', () => {
     const llmContent: string[] = [
@@ -573,7 +573,7 @@ describe('convertToFunctionResponse', () => {
         },
       },
     })
-  });
+  })
 
   it('should handle llmContent as an empty array', () => {
     const llmContent: PartListUnion = []
@@ -587,7 +587,7 @@ describe('convertToFunctionResponse', () => {
         },
       },
     ])
-  });
+  })
 
   it('should handle llmContent as a Part with undefined inlineData/fileData/text', () => {
     const llmContent: Part = {} // An empty part object
@@ -599,7 +599,7 @@ describe('convertToFunctionResponse', () => {
         response: { output: 'Tool execution succeeded.' },
       },
     })
-  });
+  })
 })
 
 describe('CoreToolScheduler edit cancellation', () => {
@@ -690,7 +690,7 @@ describe('CoreToolScheduler edit cancellation', () => {
     await waitUntil(() => {
       const calls = scheduler.getToolCalls()
       return calls.length > 0 && calls[0].status === 'awaiting_approval'
-    });
+    })
 
     // Cancel the edit
     await scheduler.handleConfirmationResponse(
@@ -715,5 +715,5 @@ describe('CoreToolScheduler edit cancellation', () => {
       '--- test.txt\n+++ test.txt\n@@ -1,1 +1,1 @@\n-old content\n+new content',
     )
     expect(cancelledCall.response.resultDisplay.fileName).toBe('test.txt')
-  });
+  })
 })

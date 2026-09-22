@@ -33,7 +33,7 @@ const roots: string[] = []
 afterEach(() => {
   for (const root of roots.splice(0))
     rmSync(root, { recursive: true, force: true })
-});
+})
 
 function createEndpoint(deviceName: string) {
   const root = mkdtempSync(join(tmpdir(), 'clawmaster-e2ee-test-'))
@@ -110,7 +110,7 @@ function transparencyView(
       .digest('hex')
     previousHash = entryHash
     return { ...unsigned, entryHash }
-  });
+  })
   return {
     accountId,
     headSequence: entries.length,
@@ -246,7 +246,7 @@ describe('enterprise private-chat E2EE', () => {
 
     alice.crypto.removeFederationContact(scope)
     expect(alice.crypto.federationContactTrust(scope)).toBeNull()
-  });
+  })
 
   it('accepts only monotonic multi-device federation directories signed by a trusted device', () => {
     const alice = createEndpoint('Alice laptop')
@@ -336,7 +336,7 @@ describe('enterprise private-chat E2EE', () => {
       ...scope,
       card: substituted,
     })).toThrow('directory is untrusted')
-  });
+  })
 
   it('keeps a stable federation safety number after root-device revocation', () => {
     const alice = createEndpoint('Alice laptop')
@@ -384,7 +384,7 @@ describe('enterprise private-chat E2EE', () => {
     expect(enterpriseFederationIdentityCardDevices(after)).toHaveLength(1)
     expect(enterpriseFederationIdentityCardDevices(after)[0]?.deviceId)
       .toBe(phoneDevice.deviceId)
-  });
+  })
 
   it('wraps a federated message key for every approved active device', () => {
     const alice = createEndpoint('Alice laptop')
@@ -437,7 +437,7 @@ describe('enterprise private-chat E2EE', () => {
       keyring: { serverScope: 'https://bob.test', accountId: 'bob' },
       message,
     }).content).toBe('multi-device federation')
-  });
+  })
 
   it('pins transparency heads and rejects a server rollback or fork', () => {
     const alice = createEndpoint('Alice laptop')
@@ -499,7 +499,7 @@ describe('enterprise private-chat E2EE', () => {
     )
     expect(checkpointFiles).toMatch(/^protected:/)
     expect(checkpointFiles).not.toContain(extended.headHash)
-  });
+  })
 
   it('rejects malformed transparency entries and inconsistent device directories', () => {
     const alice = createEndpoint('Alice laptop')
@@ -553,7 +553,7 @@ describe('enterprise private-chat E2EE', () => {
         includeRevoked: false,
       }),
     ).toEqual([aliceDevice, bobDevice])
-  });
+  })
 
   it('derives symmetric safety numbers and signs out-of-band device approvals locally', () => {
     const aliceOne = createEndpoint('Alice one')
@@ -599,7 +599,7 @@ describe('enterprise private-chat E2EE', () => {
         Buffer.from(approval.signature, 'base64'),
       ),
     ).toBe(true)
-  });
+  })
 
   it('encrypts for sender and recipient devices and detects message tampering', () => {
     const alice = createEndpoint('Alice laptop')
@@ -649,7 +649,7 @@ describe('enterprise private-chat E2EE', () => {
         },
       }),
     ).toThrow('signature is invalid')
-  });
+  })
 
   it('encrypts attachment bodies and metadata and authenticates downloads', () => {
     const alice = createEndpoint('Alice laptop')
@@ -713,7 +713,7 @@ describe('enterprise private-chat E2EE', () => {
         attachment: tampered,
       }),
     ).toThrow('authentication failed')
-  });
+  })
 
   it('covers every active device and stops targeting a revoked device', () => {
     const alice = createEndpoint('Alice')
@@ -752,7 +752,7 @@ describe('enterprise private-chat E2EE', () => {
     expect(second.envelopes.some(item => item.deviceId === revokedId)).toBe(
       false,
     )
-  });
+  })
 
   it('imports a passphrase recovery bundle as historical keys on a new device', () => {
     const oldBob = createEndpoint('Old Bob')
@@ -805,7 +805,7 @@ describe('enterprise private-chat E2EE', () => {
         'wrong passphrase',
       ),
     ).toThrow('bundle or passphrase is invalid')
-  });
+  })
 
   it('keeps raw private keys out of the vault file', () => {
     const endpoint = createEndpoint('Protected device')
@@ -819,5 +819,5 @@ describe('enterprise private-chat E2EE', () => {
     )
     expect(files).toMatch(/^protected:/)
     expect(files).not.toContain(device.identitySigningPublicKey)
-  });
+  })
 })

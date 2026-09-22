@@ -254,7 +254,7 @@ async function captureScope(
   for (const candidate of candidates) {
     if (files.length >= MAX_FILES || candidate.size > MAX_FILE_BYTES) {
       truncated = true
-      continue;
+      continue
     }
     let content: string
     try {
@@ -267,7 +267,7 @@ async function captureScope(
     const nextTotal = totalBytes + bytes + Buffer.byteLength(candidate.path, 'utf8')
     if (bytes > MAX_FILE_BYTES || nextTotal > MAX_PAYLOAD_BYTES) {
       truncated = true
-      continue;
+      continue
     }
     totalBytes = nextTotal
     files.push({
@@ -344,7 +344,7 @@ function payloadContentEqual(
   return left.files.every((file, index) => {
     const other = right.files[index]
     return other?.path === file.path && other.sha256 === file.sha256
-  });
+  })
 }
 
 function extractMemoryFacts(content: string): string[] {
@@ -354,9 +354,9 @@ function extractMemoryFacts(content: string): string[] {
   const source = memorySection
     ? (() => {
       const afterHeader = trimmed.slice(memorySection.index + memorySection.header.length)
-        const nextSection = afterHeader.indexOf('\n## ')
-        return nextSection >= 0 ? afterHeader.slice(0, nextSection) : afterHeader
-      })()
+      const nextSection = afterHeader.indexOf('\n## ')
+      return nextSection >= 0 ? afterHeader.slice(0, nextSection) : afterHeader
+    })()
     : trimmed
   return source.split(/\r?\n/u)
     .map(line => line.trim().replace(/^[-*]\s*/u, '').trim())
@@ -494,7 +494,7 @@ export function mergeAccountSyncPayloads(
     if (!leftFile) return rightFile!
     if (!rightFile) return leftFile
     return mergeFile(scope, leftFile, rightFile)
-  });
+  })
   return {
     schemaVersion: 1,
     generatedAt,
@@ -635,7 +635,7 @@ export class AccountDataSyncService {
     const run = this.queue.then(async () => {
       await this.activateIdentity(identityKey)
       return identityKey
-    });
+    })
     this.queue = run.then(() => undefined, () => undefined)
     return run
   }
@@ -740,7 +740,7 @@ export class AccountDataSyncService {
     const sealed = this.protectMirror?.(plaintext) ?? null
     if (this.protectMirror && !sealed) {
       await fs.rm(this.mirrorPath(identityKey, scope), { force: true })
-      return;
+      return
     }
     await writeJsonAtomic(
       this.mirrorPath(identityKey, scope),

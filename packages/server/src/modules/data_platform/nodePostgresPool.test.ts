@@ -21,7 +21,7 @@ describe('node PostgreSQL pool configuration', () => {
       statement_timeout: 30_000,
       ssl: { rejectUnauthorized: true },
     })
-  });
+  })
 
   it('supports an explicit local-development TLS opt-out and pool sizing', () => {
     const config = buildNodePostgresPoolConfig({
@@ -41,7 +41,7 @@ describe('node PostgreSQL pool configuration', () => {
       ssl: false,
     })
     expect(String(config.connectionString)).not.toContain('sslmode')
-  });
+  })
 
   it('rejects unsafe or unbounded pool configuration', () => {
     expect(() =>
@@ -56,5 +56,5 @@ describe('node PostgreSQL pool configuration', () => {
         environment: { CLAWMASTER_POSTGRES_POOL_MAX: '0' },
       }),
     ).toThrow(/POOL_MAX/i)
-  });
+  })
 })

@@ -8,5 +8,5 @@ describe('customer module deterministic package', () => {
     const second = encodeCustomerModulePackageV1({ manifest, files: { 'a.svg': 'YQ==', 'z.wasm': 'eg==' } })
     expect(first).toEqual(second)
     expect(decodeCustomerModulePackageV1(first)).toMatchObject({ format: 'clawmaster.customer-module-package.v1', manifest })
-  });
+  })
 })

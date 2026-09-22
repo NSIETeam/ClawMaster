@@ -742,7 +742,7 @@ export class AutoMemoryEngine {
     this.entries = this.entries.filter((e) => {
       if (!e.compressed) return true
       return new Date(e.timestamp).getTime() >= cutoff
-    });
+    })
     const after = this.entries.length
     const removed = before - after
     if (removed > 0) {
@@ -777,7 +777,7 @@ export class AutoMemoryEngine {
     for (const entry of freshEntries) {
       if (!existingTexts.has(entry.text)) {
         this.entries.push(entry)
-        newEntries++;
+        newEntries++
       }
     }
     if (newEntries > 0) {
@@ -980,7 +980,7 @@ export class AutoMemoryEngine {
     return this.entries.filter((e) => {
       if (scope && e.scope !== scope) return false
       return !e.compressed
-    });
+    })
   }
 }
 

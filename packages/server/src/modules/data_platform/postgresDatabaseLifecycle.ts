@@ -206,7 +206,7 @@ export function createPostgresDatabaseLifecycle(options: {
     initialization ??= initializeOnce().catch((error: unknown) => {
       initialization = null
       throw error
-    });
+    })
     return initialization
   }
 

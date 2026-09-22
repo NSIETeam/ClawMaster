@@ -46,7 +46,7 @@ beforeEach(() => {
   previousEnterpriseDir = process.env.CLAWMASTER_ENTERPRISE_DIR
   previousTokenRate = process.env.CLAWMASTER_CREDIT_TOKEN_RATE
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-credits-'))
-});
+})
 
 afterEach(() => {
   openDbModule?.closeEnterpriseDatabase()
@@ -56,13 +56,13 @@ afterEach(() => {
   if (previousTokenRate === undefined) delete process.env.CLAWMASTER_CREDIT_TOKEN_RATE
   else process.env.CLAWMASTER_CREDIT_TOKEN_RATE = previousTokenRate
   fs.rmSync(tmpDir, { recursive: true, force: true })
-});
+})
 
 describe('积分 schema 片段安全', () => {
   it('不携带不可重复执行的 ALTER TABLE，列迁移只由 db.ts 的幂等探测负责', async () => {
     const { credits } = await freshModules()
     expect(credits.CREDITS_TABLES_SQL.join('\n')).not.toMatch(/ALTER\s+TABLE/i)
-  });
+  })
 })
 
 describe('兑换码租户边界与规范化', () => {
@@ -92,7 +92,7 @@ describe('兑换码租户边界与规范化', () => {
     expect(credits.listRedeemCodes(db.DEFAULT_ORGANIZATION_ID, 'active'))
       .toEqual(expect.arrayContaining([expect.objectContaining({ id: tenantCode.id })]))
     expect(credits.getCreditBalance(otherOrganization.id).balance).toBe(0)
-  });
+  })
 })
 
 describe('批量兑换码原子创建', () => {
@@ -127,7 +127,7 @@ describe('批量兑换码原子创建', () => {
     ).get(db.DEFAULT_ORGANIZATION_ID) as { count: number }).count
     expect(afterCount).toBe(beforeCount)
     expect(credits.listRedeemCodes(db.DEFAULT_ORGANIZATION_ID)).toEqual([])
-  });
+  })
 })
 
 describe('积分整数边界', () => {
@@ -166,7 +166,7 @@ describe('积分整数边界', () => {
       account.id,
       1_000,
     )).toThrow(/CLAWMASTER_CREDIT_TOKEN_RATE/)
-  });
+  })
 })
 
 describe('积分写入原子性', () => {
@@ -190,7 +190,7 @@ describe('积分写入原子性', () => {
     expect(credits.listRedeemCodes(db.DEFAULT_ORGANIZATION_ID, 'active'))
       .toEqual([expect.objectContaining({ id: code.id, status: 'active' })])
     expect(credits.listCreditTransactions(db.DEFAULT_ORGANIZATION_ID)).toEqual([])
-  });
+  })
 
   it('充值或扣费流水写入失败时回滚余额', async () => {
     const { db, credits } = await freshModules()
@@ -230,7 +230,7 @@ describe('积分写入原子性', () => {
       'message-atomic',
     )).toThrow(/forced consume transaction failure/)
     expect(credits.getCreditBalance(db.DEFAULT_ORGANIZATION_ID).balance).toBe(10)
-  });
+  })
 })
 
 describe('扣费安全与幂等', () => {
@@ -251,7 +251,7 @@ describe('扣费安全与幂等', () => {
     )).toThrow(/余额不足/)
     expect(credits.getCreditBalance(db.DEFAULT_ORGANIZATION_ID).balance).toBe(3)
     expect(credits.listCreditTransactions(db.DEFAULT_ORGANIZATION_ID)).toEqual([])
-  });
+  })
 
   it('同一企业、账号和 messageId 的重试只扣费并记账一次', async () => {
     const { db, credits } = await freshModules()
@@ -289,7 +289,7 @@ describe('扣费安全与幂等', () => {
         expect.objectContaining({ type: 'consume', amount: -2, balanceAfter: 4 }),
         expect.objectContaining({ type: 'consume', amount: -4, balanceAfter: 6 }),
       ])
-  });
+  })
 })
 
 describe('查询边界', () => {
@@ -309,5 +309,5 @@ describe('查询边界', () => {
       db.DEFAULT_ORGANIZATION_ID,
       'unknown' as 'active',
     )).toThrow(/状态/)
-  });
+  })
 })

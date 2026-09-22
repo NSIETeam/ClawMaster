@@ -41,70 +41,70 @@ describe('ConvertDocumentTool', () => {
     vi.clearAllMocks()
     tool = new ConvertDocumentTool(createMockConfig())
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-test-convert-'))
-  });
+  })
 
   afterEach(() => {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch {}
   })
 
   // --- Metadata ---
-  it('has correct name', () => { expect(ConvertDocumentTool.Name).toBe('convert_document') });
-  it('has display name', () => { expect(tool.displayName).toBe('ConvertDocument') });
-  it('has icon', () => { expect(tool.icon).toBe('fileSearch') });
+  it('has correct name', () => { expect(ConvertDocumentTool.Name).toBe('convert_document') })
+  it('has display name', () => { expect(tool.displayName).toBe('ConvertDocument') })
+  it('has icon', () => { expect(tool.icon).toBe('fileSearch') })
 
   // --- Validation ---
   it('rejects missing input_path and input_paths', () => {
     const err = tool.validateToolParams({ output_format: 'pdf' })
     expect(err).not.toBeNull()
-  });
+  })
   it('rejects relative input_path', () => {
     const err = tool.validateToolParams({ input_path: 'relative/path.md', output_format: 'pdf' })
     expect(err).toContain('must be absolute')
-  });
+  })
   it('rejects non-existent input_path', () => {
     const err = tool.validateToolParams({ input_path: '/nonexistent/file.md', output_format: 'pdf' })
     expect(err).toContain('file not found')
-  });
+  })
   it('accepts valid single file', () => {
     const f = path.join(tmpDir, 'test.md')
     fs.writeFileSync(f, '# Test')
     expect(tool.validateToolParams({ input_path: f, output_format: 'pdf' })).toBeNull()
-  });
+  })
   it('accepts batch input_paths', () => {
     const f1 = path.join(tmpDir, 'a.md'); fs.writeFileSync(f1, 'a')
     const f2 = path.join(tmpDir, 'b.md'); fs.writeFileSync(f2, 'b')
     expect(tool.validateToolParams({ input_paths: [f1, f2], output_format: 'pdf' })).toBeNull()
-  });
+  })
   it('rejects merge with less than 2 files', () => {
     const f = path.join(tmpDir, 'a.md'); fs.writeFileSync(f, 'a')
     const err = tool.validateToolParams({ input_paths: [f], output_format: 'pdf', merge: true })
     expect(err).toContain('at least 2')
-  });
+  })
   it('rejects merge without output_path', () => {
     const f1 = path.join(tmpDir, 'a.md'); fs.writeFileSync(f1, 'a')
     const f2 = path.join(tmpDir, 'b.md'); fs.writeFileSync(f2, 'b')
     const err = tool.validateToolParams({ input_paths: [f1, f2], output_format: 'pdf', merge: true })
     expect(err).toContain('output_path')
-  });
+  })
   it('requires output_format', () => {
     const err = tool.validateToolParams({ input_path: '/tmp/x.md' } as unknown as Parameters<typeof tool.validateToolParams>[0])
     expect(err).toContain('output_format')
-  });
+  })
 
   // --- getDescription ---
   it('getDescription for single file', () => {
     expect(tool.getDescription({ input_path: '/tmp/report.docx', output_format: 'pdf' })).toContain('report.docx')
-  });
+  })
   it('getDescription for batch', () => {
     expect(tool.getDescription({ input_paths: ['/tmp/a.docx','/tmp/b.docx'], output_format: 'pdf' })).toContain('batch')
-  });
+  })
 
   // --- shouldConfirmExecute ---
   it('shouldConfirmExecute returns false in DEFAULT mode', async () => {
     const f = path.join(tmpDir, 'test.md'); fs.writeFileSync(f, '# Test')
     const r = await tool.shouldConfirmExecute({ input_path: f, output_format: 'pdf' }, new AbortController().signal)
     expect(r).not.toBe(false)
-  });
+  })
 
   // --- Lossless all-PDF merge via pdfunite (real run) ---
   const pdfuniteAvailable = hasBin('pdfunite')
@@ -130,7 +130,7 @@ describe('ConvertDocumentTool', () => {
   })
 
   it.runIf(pdfuniteAvailable)('merges three PDFs into a 3-page file', async () => {
-    const files = ['a', 'b', 'c'].map((n) => { const f = path.join(tmpDir, n + '.pdf'); fs.writeFileSync(f, makePdf('Page ' + n)); return f });
+    const files = ['a', 'b', 'c'].map((n) => { const f = path.join(tmpDir, n + '.pdf'); fs.writeFileSync(f, makePdf('Page ' + n)); return f })
     const out = path.join(tmpDir, 'm3.pdf')
     const r = await tool.execute({ input_paths: files, output_format: 'pdf', merge: true, output_path: out }, new AbortController().signal)
     expect(r.llmContent).toContain('OK')
@@ -152,7 +152,7 @@ describe('ConvertDocumentTool', () => {
     expect(r.llmContent).toContain('FAIL')
     expect(r.llmContent.toLowerCase()).toContain('pandoc')
     expect(r.llmContent).toContain('brew install pandoc')
-  });
+  })
 
   it.runIf(!libreofficeAvailable)('libreoffice conversion fails loud with install command when libreoffice is missing', async () => {
     const f = path.join(tmpDir, 'doc.md'); fs.writeFileSync(f, '# Title')
@@ -165,7 +165,7 @@ describe('ConvertDocumentTool', () => {
         ? 'brew install --cask libreoffice'
         : 'winget install pandoc LibreOffice',
     )
-  });
+  })
 
   // NOTE: pure PDF compression (pdf->pdf + compress) first runs the libreoffice
   // conversion step, so a ghostscript-only preflight cannot be isolated without

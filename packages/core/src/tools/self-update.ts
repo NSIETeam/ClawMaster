@@ -253,7 +253,7 @@ export function launchRelaunchHelper(install: RelaunchInstallMode): string {
         `  - Install Mode: ${JSON.stringify(install)}\n` +
         `  - Platform: ${process.platform}\n` +
         `  - Temp Script Path: ${scriptPath}\n`,
-      );
+      )
     } catch {
       // ignore
     }
@@ -282,7 +282,7 @@ export function launchRelaunchHelper(install: RelaunchInstallMode): string {
       appendFileSync(
         logPath,
         `[${new Date().toISOString()}] [Parent] Spawned helper (PID: ${child.pid || 'unknown'}). Exiting parent soon.\n`,
-      );
+      )
     } catch {
       // ignore
     }

@@ -233,7 +233,7 @@ export function FirstRunGuide({ mode }: { mode: UiMode }): React.JSX.Element | n
       // localStorage 不可用时只关闭当前导览。
     }
     setOpen(false)
-  };
+  }
 
   const StepIcon = current.icon
   const spotlightTop = targetRect ? Math.max(4, targetRect.top - SPOTLIGHT_GAP) : 0

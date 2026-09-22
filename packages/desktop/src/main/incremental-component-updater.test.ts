@@ -75,13 +75,13 @@ describe('incremental component updater', () => {
     originalClawMasterUserDir = process.env['CLAWMASTER_USER_DIR']
     isolatedClawMasterUserDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-component-user-'))
     process.env['CLAWMASTER_USER_DIR'] = isolatedClawMasterUserDir
-  });
+  })
 
   afterEach(async () => {
     if (originalClawMasterUserDir === undefined) delete process.env['CLAWMASTER_USER_DIR']
     else process.env['CLAWMASTER_USER_DIR'] = originalClawMasterUserDir
     await fs.rm(isolatedClawMasterUserDir, { recursive: true, force: true })
-  });
+  })
 
   it('downloads, verifies and registers a component update', async () => {
     const userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-component-apply-'))
@@ -104,7 +104,7 @@ describe('incremental component updater', () => {
     const registry = await readIncrementalComponentRegistry(resolveComponentUpdateRoot(userDataPath))
     expect(registry.components['component-skills-ppt-v2'].artifactPath).toBe(result.record.artifactPath)
     await expect(fs.access(path.join(resolveComponentUpdateRoot(userDataPath), 'downloads', 'component-skills-ppt-v2', '2026.07.25', 'artifact.bin'))).rejects.toThrow()
-  });
+  })
 
   it('rejects unapproved artifact origins before writing registry state', async () => {
     const userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-component-apply-'))
@@ -120,7 +120,7 @@ describe('incremental component updater', () => {
     expect(result.ok).toBe(false)
     const registry = await readIncrementalComponentRegistry(resolveComponentUpdateRoot(userDataPath))
     expect(Object.keys(registry.components)).toEqual([])
-  });
+  })
 
   it('rejects invalid Ed25519 signatures before registry install', async () => {
     const userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-component-apply-'))
@@ -137,7 +137,7 @@ describe('incremental component updater', () => {
     expect(result).toEqual({ ok: false, error: 'artifact Ed25519 signature verification failed' })
     const registry = await readIncrementalComponentRegistry(resolveComponentUpdateRoot(userDataPath))
     expect(Object.keys(registry.components)).toEqual([])
-  });
+  })
 
   it('rejects sha256 mismatches before registry install', async () => {
     const userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-component-apply-'))
@@ -154,5 +154,5 @@ describe('incremental component updater', () => {
     expect(result.ok).toBe(false)
     const registry = await readIncrementalComponentRegistry(resolveComponentUpdateRoot(userDataPath))
     expect(Object.keys(registry.components)).toEqual([])
-  });
+  })
 })

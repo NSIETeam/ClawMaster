@@ -141,7 +141,7 @@ describe('EnterpriseMlsPrivateMessageService', () => {
       content: 'secret message',
     })
     expect(await service.list('bob')).toEqual([message])
-  });
+  })
 
   it('stores a received plaintext durably before acknowledging the native inbox', async () => {
     const transport = coordinator()
@@ -184,7 +184,7 @@ describe('EnterpriseMlsPrivateMessageService', () => {
       'bob',
       'transport-event-b',
     )
-  });
+  })
 
   it('does not acknowledge plaintext when durable history persistence fails', async () => {
     const transport = coordinator()
@@ -227,7 +227,7 @@ describe('EnterpriseMlsPrivateMessageService', () => {
 
     await expect(service.list('bob')).rejects.toThrow('disk full')
     expect(transport.acknowledgeReceivedApplication).not.toHaveBeenCalled()
-  });
+  })
 
   it('encrypts and uploads an attachment before sending its manifest inside MLS', async () => {
     const transport = coordinator()
@@ -251,7 +251,7 @@ describe('EnterpriseMlsPrivateMessageService', () => {
     const download = vi.fn(async ({ manifest, ciphertextPath }) => {
       fs.writeFileSync(ciphertextPath, uploadedCiphertext)
       return manifest.object
-    });
+    })
     let sentPlaintext = Buffer.alloc(0)
     const defaultSend = vi
       .mocked(transport.sendApplication)
@@ -313,7 +313,7 @@ describe('EnterpriseMlsPrivateMessageService', () => {
       data: Buffer.from('secret').toString('base64'),
     })
     expect(download).toHaveBeenCalledOnce()
-  });
+  })
 
   it('exposes an explicit peer-bound MLS security-state reset', async () => {
     const transport = coordinator()
@@ -327,7 +327,7 @@ describe('EnterpriseMlsPrivateMessageService', () => {
     await expect(service.reset('alice')).rejects.toThrow(
       'peer account is invalid',
     )
-  });
+  })
 })
 
 describe('FileEnterpriseMlsMessageHistory', () => {
@@ -361,5 +361,5 @@ describe('FileEnterpriseMlsMessageHistory', () => {
       keyProtection: 'os-secure-storage',
       cipher: 'aes-256-gcm',
     })
-  });
+  })
 })

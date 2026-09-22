@@ -157,7 +157,7 @@ async function compressImage(
         buffer: imageBuffer,
         mimeType,
         compressionInfo: '(no compression needed)',
-      };
+      }
     }
 
     console.log(`🔄 开始压缩处理 - 目标尺寸: ${MAX_IMAGE_WIDTH}x${MAX_IMAGE_HEIGHT}`)
@@ -259,7 +259,7 @@ async function compressImage(
       buffer: compressedBuffer,
       mimeType: finalMimeType,
       compressionInfo,
-    };
+    }
   } catch (error) {
     // If compression fails, return original
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -269,7 +269,7 @@ async function compressImage(
       buffer: imageBuffer,
       mimeType,
       compressionInfo: `(compression failed: ${errorMessage})`,
-    };
+    }
   }
 }
 
@@ -428,7 +428,7 @@ async function extractExcelContent(filePath: string): Promise<string> {
       text = text.replace(/\s+/g, ' ')
       // Trim leading and trailing whitespace
       return text.trim()
-    };
+    }
 
     // Process each sheet
     workbook.SheetNames.forEach((sheetName, index) => {
@@ -444,7 +444,7 @@ async function extractExcelContent(filePath: string): Promise<string> {
         header: 1,
         defval: '', // Use empty string for empty cells
         blankrows: false, // Skip completely blank rows
-      });
+      })
 
       // Format as tab-separated values
       jsonData.forEach((row: unknown[], _rowIndex) => {
@@ -677,7 +677,7 @@ async function extractPdfWithPdf2json(filePath: string): Promise<string> {
         clearTimeout(timeout)
         const parserError = errData && typeof errData === 'object' ? (errData as { parserError?: string }).parserError : undefined
         reject(new Error(`pdf2json parsing error: ${parserError || 'unknown error'}`))
-      });
+      })
 
       pdfParser.on('pdfParser_dataReady', (pdfData: unknown) => {
         clearTimeout(timeout)
@@ -698,7 +698,7 @@ async function extractPdfWithPdf2json(filePath: string): Promise<string> {
                 })
               }
               fullText += '\n' // Add newline after each page
-            });
+            })
           }
 
           const cleanedText = fullText.trim()
@@ -714,7 +714,7 @@ async function extractPdfWithPdf2json(filePath: string): Promise<string> {
 
       // Load PDF file
       pdfParser.loadPDF(filePath)
-    });
+    })
   } catch (importError) {
     throw new Error(`Failed to load pdf2json library: ${importError}`)
   }
@@ -734,7 +734,7 @@ async function extractPdfWithPdfParse(filePath: string): Promise<string> {
   const parsePromise = pdfParse(dataBuffer)
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error('pdf-parse timeout after 4 seconds')), PDF_PARSE_TIMEOUT)
-  });
+  })
 
   const pdfData = await Promise.race([parsePromise, timeoutPromise])
 
@@ -869,7 +869,7 @@ export async function processSingleFileContent(
             )
           }
           return line
-        });
+        })
 
         const contentRangeTruncated = endLine < originalLineCount
         const isTruncated = contentRangeTruncated || linesWereTruncatedInLength
@@ -934,7 +934,7 @@ export async function processSingleFileContent(
               return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]'
             }
             return line
-          });
+          })
 
           const contentRangeTruncated = endLine < originalLineCount
           const isTruncated = contentRangeTruncated || linesWereTruncatedInLength
@@ -986,7 +986,7 @@ export async function processSingleFileContent(
               return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]'
             }
             return line
-          });
+          })
 
           const contentRangeTruncated = endLine < originalLineCount
           const isTruncated = contentRangeTruncated || linesWereTruncatedInLength
@@ -1040,7 +1040,7 @@ export async function processSingleFileContent(
               return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]'
             }
             return line
-          });
+          })
 
           const contentRangeTruncated = endLine < originalLineCount
           const isTruncated = contentRangeTruncated || linesWereTruncatedInLength

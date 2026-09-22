@@ -18,11 +18,11 @@ let tempRoot = ''
 
 beforeEach(async () => {
   tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster-editable-document-'))
-});
+})
 
 afterEach(async () => {
   await fs.promises.rm(tempRoot, { recursive: true, force: true })
-});
+})
 
 async function hasFpdf2(): Promise<boolean> {
   const python = resolveDocumentRuntime('python')
@@ -37,7 +37,7 @@ async function hasFpdf2(): Promise<boolean> {
       },
       error => resolve(!error),
     )
-  });
+  })
 }
 
 describe('editableDocument', () => {
@@ -50,7 +50,7 @@ describe('editableDocument', () => {
     expect(extracted.sourceFormat).toBe('text')
     expect(extracted.content).toContain('# brief')
     expect(extracted.content).toContain('第二段')
-  });
+  })
 
   it('exports markdown edits to a valid docx package', async () => {
     const output = path.join(tempRoot, 'brief.edited.docx')
@@ -66,7 +66,7 @@ describe('editableDocument', () => {
     const documentXml = await zip.file('word/document.xml')?.async('string')
     expect(documentXml).toContain('Brief')
     expect(documentXml).toContain('• Done')
-  });
+  })
 
   it('exports markdown edits to a PDF file or fails loud when fpdf2 is missing', async () => {
     const output = path.join(tempRoot, 'brief.edited.pdf')
@@ -78,7 +78,7 @@ describe('editableDocument', () => {
         output,
       )).rejects.toThrow(/fpdf2|PDF 编辑稿导出失败/)
       expect(fs.existsSync(output)).toBe(false)
-      return;
+      return
     }
 
     await exportEditedDocument(path.join(tempRoot, 'brief.pdf'), '# Brief\n\n中文内容', output)
@@ -88,4 +88,4 @@ describe('editableDocument', () => {
     expect(header).toContain('xref')
     expect(header).not.toContain('??')
   }, 60_000)
-});
+})

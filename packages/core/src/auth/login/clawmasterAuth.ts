@@ -67,7 +67,7 @@ export class ClawMasterAuthHandler {
       return {
         success: false,
         error: `ClawMaster 认证失败: ${error}`,
-      };
+      }
     }
 
     if (!token) {
@@ -75,7 +75,7 @@ export class ClawMasterAuthHandler {
       return {
         success: false,
         error: 'ClawMaster 认证回调中缺少 token 参数',
-      };
+      }
     }
 
     if (!user_id) {
@@ -83,7 +83,7 @@ export class ClawMasterAuthHandler {
       return {
         success: false,
         error: 'ClawMaster 认证回调中缺少 user_id 参数',
-      };
+      }
     }
 
     // 打印token和user_id（按要求）
@@ -92,7 +92,7 @@ export class ClawMasterAuthHandler {
       success: true,
       token,
       user_id,
-    };
+    }
   }
 }
 

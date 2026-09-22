@@ -43,7 +43,7 @@ describe('cleanupLastRequestsDir', () => {
     process.env.NODE_ENV = 'production'
     delete process.env.VITEST
     _resetLastRequestsCleanupLatch()
-  });
+  })
 
   afterEach(() => {
     if (prevHome !== undefined) process.env.HOME = prevHome
@@ -56,7 +56,7 @@ describe('cleanupLastRequestsDir', () => {
     if (prevVitest !== undefined) process.env.VITEST = prevVitest
     fs.rmSync(tmpHome, { recursive: true, force: true })
     _resetLastRequestsCleanupLatch()
-  });
+  })
 
   function makeFile(name: string, ageMs: number): string {
     const dir = getLastRequestsDir()
@@ -71,7 +71,7 @@ describe('cleanupLastRequestsDir', () => {
   it('returns 0 when the dump dir does not exist (first ever run)', async () => {
     const removed = await cleanupLastRequestsDir()
     expect(removed).toBe(0)
-  });
+  })
 
   it('deletes only json/tmp files older than the retention window', async () => {
     const fresh = makeFile('2026-05-25_gemini-stream_kept.json', 0)
@@ -86,7 +86,7 @@ describe('cleanupLastRequestsDir', () => {
     expect(fs.existsSync(stale)).toBe(false)
     expect(fs.existsSync(staleTmp)).toBe(false)
     expect(fs.existsSync(unrelated)).toBe(true) // we don't touch non-json/tmp
-  });
+  })
 
   it('honours the once-per-process latch', async () => {
     makeFile('2026-05-20_gemini-stream_a.json', 5 * 86_400_000)
@@ -100,7 +100,7 @@ describe('cleanupLastRequestsDir', () => {
     makeFile('2026-05-21_gemini-stream_c.json', 5 * 86_400_000)
     const second = await cleanupLastRequestsDir()
     expect(second).toBe(0)
-  });
+  })
 
   it('respects custom retentionMs (1 hour)', async () => {
     makeFile('2026-05-20_gemini-stream_2h.json', 2 * 60 * 60 * 1000)
@@ -108,7 +108,7 @@ describe('cleanupLastRequestsDir', () => {
 
     const removed = await cleanupLastRequestsDir(Date.now(), 60 * 60 * 1000)
     expect(removed).toBe(1)
-  });
+  })
 
   it('skips entirely under VITEST env (defensive — caller already guarded)', async () => {
     // Re-enable the test-mode short-circuit and make sure we don't sweep.
@@ -118,5 +118,5 @@ describe('cleanupLastRequestsDir', () => {
 
     const removed = await cleanupLastRequestsDir()
     expect(removed).toBe(0)
-  });
+  })
 })

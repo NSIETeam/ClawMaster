@@ -52,7 +52,7 @@ async function startIsolated(adminToken?: string): Promise<{ base: string; serve
     server.listen(0, '127.0.0.1', () => {
       server.off('error', reject)
       resolve()
-    });
+    })
   })
   servers.push(server)
   const port = (server.address() as AddressInfo).port
@@ -63,7 +63,7 @@ beforeEach(() => {
   for (const k of ENV_KEYS) prevEnv[k] = process.env[k]
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-park-ep-'))
   servers = []
-});
+})
 
 afterEach(async () => {
   await Promise.all(
@@ -141,7 +141,7 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
     expect(body.park.id).toMatch(/^park_/)
     expect(body.park.name).toBe('中关村科技园')
     expect(body.park.adminUserIds).toEqual(['admin-1'])
-  });
+  })
 
   it('POST /enterprise/park rejects without admin token', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -150,7 +150,7 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
       { name: 'Unauthorized Park' },
     )
     expect(status).toBe(401)
-  });
+  })
 
   it('POST /enterprise/park/invite creates an invite code', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -171,7 +171,7 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
     expect(body.invite.code).toHaveLength(8)
     expect(body.invite.maxUses).toBe(5)
     expect(body.invite.active).toBe(true)
-  });
+  })
 
   it('POST /enterprise/park/join: enterprise joins via valid invite code', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -193,7 +193,7 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
     expect(status).toBe(200)
     expect(body.parkId).toBe(parkBody.park.id)
     expect(body.enterpriseId).toBe('ent-42')
-  });
+  })
 
   it('POST /enterprise/park/join rejects invalid invite code', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -203,13 +203,13 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
     )
     expect(status).toBe(403)
     expect(body.error).toBeTruthy()
-  });
+  })
 
   it('POST /enterprise/park/join rejects without arguments', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
     const { status } = await postJSON(base, '/enterprise/park/join', {})
     expect(status).toBe(400)
-  });
+  })
 
   it('POST /enterprise/park/services/request auto-routes to specialist', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -237,7 +237,7 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
     expect(status).toBe(201)
     expect(body.request.status).toBe('assigned')
     expect(body.request.assignedTo).toBe('repair-guy')
-  });
+  })
 
   it('POST /enterprise/park/services/request falls back to admin when no specialist', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -263,7 +263,7 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
     expect(status).toBe(201)
     expect(body.request.status).toBe('assigned')
     expect(body.request.assignedTo).toBe('park-admin')
-  });
+  })
 
   it('GET /enterprise/park/services lists requests and specialists', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -301,7 +301,7 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
     expect(body.requests).toHaveLength(1)
     expect(body.specialists).toHaveLength(1)
     expect(body.specialists[0].userId).toBe('s1')
-  });
+  })
 
   it('POST /enterprise/park/services/request rejects cross-organization spoofing', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -324,7 +324,7 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
     )
 
     expect(status).toBe(403)
-  });
+  })
 
   it('POST /enterprise/park/services/assign is admin-only', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -340,7 +340,7 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
       { parkId: parkBody.park.id, userId: 'bad-guy', serviceTypes: ['安保'] },
     )
     expect(status).toBe(401)
-  });
+  })
 
   it('POST /enterprise/park/services/assign with admin token succeeds', async () => {
     const { base } = await startIsolated(ADMIN_TOKEN)
@@ -358,5 +358,5 @@ describe('Park endpoints', { timeout: 30_000 }, () => {
     expect(status).toBe(201)
     expect(body.specialist.userId).toBe('good-guy')
     expect(body.specialist.serviceTypes.sort()).toEqual(['保洁', '绿化'])
-  });
+  })
 })

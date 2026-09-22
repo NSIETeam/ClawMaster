@@ -159,7 +159,7 @@ export class MCPResponseGuard {
         const parentDir = path.dirname(currentDir)
         if (parentDir === currentDir) break // 已到达文件系统根目录
         currentDir = parentDir
-        depth++;
+        depth++
       }
     } catch (_error) {
       // 如果查找失败，继续使用备选方案
@@ -219,7 +219,7 @@ export class MCPResponseGuard {
         parts,
         contentGenerator,
         config,
-      );
+      )
       logger.info(`[MCPResponseGuard] Estimated tokens for response: ${result.estimatedTokens}`)
     } catch (error) {
       logger.warn(`[MCPResponseGuard] Failed to estimate tokens: ${error}`)
@@ -234,7 +234,7 @@ export class MCPResponseGuard {
 
     if (originalSize <= this.maxResponseSize && result.estimatedTokens <= estimatedRemainingTokens * 0.5) {
       // 响应大小合理，无需处理
-      logger.info('[MCPResponseGuard] Response is within safe limits, no processing needed');
+      logger.info('[MCPResponseGuard] Response is within safe limits, no processing needed')
       return result
     }
 
@@ -249,7 +249,7 @@ export class MCPResponseGuard {
         estimatedRemainingTokens,
         contentGenerator,
         config,
-      );
+      )
     } else if (contextRemaining < this.contextLowThreshold * 100) {
       // 上下文不足：适度处理
       logger.warn(`[MCPResponseGuard] Context low (${contextRemaining.toFixed(1)}% remaining). Applying moderate truncation.`)
@@ -260,7 +260,7 @@ export class MCPResponseGuard {
         estimatedRemainingTokens,
         contentGenerator,
         config,
-      );
+      )
     } else if (originalSize > this.maxResponseSize) {
       // 响应过大：使用文件存储
       logger.warn(`[MCPResponseGuard] Response exceeds max size (${originalSizeKB}KB > ${(this.maxResponseSize / 1024).toFixed(2)}KB). Using file storage.`)
@@ -271,7 +271,7 @@ export class MCPResponseGuard {
         estimatedRemainingTokens,
         contentGenerator,
         config,
-      );
+      )
     }
 
     return result
@@ -297,7 +297,7 @@ export class MCPResponseGuard {
       contentGenerator,
       config,
       true, // forceTruncateGuidance
-    );
+    )
   }
 
   /**
@@ -325,7 +325,7 @@ export class MCPResponseGuard {
           estimatedRemainingTokens,
           contentGenerator,
           config,
-        );
+        )
       } else {
         // 可以截断处理
         return this.truncateResponse(
@@ -334,7 +334,7 @@ export class MCPResponseGuard {
           '上下文空间不足，响应已被截断。使用搜索工具从文件中获取详细信息。',
           originalSize,
           estimatedRemainingTokens,
-        );
+        )
       }
     }
 
@@ -367,7 +367,7 @@ export class MCPResponseGuard {
         '响应过大且无法存储为临时文件，已被激进截断。建议使用搜索工具获取特定信息。',
         originalSize,
         estimatedRemainingTokens,
-      );
+      )
     }
 
     try {
@@ -426,7 +426,7 @@ export class MCPResponseGuard {
         forceTruncateGuidance,
         storedAsPlainText,
         storedAsHtml,
-      );
+      )
 
       // 返回简化的响应 + 指导
       const simplifiedPart: Part = {
@@ -457,7 +457,7 @@ export class MCPResponseGuard {
         '响应过大且文件存储失败，已被截断。',
         originalSize,
         estimatedRemainingTokens,
-      );
+      )
     }
   }
 
@@ -773,7 +773,7 @@ read_file(
       // 用引号包装使其成为有效的JSON字符串
       const jsonStr = '"' + text + '"'
       return JSON.parse(jsonStr)
-  } catch {
+    } catch {
       // 如果JSON.parse失败，使用手动转义处理
       let result = text
 
@@ -818,7 +818,7 @@ read_file(
       'form', 'fieldset', 'legend', 'label',
       'pre', 'code', 'blockquote', 'hr', 'br',
       'script', 'style', 'meta', 'link', 'title',
-    ];
+    ]
 
     // 为块级元素的开标签和闭标签前添加换行
     for (const tag of blockElements) {
@@ -924,7 +924,7 @@ read_file(
           const truncatedText = part.text.substring(
             0,
             Math.max(50, remainingSize - 20), // 保留至少50个字符
-          );
+          )
           result.push({
             text: truncatedText + '\n... [TRUNCATED - use search_file_content to find specific information]',
           })

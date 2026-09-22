@@ -18,7 +18,7 @@ describe('桌面应用更新源', () => {
     expect(url.protocol).toBe('https:')
     expect(url.origin).toBe('https://59.110.154.44:7777')
     expect(url.pathname).toBe('/clawmaster-releases/latest.json')
-  });
+  })
 
   it('GitHub 清单、兜底 API 与手动发布页指向新的源码与发布仓库', () => {
     expect(GITHUB_MANIFEST_URL).toBe(
@@ -30,13 +30,13 @@ describe('桌面应用更新源', () => {
     expect(RELEASE_PAGE_URL).toBe(
       'https://github.com/NSIETeam/clawmaster-new/releases/latest',
     )
-  });
+  })
 
   it('保留旧发布仓清单作为已安装旧版本的兼容入口', () => {
     expect(LEGACY_GITHUB_MANIFEST_URL).toBe(
       'https://github.com/Felix201209/clawmaster-releases/releases/latest/download/latest.json',
     )
-  });
+  })
 
   it('允许把显式 HTTPS 企业镜像放在 GitHub 前面，并自动去重', () => {
     expect(resolveManifestUrls('https://updates.example.com/clawmaster/latest.json')).toEqual([
@@ -50,7 +50,7 @@ describe('桌面应用更新源', () => {
       GITHUB_MANIFEST_URL,
       LEGACY_GITHUB_MANIFEST_URL,
     ])
-  });
+  })
 
   it.each([
     'http://updates.example.com/latest.json',
@@ -63,5 +63,5 @@ describe('桌面应用更新源', () => {
       GITHUB_MANIFEST_URL,
       LEGACY_GITHUB_MANIFEST_URL,
     ])
-  });
+  })
 })

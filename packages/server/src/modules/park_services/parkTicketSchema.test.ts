@@ -429,5 +429,5 @@ describe('park ticket schema contributor', () => {
         defaultOrganizationId: "org'; DROP TABLE it_tickets; --",
       }),
     ).toThrow('Invalid default organization id for park ticket schema')
-  });
+  })
 })

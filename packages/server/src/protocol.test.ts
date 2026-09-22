@@ -26,12 +26,12 @@ describe('isClientToServer 守卫', () => {
     expect(
       isClientToServer({ type: 'subscribe', payload: { sessionId: 'x' } }),
     ).toBe(true)
-  });
+  })
 
   it('null / undefined → false', () => {
     expect(isClientToServer(null)).toBe(false)
     expect(isClientToServer(undefined)).toBe(false)
-  });
+  })
 
   it('字符串 / 数字 / 数组 → false', () => {
     expect(isClientToServer('hello')).toBe(false)
@@ -40,20 +40,20 @@ describe('isClientToServer 守卫', () => {
     expect(isClientToServer([{ type: 'x', payload: {} }])).toBe(false)
     expect(isClientToServer(['a', 'b'])).toBe(false)
     expect(isClientToServer([])).toBe(false)
-  });
+  })
 
   it('缺 type → false', () => {
     expect(isClientToServer({ payload: {} })).toBe(false)
-  });
+  })
 
   it('缺 payload → false', () => {
     expect(isClientToServer({ type: 'list_sessions' })).toBe(false)
-  });
+  })
 
   it('type 非 string → false', () => {
     expect(isClientToServer({ type: 123, payload: {} })).toBe(false)
     expect(isClientToServer({ type: null, payload: {} })).toBe(false)
-  });
+  })
 })
 
 describe('validateClientPayload 形状校验（第二道闸）', () => {
@@ -68,7 +68,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
         },
       }),
     ).toBeNull()
-  });
+  })
 
   it('accepts bounded authorized enterprise context and rejects forged oversized payloads', () => {
     expect(
@@ -104,7 +104,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
         },
       }),
     ).toContain('authorizedContext')
-  });
+  })
 
   it('客户端不得伪造 feishu 来源（飞书消息只允许由服务端适配器注入）', () => {
     expect(
@@ -117,7 +117,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
         },
       }),
     ).toContain('feishu')
-  });
+  })
 
   it('send_user_message：content 传字符串 / null / 对象 → 拒绝', () => {
     for (const content of ['不是数组', null, { type: 'text', value: 'x' }]) {
@@ -147,7 +147,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
         payload: { sessionId: 's1', content: [null], source: 'local' },
       }),
     ).not.toBeNull()
-  });
+  })
 
   it('send_user_message：sessionId 空 / source 非法 → 拒绝', () => {
     expect(
@@ -170,13 +170,13 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
         },
       }),
     ).not.toBeNull()
-  });
+  })
 
   it('未知 type → 拒绝', () => {
     expect(
       validateClientPayload({ type: 'nope_type', payload: {} }),
     ).not.toBeNull()
-  });
+  })
 
   it('subscribe / cancel / set_model：sessionId 缺失或非字符串 → 拒绝', () => {
     expect(
@@ -197,7 +197,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
         payload: { sessionId: 's1', model: 'm1' },
       }),
     ).toBeNull()
-  });
+  })
 
   it('save_custom_model：必填字段缺失 → 拒绝；齐全 → 通过', () => {
     expect(
@@ -241,7 +241,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
         },
       }),
     ).not.toBeNull()
-  });
+  })
 
   it('delete_session：sessionId 缺失 → 拒绝；齐全 → 通过', () => {
     expect(
@@ -253,7 +253,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
         payload: { sessionId: 's1' },
       }),
     ).toBeNull()
-  });
+  })
 
   it('rename_session：sessionId/title 校验（空白 title 拒绝，齐全通过）', () => {
     // sessionId 缺失
@@ -284,7 +284,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
         payload: { sessionId: 's1', title: '新名' },
       }),
     ).toBeNull()
-  });
+  })
 
   it('payload 非对象（null / 字符串）→ 拒绝', () => {
     expect(
@@ -293,7 +293,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
     expect(
       validateClientPayload({ type: 'get_history', payload: 'x' }),
     ).not.toBeNull()
-  });
+  })
 
   it('v1.7 企业关联和自动 Skill 操作只接受非空链接/候选 ID', () => {
     expect(validateClientPayload({
@@ -317,7 +317,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
       expect(validateClientPayload({ type, payload: { candidateId: '' } })).not.toBeNull()
     }
   })
-});
+})
 
 describe('frame 构造器', () => {
   it('恒等返回入参', () => {
@@ -326,13 +326,13 @@ describe('frame 构造器', () => {
       payload: { protocolVersion: '1', serverVersion: '0.1.0' },
     }
     expect(frame(f)).toBe(f)
-  });
+  })
 })
 
 describe('HTTP_ROUTES 与常量', () => {
   it('sessionHistory 拼串正确', () => {
     expect(HTTP_ROUTES.sessionHistory('abc')).toBe('/sessions/abc/history')
-  });
+  })
 
   it('静态路由值', () => {
     expect(HTTP_ROUTES.health).toBe('/health')
@@ -340,13 +340,13 @@ describe('HTTP_ROUTES 与常量', () => {
     expect(HTTP_ROUTES.models).toBe('/models')
     expect(HTTP_ROUTES.enterpriseIdentity).toBe('/internal/enterprise-identity')
     expect(HTTP_ROUTES.ws).toBe('/ws')
-  });
+  })
 
   it('PROTOCOL_VERSION / DEFAULT_PORT / DEFAULT_HOST 冒烟', () => {
     expect(PROTOCOL_VERSION).toBe('1')
     expect(DEFAULT_PORT).toBe(7637)
     expect(DEFAULT_HOST).toBe('127.0.0.1')
-  });
+  })
 })
 
 describe('validateClientPayload：斜杠命令帧（P3）', () => {
@@ -364,7 +364,7 @@ describe('validateClientPayload：斜杠命令帧（P3）', () => {
         payload: { sessionId: 's1', name: 'about' },
       }),
     ).toBeNull()
-  });
+  })
 
   it('run_slash_command 缺 sessionId / name、args 非法 → 拒绝', () => {
     expect(
@@ -385,7 +385,7 @@ describe('validateClientPayload：斜杠命令帧（P3）', () => {
         payload: { sessionId: 's1', name: 'kb', args: 42 },
       }),
     ).toContain('args')
-  });
+  })
 
   it('list_slash_commands 空对象 payload 通过，非对象拒绝', () => {
     expect(
@@ -394,7 +394,7 @@ describe('validateClientPayload：斜杠命令帧（P3）', () => {
     expect(
       validateClientPayload({ type: 'list_slash_commands', payload: null }),
     ).not.toBeNull()
-  });
+  })
 
   it('搜索配置接口只接受受支持 provider、HTTPS API 地址和字符串模型', () => {
     expect(
@@ -432,7 +432,7 @@ describe('validateClientPayload：斜杠命令帧（P3）', () => {
         payload: { provider: 'bing', monthlyRequestQuota: -1 },
       }),
     ).toContain('monthlyRequestQuota')
-  });
+  })
 })
 
 describe('validateClientPayload：执行授权', () => {
@@ -449,7 +449,7 @@ describe('validateClientPayload：执行授权', () => {
       type: 'set_authorization_mode',
       payload: { sessionId: 's1', mode: 'manual', scope: 'forever' },
     })).toContain('scope')
-  });
+  })
 })
 
 describe('validateClientPayload：工作目录', () => {
@@ -466,7 +466,7 @@ describe('validateClientPayload：工作目录', () => {
       type: 'set_session_workspace',
       payload: { sessionId: 's1', workspacePath: '   ' },
     })).toContain('workspacePath')
-  });
+  })
 
   it('项目级设置请求支持会话目录，并兼容旧客户端的空 payload', () => {
     expect(validateClientPayload({
@@ -485,7 +485,7 @@ describe('validateClientPayload：工作目录', () => {
       type: 'add_memory',
       payload: { sessionId: 's1', fact: '使用中文' },
     })).toBeNull()
-  });
+  })
 })
 
 describe('validateClientPayload：v1.7 产品工作区', () => {
@@ -498,7 +498,7 @@ describe('validateClientPayload：v1.7 产品工作区', () => {
       type: 'create_session',
       payload: { title: '会议', agentProfileId: { systemPrompt: 'evil' } },
     })).toContain('agentProfileId')
-  });
+  })
 
   it('create_session 的 clientRequestId 可选，存在时必须是非空字符串', () => {
     expect(validateClientPayload({
@@ -534,7 +534,7 @@ describe('validateClientPayload：v1.7 产品工作区', () => {
       type: 'join_enterprise',
       payload: { link: '', userId: 'u1', displayName: '林一' },
     })).toContain('link')
-  });
+  })
 
   it('企业邀请按 kind 校验职位或父子公司参数', () => {
     expect(validateClientPayload({
@@ -549,7 +549,7 @@ describe('validateClientPayload：v1.7 产品工作区', () => {
       type: 'create_enterprise_invite',
       payload: { kind: 'company_link', direction: 'parent_invites_child' },
     })).toBeNull()
-  });
+  })
 
   it('本地日程帧校验 action 所需字段', () => {
     expect(validateClientPayload({
@@ -568,7 +568,7 @@ describe('validateClientPayload：v1.7 产品工作区', () => {
       type: 'delete_schedule',
       payload: { id: '' },
     })).toContain('id')
-  });
+  })
 
   it('工作日志请求要求可对账 requestId，并限制最近天数', () => {
     expect(validateClientPayload({
@@ -587,5 +587,5 @@ describe('validateClientPayload：v1.7 产品工作区', () => {
       type: 'work_log_recent',
       payload: { requestId: 'recent-1', days: 0 },
     })).toContain('days')
-  });
+  })
 })

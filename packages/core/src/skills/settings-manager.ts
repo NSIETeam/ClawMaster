@@ -312,7 +312,7 @@ export class SettingsManager {
         ...settings,
         marketplaces: [...settings.marketplaces, config],
       }
-    });
+    })
   }
 
   /**

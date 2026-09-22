@@ -33,7 +33,7 @@ describe('federated A2A decision protocol', () => {
       grantedSources: ['enterprise_knowledge', 'schedules'],
       createdAt: '2026-08-12T12:00:00.000Z',
     })
-  });
+  })
 
   it('round-trips denial without a grant', () => {
     const content = buildFederationAtoaDecision({
@@ -48,7 +48,7 @@ describe('federated A2A decision protocol', () => {
       requestId: 'request_two',
       requestMessageId: 'message_two',
     })
-  });
+  })
 
   it('rejects malformed, expired-at-creation and unknown-source decisions', () => {
     expect(parseFederationAtoaDecision('ordinary message')).toBeNull()
@@ -68,5 +68,5 @@ describe('federated A2A decision protocol', () => {
         grantedSources: ['filesystem'],
       }),
     )).toBeNull()
-  });
+  })
 })

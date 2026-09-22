@@ -123,7 +123,7 @@ export class ProxyAuthManager {
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
-    });
+    })
   }
 
   private constructor() {
@@ -239,7 +239,7 @@ export class ProxyAuthManager {
         } else {
           // 简化：只在即将过期时提醒
           if (this.isTokenNearExpiry(300)) {
-            console.log('⚠️  Access credential expiring soon, auto-renewal in progress');
+            console.log('⚠️  Access credential expiring soon, auto-renewal in progress')
           }
         }
       } else {
@@ -343,7 +343,7 @@ export class ProxyAuthManager {
         isExpired: true,
         expiresAt: null,
         hasRefreshToken: false,
-      };
+      }
     }
 
     const now = Date.now()
@@ -354,7 +354,7 @@ export class ProxyAuthManager {
       isExpired,
       expiresAt: this.jwtTokenData.expiresAt,
       hasRefreshToken: !!this.jwtTokenData.refreshToken,
-    };
+    }
   }
 
   /**
@@ -429,7 +429,7 @@ export class ProxyAuthManager {
       expiresIn: 900, // 默认15分钟
       expiresAt: now + 900 * 1000,
       savedAt: new Date().toISOString(),
-    };
+    }
     this.saveJwtToken()
     if (process.env.CLAWMASTER_CODE_DEBUG === '1') console.log('[Login Check] Access credential updated')
   }
@@ -450,7 +450,7 @@ export class ProxyAuthManager {
       expiresIn: tokenData.expiresIn,
       expiresAt,
       savedAt: new Date().toISOString(),
-    };
+    }
     this.saveJwtToken()
 
     const timeRemainingFormatted = this.formatTimeRemaining(tokenData.expiresIn * 1000)
@@ -559,7 +559,7 @@ export class ProxyAuthManager {
         },
         body: JSON.stringify({
           refreshToken: this.jwtTokenData.refreshToken,
-        })
+        }),
       })
 
       if (!response.ok) {
@@ -588,7 +588,7 @@ export class ProxyAuthManager {
         expiresIn: result.data.expiresIn || 900,
         expiresAt: now + (result.data.expiresIn || 900) * 1000,
         savedAt: new Date().toISOString(),
-      };
+      }
 
       this.saveJwtToken()
 

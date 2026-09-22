@@ -204,7 +204,7 @@ function dryRunPool(
                             'storage_key',
                             'e2ee_nonce',
                             'created_at',
-                          ];
+                          ]
         return result([
           {
             table_name: tableName,
@@ -454,7 +454,7 @@ describe('verified SQLite PostgreSQL promotion', () => {
     expect(() => parsePostgresEnterprisePromotionArguments([])).toThrow(
       '--run is required',
     )
-  });
+  })
 
   it('validates every promoted table and rolls back a rehearsal', async () => {
     const { pool, client, statements } = dryRunPool()
@@ -475,7 +475,7 @@ describe('verified SQLite PostgreSQL promotion', () => {
       false,
     )
     expect(client.release).toHaveBeenCalledOnce()
-  });
+  })
 
   it('refuses to overwrite a PostgreSQL authority that already has accounts', async () => {
     const { pool, client, statements } = dryRunPool({ targetAccounts: 1 })
@@ -484,7 +484,7 @@ describe('verified SQLite PostgreSQL promotion', () => {
     ).rejects.toThrow('target is not empty')
     expect(statements.at(-1)).toBe('ROLLBACK')
     expect(client.release).toHaveBeenCalledOnce()
-  });
+  })
 
   it('refuses to overwrite a PostgreSQL authority that already has MLS state', async () => {
     const { pool, client, statements } = dryRunPool({ targetMlsEvents: 1 })
@@ -493,7 +493,7 @@ describe('verified SQLite PostgreSQL promotion', () => {
     ).rejects.toThrow('target is not empty')
     expect(statements.at(-1)).toBe('ROLLBACK')
     expect(client.release).toHaveBeenCalledOnce()
-  });
+  })
 
   it('atomically promotes MLS packages, epochs and exact transport cursors', async () => {
     const { pool, client, statements } = dryRunPool({ withMls: true })
@@ -556,7 +556,7 @@ describe('verified SQLite PostgreSQL promotion', () => {
       ),
     ).toBe(true)
     expect(statements.at(-1)).toBe('COMMIT')
-  });
+  })
 
   it('synthesizes generation one for verified legacy MLS imports', async () => {
     const { pool, client } = dryRunPool({
@@ -585,7 +585,7 @@ describe('verified SQLite PostgreSQL promotion', () => {
     expect(synthesizedSession?.[0]).toContain("1, $3, $4, 'active'")
     expect(synthesizedSession?.[1]).toEqual(expect.arrayContaining([1]))
     expect(eventInsert?.[1]?.[4]).toBe(1)
-  });
+  })
 
   it('rolls back every MLS row when a staged event is invalid', async () => {
     const { pool, statements } = dryRunPool({
@@ -608,7 +608,7 @@ describe('verified SQLite PostgreSQL promotion', () => {
       ),
     ).toBe(false)
     expect(statements).not.toContain('COMMIT')
-  });
+  })
 
   it('requires every staged attachment to have a verified S3 preparation', async () => {
     const { pool } = dryRunPool({ withAttachments: true })
@@ -637,7 +637,7 @@ describe('verified SQLite PostgreSQL promotion', () => {
         dryRun: true,
       }),
     ).rejects.toThrow(/verified S3 preparation/i)
-  });
+  })
 
   it('atomically promotes S3 metadata, both participant ACLs and the message reference', async () => {
     const { pool, statements } = dryRunPool({ withAttachments: true })
@@ -664,7 +664,7 @@ describe('verified SQLite PostgreSQL promotion', () => {
       ),
     ).toBe(true)
     expect(statements.at(-1)).toBe('COMMIT')
-  });
+  })
 
   it('preserves legacy invite validity while storing only a searchable hash', async () => {
     const { pool, client, statements } = dryRunPool({ withInvites: true })
@@ -698,5 +698,5 @@ describe('verified SQLite PostgreSQL promotion', () => {
     expect(
       statements.some(sql => sql.includes('invite_secret = COALESCE')),
     ).toBe(true)
-  });
+  })
 })

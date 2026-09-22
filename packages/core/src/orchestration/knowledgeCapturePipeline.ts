@@ -432,7 +432,7 @@ export class KnowledgeCapturePipeline {
         )
         : await this.currentKnowledgeCount()
       await this.incrementStatus('toolEvents', knowledgeResult)
-    });
+    })
   }
 
   async captureAfterAgent(input: AgentCaptureInput): Promise<void> {
@@ -483,7 +483,7 @@ export class KnowledgeCapturePipeline {
     }).catch((error) => {
       this.capturedPromptIds.delete(promptId)
       throw error
-    });
+    })
   }
 
   async captureSessionEnd(input: SessionCaptureInput): Promise<void> {
@@ -495,7 +495,7 @@ export class KnowledgeCapturePipeline {
       })
       const knowledgeResult = await this.storeSessionKnowledge(input)
       await this.incrementStatus('sessionEvents', knowledgeResult)
-    });
+    })
   }
 
   async getStatus(): Promise<KnowledgeCaptureStatus> {
@@ -570,7 +570,7 @@ export class KnowledgeCapturePipeline {
     const current = this.writeQueue.then(operation, operation)
     this.writeQueue = current.catch(async (error) => {
       await this.writeErrorStatus(error).catch(() => undefined)
-    });
+    })
     return current
   }
 
@@ -700,7 +700,7 @@ export class KnowledgeCapturePipeline {
       if (input.sessionId && event.sessionId !== input.sessionId) return false
       if (input.projectRoot && event.projectRoot !== input.projectRoot) return false
       return true
-    });
+    })
     const responseText = relevant
       .map((event) => {
         if (event.kind === 'agent') return event.responseText
@@ -817,7 +817,7 @@ export class KnowledgeCapturePipeline {
           updatedAt: timestamp,
           useCount: 0,
           occurrences: 1,
-        };
+        }
       await this.writeJsonAtomic(path.join(this.knowledgeDir, file), record)
       const indexEntry: KnowledgeIndexEntry = {
         id: record.id,

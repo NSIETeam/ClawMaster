@@ -115,7 +115,7 @@ describe('PostgreSQL registration authority', () => {
         ])
       }
       return result()
-    });
+    })
     const repository = createPostgresRegistrationRepository({
       pool,
       getAccount: vi.fn(),
@@ -143,7 +143,7 @@ describe('PostgreSQL registration authority', () => {
     expect(statements.map(({ sql }) => sql)).toEqual(
       expect.arrayContaining(['BEGIN', 'COMMIT']),
     )
-  });
+  })
 
   it('hashes SMS codes and rate limits challenge creation under a transaction lock', async () => {
     const { pool, statements } = poolWithClient(async (sql) => {
@@ -154,7 +154,7 @@ describe('PostgreSQL registration authority', () => {
         [],
         sql.includes('INSERT INTO sms_registration_challenges') ? 1 : 0,
       )
-    });
+    })
     const repository = createPostgresRegistrationRepository({
       pool,
       getAccount: vi.fn(),
@@ -180,7 +180,7 @@ describe('PostgreSQL registration authority', () => {
     )!
     expect(inserted.values).not.toContain('123456')
     expect(String(inserted.values[3])).not.toHaveLength(6)
-  });
+  })
 
   it('fails closed when a personal account still has tenant-bound E2EE state', async () => {
     const { pool, statements } = poolWithClient(async (sql) => {
@@ -229,7 +229,7 @@ describe('PostgreSQL registration authority', () => {
         ])
       }
       return result()
-    });
+    })
     const repository = createPostgresRegistrationRepository({
       pool,
       getAccount: vi.fn(),
@@ -248,7 +248,7 @@ describe('PostgreSQL registration authority', () => {
       statements.some(({ sql }) => sql.includes('UPDATE accounts SET')),
     ).toBe(false)
     expect(statements.map(({ sql }) => sql)).toContain('COMMIT')
-  });
+  })
 
   it('moves legal consent, consumes the invite and revokes sessions atomically', async () => {
     const { pool, statements } = poolWithClient(async (sql) => {
@@ -316,7 +316,7 @@ describe('PostgreSQL registration authority', () => {
         return result([], 1)
       }
       return result()
-    });
+    })
     const getAccount = vi.fn(async () => ({ id: 'acc_personal' }) as never)
     const repository = createPostgresRegistrationRepository({
       pool,
@@ -350,5 +350,5 @@ describe('PostgreSQL registration authority', () => {
       ),
     ).toBe(true)
     expect(statements.map(({ sql }) => sql)).toContain('COMMIT')
-  });
+  })
 })

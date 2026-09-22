@@ -85,7 +85,7 @@ describe('parseEnterpriseMlsKeyPackageInventory', () => {
         Date.parse('2026-08-03T00:00:00.000Z'),
       ),
     ).toThrow('KeyPackage inventory is invalid')
-  });
+  })
 })
 
 function mockE2eeCrypto(input: {
@@ -168,7 +168,7 @@ function deferred<T>(): {
   const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise
     reject = rejectPromise
-  });
+  })
   return { promise, resolve, reject }
 }
 
@@ -421,7 +421,7 @@ describe('EnterpriseClient', () => {
         return jsonResponse(202, { queued: true })
       }
       throw new Error(`unexpected request: ${method} ${url}`)
-    });
+    })
     const crypto = mockFederationCrypto()
     const client = new EnterpriseClient(
       fetchMock as typeof fetch,
@@ -465,7 +465,7 @@ describe('EnterpriseClient', () => {
       serverScope: 'https://enterprise.clawmaster.test',
       accountId: ACCOUNT.id,
     })
-  });
+  })
 
   it('refuses to import the current account as a federation contact', async () => {
     const ownCard = {
@@ -510,7 +510,7 @@ describe('EnterpriseClient', () => {
       '不能把自己的联邦联系码添加为联系人',
     )
     expect(fetchMock).toHaveBeenCalledTimes(3)
-  });
+  })
 
   it('fails closed instead of downgrading when the server advertises MLS private chat', async () => {
     const fetchMock = vi
@@ -540,7 +540,7 @@ describe('EnterpriseClient', () => {
       client.sendDirectMessage('acc_peer', 'must not downgrade'),
     ).rejects.toThrow('MLS private-message transport is not active')
     expect(fetchMock).toHaveBeenCalledTimes(2)
-  });
+  })
 
   it('wires the inactive MLS ciphertext transport without enabling MLS chat', async () => {
     const keyPackageBytes = Buffer.from('local-key-package').toString('base64')
@@ -694,7 +694,7 @@ describe('EnterpriseClient', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[4]?.[1]?.body))).toMatchObject({
       keyPackageReference,
     })
-  });
+  })
 
   it('rejects MLS transport responses whose cursor or account-pair binding is invalid', async () => {
     const conversationId = enterpriseMlsDirectConversationId({
@@ -768,7 +768,7 @@ describe('EnterpriseClient', () => {
     await expect(
       client.listMlsKeyPackageInventory('device-1'),
     ).rejects.toThrow('KeyPackage inventory is invalid')
-  });
+  })
 
   it('paginates sorted inbound MLS peers with an opaque account cursor', async () => {
     const firstPage = Array.from(
@@ -810,7 +810,7 @@ describe('EnterpriseClient', () => {
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe(
       'https://enterprise.clawmaster.test/enterprise/e2ee/mls/inbound-conversations?deviceId=device-1&limit=500&afterPeerAccountId=peer-0499',
     )
-  });
+  })
 
   it('treats an empty peer KeyPackage inventory as a recoverable transport state', async () => {
     const fetchMock = vi
@@ -846,7 +846,7 @@ describe('EnterpriseClient', () => {
     await expect(
       client.claimMlsKeyPackage('device-1', 'acc_peer'),
     ).resolves.toBeNull()
-  });
+  })
   it('密码登录规范化服务器地址并保存会话，后续请求自动携带 Bearer token', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(200, API_V2_HEALTH))
@@ -868,7 +868,7 @@ describe('EnterpriseClient', () => {
     expect((fetchMock.mock.calls[2]?.[1] as RequestInit).headers).toMatchObject({
       authorization: 'Bearer session-token',
     })
-  });
+  })
 
   it('保留 HTTPS 部署路径前缀，并在前缀下请求全部企业接口', async () => {
     const fetchMock = vi.fn()
@@ -889,7 +889,7 @@ describe('EnterpriseClient', () => {
       'https://enterprise.clawmaster.test/company/enterprise/health',
       'https://enterprise.clawmaster.test/company/enterprise/auth/login',
     ])
-  });
+  })
 
   it('首次注册先请求挑战，再提交姓名、密码和验证码并保存会话', async () => {
     const fetchMock = vi.fn()
@@ -928,7 +928,7 @@ describe('EnterpriseClient', () => {
       challengeId: 'sms_1', code: '042731', name: '员工一号', password: 'registered-password', legalConsent: true,
       legalDocuments: LEGAL_DOCUMENTS,
     })
-  });
+  })
 
   it('普通注册不发送邀请码，且只要求个人注册能力', async () => {
     const fetchMock = vi.fn()
@@ -955,7 +955,7 @@ describe('EnterpriseClient', () => {
     expect(challenge.registrationMode).toBe('personal')
     expect(JSON.parse((fetchMock.mock.calls[1]?.[1] as RequestInit).body as string))
       .toEqual({ phone: '13800138000' })
-  });
+  })
 
   it('个人账号登录后用 Bearer 会话提交邀请码，并用服务端返回值刷新当前身份', async () => {
     const personalAccount = {
@@ -995,7 +995,7 @@ describe('EnterpriseClient', () => {
     expect(request.method).toBe('POST')
     expect(request.headers).toMatchObject({ authorization: 'Bearer personal-token' })
     expect(JSON.parse(request.body as string)).toEqual({ inviteCode: 'Ab3D-k9Pq-Z7xY' })
-  });
+  })
 
   it('uses the member session to read enterprise module update manifests', async () => {
     const manifest = {
@@ -1029,7 +1029,7 @@ describe('EnterpriseClient', () => {
       .toBe('https://enterprise.clawmaster.test/enterprise/modules/updates/client')
     expect((fetchMock.mock.calls[2]?.[1] as RequestInit).headers)
       .toMatchObject({ authorization: 'Bearer session-token' })
-  });
+  })
 
   it('uses the member session to resolve a distribution-bound update policy', async () => {
     const result = {
@@ -1057,7 +1057,7 @@ describe('EnterpriseClient', () => {
       distributionId: 'customer-managed',
       currentVersion: '1.9.10',
     })
-  });
+  })
 
   it('加入企业已提交但响应断线时，用原 Bearer 会话对账并提交企业身份', async () => {
     const personalAccount = {
@@ -1097,7 +1097,7 @@ describe('EnterpriseClient', () => {
       .toBe('https://enterprise.clawmaster.test/enterprise/auth/me')
     expect((fetchMock.mock.calls[3]?.[1] as RequestInit).headers)
       .toMatchObject({ authorization: 'Bearer personal-token' })
-  });
+  })
 
   it('加入企业请求断线但服务端确认仍为个人账号时，保留个人会话供安全重试', async () => {
     const personalAccount = {
@@ -1123,7 +1123,7 @@ describe('EnterpriseClient', () => {
     await expect(client.joinOrganization('Ab3D-k9Pq-Z7xY'))
       .rejects.toThrow('无法连接企业服务器：socket disconnected before commit')
     expect(client.authenticatedAccountSnapshot()).toEqual(personalAccount)
-  });
+  })
 
   it('加入企业响应断线且无法读取当前身份时，返回可识别的不确定状态错误', async () => {
     const personalAccount = {
@@ -1149,7 +1149,7 @@ describe('EnterpriseClient', () => {
     await expect(client.joinOrganization('Ab3D-k9Pq-Z7xY'))
       .rejects.toBeInstanceOf(EnterpriseJoinStateUncertainError)
     expect(client.authenticatedAccountSnapshot()).toEqual(personalAccount)
-  });
+  })
 
   it('企业账号不能从客户端重复加入另一企业', async () => {
     const fetchMock = vi.fn()
@@ -1169,7 +1169,7 @@ describe('EnterpriseClient', () => {
     await expect(client.joinOrganization('Ab3D-k9Pq-Z7xY'))
       .rejects.toThrow('当前账号已经属于企业')
     expect(fetchMock).toHaveBeenCalledTimes(2)
-  });
+  })
 
   it('支持手机号验证码登录并保存会话', async () => {
     const fetchMock = vi.fn()
@@ -1202,7 +1202,7 @@ describe('EnterpriseClient', () => {
       'https://enterprise.clawmaster.test/enterprise/auth/sms/request',
       'https://enterprise.clawmaster.test/enterprise/auth/sms/verify',
     ])
-  });
+  })
 
   it('登录后按消息幂等键上报 provider 返回的 Token 用量', async () => {
     const fetchMock = vi.fn()
@@ -1235,7 +1235,7 @@ describe('EnterpriseClient', () => {
       outputTokens: 34,
       totalTokens: 46,
     })
-  });
+  })
 
   it('未登录时不发送 Token 用量', async () => {
     const fetchMock = vi.fn()
@@ -1247,7 +1247,7 @@ describe('EnterpriseClient', () => {
       inputTokens: 1, outputTokens: 2, totalTokens: 3,
     })).rejects.toThrow('登录已失效')
     expect(fetchMock).not.toHaveBeenCalled()
-  });
+  })
 
   it('登录后读取当前账号的 Token 使用画像', async () => {
     const profile = {
@@ -1283,7 +1283,7 @@ describe('EnterpriseClient', () => {
       'https://enterprise.clawmaster.test/enterprise/usage/profile?period=7',
     )
     expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ method: 'GET' })
-  });
+  })
 
   it('读取 Token 画像时在客户端收敛统计周期', async () => {
     const fetchMock = vi.fn()
@@ -1297,7 +1297,7 @@ describe('EnterpriseClient', () => {
       '统计周期必须是 1 到 365 天',
     )
     expect(fetchMock).not.toHaveBeenCalled()
-  });
+  })
 
   it('登录后把自动提炼的知识条目写入组织知识库', async () => {
     const fetchMock = vi.fn()
@@ -1326,7 +1326,7 @@ describe('EnterpriseClient', () => {
       content: '合同审查先核对违约条款。',
       confidence: 0.9,
     })
-  });
+  })
 
   it('登录后从组织知识库读取企业记忆并映射字段', async () => {
     const fetchMock = vi.fn()
@@ -1374,7 +1374,7 @@ describe('EnterpriseClient', () => {
     const init = fetchMock.mock.calls[2]?.[1] as RequestInit
     expect(init.method).toBe('GET')
     expect(init.headers).toMatchObject({ authorization: 'Bearer session-token' })
-  });
+  })
 
   it('企业管理员可修订知识并读取版本历史', async () => {
     const knowledgeRow = {
@@ -1436,7 +1436,7 @@ describe('EnterpriseClient', () => {
     ])
     expect(fetchMock.mock.calls[3]?.[0])
       .toBe('https://enterprise.clawmaster.test/enterprise/knowledge/12/revisions')
-  });
+  })
 
   it('登录成员通过 main 内的会话令牌读取完整组织架构', async () => {
     const organizationView = {
@@ -1472,7 +1472,7 @@ describe('EnterpriseClient', () => {
     expect((fetchMock.mock.calls[2]?.[1] as RequestInit).headers).toMatchObject({
       authorization: 'Bearer session-token',
     })
-  });
+  })
 
   it('企业在线心跳使用成员会话并要求服务端支持 presence capability', async () => {
     const fetchMock = vi.fn()
@@ -1496,7 +1496,7 @@ describe('EnterpriseClient', () => {
     expect((fetchMock.mock.calls[2]?.[1] as RequestInit).headers).toMatchObject({
       authorization: 'Bearer session-token',
     })
-  });
+  })
 
   it('未登录时不会请求组织架构接口', async () => {
     const fetchMock = vi.fn()
@@ -1505,7 +1505,7 @@ describe('EnterpriseClient', () => {
 
     await expect(client.getOrganizationView()).rejects.toThrow('登录已失效')
     expect(fetchMock).not.toHaveBeenCalled()
-  });
+  })
 
   it('登录成员使用会话令牌读取 A2A 待处理请求', async () => {
     const requests = [{
@@ -1573,7 +1573,7 @@ describe('EnterpriseClient', () => {
     expect((fetchMock.mock.calls[2]?.[1] as RequestInit).headers).toMatchObject({
       authorization: 'Bearer session-token',
     })
-  });
+  })
 
   it('refuses to decrypt a message whose sender key differs from the pinned directory', async () => {
     const peerDevice = {
@@ -1632,7 +1632,7 @@ describe('EnterpriseClient', () => {
       'sender key is not trusted',
     )
     expect(e2ee.decryptMessage).not.toHaveBeenCalled()
-  });
+  })
 
   it('管理员删除账号后返回删除结果', async () => {
     const fetchMock = vi.fn()
@@ -1656,7 +1656,7 @@ describe('EnterpriseClient', () => {
     expect(fetchMock.mock.calls[2]?.[0])
       .toBe('https://enterprise.clawmaster.test/enterprise/accounts/acc_staff')
     expect((fetchMock.mock.calls[2]?.[1] as RequestInit).method).toBe('DELETE')
-  });
+  })
 
   it('企业管理员可读取并手动换新 7 天中心引入链接', async () => {
     const firstInvite = {
@@ -1706,7 +1706,7 @@ describe('EnterpriseClient', () => {
     expect((fetchMock.mock.calls[3]?.[1] as RequestInit).headers).toMatchObject({
       authorization: 'Bearer admin-token',
     })
-  });
+  })
 
   it('拒绝带账号密码、查询参数或非 http(s) 协议的服务器地址', async () => {
     const client = new EnterpriseClient(vi.fn() as typeof fetch)
@@ -1730,7 +1730,7 @@ describe('EnterpriseClient', () => {
     expect(client.snapshot().serverUrl).toBe('http://127.0.0.1:7777')
     client.restore({ serverUrl: 'http://localhost:7777', token: null })
     expect(client.snapshot().serverUrl).toBe('http://localhost:7777')
-  });
+  })
 
   it('服务端 401 时清除已恢复的失效会话', async () => {
     const fetchMock = vi.fn()
@@ -1743,7 +1743,7 @@ describe('EnterpriseClient', () => {
     const session = await client.getSession()
     expect(session.account).toBeNull()
     expect(client.snapshot().token).toBeNull()
-  });
+  })
 
   it('恢复会话遇到断网时保留服务器地址和 token，返回可重试的连接错误', async () => {
     const client = new EnterpriseClient(
@@ -1760,7 +1760,7 @@ describe('EnterpriseClient', () => {
       serverUrl: 'https://enterprise.clawmaster.test',
       token: 'restored-token',
     })
-  });
+  })
 
   it('任一受保护 API 返回 401 都清除 token 并通知全局会话失效', async () => {
     const onSessionInvalidated = vi.fn()
@@ -1779,7 +1779,7 @@ describe('EnterpriseClient', () => {
 
     expect(client.snapshot().token).toBeNull()
     expect(onSessionInvalidated).toHaveBeenCalledOnce()
-  });
+  })
 
   it('管理员修改自己的密码后，即使 PATCH 成功也立即退出已被服务端撤销的会话', async () => {
     const admin = { ...ACCOUNT, id: 'acc_admin', isAdmin: true }
@@ -1801,7 +1801,7 @@ describe('EnterpriseClient', () => {
     expect(client.snapshot().token).toBeNull()
     expect(client.authenticatedAccountSnapshot()).toBeNull()
     expect(onSessionInvalidated).toHaveBeenCalledOnce()
-  });
+  })
 
   it('管理员自降权后不把 isAdmin=false 的更新响应当作仍有效会话', async () => {
     const admin = { ...ACCOUNT, id: 'acc_admin', isAdmin: true }
@@ -1824,7 +1824,7 @@ describe('EnterpriseClient', () => {
     expect(client.snapshot().token).toBeNull()
     expect(client.authenticatedAccountSnapshot()).toBeNull()
     expect(onSessionInvalidated).toHaveBeenCalledOnce()
-  });
+  })
 
   it('只读账号快照仅反映中心服务已验证的当前账号，且调用方不能篡改内部状态', async () => {
     const updated = { ...ACCOUNT, name: '新姓名', role: 'engineer', tags: ['updated'] }
@@ -1846,7 +1846,7 @@ describe('EnterpriseClient', () => {
 
     await client.updateAccount(ACCOUNT.id, { name: '新姓名', role: 'engineer' })
     expect(client.authenticatedAccountSnapshot()).toEqual(updated)
-  });
+  })
 
   it.each([
     [{ status: 'degraded', apiVersion: 2, capabilities: API_V2_HEALTH.capabilities }],
@@ -1868,7 +1868,7 @@ describe('EnterpriseClient', () => {
       serverUrl: 'https://enterprise.clawmaster.test',
       token: null,
     })
-  });
+  })
 
   it('请求注册验证码前验证注册与邀请能力，缺失时不发送手机号和邀请码', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(200, {
@@ -1885,7 +1885,7 @@ describe('EnterpriseClient', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce()
     expect(client.snapshot().token).toBeNull()
-  });
+  })
 
   it('提交短信注册前也验证岗位邀请能力，缺失时不发送验证码和密码', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(200, {
@@ -1906,7 +1906,7 @@ describe('EnterpriseClient', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce()
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://enterprise.clawmaster.test/enterprise/health')
-  });
+  })
 
   it.each([
     {
@@ -1957,7 +1957,7 @@ describe('EnterpriseClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(fetchMock.mock.calls[2]?.[0]).toBe('https://enterprise.clawmaster.test/enterprise/health')
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith(endpoint))).toBe(false)
-  });
+  })
 
   it('发送附件时验证新能力并保留附件元数据', async () => {
     const attachment = {
@@ -2049,7 +2049,7 @@ describe('EnterpriseClient', () => {
     expect(fetchMock.mock.calls[7]?.[0]).toBe(
       'https://enterprise.clawmaster.test/enterprise/message-attachments/attachment-1',
     )
-  });
+  })
 
   it('园区服务请求兼容旧服务器能力列表，不因缺少 park_service_push 预先失效', async () => {
     const fetchMock = vi.fn()
@@ -2073,7 +2073,7 @@ describe('EnterpriseClient', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(fetchMock.mock.calls[2]?.[0]).toBe('https://enterprise.clawmaster.test/enterprise/park-services/push')
-  });
+  })
 
   it('园区视图读取直接请求业务接口，不因旧 health capabilities 缺 park_membership_v1 隐藏入口', async () => {
     const park = {
@@ -2100,7 +2100,7 @@ describe('EnterpriseClient', () => {
     expect((fetchMock.mock.calls[0]?.[1] as RequestInit).headers).toMatchObject({
       authorization: 'Bearer session-token',
     })
-  });
+  })
 
   it('恢复会话遇到旧服务器时保留服务器地址和 token，并返回明确的升级提示', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(200, { status: 'ok' }))
@@ -2117,7 +2117,7 @@ describe('EnterpriseClient', () => {
       token: 'restored-token',
     })
     expect((fetchMock.mock.calls[0]?.[1] as RequestInit).headers).not.toHaveProperty('authorization')
-  });
+  })
 
   it('同一服务器复用成功握手，切换服务器地址后重新验证', async () => {
     const fetchMock = vi.fn()
@@ -2149,7 +2149,7 @@ describe('EnterpriseClient', () => {
       serverUrl: 'https://b.clawmaster.test',
       token: 'server-b-token',
     })
-  });
+  })
 
   it('切换服务器时取消旧健康检查，绝不把旧登录凭据发往新服务器', async () => {
     const firstHealth = deferred<Response>()
@@ -2167,7 +2167,7 @@ describe('EnterpriseClient', () => {
         }))
       }
       throw new Error(`unexpected request: ${url}`)
-    });
+    })
     const client = new EnterpriseClient(fetchMock as typeof fetch)
 
     const staleLogin = client.loginWithPassword('https://a.clawmaster.test', 'staff-a', 'password-a')
@@ -2184,7 +2184,7 @@ describe('EnterpriseClient', () => {
       serverUrl: 'https://b.clawmaster.test',
       token: 'server-b-token',
     })
-  });
+  })
 
   it('旧登录响应晚到时不能覆盖较新的服务器 token 和账号', async () => {
     const firstLogin = deferred<Response>()
@@ -2201,7 +2201,7 @@ describe('EnterpriseClient', () => {
         }))
       }
       throw new Error(`unexpected request: ${url}`)
-    });
+    })
     const client = new EnterpriseClient(fetchMock as typeof fetch)
 
     const staleLogin = client.loginWithPassword('https://a.clawmaster.test', 'staff-a', 'password-a')
@@ -2221,7 +2221,7 @@ describe('EnterpriseClient', () => {
       serverUrl: 'https://b.clawmaster.test',
       token: 'server-b-token',
     })
-  });
+  })
 
   it('旧注册响应晚到时不能覆盖更新的登录会话', async () => {
     const staleRegistration = deferred<Response>()
@@ -2249,7 +2249,7 @@ describe('EnterpriseClient', () => {
         }))
       }
       throw new Error(`unexpected request: ${url}`)
-    });
+    })
     const client = new EnterpriseClient(fetchMock as typeof fetch)
 
     await client.requestRegistrationCode('https://a.clawmaster.test', '13800138000', 'Ab3D-k9Pq-Z7xY')
@@ -2276,7 +2276,7 @@ describe('EnterpriseClient', () => {
       serverUrl: 'https://b.clawmaster.test',
       token: 'server-b-token',
     })
-  });
+  })
 
   it('旧恢复请求返回 401 时不能清除后来登录的新会话', async () => {
     const staleSession = deferred<Response>()
@@ -2294,7 +2294,7 @@ describe('EnterpriseClient', () => {
         }))
       }
       throw new Error(`unexpected request: ${url}`)
-    });
+    })
     const client = new EnterpriseClient(fetchMock as typeof fetch, onSessionInvalidated)
     client.restore({ serverUrl: 'https://a.clawmaster.test', token: 'restored-a-token' })
 
@@ -2311,7 +2311,7 @@ describe('EnterpriseClient', () => {
     })
     expect(client.snapshot().token).toBe('server-b-token')
     expect(onSessionInvalidated).not.toHaveBeenCalled()
-  });
+  })
 
   it('远端退出断网时仍持久化已经清空的本地 token', async () => {
     const fetchMock = vi.fn()
@@ -2333,7 +2333,7 @@ describe('EnterpriseClient', () => {
       serverUrl: 'https://enterprise.clawmaster.test',
       token: null,
     }])
-  });
+  })
 
   it('通过受版本保护的企业 Skill 市场协议查询、投稿、安装、评分和读取榜单', async () => {
     const marketHealth = {
@@ -2392,7 +2392,7 @@ describe('EnterpriseClient', () => {
       success: true,
       eventId: 'a'.repeat(64),
     })
-  });
+  })
 
   it('uploads E2EE ciphertext before sending PostgreSQL attachment references', async () => {
     const ciphertext = Buffer.alloc(32, 5)
@@ -2504,7 +2504,7 @@ describe('EnterpriseClient', () => {
     expect(JSON.stringify(messageBody)).not.toContain(
       encryptedAttachment.ciphertext,
     )
-  });
+  })
 
   it('uploads an MLS attachment through resumable presigned multipart requests', async () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-mls-upload-'))
@@ -2824,5 +2824,5 @@ describe('EnterpriseClient', () => {
       'https://objects.clawmaster.test/signed-object',
     )
     expect(e2ee.decryptAttachment).not.toHaveBeenCalled()
-  });
+  })
 })

@@ -121,7 +121,7 @@ export type PostgresSmsRegistrationIssueResult =
   | {
     state: 'cooldown' | 'hourly-limit'
     retryAfterSeconds: number
-  };
+  }
 
 export type PostgresSmsRegistrationCompletionResult =
   | { state: 'registered'; account: PostgresEnterpriseAccountView }
@@ -135,7 +135,7 @@ export type PostgresSmsRegistrationCompletionResult =
         | 'invite-unavailable'
         | 'license-admission-invalid'
         | 'seat-limit-exceeded'
-  };
+  }
 
 export type PostgresOrganizationJoinResult =
   | { state: 'joined'; account: PostgresEnterpriseAccountView }
@@ -450,7 +450,7 @@ export function createPostgresRegistrationRepository(input: {
       const row = inserted.rows[0]
       if (!row) throw new Error('organization invite was not created')
       return inviteView(row, code, now)
-    });
+    })
   }
 
   async function getOrganizationInvite(
@@ -616,7 +616,7 @@ export function createPostgresRegistrationRepository(input: {
           ? { id: invite.organization_id, name: invite.organization_name! }
           : null,
       }
-    });
+    })
   }
 
   async function discardSmsRegistrationChallenge(
@@ -890,7 +890,7 @@ export function createPostgresRegistrationRepository(input: {
         client,
       )
       return { accountId, organizationId }
-    });
+    })
 
     if ('result' in completed) return completed.result
     const account = await input.getAccount(
@@ -1114,7 +1114,7 @@ export function createPostgresRegistrationRepository(input: {
         client,
       )
       return { state: 'joined', organizationId: invite.organization_id }
-    });
+    })
     if (moved.state !== 'joined') return moved
     const account = await input.getAccount(accountId, moved.organizationId)
     if (!account) throw new Error('joined account could not be loaded')

@@ -20,7 +20,7 @@ afterEach(async () => {
       .splice(0)
       .map(dir => fs.rm(dir, { recursive: true, force: true })),
   )
-});
+})
 
 describe('WorkLogger 工作结果日志', () => {
   it('测试和企业自定义目录不会污染真实 ~/.clawmaster-user', () => {
@@ -77,7 +77,7 @@ describe('WorkLogger 工作结果日志', () => {
       userInput: '调研三家竞品并给出结论',
       details: '已完成三家竞品的功能、价格和定位对比。',
     })
-  });
+  })
 
   it('落盘前统一脱敏工作结果中的凭证', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-worklog-redact-'))
@@ -104,7 +104,7 @@ describe('WorkLogger 工作结果日志', () => {
     expect(raw).not.toContain('bearer-secret')
     expect(raw).not.toContain('details-secret')
     expect(raw).toContain('[REDACTED]')
-  });
+  })
 
   it('finds relevant prior work results without returning unrelated logs', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-worklog-'))
@@ -140,7 +140,7 @@ describe('WorkLogger 工作结果日志', () => {
     expect(matches).toHaveLength(1)
     expect(matches[0].scope).toBe('session')
     expect(matches[0].entry.taskTitle).toBe('session memory injection')
-  });
+  })
 
   it('applies recency decay when ranking matching worklog entries', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-worklog-'))
@@ -178,7 +178,7 @@ describe('WorkLogger 工作结果日志', () => {
 
     expect(matches).toHaveLength(2)
     expect(matches[0].entry.taskTitle).toBe('newest memory retrieval')
-  });
+  })
 
   it('marks project matches separately from global history', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-worklog-'))
@@ -218,5 +218,5 @@ describe('WorkLogger 工作结果日志', () => {
     expect(matches.find(m => m.scope === 'project')?.entry.taskTitle).toBe(
       'project scoped memory recall',
     )
-  });
+  })
 })

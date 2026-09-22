@@ -127,7 +127,7 @@ describe('FeishuAdapter 双向链路', () => {
     store = new InMemorySessionStore()
     appFrames = []
     log = { cards: [], markdowns: [] }
-  });
+  })
 
   /** 把 adapter 的 broadcast 接到一个全局 app 订阅者（模拟 Electron WS 连接）。 */
   function newAdapter(opts: {
@@ -175,7 +175,7 @@ describe('FeishuAdapter 双向链路', () => {
     expect(log.cards).toHaveLength(1)
     expect(log.cards[0].chatId).toBe('oc_chat_A')
     expect(log.cards[0].finalized).toContain('mock')
-  });
+  })
 
   it('未授权 sender → 不进会话源，只回一句拒绝', async () => {
     const { adapter, fake } = newAdapter({ fire: () => makeFakeGateway(log) })
@@ -191,7 +191,7 @@ describe('FeishuAdapter 双向链路', () => {
     // 拒绝语经 sendMarkdown 直接回推。
     expect(log.markdowns).toHaveLength(1)
     expect(log.markdowns[0].text).toContain('🛡️')
-  });
+  })
 
   it('企业关闭飞书自动回答后 fail closed，不落会话也不触发 runtime', async () => {
     const fake = makeFakeGateway(log)
@@ -217,7 +217,7 @@ describe('FeishuAdapter 双向链路', () => {
     expect(log.markdowns).toEqual([
       expect.objectContaining({ text: expect.stringContaining('关闭飞书自动回答') }),
     ])
-  });
+  })
 
   it('接了 runtime → runtime.run 被调用，其流式帧回推飞书', async () => {
     const { adapter, fake } = newAdapter({ fire: () => makeFakeGateway(log) })
@@ -270,7 +270,7 @@ describe('FeishuAdapter 双向链路', () => {
     // core 流式经 streamBridge 回推飞书卡片。
     expect(log.cards).toHaveLength(1)
     expect(log.cards[0].finalized).toContain('core 真实回复')
-  });
+  })
 
   it('新飞书会话 → 首条消息先懒初始化真实 runtime，不得回 mock', async () => {
     const fake = makeFakeGateway(log)
@@ -334,7 +334,7 @@ describe('FeishuAdapter 双向链路', () => {
     expect(log.cards).toHaveLength(1)
     expect(log.cards[0].finalized).toContain('首条消息的真实回复')
     expect(log.cards[0].finalized).not.toContain('mock')
-  });
+  })
 
   it('app→飞书回推：pushToFeishu 调 sendMarkdown', async () => {
     const { adapter } = newAdapter({ fire: () => makeFakeGateway(log) })
@@ -346,7 +346,7 @@ describe('FeishuAdapter 双向链路', () => {
       text: 'app 内发的话',
       replyTo: undefined,
     })
-  });
+  })
 
   it('无凭证 → start fail-soft，不抛错、未连接', async () => {
     const adapter = new FeishuAdapter({
@@ -362,7 +362,7 @@ describe('FeishuAdapter 双向链路', () => {
       },
       e => expect(String(e)).toContain('未启动'),
     )
-  });
+  })
 
   it('同一会话连发两条消息 → 串行执行（第二轮等第一轮结束），顺序正确', async () => {
     const { adapter, fake } = newAdapter({ fire: () => makeFakeGateway(log) })
@@ -374,7 +374,7 @@ describe('FeishuAdapter 双向链路', () => {
     let releaseFirst!: () => void
     const gate = new Promise<void>((r) => {
       releaseFirst = r
-    });
+    })
     let calls = 0
     const runtime: SessionRuntime = {
       async run(input: MessageContent) {
@@ -412,7 +412,7 @@ describe('FeishuAdapter 双向链路', () => {
     releaseFirst()
     await flush()
     expect(events).toEqual(['start1:第一条', 'end1', 'start2:第二条', 'end2'])
-  });
+  })
 
   it('同一飞书 event 重推只落库并执行一次', async () => {
     const { adapter, fake } = newAdapter({ fire: () => makeFakeGateway(log) })
@@ -440,7 +440,7 @@ describe('FeishuAdapter 双向链路', () => {
     expect(calls).toBe(1)
     expect(store.getHistory(pre.sessionId).filter(item => item.role === 'user'))
       .toHaveLength(1)
-  });
+  })
 
   it('同一飞书会话的每轮回复引用各自触发消息，而不是永远引用第一条', async () => {
     const { adapter, fake } = newAdapter({ fire: () => makeFakeGateway(log) })
@@ -496,7 +496,7 @@ describe('FeishuAdapter 双向链路', () => {
       'om_reply_1',
       'om_reply_2',
     ])
-  });
+  })
 
   it('上一轮飞书定稿未完成时，下一轮不能绕过会话回推队列先起卡', async () => {
     const fake = makeFakeGateway(log)
@@ -504,11 +504,11 @@ describe('FeishuAdapter 双向链路', () => {
     let releaseFirst!: () => void
     const firstGate = new Promise<void>((resolve) => {
       releaseFirst = resolve
-    });
+    })
     let markFirstFinalizing!: () => void
     const firstFinalizing = new Promise<void>((resolve) => {
       markFirstFinalizing = resolve
-    });
+    })
     fake.gw.sendStreamingCardWithFooter = async (
       _chatId,
       initialContent,
@@ -527,7 +527,7 @@ describe('FeishuAdapter 双向链路', () => {
           return true
         },
       }
-    };
+    }
     const adapter = new FeishuAdapter({
       store,
       broadcast: (sessionId, frame) => store.publish(sessionId, frame),
@@ -585,9 +585,9 @@ describe('FeishuAdapter 双向链路', () => {
     expect(events.indexOf('finalize:第一轮:end')).toBeLessThan(
       events.indexOf('card:第二轮'),
     )
-  });
+  })
 
   // appFrames 仅作占位说明：broadcast 直接走 store.publish，
   // 上面各用例已通过 store.getHistory / log 断言广播效果。
   void appFrames
-});
+})

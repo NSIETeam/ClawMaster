@@ -22,7 +22,7 @@ function wasiImport(name: string): Uint8Array {
 describe('customer module scanner', () => {
   it('accepts a valid module with no ambient imports', async () => {
     await expect(scanCustomerModuleWasm(EMPTY_WASM)).resolves.toEqual({ imports: [], exports: ['clawmaster_run'] })
-  });
+  })
 
   it('rejects malformed binaries and files whose digest differs', async () => {
     await expect(scanCustomerModuleWasm(Uint8Array.from([1, 2, 3]))).rejects.toThrow(/WASM/)
@@ -32,14 +32,14 @@ describe('customer module scanner', () => {
       { 'module.wasm': '0'.repeat(64) },
       new Map([['module.wasm', EMPTY_WASM]]),
     )).rejects.toThrow(/hash mismatch/)
-  });
+  })
 
   it('rejects undeclared and missing file bodies', async () => {
     await expect(verifyCustomerModuleFileHashes(
       { 'module.wasm': '0'.repeat(64) },
       new Map([['extra.bin', EMPTY_WASM]]),
     )).rejects.toThrow(/undeclared/)
-  });
+  })
 
   it('requires an explicit 64 MiB-or-lower maximum for linear memory', async () => {
     const unboundedMemory = Uint8Array.from([
@@ -48,12 +48,12 @@ describe('customer module scanner', () => {
       10,6,1,4,0,65,0,11,
     ])
     await expect(scanCustomerModuleWasm(unboundedMemory)).rejects.toThrow(/declare a maximum/)
-  });
+  })
 
   it('allows only the non-network, non-filesystem WASI preview1 subset', async () => {
     await expect(scanCustomerModuleWasm(wasiImport('args_sizes_get'))).resolves.toMatchObject({
       imports: ['wasi_snapshot_preview1.args_sizes_get'],
     })
     await expect(scanCustomerModuleWasm(wasiImport('sock_accept'))).rejects.toThrow(/forbidden WASM import/)
-  });
+  })
 })

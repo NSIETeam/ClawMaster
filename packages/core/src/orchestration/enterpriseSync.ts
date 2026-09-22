@@ -281,7 +281,7 @@ export class EnterpriseSync {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
-      });
+      })
 
     // 5. 更新 teams 的 memberUserIds
     const teamMap = new Map(teams.map(t => [t.id, t]))
@@ -310,7 +310,7 @@ export class EnterpriseSync {
         return { ...lic, revokedAt: now }
       }
       return lic
-    });
+    })
 
     // 为在职用户生成新 License（如果已有则更新，不重复创建）
     const existingLicenseUserIds = new Set(preservedLicenses.map(l => l.assigneeUserId))
@@ -320,7 +320,7 @@ export class EnterpriseSync {
         const isAdmin = user.id === config.adminUserId
         const userRole = inferUserRole(user.id, isAdmin, teams, user.role)
         return createLicenseForUser(user.id, config.companyId, userRole, user.teamIds[0])
-      });
+      })
 
     // 更新已有在职用户的 License（角色可能变了）
     for (const user of users) {
@@ -528,7 +528,7 @@ export class EnterpriseSync {
         return false
       }
       return true
-    });
+    })
 
     // 2. 检查用户变更（拉取用户列表，只更新有变化的）
     const feishuUsers = await this.fetchAllUsers(token)

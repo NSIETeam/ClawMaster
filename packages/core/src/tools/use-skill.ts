@@ -142,7 +142,7 @@ Important:
         console.log(`[use_skill] Loaded ${skills.length} skills from SkillLoader:`)
         skills.forEach((s: Skill) => {
           console.log(`  - ${s.name} (id: ${s.id}, isCustom: ${s.isCustom}, location: ${s.location?.type || 'N/A'})`)
-        });
+        })
       }
 
       // 更健壮的匹配逻辑：支持多种格式
@@ -164,7 +164,7 @@ Important:
         if (skillName.includes(normalizedSearchName)) return true
 
         return false
-      });
+      })
 
       if (matchingSkills.length === 0) {
         const availableNames = skills.map((s: Skill) => s.name).sort().join(', ')

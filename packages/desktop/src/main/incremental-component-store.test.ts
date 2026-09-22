@@ -55,7 +55,7 @@ function artifact(body: string, overrides: Partial<IncrementalUpdateArtifact> = 
 describe('incremental component store', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
-  });
+  })
 
   it('installs, unpacks and exposes a skills component bundle', async () => {
     const { root, userDir } = await tempRoot()
@@ -94,7 +94,7 @@ describe('incremental component store', () => {
     expect(registry.components['component-skills-ppt-v2'].version).toBe('2026.07.25')
     expect(registry.components['component-skills-ppt-v2'].exposedPath).toBe(result.record.exposedPath)
     expect(registry.receipts).toHaveLength(1)
-  });
+  })
 
   it('keeps previous component metadata in the next receipt for rollback', async () => {
     const { root } = await tempRoot()
@@ -130,7 +130,7 @@ describe('incremental component store', () => {
     const registry = await readIncrementalComponentRegistry(root)
     expect(registry.components['component-skills-ppt-v2'].version).toBe('2026.07.26')
     expect(registry.receipts).toHaveLength(2)
-  });
+  })
 
   it('rejects path traversal ids, unsafe bundle paths and sha256 mismatches', async () => {
     const { root } = await tempRoot()
@@ -162,5 +162,5 @@ describe('incremental component store', () => {
       downloadedFilePath: source,
       rootDir: root,
     })).resolves.toMatchObject({ ok: false })
-  });
+  })
 })

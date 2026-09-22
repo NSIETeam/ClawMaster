@@ -43,7 +43,7 @@ async function main(): Promise<void> {
     process.stdout.write(
       `${JSON.stringify({ rolledBack: true, dataDirectory })}\n`,
     )
-    return;
+    return
   }
   const maximumSchemaVersion = Number(requiredArgument('--max-schema'))
   if (!Number.isInteger(maximumSchemaVersion) || maximumSchemaVersion <= 0) {
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
     process.stdout.write(
       `${JSON.stringify({ verified: true, archivePath, ...result })}\n`,
     )
-    return;
+    return
   }
   if (command !== 'restore') {
     throw new Error('command must be verify, restore or rollback')
@@ -113,4 +113,4 @@ main().catch((error) => {
     `${error instanceof Error ? error.message : String(error)}\n`,
   )
   process.exitCode = 1
-});
+})

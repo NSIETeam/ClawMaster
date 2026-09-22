@@ -51,7 +51,7 @@ function applyGeminiNativeThinking(
     generationConfig.thinkingConfig = isGemini3
       ? { thinkingLevel: 'minimal' }
       : { thinkingBudget: 0 }
-    return;
+    return
   }
   if (isGemini3) {
     const level = effortToGeminiLevel(thinking.effort) || 'medium'
@@ -198,7 +198,7 @@ export function buildGeminiNativeRequestBody(
           const part: NativePart = { thought: true, text: p.reasoning }
           if (typeof p.thoughtSignature === 'string') part.thoughtSignature = p.thoughtSignature
           cleanParts.push(part)
-          continue;
+          continue
         }
         // 2) Raw Gemini `thought:true` part — pass through with signature.
         if (p.thought === true) {
@@ -206,7 +206,7 @@ export function buildGeminiNativeRequestBody(
           const part: NativePart = { thought: true, text: p.text }
           if (typeof p.thoughtSignature === 'string') part.thoughtSignature = p.thoughtSignature
           cleanParts.push(part)
-          continue;
+          continue
         }
         // 3) Canonical GenAI shapes — pass through, but verify the inner
         // shape is non-empty. The error
@@ -216,7 +216,7 @@ export function buildGeminiNativeRequestBody(
         if (typeof p.text === 'string') {
           // GenAI rejects '' for some models; keep only meaningful text.
           if (p.text.length > 0) cleanParts.push({ text: p.text })
-          continue;
+          continue
         }
         if (p.inlineData && typeof p.inlineData === 'object') {
           const inline = p.inlineData as Record<string, unknown>
@@ -237,7 +237,7 @@ export function buildGeminiNativeRequestBody(
               cleanParts.push({
                 text: `[Previous tool call] ${fc.name}(${argsStr})`,
               })
-              continue;
+              continue
             }
             const part: NativePart = {
               functionCall: {
@@ -276,7 +276,7 @@ export function buildGeminiNativeRequestBody(
                 cleanParts.push({
                   text: `[Previous tool result] ${fr.name} → ${resultStr}`,
                 })
-                continue;
+                continue
               }
             }
             const responseValue =
@@ -312,7 +312,7 @@ export function buildGeminiNativeRequestBody(
       out.push(role ? { role, parts: cleanParts } : { parts: cleanParts })
     }
     return out
-  };
+  }
 
   const body: Record<string, unknown> = {
     contents: sanitiseContentsForGemini(Array.isArray(request.contents) ? request.contents as NativeContent[] : undefined),
@@ -344,7 +344,7 @@ export function buildGeminiNativeRequestBody(
     // Anything weirder — let it through verbatim; the upstream error message
     // will still be informative if the structure is unrecognised.
     return raw
-  };
+  }
 
   if (reqConfig.systemInstruction) {
     const normalised = normaliseSystemInstruction(reqConfig.systemInstruction)

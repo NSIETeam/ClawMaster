@@ -27,7 +27,7 @@ describe('enterprise service topology', () => {
       attachments: { backend: 'encrypted-filesystem' },
       cache: { backend: 'memory' },
     })
-  });
+  })
 
   it('requires shared S3 attachment storage for PostgreSQL enterprise mode', () => {
     expect(() =>
@@ -41,7 +41,7 @@ describe('enterprise service topology', () => {
         sqliteDatabasePath: '/var/lib/clawmaster/data.db',
       }),
     ).toThrow(/PostgreSQL.*S3/i)
-  });
+  })
 
   it('requires a shared Redis-compatible cache for PostgreSQL enterprise mode', () => {
     expect(() =>
@@ -57,7 +57,7 @@ describe('enterprise service topology', () => {
         sqliteDatabasePath: '/var/lib/clawmaster/data.db',
       }),
     ).toThrow(/PostgreSQL.*Redis/i)
-  });
+  })
 
   it('rejects mixed local and clustered storage backends', () => {
     expect(() =>
@@ -81,7 +81,7 @@ describe('enterprise service topology', () => {
         sqliteDatabasePath: '/var/lib/clawmaster/data.db',
       }),
     ).toThrow(/SQLite.*memory cache/i)
-  });
+  })
 
   it('builds a credential-free stateless topology for multiple replicas', () => {
     const topology = resolveEnterpriseServiceTopology({
@@ -113,5 +113,5 @@ describe('enterprise service topology', () => {
       cache: { backend: 'redis', target: 'cache.internal:6379/2' },
     })
     expect(JSON.stringify(description)).not.toMatch(/secret|default@/i)
-  });
+  })
 })

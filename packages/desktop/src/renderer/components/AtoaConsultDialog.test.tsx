@@ -99,7 +99,7 @@ describe('双方 ClawMaster 协商发起弹窗', () => {
       },
     })
     expect(onSent).toHaveBeenCalledOnce()
-  });
+  })
 
   it('未选择资料也允许生成无资料提案，但明确不读取数据源', async () => {
     const collectContext = vi.fn(async () => ({
@@ -126,5 +126,5 @@ describe('双方 ClawMaster 协商发起弹窗', () => {
     fireEvent.click(screen.getByRole('button', { name: '让我的 ClawMaster 生成提案' }))
     await screen.findByText('可先询问双方候选时间。')
     expect(collectContext).toHaveBeenCalledWith([])
-  });
+  })
 })

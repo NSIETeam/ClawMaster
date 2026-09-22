@@ -33,7 +33,7 @@ describe('product context', () => {
       expect.arrayContaining(['agent:base', 'model:byok', 'skill:built-in', 'skill:auto-create']),
     )
     expect(context.capabilities).not.toContain('organization:read')
-  });
+  })
 
   it('enterprise UI context still uses BYOK during internal testing', () => {
     const owner = createEnterpriseContext({
@@ -63,7 +63,7 @@ describe('product context', () => {
     })
     expect(member.capabilities).toContain('organization:read')
     expect(member.capabilities).not.toContain('organization:manage')
-  });
+  })
 })
 
 describe('manager profile and organization framework', () => {
@@ -99,7 +99,7 @@ describe('manager profile and organization framework', () => {
       incumbentUserId: 'manager-1',
     })
     expect(workspace.context.positionId).toBe(ceo?.id)
-  });
+  })
 
   it('accepts explicit department names without duplicating blanks', () => {
     const workspace = buildManagerWorkspace({
@@ -114,7 +114,7 @@ describe('manager profile and organization framework', () => {
       '设计部',
       '客户部',
     ])
-  });
+  })
 })
 
 describe('Ed25519 compact invites', () => {
@@ -184,7 +184,7 @@ describe('Ed25519 compact invites', () => {
       companyId: 'company-a',
       direction: 'parent_invites_child',
     })
-  });
+  })
 
   it('rejects tampering and expiration, and produces a route-ready redemption receipt', () => {
     const signer = new Ed25519InviteService({
@@ -212,7 +212,7 @@ describe('Ed25519 compact invites', () => {
       kind: 'company',
     })
     expect(receipt.redeemedAt).toBe(clock().toISOString())
-  });
+  })
 })
 
 describe('parent and subsidiary organization links', () => {
@@ -240,7 +240,7 @@ describe('parent and subsidiary organization links', () => {
       expect.objectContaining({ id: localCompanyId, parentCompanyId: 'company-parent' }),
     ]))
     expect(organization.companies).toHaveLength(1)
-  });
+  })
 
   it('子公司请求被总公司接受后，子公司挂到本地公司下', () => {
     const linked = applyCompanyLinkRedemption(organization, localCompanyId, {
@@ -259,7 +259,7 @@ describe('parent and subsidiary organization links', () => {
       ownerUserId: 'owner-child',
       parentCompanyId: localCompanyId,
     }))
-  });
+  })
 
   it('拒绝非父子公司用途、目标不匹配、自关联和重复关联', () => {
     const base = {
@@ -289,7 +289,7 @@ describe('parent and subsidiary organization links', () => {
       ...base,
       inviteId: 'link-second',
     })).toThrow(/已关联|已有总公司/)
-  });
+  })
 })
 
 describe('schedule book', () => {
@@ -320,7 +320,7 @@ describe('schedule book', () => {
     expect(book.remove(teammate, afternoon.id)).toBe(false)
     expect(book.remove(felix, afternoon.id)).toBe(true)
     expect(book.listByDate(felix, '2026-07-12').map(event => event.title)).toEqual(['晨会'])
-  });
+  })
 
   it('rejects malformed dates and reversed time ranges', () => {
     const book = new ScheduleBook()
@@ -335,7 +335,7 @@ describe('schedule book', () => {
         endTime: '17:00',
       }),
     ).toThrow(/结束时间/)
-  });
+  })
 })
 
 describe('credit economics and model multiplier display', () => {
@@ -344,7 +344,7 @@ describe('credit economics and model multiplier display', () => {
     expect(purchaseCreditsFromFen(10_000)).toBe(10_000)
     expect(creditsToDeepSeekBudgetFen(10_000)).toBe(9_000)
     expect(() => purchaseCreditsFromFen(0)).toThrow(/金额/)
-  });
+  })
 
   it('stores multiplier precisely enough for display and rounds charges up to a whole credit', () => {
     const catalog = new ModelCreditCatalog([
@@ -359,5 +359,5 @@ describe('credit economics and model multiplier display', () => {
     expect(catalog.charge('deepseek-chat', 101)).toBe(101)
     expect(catalog.charge('premium-reasoner', 101)).toBe(455)
     expect(() => catalog.charge('missing', 100)).toThrow(/模型/)
-  });
+  })
 })

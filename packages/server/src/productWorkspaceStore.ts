@@ -92,7 +92,7 @@ export type IssueInviteInput =
     direction: 'parent_invites_child' | 'child_requests_parent'
     targetCompanyId?: string
     expiresInSeconds?: number
-  };
+  }
 
 export interface IssuedWorkspaceInvite {
   kind: InviteKind
@@ -154,7 +154,7 @@ export type EnterpriseIdentityState =
     status: 'active' | 'expired'
     account: AuthenticatedEnterpriseAccount
     fingerprint: string
-  };
+  }
 
 const BASIC_DEPARTMENTS = [
   'CEO 办公室',

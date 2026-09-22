@@ -57,7 +57,7 @@ export class GitService {
       return {
         isSensitive: true,
         reason: 'Cannot enable Git service in system root directory',
-      };
+      }
     }
 
     // Check for Windows drive root (C:\, D:\, etc.)
@@ -67,7 +67,7 @@ export class GitService {
         return {
           isSensitive: true,
           reason: `Cannot enable Git service in Windows drive root: ${normalizedPath}`,
-        };
+        }
       }
     }
 
@@ -77,7 +77,7 @@ export class GitService {
       return {
         isSensitive: true,
         reason: 'Cannot enable Git service in user home directory',
-      };
+      }
     }
 
     // Check for system directories on Unix-like systems
@@ -87,7 +87,7 @@ export class GitService {
         return {
           isSensitive: true,
           reason: `Cannot enable Git service in system directory: ${normalizedPath}`,
-        };
+        }
       }
     }
 
@@ -101,7 +101,7 @@ export class GitService {
         return {
           isSensitive: true,
           reason: `Cannot enable Git service in Windows system directory: ${normalizedPath}`,
-        };
+        }
       }
     }
 
@@ -118,7 +118,7 @@ export class GitService {
       type: errorType,
       error: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString(),
-    };
+    }
 
     console.error(`[GIT_SERVICE_ERROR] ${JSON.stringify(errorInfo)}`)
   }
@@ -141,7 +141,7 @@ export class GitService {
           success: false,
           disabled: true,
           disabledReason: this.disabledReason,
-        };
+        }
       }
 
       const gitAvailable = await this.verifyGitAvailability()
@@ -149,7 +149,7 @@ export class GitService {
       if (!gitAvailable) {
         // 缺 git 是 Windows 等环境的预期情况，仅在 DEBUG 时打印，避免伪报错噪音。
         if (process.env.DEBUG) {
-          console.error('[CHECKPOINT DEBUG] Git not available');
+          console.error('[CHECKPOINT DEBUG] Git not available')
         }
         this.displayGitError('not-available')
         this.isDisabled = true
@@ -158,7 +158,7 @@ export class GitService {
           success: false,
           disabled: true,
           disabledReason: this.disabledReason,
-        };
+        }
       }
 
       try {
@@ -166,10 +166,10 @@ export class GitService {
         return {
           success: true,
           disabled: false,
-        };
+        }
       } catch (error) {
         console.error('[CHECKPOINT DEBUG] Failed to setup shadow git repository:', error)
-        
+
         // Check if this is a Git version issue (--initial-branch not supported)
         if (error instanceof Error && error.message.includes('unknown option') && error.message.includes('initial-branch')) {
           this.displayGitError('old-version', error)
@@ -180,7 +180,7 @@ export class GitService {
             disabled: true,
             error,
             disabledReason: this.disabledReason,
-          };
+          }
         }
 
         // General Git initialization failure
@@ -192,7 +192,7 @@ export class GitService {
           disabled: true,
           error: error instanceof Error ? error : new Error(String(error)),
           disabledReason: this.disabledReason,
-        };
+        }
       }
     } catch (error) {
       // Catch-all for any unexpected errors
@@ -204,7 +204,7 @@ export class GitService {
         disabled: true,
         error: error instanceof Error ? error : new Error(String(error)),
         disabledReason: this.disabledReason,
-      };
+      }
     }
   }
 
@@ -220,7 +220,7 @@ export class GitService {
           resolve(true)
         }
       })
-    });
+    })
   }
 
   /**
@@ -233,7 +233,7 @@ export class GitService {
 
     try {
       await fs.mkdir(repoDir, { recursive: true })
-        } catch (error) {
+    } catch (error) {
       console.error('[CHECKPOINT DEBUG] Failed to create repository directory:', error)
       throw error
     }
@@ -317,7 +317,7 @@ export class GitService {
     try {
       await fs.access(gitDir)
     } catch (_error) {
-      console.log('[CHECKPOINT DEBUG] Shadow git repository does not exist, creating...');
+      console.log('[CHECKPOINT DEBUG] Shadow git repository does not exist, creating...')
       try {
         await this.setupShadowGitRepository()
       } catch (setupError) {
@@ -483,15 +483,15 @@ export class GitService {
           await repo.add(rootFiles)
         }
       },
-    ];
+    ]
 
     for (let i = 0; i < strategies.length; i++) {
       try {
         await strategies[i]()
-        return; // 成功则退出
+        return // 成功则退出
       } catch {
         if (i === strategies.length - 1) {
-          console.warn('[CHECKPOINT DEBUG] All fallback strategies failed, proceeding with commit anyway');
+          console.warn('[CHECKPOINT DEBUG] All fallback strategies failed, proceeding with commit anyway')
         }
       }
     }
@@ -512,12 +512,12 @@ export class GitService {
       'dist',
       'build',
       'coverage',
-    ];
+    ]
 
     // 检查是否匹配排除模式
     const matchesExcludePattern = excludePatterns.some(pattern =>
       filePath.includes(pattern),
-    );
+    )
 
     // 检查是否是目录（以/结尾）且可能是子模块
     const isPotentialSubmoduleDir = filePath.endsWith('/') &&
@@ -543,7 +543,7 @@ export class GitService {
       await this.safeRestoreFiles(repo, commitHash)
 
       console.log(`[CHECKPOINT DEBUG] Successfully restored from snapshot: ${commitHash}`)
-        } catch (error) {
+    } catch (error) {
       console.error('[CHECKPOINT DEBUG] Failed to restore from snapshot:', error)
       throw error
     }
@@ -623,14 +623,14 @@ export class GitService {
             console.debug(`[CHECKPOINT DEBUG] Pattern ${pattern} restore failed:`, patternError)
           }
         }
-        console.log('[CHECKPOINT DEBUG] Restored files by patterns');
+        console.log('[CHECKPOINT DEBUG] Restored files by patterns')
       },
-    ];
+    ]
 
     for (let i = 0; i < strategies.length; i++) {
       try {
         await strategies[i]()
-        return; // 成功则退出
+        return // 成功则退出
       } catch (error) {
         console.warn(`[CHECKPOINT DEBUG] Restore strategy ${i + 1} failed:`, error)
         if (i === strategies.length - 1) {

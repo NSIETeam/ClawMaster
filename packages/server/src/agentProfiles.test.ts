@@ -85,7 +85,7 @@ describe('服务端 Agent profile 白名单', () => {
       allowedProfileIds('enterprise', 'member'),
       'clawmaster-enterprise-work',
     )
-  });
+  })
 
   it('A2A 使用不进入 9-Agent 目录的内部 tool-free profile', () => {
     expect(BUILTIN_AGENT_PROFILES.map(profile => profile.id))
@@ -101,7 +101,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(resolveAgentProfile('clawmaster-enterprise-a2a')?.systemPrompt).toContain(
       '接收方回答',
     )
-  });
+  })
 
   it('三个基础身份使用独立白名单项并锁定 edition 与角色边界', () => {
     const personal = resolveAgentProfile('clawmaster-personal')
@@ -130,7 +130,7 @@ describe('服务端 Agent profile 白名单', () => {
       roles: ['company_owner', 'company_admin', 'manager', 'member'],
     })
     expect(new Set([personal, ceo, work]).size).toBe(3)
-  });
+  })
 
   it('中心认证工作区的运行时提示词使用可信组织和当前成员信息', () => {
     const prompt = buildEnterpriseWorkspaceContext({
@@ -201,7 +201,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(prompt).toContain('本机明确选择并解密的消息片段')
     expect(prompt).toContain('不包括文件、API 密钥、其他聊天')
     expect(prompt).toContain('不得声称已经发送')
-  });
+  })
 
   it('会议 Agent 使用 system prompt，未知或客户端自造 profile 不会被接受', () => {
     expect(resolveAgentProfile('meeting')).toMatchObject({
@@ -218,7 +218,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(resolveAgentProfile('meeting-initiator')).toBeUndefined()
     expect(resolveAgentProfile('meeting-notes-followup')).toBeUndefined()
     expect(resolveAgentProfile('evil-client-prompt')).toBeUndefined()
-  });
+  })
 
   it('解析独立自主开发入口，但不解析自动生成的额外 Agent profile', () => {
     expect(resolveAgentProfile('self-development')).toMatchObject({
@@ -226,7 +226,7 @@ describe('服务端 Agent profile 白名单', () => {
       edition: 'enterprise',
     })
     expect(resolveAgentProfile('auto-weekly-report')).toBeUndefined()
-  });
+  })
 
   it('PPT 专家强制先加载内置 Skill，并以 HTML 视觉渲染为主', () => {
     const profile = resolveAgentProfile('ppt')
@@ -241,7 +241,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(prompt).toContain('自定义 HTML/CSS/SVG')
     expect(prompt).toContain('固定模板')
     expect(profile?.embeddedSkills).toEqual(['ppt-creator'])
-  });
+  })
 
   it('PPT/Word 专家会用选项式问题引导用户确定风格', () => {
     const pptPrompt = resolveAgentProfile('ppt')?.systemPrompt ?? ''
@@ -255,7 +255,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(docPrompt).toContain('排版风格')
     expect(docPrompt).toContain('正式稳重')
     expect(docPrompt).toContain('不要让用户打一大段需求')
-  });
+  })
 
   it('基础 ClawMaster 与 PDF/Excel 专家也会用选项式问题引导办公文档任务', () => {
     const basePrompt = resolveAgentProfile('clawmaster-personal')?.systemPrompt ?? ''
@@ -278,7 +278,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(pdfPrompt).toContain('操作类型')
     expect(pdfPrompt).toContain('生成排版 PDF')
     expect(pdfPrompt).toContain('PDF 成品')
-  });
+  })
 
   it('Word/Excel/PDF 专家也强制注入内置 Skill 并拥有专属工作流', () => {
     const doc = resolveAgentProfile('doc')
@@ -316,7 +316,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(research?.systemPrompt).toContain('ask_user_question')
     expect(research?.systemPrompt).toContain('market-research')
     expect(research?.systemPrompt).toContain('SWOT')
-  });
+  })
 
   it('每个专家目录入口都把声明的内置 Skill 强制注入运行时', () => {
     for (const id of COMMON_EXPERT_IDS) {
@@ -333,7 +333,7 @@ describe('服务端 Agent profile 白名单', () => {
       expect(profile.welcomeMessage).toContain('我可以帮你')
     }
     expect(resolveAgentProfile('ppt')?.welcomeMessage).toContain('高审美演示')
-  });
+  })
 
   it('所有专家的系统提示都锁定当前身份及「你是谁」回答', () => {
     for (const profile of BUILTIN_AGENT_PROFILES) {
@@ -342,4 +342,4 @@ describe('服务端 Agent profile 白名单', () => {
       expect(profile.systemPrompt).toContain('不得自称为其他专家')
     }
   })
-});
+})

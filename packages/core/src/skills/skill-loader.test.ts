@@ -57,13 +57,13 @@ describe('SkillLoader', () => {
     pluginInstaller = new PluginInstaller(settingsManager, marketplaceManager)
     // Pass testRoot as projectRoot to isolate tests from actual project directory
     loader = new SkillLoader(settingsManager, { projectRoot: testRoot })
-  });
+  })
 
   afterEach(async () => {
     // 清理测试目录
     await fs.remove(testRoot)
     vi.restoreAllMocks()
-  });
+  })
 
   /**
    * 创建测试用的 Marketplace 和 Plugin
@@ -147,14 +147,14 @@ description: Test Skill 2
         'auto-自动skill-检测到-1',
       )
       await fs.ensureDir(legacyDirectory)
-      await fs.writeFile(path.join(legacyDirectory, 'SKILL.md'), '---\nname: auto-自动skill-检测到-1\ndescription: legacy\n---\n');
+      await fs.writeFile(path.join(legacyDirectory, 'SKILL.md'), '---\nname: auto-自动skill-检测到-1\ndescription: legacy\n---\n')
       const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 
       await expect(loader.loadEnabledSkills(SkillLoadLevel.METADATA)).resolves.toEqual([])
 
       expect(warning).toHaveBeenCalledWith(expect.stringContaining('已忽略旧版自动 Skill 目录'))
       expect(warning.mock.calls.flat().join(' ')).not.toContain('SkillError')
-    });
+    })
 
     it('should load all enabled skills with metadata level', async () => {
       await createTestMarketplace()
@@ -166,7 +166,7 @@ description: Test Skill 2
       expect(skills[1].name).toBe('skill2')
       expect(skills[0].loadLevel).toBe(SkillLoadLevel.METADATA)
       expect(skills[0].content).toBeUndefined()
-    });
+    })
 
     it('should load skills with full content', async () => {
       await createTestMarketplace()
@@ -177,7 +177,7 @@ description: Test Skill 2
       expect(skills[0].content).toBeDefined()
       expect(skills[0].content).toContain('Skill 1 Content')
       expect(skills[0].loadLevel).toBe(SkillLoadLevel.FULL)
-    });
+    })
 
     it('should load skills with resources', async () => {
       await createTestMarketplace()
@@ -192,12 +192,12 @@ description: Test Skill 2
       expect(skill1?.references).toBeDefined()
       expect(skill1?.references).toHaveLength(1)
       expect(skill1?.loadLevel).toBe(SkillLoadLevel.RESOURCES)
-    });
+    })
 
     it('should return empty array if no plugins enabled', async () => {
       const skills = await loader.loadEnabledSkills()
       expect(skills).toHaveLength(0)
-    });
+    })
   })
 
   describe('parseSkillFile', () => {
@@ -217,7 +217,7 @@ description: Test Skill 2
       expect(skill.metadata.license).toBe('MIT')
       expect(skill.metadata.allowedTools).toEqual(['read_file', 'write_file'])
       expect(skill.content).toContain('Skill 1 Content')
-    });
+    })
 
     it('should throw error if SKILL.md not found', async () => {
       await createTestMarketplace()
@@ -227,7 +227,7 @@ description: Test Skill 2
       await expect(
         loader.parseSkillFile(skillPath, 'test-mp:test-plugin', 'test-mp'),
       ).rejects.toThrow('Skill file not found')
-    });
+    })
 
     it('should validate required metadata fields', async () => {
       await createTestMarketplace()
@@ -252,7 +252,7 @@ Content
       await expect(
         loader.parseSkillFile(invalidSkillPath, 'test-mp:test-plugin', 'test-mp'),
       ).rejects.toThrow('description')
-    });
+    })
 
     it('should validate skill name format', async () => {
       await createTestMarketplace()
@@ -278,7 +278,7 @@ Content
       await expect(
         loader.parseSkillFile(invalidSkillPath, 'test-mp:test-plugin', 'test-mp'),
       ).rejects.toThrow('must contain only lowercase letters')
-    });
+    })
   })
 
   describe('loadSkill', () => {
@@ -293,7 +293,7 @@ Content
       expect(skill).not.toBeNull()
       expect(skill?.name).toBe('skill1')
       expect(skill?.content).toBeDefined()
-    });
+    })
 
     it('should return null for non-existent skill', async () => {
       await createTestMarketplace()
@@ -301,7 +301,7 @@ Content
       const skill = await loader.loadSkill('test-mp:test-plugin:non-existent')
 
       expect(skill).toBeNull()
-    });
+    })
 
     it('should use cache for repeated loads', async () => {
       await createTestMarketplace()
@@ -310,7 +310,7 @@ Content
       const skill2 = await loader.loadSkill('test-mp:test-plugin:skill1')
 
       expect(skill1).toBe(skill2) // 同一对象引用
-    });
+    })
   })
 
   describe('searchSkills', () => {
@@ -321,7 +321,7 @@ Content
 
       expect(results).toHaveLength(1)
       expect(results[0].name).toBe('skill1')
-    });
+    })
 
     it('should search skills by description', async () => {
       await createTestMarketplace()
@@ -330,7 +330,7 @@ Content
 
       expect(results).toHaveLength(1)
       expect(results[0].name).toBe('skill2')
-    });
+    })
 
     it('should return empty array for no matches', async () => {
       await createTestMarketplace()
@@ -338,7 +338,7 @@ Content
       const results = await loader.searchSkills('non-existent')
 
       expect(results).toHaveLength(0)
-    });
+    })
   })
 
   describe('getSkillsByMarketplace', () => {
@@ -349,7 +349,7 @@ Content
 
       expect(grouped.size).toBe(1)
       expect(grouped.get('test-mp')).toHaveLength(2)
-    });
+    })
   })
 
   describe('getSkillsByPlugin', () => {
@@ -360,7 +360,7 @@ Content
 
       expect(grouped.size).toBe(1)
       expect(grouped.get('test-mp:test-plugin')).toHaveLength(2)
-    });
+    })
   })
 
   describe('getSkillStats', () => {
@@ -372,7 +372,7 @@ Content
       expect(stats.total).toBe(2)
       expect(stats.byMarketplace['test-mp']).toBe(2)
       expect(stats.byPlugin['test-mp:test-plugin']).toBe(2)
-    });
+    })
 
     it('should force reload settings when requested', async () => {
       await createTestMarketplace()
@@ -391,7 +391,7 @@ Content
       // Verify readSettings was called with forceReload=true
       expect(readSettingsSpy).toHaveBeenCalledWith(true)
       expect(stats2.total).toBe(2)
-    });
+    })
   })
 
   describe('cache management', () => {
@@ -403,7 +403,7 @@ Content
 
       expect(stats.size).toBeGreaterThan(0)
       expect(stats.skills).toContain('test-mp:test-plugin:skill1')
-    });
+    })
 
     it('should clear cache', async () => {
       await createTestMarketplace()
@@ -413,7 +413,7 @@ Content
 
       const stats = loader.getCacheStats()
       expect(stats.size).toBe(0)
-    });
+    })
 
     it('should clear specific skill cache', async () => {
       await createTestMarketplace()
@@ -423,7 +423,7 @@ Content
 
       const stats = loader.getCacheStats()
       expect(stats.skills).not.toContain('test-mp:test-plugin:skill1')
-    });
+    })
   })
 
   // ==========================================================================
@@ -456,7 +456,7 @@ Content
       const after = await loader.loadSkill('test-mp:test-plugin:skill1', SkillLoadLevel.FULL)
 
       expect(after?.content).toContain('HOT-RELOADED')
-    });
+    })
 
     it('does not reload when the file is untouched (cache still hits)', async () => {
       await createTestMarketplace()
@@ -466,7 +466,7 @@ Content
 
       // 未修改文件时应命中缓存，拿到同一对象引用（证明没有重新解析磁盘文件）。
       expect(first).toBe(second)
-    });
+    })
   })
 
   // ==========================================================================
@@ -527,6 +527,6 @@ Content
       const skillNames = skills.map(s => s.metadata.name).sort()
       expect(skillNames).toContain('real-skill')
       expect(skillNames).toContain('external-skill')
-    });
+    })
   })
-});
+})

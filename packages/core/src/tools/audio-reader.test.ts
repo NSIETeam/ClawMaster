@@ -26,11 +26,11 @@ describe('AudioReaderTool', () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-audio-reader-'))
     audioPath = path.join(tempDir, 'meeting.wav')
     fs.writeFileSync(audioPath, Buffer.from('RIFF----WAVEfmt '))
-  });
+  })
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true })
-  });
+  })
 
   it('uses the current audio-capable model before local ASR', async () => {
     const sendMessage = vi.fn().mockResolvedValue({
@@ -73,7 +73,7 @@ describe('AudioReaderTool', () => {
       { disableSystemPrompt: true },
     )
     expect(localTranscriber).not.toHaveBeenCalled()
-  });
+  })
 
   it('falls back to local ASR when the current custom model is text-only', async () => {
     const getClawMasterClient = vi.fn()
@@ -102,7 +102,7 @@ describe('AudioReaderTool', () => {
     expect(result.llmContent).toContain('via local ASR')
     expect(result.llmContent).toContain('local meeting transcript')
     expect(getClawMasterClient).not.toHaveBeenCalled()
-  });
+  })
 
   it('explains local setup options when a custom text model has no local ASR', async () => {
     const config = createMockConfig({
@@ -134,5 +134,5 @@ describe('AudioReaderTool', () => {
     expect(result.llmContent).not.toContain('pip install -U openai-whisper')
     expect(result.llmContent).not.toContain('Gemini')
     expect(config.getClawMasterClient).not.toHaveBeenCalled()
-  });
+  })
 })

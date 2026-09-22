@@ -22,7 +22,7 @@ describe('企业版 ClawMaster 托管模型目录', () => {
         model => model.creditMultiplier > 1,
       ),
     ).toBe(true)
-  });
+  })
 
   it('目录只下发 ClawMaster 模型 id，不向客户端暴露上游 baseUrl 或密钥', () => {
     for (const model of ENTERPRISE_MODEL_CATALOG) {
@@ -54,5 +54,5 @@ describe('企业版 ClawMaster 托管模型目录', () => {
 
     vi.stubEnv('CLAWMASTER_ENTERPRISE_MODEL_CATALOG', '{bad json')
     expect(loadEnterpriseModelCatalog()).toEqual(ENTERPRISE_MODEL_CATALOG)
-  });
+  })
 })

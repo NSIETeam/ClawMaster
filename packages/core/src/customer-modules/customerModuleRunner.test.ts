@@ -39,7 +39,7 @@ describe('CustomerModuleRunner', () => {
     })
     expect(result).toMatchObject({ status: 'completed', exitCode: 0 })
     expect(events).toEqual(['customer_module.started', 'customer_module.completed'])
-  });
+  })
 
   it('terminates infinite modules at the deadline', async () => {
     const runner = new CustomerModuleRunner()
@@ -48,7 +48,7 @@ describe('CustomerModuleRunner', () => {
       input: {}, approvedCapabilities: [], limits: { timeoutMs: 30, maxOutputBytes: 1024 },
     })
     expect(result.status).toBe('timed_out')
-  });
+  })
 
   it('cancels a running module through AbortSignal', async () => {
     const controller = new AbortController()
@@ -60,7 +60,7 @@ describe('CustomerModuleRunner', () => {
       signal: controller.signal,
     })
     expect(result.status).toBe('cancelled')
-  });
+  })
 
   it('rejects worker fan-out beyond the process concurrency ceiling', async () => {
     const runner = new CustomerModuleRunner()
@@ -68,7 +68,7 @@ describe('CustomerModuleRunner', () => {
     const active = Array.from({ length: 4 }, () => runner.run(request))
     await expect(runner.run(request)).rejects.toThrow(/concurrency limit/)
     await Promise.all(active)
-  });
+  })
 
   it('reports a crash when the required entrypoint is missing', async () => {
     const runner = new CustomerModuleRunner()
@@ -78,7 +78,7 @@ describe('CustomerModuleRunner', () => {
     })
     expect(result.status).toBe('crashed')
     expect(result.error).toMatch(/clawmaster_run/)
-  });
+  })
 
   it('bridges approved Host ABI requests and rejects the same call without approval', async () => {
     const calls: unknown[] = []
@@ -106,7 +106,7 @@ describe('CustomerModuleRunner', () => {
     })
     expect(denied.status).toBe('completed')
     expect(denied.exitCode).toBe(-2)
-  });
+  })
 
   it('runs the bounded WASI preview1 metadata subset without ambient args or environment', async () => {
     const result = await new CustomerModuleRunner().run({
@@ -114,5 +114,5 @@ describe('CustomerModuleRunner', () => {
       input: {}, approvedCapabilities: [], limits: { timeoutMs: 500, maxOutputBytes: 1024 },
     })
     expect(result).toMatchObject({ status: 'completed', exitCode: 0 })
-  });
+  })
 })

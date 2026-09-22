@@ -4,8 +4,12 @@ import path from 'node:path'
 
 export type ChannelType = 'wechat' | 'wecom' | 'dingtalk' | 'feishu'
 export interface ChannelCredentials {
-  appId: string; appSecret: string; agentId?: string
-  targetUsers?: string; targetTags?: string; targetParties?: string
+  appId: string
+  appSecret: string
+  agentId?: string
+  targetUsers?: string
+  targetTags?: string
+  targetParties?: string
 }
 type Http = typeof fetch
 const labels: Record<ChannelType, string> = { wechat: '微信', wecom: '企业微信', dingtalk: '钉钉', feishu: '飞书' }

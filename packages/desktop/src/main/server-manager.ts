@@ -553,10 +553,10 @@ export class ServerManager {
     let stderr = ''
     child.stdout?.on('data', (data: Buffer) => {
       stdout += data.toString()
-    });
+    })
     child.stderr?.on('data', (data: Buffer) => {
       stderr += data.toString()
-    });
+    })
 
     // 等 server 写端点文件（轮询最多 15 秒）
     const timeoutMs = 15000
@@ -646,7 +646,7 @@ export class ServerManager {
         await new Promise<void>((resolve) => {
           this.enterpriseSrv!.close(() => resolve())
           setTimeout(resolve, 3000)
-        });
+        })
       } catch {}
       this.enterpriseSrv = undefined
       this.enterpriseOwnership = 'unavailable'
@@ -722,7 +722,7 @@ export class ServerManager {
         // 健康恢复后重置重启计数（给后续故障一个新的重启机会）
         this.restartCount = 0
         this.onHealthChange?.('服务运行中')
-        return;
+        return
       }
     } catch {
       // probeHealth 自己吞异常，到这里就是 unhealthy
@@ -759,7 +759,7 @@ export class ServerManager {
         )
       } catch {}
       this.stopHealthCheck()
-      return;
+      return
     }
     const backoffMs = [1000, 3000, 5000][this.restartCount - 1] ?? 5000
     console.warn(
@@ -935,7 +935,7 @@ export class ServerManager {
         throw new Error('本机 ClawMaster 引擎状态不完整，请重启 ClawMaster 后重试')
       }
       this.embedded.setAuthenticatedEnterpriseAccount(account)
-      return;
+      return
     }
 
     const record = this.currentEndpointRecord
@@ -1018,7 +1018,7 @@ export class ServerManager {
   private async ensureEnterprise(): Promise<void> {
     if (this.enterpriseSrv) {
       this.enterpriseOwnership = 'embedded'
-      return;
+      return
     }
     if (this.enterpriseEnsurePromise) return this.enterpriseEnsurePromise
     if (this.shuttingDown) return
@@ -1050,7 +1050,7 @@ export class ServerManager {
         await this.dependencies.probeHealth(host, port, '/enterprise/health')
       ) {
         this.enterpriseOwnership = 'discovered'
-        return;
+        return
       }
       const { createEnterpriseServer } =
         await this.dependencies.loadEnterpriseServer()
@@ -1063,7 +1063,7 @@ export class ServerManager {
       const { server } = created
       if (this.shuttingDown) {
         server.close()
-        return;
+        return
       }
       const abort = new AbortController()
       this.enterpriseListenAbort = abort
@@ -1088,7 +1088,7 @@ export class ServerManager {
         (await this.dependencies.probeHealth(host, port, '/enterprise/health'))
       ) {
         this.enterpriseOwnership = 'discovered'
-        return;
+        return
       }
       this.enterpriseOwnership = 'unavailable'
       if (!this.shuttingDown) {
@@ -1183,9 +1183,9 @@ function probeHealth(
     req.on('timeout', () => {
       req.destroy()
       resolve(false)
-    });
+    })
     req.on('error', () => resolve(false))
-  });
+  })
 }
 
 /** 仅识别桌面能够真实提供的明文 loopback 服务；HTTPS/远端均由外部部署负责。 */
@@ -1231,7 +1231,7 @@ function listenWithTimeout(
       signal?.removeEventListener('abort', onAbort)
       if (error) reject(error)
       else resolve()
-    };
+    }
     const onListening = () => finish()
     const onError = (error: Error) => finish(error)
     const onAbort = () => {
@@ -1241,7 +1241,7 @@ function listenWithTimeout(
         // 尚未监听时 close 可能失败；仍要立即结束等待。
       }
       finish(new Error('enterprise-server 启动已取消'))
-    };
+    }
     const timer = setTimeout(() => {
       try {
         server.close()

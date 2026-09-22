@@ -10,11 +10,11 @@ describe('KnowledgeCapture ingest result', () => {
 
   beforeEach(async () => {
     root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-knowledge-capture-'))
-  });
+  })
 
   afterEach(async () => {
     await fs.rm(root, { recursive: true, force: true })
-  });
+  })
 
   it('returns the exact sanitized entries newly written for downstream organization sync', async () => {
     const capture = new KnowledgeCapture(new LocalKnowledgeStore(root))
@@ -43,7 +43,7 @@ describe('KnowledgeCapture ingest result', () => {
         confidence: 0.9,
       }),
     ])
-  });
+  })
 
   it('captures a one-turn work conclusion when a real tool succeeded', () => {
     const capture = new KnowledgeCapture(new LocalKnowledgeStore(root))
@@ -63,7 +63,7 @@ describe('KnowledgeCapture ingest result', () => {
     ]))
     expect(candidates.find(candidate => candidate.category === 'solution')?.confidence)
       .toBeGreaterThanOrEqual(0.8)
-  });
+  })
 
   it('extracts a concise knowledge atom instead of retaining the whole answer transcript', () => {
     const capture = new KnowledgeCapture(new LocalKnowledgeStore(root))
@@ -84,7 +84,7 @@ describe('KnowledgeCapture ingest result', () => {
     expect(candidate.content.length).toBeLessThan(400)
     expect(candidate.verified).toBe(true)
     expect(candidate.impactScore).toBeGreaterThanOrEqual(0.6)
-  });
+  })
 
   it('captures a short but verified high-impact conclusion without requiring a tool call', () => {
     const capture = new KnowledgeCapture(new LocalKnowledgeStore(root))
@@ -99,7 +99,7 @@ describe('KnowledgeCapture ingest result', () => {
     expect(capture.shouldCapture(messages)).toBe(true)
     expect(capture.extractCandidates(messages, 'short-critical'))
       .toEqual(expect.arrayContaining([expect.objectContaining({ category: 'solution' })]))
-  });
+  })
 
   it('emits duplicate observations for long-term evidence without duplicating the personal store', async () => {
     const capture = new KnowledgeCapture(new LocalKnowledgeStore(root))
@@ -124,5 +124,5 @@ describe('KnowledgeCapture ingest result', () => {
     expect(second.observations).toEqual([
       expect.objectContaining({ sourceSessionId: 'session-b', verified: true }),
     ])
-  });
+  })
 })

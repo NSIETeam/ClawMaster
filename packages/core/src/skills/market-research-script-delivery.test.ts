@@ -38,7 +38,7 @@ function findPython3(): PythonLauncher | undefined {
       : [
         { command: 'python3', prefixArgs: [] },
         { command: 'python', prefixArgs: [] },
-      ];
+      ]
   return candidates.find(
     ({ command, prefixArgs }) =>
       spawnSync(command, [...prefixArgs, '--version'], { encoding: 'utf8' })
@@ -73,7 +73,7 @@ describe('market-research 脚本交付安全', () => {
     expect(skillInstructions).toContain('.clawmaster-user')
     expect(skillInstructions).toContain('python3')
     expect(skillInstructions).toContain('py -3')
-  });
+  })
 
   it.skipIf(!python)('拒绝可逃逸 CSS 的颜色值，不生成注入后的 HTML', () => {
     const dir = mkdtempSync(join(tmpdir(), 'clawmaster-market-injection-'))
@@ -90,7 +90,7 @@ describe('market-research 脚本交付安全', () => {
 
     expect(result.status).not.toBe(0)
     expect(existsSync(output)).toBe(false)
-  });
+  })
 
   it.skipIf(!python)(
     '补足至少三家竞品，并能向尚不存在的父目录写出全部产物',
@@ -176,8 +176,8 @@ describe('market-research 脚本交付安全', () => {
           swotCard?.[1].match(/<li>/g)?.length ?? 0,
         ).toBeGreaterThanOrEqual(3)
       }
-      expect(csv).toContain('\'=HYPERLINK');
-      expect(csv).toContain('\'+1');
+      expect(csv).toContain('\'=HYPERLINK')
+      expect(csv).toContain('\'+1')
       expect(csv).not.toContain('有来源')
       expect(sources.sources[0]).toMatchObject({
         date: '待补充',
@@ -204,4 +204,4 @@ describe('market-research 脚本交付安全', () => {
       )
     },
   )
-});
+})

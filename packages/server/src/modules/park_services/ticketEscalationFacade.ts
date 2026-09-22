@@ -130,7 +130,7 @@ export class TicketEscalationFacade {
       if (job.readAt) {
         job.status = 'resolved'
         this.repository.update(job)
-        continue;
+        continue
       }
       const ok = await this.deliverSms(job, now)
       if (ok) escalated += 1

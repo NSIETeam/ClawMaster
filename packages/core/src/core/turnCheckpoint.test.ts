@@ -33,11 +33,11 @@ beforeEach(async () => {
   manager = new TurnCheckpointManager(
     path.join(tmpDir, '.clawmaster-user'),
   )
-});
+})
 
 afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true, force: true })
-});
+})
 
 function makeCheckpoint(
   overrides: Partial<TurnCheckpoint> = {},
@@ -80,12 +80,12 @@ describe('TurnCheckpointManager — save & load', () => {
     expect(loaded!.sessionId).toBe(cp.sessionId)
     expect(loaded!.state).toBe(cp.state)
     expect(loaded!.completedTools).toEqual(cp.completedTools)
-  });
+  })
 
   it('should return null when no checkpoint exists', async () => {
     const loaded = await manager.load('nonexistent-session')
     expect(loaded).toBeNull()
-  });
+  })
 
   it('should update timestamp on each save', async () => {
     const cp = makeCheckpoint()
@@ -102,7 +102,7 @@ describe('TurnCheckpointManager — save & load', () => {
     const ts2 = new Date(loaded2!.timestamp).getTime()
 
     expect(ts2).toBeGreaterThanOrEqual(ts1)
-  });
+  })
 
   it('should load the most recent checkpoint for a session', async () => {
     const old = makeCheckpoint({ timestamp: '2025-01-01T00:00:00.000Z', state: TurnState.PLANNING })
@@ -119,7 +119,7 @@ describe('TurnCheckpointManager — save & load', () => {
     // Most recent should win
     expect(loaded!.turnId).toBe('turn-recent')
     expect(loaded!.state).toBe(TurnState.EXECUTING_TOOL)
-  });
+  })
 
   it('preserves checkpoint write order when saves share a clock tick', async () => {
     const old = makeCheckpoint({ turnId: 'turn-same-tick-old' })
@@ -133,7 +133,7 @@ describe('TurnCheckpointManager — save & load', () => {
       new Date(old.timestamp).getTime(),
     )
     expect((await manager.load(old.sessionId))?.turnId).toBe(recent.turnId)
-  });
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -149,11 +149,11 @@ describe('TurnCheckpointManager — clear', () => {
 
     const loaded = await manager.load(cp.sessionId)
     expect(loaded).toBeNull()
-  });
+  })
 
   it('should not throw when clearing a non-existent checkpoint', async () => {
     await expect(manager.clear('nonexistent-turn-id')).resolves.toBeUndefined()
-  });
+  })
 
   it('should leave other checkpoints intact after clearing one', async () => {
     const cp1 = makeCheckpoint({ sessionId: 'sess-a', turnId: 't1' })
@@ -165,7 +165,7 @@ describe('TurnCheckpointManager — clear', () => {
 
     expect(await manager.load('sess-a')).toBeNull()
     expect(await manager.load('sess-b')).not.toBeNull()
-  });
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -176,7 +176,7 @@ describe('TurnCheckpointManager — listIncomplete', () => {
   it('should return empty array when no checkpoints exist', async () => {
     const incomplete = await manager.listIncomplete()
     expect(incomplete).toEqual([])
-  });
+  })
 
   it('should list all incomplete turns across sessions', async () => {
     const cp1 = makeCheckpoint({ sessionId: 'sess-x', state: TurnState.EXECUTING_TOOL })
@@ -189,7 +189,7 @@ describe('TurnCheckpointManager — listIncomplete', () => {
     expect(incomplete).toHaveLength(2)
     const ids = incomplete.map(c => c.turnId).sort()
     expect(ids).toEqual([cp1.turnId, cp2.turnId].sort())
-  });
+  })
 
   it('should exclude terminal-state checkpoints', async () => {
     const running = makeCheckpoint({ state: TurnState.EXECUTING_TOOL, turnId: 't-running' })
@@ -205,7 +205,7 @@ describe('TurnCheckpointManager — listIncomplete', () => {
     const incomplete = await manager.listIncomplete()
     expect(incomplete).toHaveLength(1)
     expect(incomplete[0].turnId).toBe('t-running')
-  });
+  })
 
   it('should sort by timestamp descending', async () => {
     const older = makeCheckpoint({
@@ -223,7 +223,7 @@ describe('TurnCheckpointManager — listIncomplete', () => {
     const incomplete = await manager.listIncomplete()
     expect(incomplete[0].turnId).toBe('t-newer')
     expect(incomplete[1].turnId).toBe('t-older')
-  });
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -246,7 +246,7 @@ describe('TurnCheckpointManager — crash recovery', () => {
 
     const shouldSkip = manager.shouldSkipTool(cp, 'send_message', 'fc-send-1')
     expect(shouldSkip).toBe(true)
-  });
+  })
 
   it('should re-execute IDEMPOTENT tools (skip=false)', () => {
     const cp = makeCheckpoint({
@@ -263,7 +263,7 @@ describe('TurnCheckpointManager — crash recovery', () => {
 
     const shouldSkip = manager.shouldSkipTool(cp, 'write_file', 'fc-write-1')
     expect(shouldSkip).toBe(false)
-  });
+  })
 
   it('should re-execute REPLAYABLE tools (skip=false)', () => {
     const cp = makeCheckpoint({
@@ -280,7 +280,7 @@ describe('TurnCheckpointManager — crash recovery', () => {
 
     const shouldSkip = manager.shouldSkipTool(cp, 'read_file', 'fc-read-1')
     expect(shouldSkip).toBe(false)
-  });
+  })
 
   it('should not skip tools that have NOT been completed yet', () => {
     const cp = makeCheckpoint({
@@ -297,7 +297,7 @@ describe('TurnCheckpointManager — crash recovery', () => {
     // This tool was never completed — should NOT be skipped
     const shouldSkip = manager.shouldSkipTool(cp, 'send_message', 'fc-send-1')
     expect(shouldSkip).toBe(false)
-  });
+  })
 
   it('should not skip tools with different callIds (dedup by name+callId)', () => {
     const cp = makeCheckpoint({
@@ -314,7 +314,7 @@ describe('TurnCheckpointManager — crash recovery', () => {
     // Same tool name but different callId — it's a new invocation
     const shouldSkip = manager.shouldSkipTool(cp, 'send_message', 'fc-send-2')
     expect(shouldSkip).toBe(false)
-  });
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -329,7 +329,7 @@ describe('TurnCheckpointManager — crash before tool execution', () => {
 
     const shouldSkip = manager.shouldSkipTool(cp, 'any_tool', 'fc-any')
     expect(shouldSkip).toBe(false)
-  });
+  })
 
   it('should allow loading checkpoint state to see which tools ran', async () => {
     // Simulate: three tools where only first two completed before crash
@@ -349,14 +349,14 @@ describe('TurnCheckpointManager — crash before tool execution', () => {
     expect(recovered!.completedTools).toHaveLength(2)
     expect(recovered!.completedTools[0].name).toBe('read_file')
     expect(recovered!.completedTools[1].name).toBe('write_file')
-  });
+  })
 
   it('should correctly classify known and unknown tools', () => {
     expect(classifyTool('send_message')).toBe(ToolReplayClass.NEVER_REPLAYED)
     expect(classifyTool('write_file')).toBe(ToolReplayClass.IDEMPOTENT)
     expect(classifyTool('read_file')).toBe(ToolReplayClass.REPLAYABLE)
     expect(classifyTool('some_custom_tool_xyz')).toBe(DEFAULT_REPLAY_CLASS)
-  });
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -393,7 +393,7 @@ describe('TurnCheckpointManager.formatForRecovery', () => {
     expect(summary).toContain('read_file')
     expect(summary).toContain('send_message')
     expect(summary).toContain('🔒') // NEVER_REPLAYED marker
-  });
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -442,5 +442,5 @@ describe('TurnCheckpointManager — lifecycle', () => {
     await manager.clear(cp.turnId)
     loaded = await manager.load(cp.sessionId)
     expect(loaded).toBeNull()
-  });
+  })
 })

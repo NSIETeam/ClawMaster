@@ -27,7 +27,7 @@ describe('PptGenerateTool local rendering', () => {
     delete process.env.CLAWMASTER_WEB_URL
     PPTOutlineManager.getInstance().clear()
 
-  });
+  })
 
   afterEach(() => {
     PPTOutlineManager.getInstance().clear()
@@ -36,7 +36,7 @@ describe('PptGenerateTool local rendering', () => {
     if (originalWebUrl === undefined) delete process.env.CLAWMASTER_WEB_URL
     else process.env.CLAWMASTER_WEB_URL = originalWebUrl
     fs.rmSync(tempDir, { recursive: true, force: true })
-  });
+  })
 
   it('renders a pptx locally without CLAWMASTER server or web URLs', async () => {
     const outputPath = path.join(tempDir, 'local-deck.pptx')
@@ -73,7 +73,7 @@ describe('PptGenerateTool local rendering', () => {
     expect(result.llmContent).not.toContain('CLAWMASTER_WEB_URL')
     expect(result.llmContent).not.toContain('服务端')
     expect(manager.isActive()).toBe(false)
-  });
+  })
 
   it('describes a local file operation in its confirmation', async () => {
     const outputPath = path.join(tempDir, 'confirm.pptx')
@@ -103,7 +103,7 @@ describe('PptGenerateTool local rendering', () => {
     expect(tool.toolLocations({ output_path: outputPath })).toEqual([
       { path: outputPath },
     ])
-  });
+  })
 
   it('does not treat a stale output file as a successful render', async () => {
     const outputPath = path.join(tempDir, 'stale.pptx')
@@ -126,5 +126,5 @@ describe('PptGenerateTool local rendering', () => {
     expect(result.llmContent).toContain('本地 PPT 生成失败')
     expect(manager.isActive()).toBe(true)
     expect(fs.readFileSync(outputPath, 'utf8')).toBe('old presentation')
-  });
+  })
 })

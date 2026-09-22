@@ -702,7 +702,7 @@ export function publishMlsKeyPackageInRepository(
         )
         .get(organizationId, reference) as KeyPackageRow,
     )
-  });
+  })
 }
 
 export function listMlsKeyPackageInventoryInRepository(
@@ -785,7 +785,7 @@ export function retireMlsKeyPackageInRepository(
         )
         .run(organizationId, accountId, deviceId, reference).changes === 1
     )
-  });
+  })
 }
 
 export function claimMlsKeyPackageInRepository(
@@ -923,7 +923,7 @@ export function claimMlsKeyPackageInRepository(
         )
         .get(organizationId, row.key_package_reference) as KeyPackageRow,
     )
-  });
+  })
 }
 
 function eventMatches(
@@ -1364,7 +1364,7 @@ export function appendMlsTransportEventInRepository(
         )
         .get(organizationId, eventId) as EventRow,
     )
-  });
+  })
 }
 
 export function listMlsTransportEventsInRepository(
@@ -1755,7 +1755,7 @@ export function cleanupExpiredMlsResourcesInRepository(
       rateBucketsDeleted,
       conversationsAdvanced: floors.size,
     }
-  });
+  })
 }
 
 export function createMlsTransportFacade(store: MlsTransportStore) {

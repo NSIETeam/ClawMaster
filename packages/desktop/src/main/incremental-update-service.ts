@@ -74,7 +74,7 @@ export type IncrementalUpdateApplyResult =
     unsupported?: boolean
     cancelled?: boolean
     error: string
-  };
+  }
 
 function resolveIncrementalManifestUrl(candidate = process.env[ENV_MANIFEST_URL]): string | null {
   const value = candidate?.trim()

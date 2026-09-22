@@ -159,7 +159,7 @@ describe('data_governance consent, export and deletion', () => {
     }
     expect(exported.account.password_hash).toBeUndefined()
     expect(exported.messages).toEqual([expect.objectContaining({ content: '私聊内容' })])
-  });
+  })
 
   it('deletes personal content, anonymizes business records and emits a receipt', () => {
     const fixture = createFixture()
@@ -178,7 +178,7 @@ describe('data_governance consent, export and deletion', () => {
     const ticket = fixture.database.prepare('SELECT * FROM it_tickets WHERE id = ?').get('ticket-a') as { form_data: string; contact: string | null }
     expect(ticket.contact).toBeNull()
     expect(JSON.parse(ticket.form_data)).toEqual({ amountCny: '260', date: '2026-07-29', privacyScrubbed: true })
-  });
+  })
 })
 
 describe('encrypted privacy deletion ledger', () => {
@@ -190,5 +190,5 @@ describe('encrypted privacy deletion ledger', () => {
     ledger.append({ accountId: 'acc-secret', organizationId: 'org-secret', requestedAtMs: 123 })
     expect(fs.readFileSync(ledgerPath, 'utf8')).not.toContain('acc-secret')
     expect(ledger.list()).toEqual([{ accountId: 'acc-secret', organizationId: 'org-secret', requestedAtMs: 123 }])
-  });
+  })
 })

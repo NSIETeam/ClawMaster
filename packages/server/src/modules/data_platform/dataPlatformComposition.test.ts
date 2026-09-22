@@ -60,7 +60,7 @@ describe('data platform composition', () => {
     const collect = (organizationId: string): unknown[] => {
       organizationIds.push(organizationId)
       return []
-    };
+    }
     const backup = platform.createBackup({
       defaultOrganizationId: 'org-default',
       listEmployees: collect,
@@ -86,7 +86,7 @@ describe('data platform composition', () => {
       ticketDeliveries: [],
     })
     expect(organizationIds).toEqual(Array(9).fill('org-selected'))
-  });
+  })
 
   it('clears a loaded key even when the database was never opened', () => {
     const dataDirectory = fs.mkdtempSync(
@@ -116,5 +116,5 @@ describe('data platform composition', () => {
 
     expect(platform.encryptionKeyProvider.getKey()).toEqual(replacementKey)
     expect(fs.existsSync(path.join(dataDirectory, 'data.db'))).toBe(false)
-  });
+  })
 })

@@ -150,7 +150,7 @@ export type PluginSource =
   | {
     source: 'url'
     url: string        // 直接 URL (保留用于未来支持 tarball)
-  };
+  }
 
 /**
  * 技能位置信息

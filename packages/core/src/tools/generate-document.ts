@@ -143,7 +143,7 @@ export function runDocumentCommand(
       (error, stdout, stderr) => {
         if (!error) {
           resolve()
-          return;
+          return
         }
         const detail = decodeCommandOutput(
           (stderr && stderr.length > 0) ? stderr : stdout,
@@ -155,7 +155,7 @@ export function runDocumentCommand(
         reject(wrapped)
       },
     )
-  });
+  })
 }
 
 export type DocumentCommandRunner = typeof runDocumentCommand
@@ -191,7 +191,7 @@ export function createCachedDependencyPreflight(
     }).finally(() => inFlight.delete(key))
     inFlight.set(key, request)
     return request
-  };
+  }
 }
 
 export interface HtmlToImageRenderRequest {
@@ -456,16 +456,16 @@ function terminateBrowserProcessTree(
           { windowsHide: true, timeout: 1_000 },
           () => resolve(),
         )
-      });
+      })
     }
     if (!processHandle.exited) processHandle.kill(signal)
-    return;
+    return
   }
 
   if (processHandle.pid) {
     try {
       process.kill(-processHandle.pid, signal)
-      return;
+      return
     } catch {
       // Fall back to the direct child if the process group already vanished.
     }
@@ -507,7 +507,7 @@ export function runBrowserScreenshotProcess(
       processHandle = spawnProcess(executable, args)
     } catch (error) {
       reject(error instanceof Error ? error : new Error(String(error)))
-      return;
+      return
     }
 
     let outcome: BrowserProcessOutcome | undefined
@@ -526,7 +526,7 @@ export function runBrowserScreenshotProcess(
       if (forceKillTimer) clearTimeout(forceKillTimer)
       if (hardSettleTimer) clearTimeout(hardSettleTimer)
       signal.removeEventListener('abort', abort)
-    };
+    }
 
     const settle = () => {
       if (settled || !outcome) return
@@ -578,7 +578,7 @@ export function runBrowserScreenshotProcess(
       }, Math.max(1, Math.floor(killGraceMs / 2)))
       hardSettleTimer = setTimeout(settle, killGraceMs)
       runTerminationAttempt(false)
-    };
+    }
 
     const finishFirst = (nextOutcome: BrowserProcessOutcome) => {
       if (outcome || settled) return
@@ -587,7 +587,7 @@ export function runBrowserScreenshotProcess(
       clearTimeout(commandTimeout)
       signal.removeEventListener('abort', abort)
       requestTermination()
-    };
+    }
 
     function abort(): void {
       finishFirst({ kind: 'failure', error: browserAbortError(signal) })
@@ -603,7 +603,7 @@ export function runBrowserScreenshotProcess(
             error: new Error(
               `浏览器截图进程退出（code=${String(code)}, signal=${String(closeSignal)}），但未生成完整 PNG。`,
             ),
-          };
+          }
       }
       if (
         !terminationStarted
@@ -617,7 +617,7 @@ export function runBrowserScreenshotProcess(
       processClosed = true
       outcome = { kind: 'failure', error }
       settle()
-    });
+    })
 
     const pngPollTimer = setInterval(() => {
       if (!isScreenshotComplete(screenshotPath)) return
@@ -635,7 +635,7 @@ export function runBrowserScreenshotProcess(
     }, timeoutMs)
     signal.addEventListener('abort', abort, { once: true })
     if (signal.aborted) abort()
-  });
+  })
 }
 
 const defaultBrowserRunner: BrowserRunner = (executable, args, signal) => (
@@ -693,7 +693,7 @@ export class ChromeHtmlToImageRenderer implements HtmlToImageRenderer {
         // Each attempt starts without a stale file, including the legacy retry.
         fs.rmSync(request.outputPath, { force: true })
         await this.runner(this.browserPath!, [headlessArg, ...commonArgs], request.signal)
-      };
+      }
 
       try {
         await runAttempt('--headless=new')
@@ -752,7 +752,7 @@ export function normalizeSlidesMarkdown(content: string): string {
     const match = line.match(pageHeading)
     if (!match) {
       output.push(line)
-      continue;
+      continue
     }
 
     if (seenHeadings > 0) {
@@ -824,12 +824,12 @@ async function preflightBinaries(names: string[]): Promise<string | null> {
         const out = (stdout || stderr || '').trim()
         if (err) {
           reject(new Error(out || err.message))
-          return;
+          return
         }
         resolve(out)
-      });
+      })
     })
-  };
+  }
   const report = await new DoctorService(gatedRunner).check()
   const missing = report.checks.filter(c => wanted.has(c.name) && !c.present)
   if (missing.length === 0) return null
@@ -844,7 +844,10 @@ export interface GenerateDocumentToolParams {
   content: string
   format: 'report'|'slides'|'letter'|'resume'|'article'|'table'
   output_format: 'pdf'|'docx'|'html'|'markdown'|'pptx'
-  output_path?: string; title?: string; author?: string; template_options?: string
+  output_path?: string
+  title?: string
+  author?: string
+  template_options?: string
 }
 
 export class GenerateDocumentTool extends BaseTool<GenerateDocumentToolParams, ToolResult> {
@@ -911,7 +914,7 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
   async shouldConfirmExecute(p: GenerateDocumentToolParams, _s: AbortSignal): Promise<ToolCallConfirmationDetails | false> {
     if (this.config.getApprovalMode() === ApprovalMode.YOLO) return false
     if (this.validateToolParams(p)) return false
-    return { type:'exec', title:'Confirm: '+this.getDescription(p), command:'generate_document', rootCommand:'generate_document', onConfirm: async ()=>{} };
+    return { type:'exec', title:'Confirm: '+this.getDescription(p), command:'generate_document', rootCommand:'generate_document', onConfirm: async ()=>{} }
   }
 
   async execute(
@@ -1026,7 +1029,7 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
         signal,
         progress,
       )
-      return;
+      return
     }
 
     // PDF/HTML slides render via Marp. Fail loud if missing.
@@ -1091,7 +1094,7 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
       const slide = presentation.addSlide()
       slide.addText(documentTitle, { x: 1, y: 2, w: 11.333, h: 3, fontSize: 44, bold: true, align: 'center', color: '333333' })
       await presentation.writeFile({ fileName: outPath, compression: true })
-      return;
+      return
     }
 
     for (let idx = 0; idx < sections.length; idx += 1) {
@@ -1106,7 +1109,7 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
       // Native text slides: editable pptxgenjs objects (not pixel images)
       if (this.canUseNativeText(sec, idx, sections.length)) {
         this.renderNativeSlide(presentation, sec, idx, sections.length, slideTheme, pgNum)
-        continue;
+        continue
       }
 
       // Visual slides (cover, section, quote, images): HTML→PNG pipeline
@@ -1344,7 +1347,7 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
         h: isHeading ? 0.48 : Math.min(4.5, blk.lines.length * 0.40),
         valign: isHeading ? 'middle' : 'top',
         lineSpacingMultiple: isHeading ? 1.15 : 1.38,
-      };
+      }
       slide.addText(textRuns, textOptions)
 
       y += (isHeading ? 0.58 : Math.min(4.5, blk.lines.length * 0.40)) + 0.12
@@ -1653,13 +1656,13 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
     const closeList = () => {
       if (listType) output.push(`</${listType}>`)
       listType = null
-    };
+    }
 
     for (const rawLine of lines) {
       const line = rawLine.trim()
       if (!line) {
         closeList()
-        continue;
+        continue
       }
 
       const image = line.match(/^!\[([^\]]*)\]\((.+)\)$/)
@@ -1672,7 +1675,7 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
           + (image[1].trim() ? `<figcaption>${alt}</figcaption>` : '')
           + '</figure>',
         )
-        continue;
+        continue
       }
 
       const bullet = line.match(/^[-*+]\s+(.+)$/)
@@ -1685,19 +1688,19 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
           output.push(`<${listType}>`)
         }
         output.push(`<li>${this.renderInlineMarkdown((bullet || numbered)![1])}</li>`)
-        continue;
+        continue
       }
 
       closeList()
       const heading = line.match(/^#{2,6}\s+(.+)$/)
       if (heading) {
         output.push(`<h2>${this.renderInlineMarkdown(heading[1])}</h2>`)
-        continue;
+        continue
       }
       const quote = line.match(/^>\s*(.+)$/)
       if (quote) {
         output.push(`<blockquote>${this.renderInlineMarkdown(quote[1])}</blockquote>`)
-        continue;
+        continue
       }
       output.push(`<p>${this.renderInlineMarkdown(line)}</p>`)
     }
@@ -1752,7 +1755,7 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
         return false
       }
       return true
-    });
+    })
     return { title, body, notes, requestedLayout }
   }
 
@@ -1941,9 +1944,9 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
         return normalized <= 0.03928
           ? normalized / 12.92
           : Math.pow((normalized + 0.055) / 1.055, 2.4)
-      });
+      })
       return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-    };
+    }
     const a = luminance(first)
     const b = luminance(second)
     return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
@@ -2080,9 +2083,9 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
     let s = md.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, body) => {
       cb.push('#raw(block: true'+(lang?', lang: "'+this.te(lang)+'"':'')+', "'+this.te(body.trim())+'")')
       return '\uE000CB'+ (cb.length-1) +'\uE001'
-    });
+    })
     const ic: string[] = []
-    s = s.replace(/`([^`]+)`/g, (_, body) => { ic.push('#raw("'+this.te(body)+'")'); return '\uE000IC'+ (ic.length-1) +'\uE001' });
+    s = s.replace(/`([^`]+)`/g, (_, body) => { ic.push('#raw("'+this.te(body)+'")'); return '\uE000IC'+ (ic.length-1) +'\uE001' })
     s = s.replace(/^### (.+)$/gm, '=== $1')
     s = s.replace(/^## (.+)$/gm, '== $1')
     s = s.replace(/^# (.+)$/gm, '= $1')

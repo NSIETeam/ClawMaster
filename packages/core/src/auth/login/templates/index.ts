@@ -143,7 +143,7 @@ export class AuthTemplates {
           possiblePaths.push(path.join(cwd, 'dist', 'bundled', 'auth', 'login', 'templates', filename))
           possiblePaths.push(path.join(cwd, 'bundled', 'auth', 'login', 'templates', filename))
           possiblePaths.push(path.join(cwd, 'auth', 'login', 'templates', filename))
-      } catch {
+        } catch {
           // process.cwd() 可能在某些环境下失败，忽略
         }
       }
@@ -155,7 +155,7 @@ export class AuthTemplates {
           if (fs.existsSync(testPath)) {
             foundPath = testPath
             console.error(`✅ [AuthTemplates] Template loaded: ${filename} from ${testPath}`)
-            break;
+            break
           }
         } catch {
           // 某些路径可能因权限问题无法访问，继续尝试下一个
@@ -173,8 +173,8 @@ export class AuthTemplates {
         if (typeof process !== 'undefined' && process.cwd) {
           try {
             console.warn(`   Process cwd: ${process.cwd()}`)
-      } catch {
-            console.warn('   Process cwd: unavailable');
+          } catch {
+            console.warn('   Process cwd: unavailable')
           }
         }
 

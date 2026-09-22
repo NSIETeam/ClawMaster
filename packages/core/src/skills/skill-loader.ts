@@ -320,7 +320,7 @@ export class SkillLoader {
           const skill = this.convertToSkill(comp, loadLevel)
           this.addToCache(skill)
           return skill
-        });
+        })
       }
 
       return []
@@ -449,7 +449,7 @@ export class SkillLoader {
       // Otherwise, assume it's a missing directory that should have SKILL.md
       if ((type === SkillType.COMMAND || type === SkillType.AGENT) && skillPath.endsWith('.md')) {
         skillFilePath = skillPath
-         skillDirPath = path.dirname(skillPath)
+        skillDirPath = path.dirname(skillPath)
       } else {
         skillFilePath = path.join(skillPath, 'SKILL.md')
       }

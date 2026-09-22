@@ -826,7 +826,7 @@ export function listFederationChatMessagesInRepository(
         ? null
         : new Date(row.read_at_ms).toISOString(),
     }
-  });
+  })
 }
 
 export function markFederationChatMessageReadInRepository(
@@ -930,7 +930,7 @@ export function listFederationInboxInRepository(
         : new Date(row.consumed_at_ms).toISOString(),
       receivedAt: new Date(row.received_at_ms).toISOString(),
     }
-  });
+  })
 }
 
 export function consumeFederationInboxInRepository(

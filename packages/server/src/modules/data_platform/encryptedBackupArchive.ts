@@ -69,7 +69,7 @@ export async function createEncryptedBackupArchive(input: {
       throw new Error('backup source must be a regular file')
     }
     return { ...item, archivePath, size: metadata.size }
-  });
+  })
   const targetPath = path.resolve(input.targetPath)
   if (fs.existsSync(targetPath)) {
     throw new Error('backup archive target already exists')
@@ -85,7 +85,7 @@ export async function createEncryptedBackupArchive(input: {
     if (chunk.length === 0) return
     await handle.write(chunk, 0, chunk.length, position)
     position += chunk.length
-  };
+  }
   const writePlain = async (chunk: Buffer) => writeRaw(cipher.update(chunk))
   try {
     await writeRaw(Buffer.concat([OUTER_MAGIC, nonce]))

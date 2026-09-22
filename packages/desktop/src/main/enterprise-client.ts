@@ -824,7 +824,7 @@ export type EnterpriseFederationAtoaTask =
     request: AtoaRequestPayload
     grantedSources: AtoaContextSource[]
     needsCurrentChatSelection: boolean
-  };
+  }
 
 interface EnterpriseFederationEncryptedPayload {
   v: 1
@@ -1534,7 +1534,7 @@ export class EnterpriseClient {
       }
       previousSequence = event.sequence
       return event
-    });
+    })
   }
 
   async listMlsInboundConversationPeers(deviceId: string): Promise<string[]> {
@@ -1750,7 +1750,7 @@ export class EnterpriseClient {
             previous.eTag
           ) {
             completed.push(previous)
-            continue;
+            continue
           }
           const presigned = await this.request<{
             request: {
@@ -3516,7 +3516,7 @@ export class EnterpriseClient {
           ? enterpriseFederationIdentityKeyFingerprint(trust.card)
           : null,
       }
-    });
+    })
   }
 
   async removeFederationContact(contactId: string): Promise<void> {
@@ -3928,7 +3928,7 @@ export class EnterpriseClient {
       const decision = parseFederationAtoaDecision(message.content)
       return message.direction === 'outbound' &&
         decision?.requestMessageId === proposal.id
-    });
+    })
     if (existing) return existing
 
     const grantedSources = [
@@ -4207,7 +4207,7 @@ export class EnterpriseClient {
         await new Promise<void>((resolve, reject) => {
           output.end(resolve)
           output.once('error', reject)
-        });
+        })
       } catch (error) {
         output.destroy()
         throw error
@@ -4336,10 +4336,10 @@ export class EnterpriseClient {
       ? await Promise.all(
         encrypted.attachments.map(async (attachment) => {
           const ciphertext = Buffer.from(attachment.ciphertext, 'base64')
-            const checksum = createHash('sha256')
+          const checksum = createHash('sha256')
             .update(ciphertext)
             .digest('hex')
-            const uploaded = await this.request<{
+          const uploaded = await this.request<{
             attachment: {
               id: string
               ciphertextBytes: number
@@ -4357,20 +4357,20 @@ export class EnterpriseClient {
               }),
             },
             { timeoutMs: 60_000 },
-          );
+          )
           if (
             uploaded.attachment.id !== attachment.id ||
               uploaded.attachment.ciphertextBytes !== ciphertext.length ||
               uploaded.attachment.ciphertextSha256 !== checksum
           ) {
             throw new Error('shared attachment upload metadata is invalid')
-            }
+          }
           return {
             id: attachment.id,
             nonce: attachment.nonce,
             ciphertextBytes: ciphertext.length,
             ciphertextSha256: checksum,
-          };
+          }
         }),
       )
       : []

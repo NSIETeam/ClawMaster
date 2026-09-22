@@ -14,7 +14,7 @@ async function acquireLock(lockPath: string, timeoutMs: number = 5000): Promise<
       const handle = await fs.open(lockPath, 'wx')
       await handle.write(Buffer.from(`${process.pid}\n${Date.now()}\n`))
       await handle.close()
-      return;
+      return
     } catch (err: unknown) {
       if (err && typeof err === 'object' && (err as { code?: string }).code === 'EEXIST') {
         // 检查是否是陈旧锁（超过30秒）
@@ -25,16 +25,16 @@ async function acquireLock(lockPath: string, timeoutMs: number = 5000): Promise<
           if (Date.now() - lockTime > 30000) {
             // 陈旧锁，强制释放
             await fs.unlink(lockPath).catch(() => {})
-            continue;
+            continue
           }
         } catch {
           // 读锁失败也释放
           await fs.unlink(lockPath).catch(() => {})
-          continue;
+          continue
         }
         // 等待10ms重试
         await new Promise(r => setTimeout(r, 10))
-        continue;
+        continue
       }
       throw err
     }

@@ -62,7 +62,7 @@ function groupEnterpriseMembersForDisplay(
         `${department.name.trim()}\u0000${position.title.trim()}`,
         positionIndex,
       )
-    });
+    })
   })
 
   const departments = new Map<string, {
@@ -222,7 +222,7 @@ export function OrganizationTree({
         ...current.slice(activeIndex + 1),
         activeMember,
       ]
-    });
+    })
   }, [])
   const positionById = useMemo(
     () => new Map(organization?.positions.map(item => [item.id, item]) ?? []),
@@ -273,7 +273,7 @@ export function OrganizationTree({
     return () => {
       cancelled = true
       stopPolling()
-    };
+    }
   }, [
     hasAuthenticatedOrganization,
     enterpriseAccount?.organizationId,
@@ -354,7 +354,7 @@ export function OrganizationTree({
                     0,
                   ),
                   0,
-                );
+                )
                 return (
                   <DepartmentSection
                     key={department.key}
@@ -401,7 +401,7 @@ export function OrganizationTree({
                       </OrganizationPositionGroup>
                     ))}
                   </DepartmentSection>
-                );
+                )
               })}
             </div>
           ) : orgLoading ? (
@@ -819,9 +819,9 @@ export function DirectMessagePanel({
                   && message.readAt === candidate.readAt
                   && message.createdAt === candidate.createdAt
                   && (message.attachments?.length ?? 0) === (candidate.attachments?.length ?? 0)
-              });
+              })
             return unchanged ? current : next
-          });
+          })
           setError('')
           knownMessageIds.current = new Set(next.map(message => message.id))
           if (
@@ -842,7 +842,7 @@ export function DirectMessagePanel({
     return () => {
       active = false
       stopPolling()
-    };
+    }
   }, [member.id, onMessageRead])
 
   useEffect(() => {
@@ -864,17 +864,17 @@ export function DirectMessagePanel({
         const key = normalized.fileName + ':' + normalized.size
         if (keys.has(key)) {
           revokeDirectAttachmentPreview(normalized)
-          continue;
+          continue
         }
         if (next.length >= DIRECT_MESSAGE_MAX_ATTACHMENTS) {
           revokeDirectAttachmentPreview(normalized)
           firstError ||= '每条消息最多发送 6 个附件'
-          break;
+          break
         }
         if (totalBytes + normalized.size > DIRECT_MESSAGE_MAX_TOTAL_BYTES) {
           revokeDirectAttachmentPreview(normalized)
           firstError ||= '每条消息的附件总大小不能超过 20 MB'
-          continue;
+          continue
         }
         next.push(normalized)
         keys.add(key)
@@ -885,7 +885,7 @@ export function DirectMessagePanel({
     }
     setAttachments(next)
     setAttachmentError(firstError)
-  };
+  }
 
   const addBrowserFiles = async (files: readonly File[]): Promise<void> => {
     if (files.length === 0) return
@@ -930,7 +930,7 @@ export function DirectMessagePanel({
       '当前聊天记录：',
       transcript || '（当前还没有可用聊天记录）',
     ].join('\n')
-  };
+  }
 
   const askClawMaster = async (question?: string) => {
     const cleanQuestion = (question?.trim() || draft.trim()).slice(0, 1200)
@@ -986,12 +986,12 @@ export function DirectMessagePanel({
       const clawmasterShortcut = content.match(/^@clawmaster(?:\s+|$)([\s\S]*)$/i)
       if (clawmasterShortcut) {
         await askClawMaster(clawmasterShortcut[1] || undefined)
-        return;
+        return
       }
       const peerClawMasterShortcut = content.match(/^@peer-clawmaster(?:\s+|$)([\s\S]*)$/i)
       if (peerClawMasterShortcut) {
         await askPeerClawMaster(peerClawMasterShortcut[1] || undefined)
-        return;
+        return
       }
     }
     setSending(true)
@@ -1063,7 +1063,7 @@ export function DirectMessagePanel({
       top: position.top,
     }
     event.currentTarget.setPointerCapture?.(event.pointerId)
-  };
+  }
 
   const continueDrag = (event: React.PointerEvent<HTMLElement>): void => {
     const drag = dragState.current
@@ -1074,7 +1074,7 @@ export function DirectMessagePanel({
       left: Math.max(0, Math.min(nextLeft, Math.max(0, window.innerWidth - 160))),
       top: Math.max(0, Math.min(nextTop, Math.max(0, window.innerHeight - 48))),
     })
-  };
+  }
 
   const endDrag = (event: React.PointerEvent<HTMLElement>): void => {
     if (dragState.current?.pointerId !== event.pointerId) return

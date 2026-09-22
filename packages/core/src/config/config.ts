@@ -551,7 +551,7 @@ export class Config {
         this.toolRegistry,
         this.promptRegistry,
         this.resourceRegistry,
-      );
+      )
     }
 
     // 更新 AI 引擎的工具列表
@@ -605,7 +605,7 @@ export class Config {
       markMCPDiscoveryTriggered()
       setImmediate(() => {
         this.discoverMcpToolsAsync()
-      });
+      })
     }
   }
 
@@ -737,7 +737,7 @@ export class Config {
     const matchByNewFormat = this.customModels?.find((model) => {
       if (model.enabled === false) return false
       return generateCustomModelId(model) === modelId
-    });
+    })
     if (matchByNewFormat) return matchByNewFormat
 
     // 旧格式兼容: custom:{displayName}
@@ -1380,7 +1380,7 @@ export class Config {
       }
 
       return isEnabled
-    };
+    }
 
     // helper to create & register core tools that are enabled
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1403,7 +1403,7 @@ export class Config {
       if (!isCoreToolEnabled(className, toolName)) return
       const ToolClass = await loadToolClass()
       registry.registerTool(new ToolClass(...args))
-    };
+    }
 
     registerCoreTool(LSTool, this)
     registerCoreTool(ReadFileTool, this)

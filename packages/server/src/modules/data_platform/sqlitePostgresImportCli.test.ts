@@ -57,7 +57,7 @@ describe('SQLite to PostgreSQL import CLI', () => {
     expect(() => parseSqlitePostgresImportArguments(['--unknown'])).toThrow(
       /unknown argument/i,
     )
-  });
+  })
 
   it('requires an explicit maintenance confirmation before writing', async () => {
     await expect(
@@ -73,14 +73,14 @@ describe('SQLite to PostgreSQL import CLI', () => {
         },
       }),
     ).rejects.toThrow(/maintenance.*confirmed/i)
-  });
+  })
 
   it('performs a credential-free, connection-free dry-run', async () => {
     const source = sourceFile()
     const close = vi.fn(() => source.database.close())
     const poolFactory = vi.fn(() => {
       throw new Error('dry-run must not connect to PostgreSQL')
-    });
+    })
     const log = vi.fn()
 
     const result = await importEnterpriseSqliteToPostgres({
@@ -104,7 +104,7 @@ describe('SQLite to PostgreSQL import CLI', () => {
     expect(output).toContain('db.internal:5432/clawmaster')
     expect(output).not.toContain('super-secret')
     expect(output).not.toContain(path.dirname(source.path))
-  });
+  })
 
   it('redacts database credentials and local source directories from errors', () => {
     const connectionString =
@@ -119,5 +119,5 @@ describe('SQLite to PostgreSQL import CLI', () => {
     expect(message).not.toContain('super-secret')
     expect(message).not.toContain('operator')
     expect(message).toContain('snapshot.db')
-  });
+  })
 })

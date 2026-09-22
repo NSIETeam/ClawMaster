@@ -33,14 +33,14 @@ function manifest(overrides: Partial<CustomerModuleManifestV1> = {}): CustomerMo
 describe('customer module manifest', () => {
   it('accepts a minimal signed WASM module', () => {
     expect(parseCustomerModuleManifest(manifest())).toEqual(manifest())
-  });
+  })
 
   it('allows unsigned authoring drafts but never installable manifests', () => {
     const draft = manifest()
     delete draft.signature
     expect(parseCustomerModuleManifest(draft, { requireSignature: false })).toEqual(draft)
     expect(() => parseCustomerModuleManifest(draft)).toThrow(/signature/)
-  });
+  })
 
   it.each([
     ['JS entrypoint', { entrypoint: 'index.js' }],
@@ -58,7 +58,7 @@ describe('customer module manifest', () => {
   ])('rejects %s', (_label, overrides) => {
     expect(() => parseCustomerModuleManifest(manifest(overrides as Partial<CustomerModuleManifestV1>)))
       .toThrow()
-  });
+  })
 
   it('rejects archive traversal, symlinks, undeclared and duplicate files', () => {
     expect(() => validateCustomerModuleArchiveEntries(manifest(), [
@@ -76,5 +76,5 @@ describe('customer module manifest', () => {
       { path: 'module.wasm', kind: 'file', size: 12 },
       { path: 'module.wasm', kind: 'file', size: 12 },
     ])).toThrow(/duplicate/)
-  });
+  })
 })

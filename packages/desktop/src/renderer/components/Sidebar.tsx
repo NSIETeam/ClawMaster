@@ -202,12 +202,12 @@ export function Sidebar({
       setWorkspaceScrollbarActive(false)
       workspaceScrollbarHideTimerRef.current = null
     }, 900)
-  };
+  }
 
   const commitPreference = (next: SessionListPreference): void => {
     setPreferenceState({ key: preferenceKey, preference: next })
     writeSessionListPreference(preferenceScope, next)
-  };
+  }
 
   useEffect(() => {
     if (preferenceState.key === preferenceKey) return
@@ -249,14 +249,14 @@ export function Sidebar({
       if (event.key !== 'Escape') return
       setAccountMenuOpen(false)
       accountMenuTriggerRef.current?.focus()
-    };
+    }
 
     document.addEventListener('mousedown', onDocumentMouseDown)
     document.addEventListener('keydown', onDocumentKeyDown)
     return () => {
       document.removeEventListener('mousedown', onDocumentMouseDown)
       document.removeEventListener('keydown', onDocumentKeyDown)
-    };
+    }
   }, [accountMenuOpen])
 
   useEffect(() => {
@@ -274,7 +274,7 @@ export function Sidebar({
       if (event.key !== 'Escape') return
       setGroupingMenuOpen(false)
       groupingMenuTriggerRef.current?.focus()
-    };
+    }
 
     document.addEventListener('mousedown', onDocumentMouseDown)
     document.addEventListener('keydown', onDocumentKeyDown)
@@ -282,7 +282,7 @@ export function Sidebar({
       const rect = groupingMenuTriggerRef.current?.getBoundingClientRect()
       if (!rect) return
       setGroupingMenuPosition(getGroupingMenuPosition(rect))
-    };
+    }
     window.addEventListener('resize', repositionMenu)
     window.addEventListener('scroll', repositionMenu, true)
     return () => {
@@ -290,20 +290,20 @@ export function Sidebar({
       document.removeEventListener('keydown', onDocumentKeyDown)
       window.removeEventListener('resize', repositionMenu)
       window.removeEventListener('scroll', repositionMenu, true)
-    };
+    }
   }, [groupingMenuOpen])
 
   const toggleGroupingMenu = (): void => {
     if (groupingMenuOpen) {
       setGroupingMenuOpen(false)
-      return;
+      return
     }
     const rect = groupingMenuTriggerRef.current?.getBoundingClientRect()
     if (rect) {
       setGroupingMenuPosition(getGroupingMenuPosition(rect))
     }
     setGroupingMenuOpen(true)
-  };
+  }
 
   return (
     <aside className="claw-sidebar">
@@ -734,12 +734,12 @@ function SessionItem({
     const updatePosition = (): void => {
       const rect = moreButtonRef.current?.getBoundingClientRect()
       if (rect) setMenuPosition(getSessionMenuPosition(rect))
-    };
+    }
     const onKeyDown = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return
       setMode('idle')
       moreButtonRef.current?.focus()
-    };
+    }
     updatePosition()
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKeyDown)
@@ -750,25 +750,25 @@ function SessionItem({
       document.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)
-    };
+    }
   }, [mode])
 
   const startRename = (): void => {
     setDraft(session.title)
     setMode('rename')
-  };
+  }
 
   const commitRename = (): void => {
     const clean = draft.trim()
     // 有变化且非空才提交；否则当作取消（回 idle）。
     if (clean && clean !== session.title) onRename(session.sessionId, clean)
     setMode('idle')
-  };
+  }
 
   const cancelRename = (): void => {
     setDraft(session.title)
     setMode('idle')
-  };
+  }
 
   // —— 重命名态：整行换成 inline 输入框 ——
   if (mode === 'rename') {

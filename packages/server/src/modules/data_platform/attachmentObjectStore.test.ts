@@ -55,7 +55,7 @@ describe('local AttachmentObjectStore adapter', () => {
     expect(
       fs.readFileSync(path.join(root, ...first.key.split('/'))),
     ).not.toContain(ciphertext)
-  });
+  })
 
   it('rejects a caller checksum mismatch before writing', async () => {
     const root = fs.mkdtempSync(
@@ -79,5 +79,5 @@ describe('local AttachmentObjectStore adapter', () => {
       }),
     ).rejects.toThrow(/checksum/i)
     expect(legacy.listKeys()).toEqual([])
-  });
+  })
 })

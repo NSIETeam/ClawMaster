@@ -76,4 +76,4 @@ describe('USB single activation license', () => {
         { ...common, fingerprint: async () => 'fp-b' })).rejects.toThrow('另一台机器')
     } finally { await rm(f.dir, { recursive: true, force: true }) }
   })
-});
+})

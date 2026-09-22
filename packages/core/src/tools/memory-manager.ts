@@ -337,7 +337,7 @@ FILES CREATED:
         s.toLowerCase().includes('sop') ||
         s.toLowerCase().includes('template') ||
         s.toLowerCase().includes('common'),
-      );
+      )
       if (relevant.length > 0) {
         parts.push('## Department Knowledge (local)')
         parts.push(relevant.slice(0, 3).map(s => '## ' + s).join('\n\n'))
@@ -407,7 +407,7 @@ FILES CREATED:
         const dept = k.department ? `[${k.department}] ` : ''
         const cat = k.category ? `(${k.category}) ` : ''
         return `- ${dept}${cat}${k.content || ''}`
-      });
+      })
       return '## Department/Company Knowledge (enterprise server, shared across machines)\n' + lines.join('\n')
     } catch {
       // 企业服务端未启动 / 网络不可达 / 超时——静默降级，不当作错误。
@@ -491,7 +491,7 @@ FILES CREATED:
 
     // 2. Merge into department knowledge
     const deptFile = path.join(MEMORY_DIR, 'department.markdown')
-    let deptContent = fs.existsSync(deptFile) ? fs.readFileSync(deptFile, 'utf8') : '# Department Knowledge Base\n';
+    let deptContent = fs.existsSync(deptFile) ? fs.readFileSync(deptFile, 'utf8') : '# Department Knowledge Base\n'
 
     const mergeBlock = `\n## Offboarded Experience [${empId}] [${now}]
 ### Task Patterns Learned
@@ -545,7 +545,7 @@ ${efficiencyLines.join('\n')}
         success: successMatch,
         raw: l,
       }
-    });
+    })
 
     // Calculate metrics
     const totalTasks = tasks.length
@@ -583,8 +583,8 @@ ${efficiencyLines.join('\n')}
       report += `Estimated time without ClawMaster: ${estimatedManualMin.toFixed(0)} min\n`
       report += `Time saved: ${timeSavedHours} hours (${timeSavedMin.toFixed(0)} min)\n`
       report += `That's ${(parseFloat(timeSavedHours) / 8).toFixed(1)} extra work days freed up.\n\n`
-      report += '### By Task Type\n';
-      report += '| Task | Count | Avg Time | Total Time |\n|------|-------|----------|------------|\n';
+      report += '### By Task Type\n'
+      report += '| Task | Count | Avg Time | Total Time |\n|------|-------|----------|------------|\n'
       for (const [type, data] of Object.entries(byType)) {
         report += `| ${type} | ${data.count} | ${data.avgMin.toFixed(1)}min | ${data.totalMin.toFixed(0)}min |\n`
       }
@@ -592,21 +592,21 @@ ${efficiencyLines.join('\n')}
     } else {
       // Manager sees: ROI, token spend, aggregated efficiency
       let report = `## Management Report (${period})\n\n`
-      report += '### ROI Summary\n';
+      report += '### ROI Summary\n'
       report += `- Total tasks: ${totalTasks}\n`
       report += `- Time saved: ${timeSavedHours} hours\n`
       report += `- Estimated money saved: CNY ${moneySaved} (at ${hourlyRate} CNY/hour)\n`
       report += `- Token cost: CNY ${tokenCostCNY}\n`
       report += `- ROI: ${roi}x\n\n`
-      report += '### Token Spend Breakdown\n';
-      report += '| Task Type | Tasks | Est. Tokens | Est. Cost (CNY) |\n|-----------|-------|-------------|------------------|\n';
+      report += '### Token Spend Breakdown\n'
+      report += '| Task Type | Tasks | Est. Tokens | Est. Cost (CNY) |\n|-----------|-------|-------------|------------------|\n'
       for (const [type, data] of Object.entries(byType)) {
         const tokens = data.count * estTokensPerTask
         const cost = (tokens / 1000 * 0.014).toFixed(2)
         report += `| ${type} | ${data.count} | ${tokens.toLocaleString()} | ${cost} |\n`
       }
       report += `| **Total** | **${totalTasks}** | **${totalTokens.toLocaleString()}** | **${tokenCostCNY}** |\n\n`
-      report += '### Efficiency Trends\n';
+      report += '### Efficiency Trends\n'
       const trendLines = emp.split('\n').filter(l => l.includes('avg:'))
       if (trendLines.length > 0) {
         for (const line of trendLines) {
@@ -615,7 +615,7 @@ ${efficiencyLines.join('\n')}
       } else {
         report += '(Not enough data for trends yet)\n'
       }
-      report += '\n### Bottleneck Analysis\n';
+      report += '\n### Bottleneck Analysis\n'
       const slowest = Object.entries(byType).sort((a, b) => b[1].avgMin - a[1].avgMin)[0]
       if (slowest) {
         report += `- Slowest task: ${slowest[0]} (avg ${slowest[1].avgMin.toFixed(1)}min) - consider optimizing\n`
@@ -824,7 +824,7 @@ ${efficiencyLines.join('\n')}
       if (p.company_id && project.companyId !== p.company_id) return false
       if (p.team_id && project.teamId !== p.team_id) return false
       return true
-    });
+    })
     if (projects.length === 0) return 'no projects'
     return projects.map(project => '- ' + project.id + ': ' + project.name + ' [' + project.status + '] ' + project.goal).join('\n')
   }

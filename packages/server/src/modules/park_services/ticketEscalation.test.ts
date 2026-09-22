@@ -105,7 +105,7 @@ describe('ticket escalation queue (NSI-11)', () => {
     expect(channels).toContain('clawmaster')
     expect(channels).toContain('feishu')
     expect(channels).not.toContain('sms')
-  });
+  })
 
   it('is idempotent for the same job id', async () => {
     const h = createHarness()
@@ -114,7 +114,7 @@ describe('ticket escalation queue (NSI-11)', () => {
     expect(first.accepted).toBe(true)
     expect(second.accepted).toBe(false)
     expect(second.job.id).toBe(first.job.id)
-  });
+  })
 
   it('skips SMS when a read receipt arrives within 5 minutes', async () => {
     const h = createHarness()
@@ -128,7 +128,7 @@ describe('ticket escalation queue (NSI-11)', () => {
     expect(escalated).toBe(0)
     expect(h.sent.some(s => s.channel === 'sms')).toBe(false)
     expect(h.facade.inspect(DEFAULT_ORG, 'job-1')?.status).toBe('resolved')
-  });
+  })
 
   it('sends SMS exactly once when unread past the deadline', async () => {
     const h = createHarness()
@@ -144,7 +144,7 @@ describe('ticket escalation queue (NSI-11)', () => {
     const second = await h.facade.tick(h.now())
     expect(second).toBe(0) // job already escalated once -> nothing new escalated
     expect(h.sent.filter(s => s.channel === 'sms').length).toBe(smsCountAfterFirst)
-  });
+  })
 
   it('resumes the escalation timer across a "restart" (durable state)', async () => {
     const h = createHarness()
@@ -177,7 +177,7 @@ describe('ticket escalation queue (NSI-11)', () => {
     const escalated = await facade2.tick(now2)
     expect(escalated).toBe(1)
     expect(facade2.inspect(DEFAULT_ORG, 'job-1')?.escalatedAt).not.toBeNull()
-  });
+  })
 
   it('records SMS failure and keeps retrying without losing the job', async () => {
     let smsFail = true
@@ -205,7 +205,7 @@ describe('ticket escalation queue (NSI-11)', () => {
     job = h.facade.inspect(DEFAULT_ORG, 'job-1')
     expect(job?.escalatedAt).not.toBeNull()
     expect(job?.status).toBe('delivered')
-  });
+  })
 
   it('exposes operator inspection with status and failure reason', async () => {
     const h = createHarness()
@@ -215,7 +215,7 @@ describe('ticket escalation queue (NSI-11)', () => {
     expect(view!.status).toBe('delivered')
     expect(Array.isArray(view!.attempts)).toBe(true)
     expect(view!.attempts.length).toBeGreaterThanOrEqual(2) // clawmaster + feishu
-  });
+  })
 
   it('cancels a pending job so SMS is never sent', async () => {
     const h = createHarness()
@@ -226,5 +226,5 @@ describe('ticket escalation queue (NSI-11)', () => {
     expect(escalated).toBe(0)
     expect(h.sent.some(s => s.channel === 'sms')).toBe(false)
     expect(h.facade.inspect(DEFAULT_ORG, 'job-1')?.status).toBe('cancelled')
-  });
+  })
 })

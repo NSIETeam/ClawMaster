@@ -561,7 +561,7 @@ export class ClawMasterSessionManager {
     return bridges.filter((b) => {
       if (!b.expiresAt) return true
       return new Date(b.expiresAt) > now
-    });
+    })
   }
 
   // ── 归档与管理 ───────────────────────────────────────
@@ -596,7 +596,7 @@ export class ClawMasterSessionManager {
     for (const [id, meta] of this.sessions) {
       if (new Date(meta.lastActiveAt).getTime() < cutoff && meta.status !== 'active') {
         this.sessions.delete(id)
-        count++;
+        count++
       }
     }
     if (count > 0) await this.persist()

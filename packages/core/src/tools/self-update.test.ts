@@ -35,14 +35,14 @@ describe('buildRelaunchScript', () => {
     const script = buildRelaunchScript({ ...base, install: npmMode })
     expect(script).toContain('12345')
     expect(script).toContain('process.kill')
-  });
+  })
 
   it('npm mode embeds `<pkg>@latest` install', () => {
     const script = buildRelaunchScript({ ...base, install: npmMode })
     expect(script).toContain('clawmaster-ai@latest')
     expect(script).toContain('install')
     expect(script).toContain('-g')
-  });
+  })
 
   it('tgz mode embeds the local tgz absolute path install', () => {
     const script = buildRelaunchScript({ ...base, install: tgzMode })
@@ -50,7 +50,7 @@ describe('buildRelaunchScript', () => {
     expect(script).toContain('install')
     expect(script).toContain('-g')
     expect(script).not.toContain('@latest')
-  });
+  })
 
   it('none mode (restart only) installs nothing — INSTALL_ARGS is null', () => {
     const script = buildRelaunchScript({ ...base, install: noneMode })
@@ -58,7 +58,7 @@ describe('buildRelaunchScript', () => {
     expect(script).not.toContain('@latest')
     expect(script).toContain('clawmaster')
     expect(script).toContain('--feishu')
-  });
+  })
 
   it('always embeds the relaunch command and args', () => {
     for (const install of [npmMode, noneMode, tgzMode]) {
@@ -97,7 +97,7 @@ describe('buildRelaunchScript', () => {
       relaunchArgs: ['--feishu', '--weird "arg"'],
     })
     expect(script).toContain(JSON.stringify(['--feishu', '--weird "arg"']))
-  });
+  })
 
   it('contains dual launch strategy: cmd.exe for Windows, login shell for non-Windows', () => {
     const script = buildRelaunchScript({ ...base, install: noneMode })
@@ -110,7 +110,7 @@ describe('buildRelaunchScript', () => {
     expect(script).toContain('-c')
     // Platform check
     expect(script).toContain('process.platform')
-  });
+  })
 
   it('findLoginShell prioritizes bash over zsh over sh', () => {
     const script = buildRelaunchScript({ ...base, install: noneMode })
@@ -123,12 +123,12 @@ describe('buildRelaunchScript', () => {
     const shIdx = script.indexOf('/bin/sh')
     expect(bashIdx).toBeLessThan(zshIdx)
     expect(zshIdx).toBeLessThan(shIdx)
-  });
+  })
 
   it('listens for spawn error event so failures are observable', () => {
     const script = buildRelaunchScript({ ...base, install: noneMode })
     expect(script).toContain("on('error'")
-  });
+  })
 
   it('redirects relaunch output to a log file when logPath is provided', () => {
     const script = buildRelaunchScript({
@@ -138,7 +138,7 @@ describe('buildRelaunchScript', () => {
     })
     expect(script).toContain(JSON.stringify('/home/u/.clawmaster-user/relaunch.log'))
     expect(script).toContain('openSync')
-  });
+  })
 
   it('produces valid JavaScript with logPath', () => {
     const script = buildRelaunchScript({
@@ -147,7 +147,7 @@ describe('buildRelaunchScript', () => {
       logPath: '/tmp/relaunch.log',
     })
     expect(() => new Function(script)).not.toThrow()
-  });
+  })
 
   it('embeds tgz path via JSON to handle spaces/backslashes safely', () => {
     const winPath = 'C:\\Users\\me\\pkgs\\clawmaster-ai 1.1.3.tgz'
@@ -156,13 +156,13 @@ describe('buildRelaunchScript', () => {
       install: { type: 'tgz', path: winPath },
     })
     expect(script).toContain(JSON.stringify(winPath))
-  });
+  })
 
   it('does not contain obsolete NODE_PATH / ENTRY_SCRIPT variables', () => {
     const script = buildRelaunchScript({ ...base, install: noneMode })
     expect(script).not.toContain('NODE_PATH')
     expect(script).not.toContain('ENTRY_SCRIPT')
-  });
+  })
 })
 
 describe('SelfUpdateTool', () => {
@@ -173,21 +173,21 @@ describe('SelfUpdateTool', () => {
     const tool = new SelfUpdateTool(makeConfig())
     expect(tool.name).toBe('self_update')
     expect(tool.schema.parameters?.required ?? []).toEqual([])
-  });
+  })
 
   it('schema exposes action and source params to the model', () => {
     const tool = new SelfUpdateTool(makeConfig())
     const props = (tool.schema.parameters?.properties ?? {}) as Record<string, unknown>
     expect(props).toHaveProperty('action')
     expect(props).toHaveProperty('source')
-  });
+  })
 
   it('validates action enum', () => {
     const tool = new SelfUpdateTool(makeConfig())
     expect(tool.validateToolParams({ action: 'update_and_restart' })).toBeNull()
     expect(tool.validateToolParams({ action: 'restart_only' })).toBeNull()
     expect(tool.validateToolParams({ action: 'bogus' as never })).not.toBeNull()
-  });
+  })
 
   it('requires source path when source is a local tgz', () => {
     const tool = new SelfUpdateTool(makeConfig())
@@ -201,15 +201,15 @@ describe('SelfUpdateTool', () => {
         sourcePath: '/abs/pkg.tgz',
       }),
     ).toBeNull()
-  });
+  })
 
   it('restart_only ignores source and is always valid', () => {
     const tool = new SelfUpdateTool(makeConfig())
     expect(tool.validateToolParams({ action: 'restart_only' })).toBeNull()
-  });
+  })
 
   it('description mentions update/restart', () => {
     const tool = new SelfUpdateTool(makeConfig())
     expect(tool.getDescription({}).toLowerCase()).toMatch(/updat|restart|重启|更新/)
-  });
+  })
 })

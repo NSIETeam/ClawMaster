@@ -899,16 +899,16 @@ export class SkillShareManager {
     switch (sortBy) {
       case 'rating':
         marketShares.sort((a, b) => b.rating - a.rating)
-        break;
+        break
       case 'installs':
         marketShares.sort((a, b) => b.installCount - a.installCount)
-        break;
+        break
       case 'usage':
         marketShares.sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
-        break;
+        break
       case 'newest':
         marketShares.sort((a, b) => b.sharedAt.localeCompare(a.sharedAt))
-        break;
+        break
       default:
         break
     }
@@ -1082,7 +1082,7 @@ export class SkillShareManager {
     const activeShares = shares.filter(s => s.teamId === teamId && s.status === 'active')
 
     if (activeShares.length === 0) {
-      return '本小组暂无贡献者。';
+      return '本小组暂无贡献者。'
     }
 
     const teamName = activeShares[0]?.teamName || '本小组'
@@ -1132,7 +1132,7 @@ export class SkillShareManager {
       const contributionScore = shareScore * 0.3 + installScore * 0.3 + ratingScore * 0.2 + feedbackScore * 0.2
 
       return { ...c, avgRating, contributionScore }
-    });
+    })
 
     contributors.sort((a, b) => b.contributionScore - a.contributionScore)
 
@@ -1170,7 +1170,7 @@ export class SkillShareManager {
     const activeShares = shares.filter(s => s.teamId === teamId && s.status === 'active')
 
     if (activeShares.length === 0) {
-      return '本小组暂无共享 Skill 排行榜。';
+      return '本小组暂无共享 Skill 排行榜。'
     }
 
     // 获取小组名称
@@ -1186,7 +1186,7 @@ export class SkillShareManager {
       const usageScore = (s.usageCount / maxUsage) * 100
       const totalScore = ratingScore * 0.35 + installScore * 0.25 + successRate * 0.25 + usageScore * 0.15
       return { share: s, totalScore }
-    });
+    })
 
     // 按综合得分降序
     scored.sort((a, b) => b.totalScore - a.totalScore)
@@ -1277,7 +1277,7 @@ export class SkillShareManager {
         score: ratingScore * 0.35 + installScore * 0.25 + successRate * 0.25 + usageScore * 0.15,
       }
     }).sort((a, b) => b.score - a.score)
-    leaderboardData.forEach((item, i) => { item.rank = i + 1 });
+    leaderboardData.forEach((item, i) => { item.rank = i + 1 })
 
     // 明星榜数据
     const contributorMap: Record<string, { name: string; skillCount: number; totalInstalls: number; totalRatingScore: number; ratingCount: number; skills: string[] }> = {}
@@ -1315,7 +1315,7 @@ export class SkillShareManager {
         skills: c.skills,
       }
     }).sort((a, b) => b.score - a.score)
-    starBoardData.forEach((item, i) => { item.rank = i + 1 });
+    starBoardData.forEach((item, i) => { item.rank = i + 1 })
 
     // 格式化文本版本（供飞书卡片等纯文本场景）
     const leaderboardText = this.formatLeaderboardText(teamName, leaderboardData)
@@ -1414,7 +1414,7 @@ function extractWorkflowSteps(content: string): string[] {
   for (const line of lines) {
     if (line.match(/^##\s*(操作步骤|步骤|Steps)/i)) {
       inStepsSection = true
-      continue;
+      continue
     }
     if (inStepsSection && line.match(/^##\s/)) {
       break

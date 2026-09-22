@@ -639,7 +639,7 @@ export async function handleCommunicationRoute({
       if ((atoaClaims.get(key) ?? 0) > now) return false
       atoaClaims.set(key, now + atoaClaimTtlMs)
       return true
-    });
+    })
     const peer = claimed
       ? db.getAccount(claimed.peerAccountId, memberAccount.organizationId)
       : null

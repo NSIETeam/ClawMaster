@@ -44,7 +44,7 @@ export class EnhancedLogger {
         '.clawmaster-user',
         'logs',
         `clawmaster-${timestamp}.log`,
-      );
+      )
     }
   }
 
@@ -53,7 +53,7 @@ export class EnhancedLogger {
     const formattedArgs = args.map(arg =>
       typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg),
     ).join(' ')
-    
+
     return `[${timestamp}] [${level}] ${message} ${formattedArgs}`.trim()
   }
 
@@ -63,10 +63,10 @@ export class EnhancedLogger {
     try {
       // 确保目录存在
       await fs.mkdir(path.dirname(this.config.filePath), { recursive: true })
-      
+
       // 检查文件大小并轮转
       await this.rotateLogIfNeeded()
-      
+
       // 写入日志
       await fs.appendFile(this.config.filePath, message + '\n', 'utf-8')
     } catch (error) {
@@ -84,9 +84,9 @@ export class EnhancedLogger {
       if (fileSizeMB > (this.config.maxFileSize || 10)) {
         const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')
         const rotatedPath = this.config.filePath.replace('.log', `-${timestamp}.log`)
-        
+
         await fs.rename(this.config.filePath, rotatedPath)
-        
+
         // 清理旧日志文件
         await this.cleanOldLogs()
       }
@@ -114,13 +114,13 @@ export class EnhancedLogger {
 
       const sortedFiles = await Promise.all(
         logFiles.map(async f => ({ ...f, time: await f.time })),
-      );
+      )
 
       sortedFiles.sort((a, b) => b.time.getTime() - a.time.getTime())
 
       // 保留最新的几个文件
       const filesToDelete = sortedFiles.slice(this.config.maxFiles || 5)
-      
+
       for (const file of filesToDelete) {
         await fs.unlink(file.path)
       }
@@ -170,7 +170,7 @@ export class EnhancedLogger {
       requestSize: JSON.stringify(requestData).length,
       // 在调试模式下记录完整请求
       ...(process.env.FILE_DEBUG === '1' ? { requestData } : {}),
-    });
+    })
   }
 
   logApiResponse(endpoint: string, responseData: unknown): void {
@@ -180,7 +180,7 @@ export class EnhancedLogger {
       responseSize: JSON.stringify(responseData).length,
       // 在调试模式下记录完整响应
       ...(process.env.FILE_DEBUG === '1' ? { responseData } : {}),
-    });
+    })
   }
 }
 

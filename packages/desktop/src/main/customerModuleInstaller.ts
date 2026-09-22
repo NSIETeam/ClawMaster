@@ -212,7 +212,7 @@ export async function installCustomerModule(input: {
   const versionExists = await fs.promises.access(versionRoot).then(() => true, (error: NodeJS.ErrnoException) => {
     if (error.code === 'ENOENT') return false
     throw error
-  });
+  })
   if (versionExists) {
     const installedFiles = new Map<string, Uint8Array>()
     for (const filePath of Object.keys(manifest.files)) {

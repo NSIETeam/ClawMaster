@@ -44,13 +44,13 @@ describe('PluginInstaller', () => {
 
     marketplaceManager = new MarketplaceManager(settingsManager)
     installer = new PluginInstaller(settingsManager, marketplaceManager)
-  });
+  })
 
   afterEach(async () => {
     // 清理测试目录
     await fs.remove(testRoot)
     vi.restoreAllMocks()
-  });
+  })
 
   /**
    * 创建测试用的 Marketplace
@@ -100,7 +100,7 @@ describe('PluginInstaller', () => {
       const installedInfo = await settingsManager.getInstalledPlugin('test-mp:test-plugin')
       expect(installedInfo).not.toBeNull()
       expect(installedInfo?.enabled).toBe(true)
-    });
+    })
 
     it('should throw error if plugin not found', async () => {
       await createTestMarketplace()
@@ -108,7 +108,7 @@ describe('PluginInstaller', () => {
       await expect(
         installer.installPlugin('test-mp', 'non-existent'),
       ).rejects.toThrow()
-    });
+    })
 
     it('should throw error if plugin already installed', async () => {
       await createTestMarketplace()
@@ -118,7 +118,7 @@ describe('PluginInstaller', () => {
       await expect(
         installer.installPlugin('test-mp', 'test-plugin'),
       ).rejects.toThrow('already installed')
-    });
+    })
 
     it('should enable plugin by default', async () => {
       await createTestMarketplace()
@@ -127,7 +127,7 @@ describe('PluginInstaller', () => {
 
       const isEnabled = await installer.isPluginEnabled('test-mp:test-plugin')
       expect(isEnabled).toBe(true)
-    });
+    })
 
     it('should save installPath and isLocal for local plugin', async () => {
       await createTestMarketplace()
@@ -138,7 +138,7 @@ describe('PluginInstaller', () => {
       expect(installed?.installPath).toBeDefined()
       expect(installed?.installPath).toContain('test-mp') // Marketplace ID in path
       expect(installed?.isLocal).toBe(true) // Local marketplace
-    });
+    })
 
     it('should default version to unknown when not specified', async () => {
       await createTestMarketplace()
@@ -147,7 +147,7 @@ describe('PluginInstaller', () => {
 
       const installed = await settingsManager.getInstalledPlugin('test-mp:test-plugin')
       expect(installed?.version).toBe('unknown') // Default version when not specified in plugin
-    });
+    })
   })
 
   describe('uninstallPlugin', () => {
@@ -162,13 +162,13 @@ describe('PluginInstaller', () => {
 
       const isEnabled = await installer.isPluginEnabled('test-mp:test-plugin')
       expect(isEnabled).toBe(false)
-    });
+    })
 
     it('should throw error if plugin not installed', async () => {
       await expect(
         installer.uninstallPlugin('test-mp:non-existent'),
       ).rejects.toThrow('not installed')
-    });
+    })
   })
 
   describe('enablePlugin', () => {
@@ -184,13 +184,13 @@ describe('PluginInstaller', () => {
 
       const installedInfo = await settingsManager.getInstalledPlugin('test-mp:test-plugin')
       expect(installedInfo?.enabled).toBe(true)
-    });
+    })
 
     it('should throw error if plugin not installed', async () => {
       await expect(
         installer.enablePlugin('test-mp:non-existent'),
       ).rejects.toThrow('not installed')
-    });
+    })
   })
 
   describe('disablePlugin', () => {
@@ -205,13 +205,13 @@ describe('PluginInstaller', () => {
 
       const installedInfo = await settingsManager.getInstalledPlugin('test-mp:test-plugin')
       expect(installedInfo?.enabled).toBe(false)
-    });
+    })
 
     it('should throw error if plugin not installed', async () => {
       await expect(
         installer.disablePlugin('test-mp:non-existent'),
       ).rejects.toThrow('not installed')
-    });
+    })
   })
 
   describe('getInstalledPlugins', () => {
@@ -223,12 +223,12 @@ describe('PluginInstaller', () => {
 
       expect(plugins).toHaveLength(1)
       expect(plugins[0].id).toBe('test-mp:test-plugin')
-    });
+    })
 
     it('should return empty array if no plugins installed', async () => {
       const plugins = await installer.getInstalledPlugins()
       expect(plugins).toHaveLength(0)
-    });
+    })
   })
 
   describe('getEnabledPlugins', () => {
@@ -240,7 +240,7 @@ describe('PluginInstaller', () => {
       const plugins = await installer.getEnabledPlugins()
 
       expect(plugins).toHaveLength(0)
-    });
+    })
 
     it('should include enabled plugins', async () => {
       await createTestMarketplace()
@@ -250,7 +250,7 @@ describe('PluginInstaller', () => {
 
       expect(plugins).toHaveLength(1)
       expect(plugins[0].enabled).toBe(true)
-    });
+    })
   })
 
   describe('isPluginInstalled', () => {
@@ -260,12 +260,12 @@ describe('PluginInstaller', () => {
 
       const isInstalled = await installer.isPluginInstalled('test-mp:test-plugin')
       expect(isInstalled).toBe(true)
-    });
+    })
 
     it('should return false for non-installed plugin', async () => {
       const isInstalled = await installer.isPluginInstalled('test-mp:non-existent')
       expect(isInstalled).toBe(false)
-    });
+    })
   })
 
   describe('installPlugins (batch)', () => {
@@ -317,6 +317,6 @@ describe('PluginInstaller', () => {
       expect(plugins).toHaveLength(2)
       expect(plugins[0].name).toBe('plugin1')
       expect(plugins[1].name).toBe('plugin2')
-    });
+    })
   })
-});
+})

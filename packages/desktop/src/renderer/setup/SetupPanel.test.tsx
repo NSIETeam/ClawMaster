@@ -19,7 +19,7 @@ beforeEach(() => {
     value: { writeText, readText: async () => '' },
     configurable: true,
   })
-});
+})
 
 function renderPanel(): ReturnType<typeof render> {
   return render(
@@ -32,7 +32,7 @@ describe('SetupPanel 复制路径', () => {
     renderPanel()
     expect(screen.getByRole('img', { name: 'ClawMaster 皇冠标志' })).toBeTruthy()
     expect(screen.queryByText(/^clawmaster$/i)).toBeNull()
-  });
+  })
 
   it('复制 custom-models.json：剪贴板内容用占位符代替明文 key', async () => {
     const { getByText, getByPlaceholderText } = renderPanel()
@@ -54,14 +54,14 @@ describe('SetupPanel 复制路径', () => {
     const text = writeText.mock.calls[0][0]
     expect(text).toContain('<你的API_KEY>')
     expect(text).not.toContain('sk-real-secret-123')
-  });
+  })
 
   it('复制按钮旁展示占位符提示', () => {
     const { getByText } = renderPanel()
     // 展开高级块后才显示复制路径及其占位符提示。
     fireEvent.click(getByText('高级：手动落盘方式'))
     expect(getByText('已用占位符代替 API Key，粘贴后请自行填入。')).toBeTruthy()
-  });
+  })
 })
 
 describe('SetupPanel 编辑模型', () => {
@@ -95,5 +95,5 @@ describe('SetupPanel 编辑模型', () => {
       enabled: false,
       maxTokens: 64000,
     }))
-  });
+  })
 })

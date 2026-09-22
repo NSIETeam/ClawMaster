@@ -197,7 +197,7 @@ export function normalizeModuleWorkspace(value: unknown): ModuleWorkspaceLayout 
       rows: group.rows === 3 ? 3 : 2,
       moduleIds: normalizeModuleIds(group.moduleIds, seenModuleIds),
     })
-  });
+  })
 
   return { version: MODULE_WORKSPACE_SCHEMA_VERSION, groups }
 }
@@ -221,7 +221,7 @@ export function parseModuleWorkspace(
         const current = groups.find(group => group.id === expected.id)
         if (!current) {
           groups.push(cloneGroup(expected))
-          continue;
+          continue
         }
         if (
           capabilities.edition === 'personal'

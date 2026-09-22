@@ -16,7 +16,7 @@ let home = ''
 afterEach(() => {
   if (home) fs.rmSync(home, { recursive: true, force: true })
   home = ''
-});
+})
 
 describe('search observability', () => {
   it('persists only metadata and aggregates by tenant', () => {
@@ -90,7 +90,7 @@ describe('search observability', () => {
     expect(merged.totalSuccesses).toBe(1)
     expect(merged.cacheHits).toBe(1)
     expect(merged.estimatedCostCny).toBe(0.03)
-  });
+  })
 
   it('enforces monthly request and budget limits per tenant', () => {
     home = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-search-quota-'))
@@ -139,5 +139,5 @@ describe('search observability', () => {
     expect(status.blocked).toBe(true)
     expect(status.blockedReason).toBe('monthly_request_quota_exhausted')
     expect(checkSearchQuota('org-b', 0.03, home, now).allowed).toBe(true)
-  });
+  })
 })

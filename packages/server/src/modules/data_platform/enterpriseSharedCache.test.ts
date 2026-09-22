@@ -27,7 +27,7 @@ describe('Redis enterprise shared cache', () => {
     })
     await expect(cache.get('session:abc')).resolves.toBe('value')
     expect(client.get).toHaveBeenCalledWith('clawmaster.session:abc')
-  });
+  })
 
   it('uses atomic NX leases and owner-checked release', async () => {
     const client = {
@@ -58,7 +58,7 @@ describe('Redis enterprise shared cache', () => {
         arguments: ['worker-1'],
       },
     )
-  });
+  })
 
   it('fails health checks closed on an unexpected response', async () => {
     const cache = createRedisEnterpriseSharedCache({
@@ -73,5 +73,5 @@ describe('Redis enterprise shared cache', () => {
     })
 
     await expect(cache.healthCheck()).rejects.toThrow(/health.*failed/i)
-  });
+  })
 })

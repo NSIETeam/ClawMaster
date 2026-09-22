@@ -1076,7 +1076,7 @@ async function verifiedPreparedAttachments(input: {
       s3StorageKey: prepared.s3_storage_key,
       sourceCreatedAt,
     }
-  });
+  })
 }
 
 async function insertPreparedAttachments(input: {

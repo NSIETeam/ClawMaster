@@ -21,11 +21,11 @@ export const CLIPBOARD_DIR = 'clipboard'
  */
 export function isClipboardPath(pathName: string, targetDir: string, configDirName: string): boolean {
   const fullClipboardPath = `${configDirName}/${CLIPBOARD_DIR}`
-  
+
   // Convert relative path to absolute path for comparison
   const absolutePath = path.resolve(targetDir, pathName)
   const expectedClipboardAbsolute = path.resolve(targetDir, fullClipboardPath)
-  
+
   // Check if the absolute path starts with clipboard directory path
   if (absolutePath.startsWith(expectedClipboardAbsolute) ||
       absolutePath === expectedClipboardAbsolute ) {

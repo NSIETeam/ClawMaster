@@ -27,7 +27,7 @@ describe('federation A2A main-process protocol', () => {
       mode: 'answer',
       requestedSources: ['schedules'],
     })
-  });
+  })
 
   it('rejects unknown sources and oversized questions', () => {
     for (const payload of [
@@ -77,5 +77,5 @@ describe('federation A2A main-process protocol', () => {
       grantedSources: ['enterprise_knowledge'],
     })
     expect(Buffer.byteLength(response, 'utf8')).toBeLessThanOrEqual(4000)
-  });
+  })
 })

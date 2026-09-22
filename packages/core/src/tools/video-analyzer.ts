@@ -271,7 +271,7 @@ export class VideoAnalyzerTool extends BaseTool<VideoAnalyzerToolParams, ToolRes
         '2. topics: 视频涉及的主要主题（数组）\n' +
         '3. key_moments: 关键时刻列表，每个含 frame_index 和 description\n' +
         '4. action_items: 如果视频中有可执行的建议或步骤\n' +
-        '5. target_audience: 目标观众';
+        '5. target_audience: 目标观众'
 
       // Try vision model via ClawMaster's temporary chat (like AudioReaderTool)
       let analysisResult = ''
@@ -292,7 +292,7 @@ export class VideoAnalyzerTool extends BaseTool<VideoAnalyzerToolParams, ToolRes
                  (name.includes('gemini') && name.includes('flash')) ||
                  (name.includes('gpt-4o')) ||
                  (name.includes('vision'))
-        });
+        })
         if (visionModel) {
           resolvedModel = generateCustomModelId(visionModel)
         }
@@ -329,7 +329,7 @@ export class VideoAnalyzerTool extends BaseTool<VideoAnalyzerToolParams, ToolRes
           `提取帧数：${frameBuffers.length}帧\n` +
           `字幕来源：${subtitleSource}\n` +
           (subtitleText ? `字幕摘要：${subtitleText.substring(0, 500)}\n` : '') +
-          '\n（注：视觉分析模型不可用，以上为基础摘要）';
+          '\n（注：视觉分析模型不可用，以上为基础摘要）'
       }
 
       // ===== Step 5: Knowledge base =====

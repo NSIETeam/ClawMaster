@@ -41,7 +41,7 @@ afterEach(async () => {
       .splice(0)
       .map(directory => rm(directory, { recursive: true, force: true })),
   )
-});
+})
 
 function identity(
   overrides: Partial<
@@ -218,9 +218,9 @@ describe('EnterpriseMlsSessionManager', () => {
           Uint8Array.from({ length: 32 }, (_, index) => index + 1),
           '{"ciphertext":"native-state"}',
         )
-      });
+      })
       return kernel
-    });
+    })
     const manager = new EnterpriseMlsSessionManager({
       stateDirectory,
       secureStorage: {
@@ -259,7 +259,7 @@ describe('EnterpriseMlsSessionManager', () => {
 
     await expect(manager.activate(identity())).resolves.toEqual(ready)
     expect(factory).toHaveBeenCalledOnce()
-  });
+  })
 
   it('refuses pending devices before creating a native kernel', async () => {
     const factory = vi.fn(() => fakeKernel())
@@ -281,7 +281,7 @@ describe('EnterpriseMlsSessionManager', () => {
       state: 'blocked',
       reason: 'device-not-approved',
     })
-  });
+  })
 
   it('fails closed when OS secure storage is unavailable', async () => {
     const factory = vi.fn(() => fakeKernel())
@@ -305,7 +305,7 @@ describe('EnterpriseMlsSessionManager', () => {
       state: 'blocked',
       reason: 'secure-storage-unavailable',
     })
-  });
+  })
 
   it('closes the old kernel before switching device scope', async () => {
     const first = fakeKernel()
@@ -330,7 +330,7 @@ describe('EnterpriseMlsSessionManager', () => {
     )
     expect(first.close).toHaveBeenCalledOnce()
     expect(second.init).toHaveBeenCalledOnce()
-  });
+  })
 
   it('closes and blocks a kernel whose encrypted state cannot initialize', async () => {
     const kernel = fakeKernel()
@@ -355,7 +355,7 @@ describe('EnterpriseMlsSessionManager', () => {
       state: 'blocked',
       reason: 'native-initialization-failed',
     })
-  });
+  })
 
   it('binds every native group operation to the deterministic account pair', async () => {
     const kernel = fakeKernel()
@@ -474,7 +474,7 @@ describe('EnterpriseMlsSessionManager', () => {
       'account-b',
       `mls-${'b'.repeat(64)}`,
     )
-  });
+  })
 
   it('closes a cleared MLS kernel and requires explicit reactivation', async () => {
     const kernel = fakeKernel()
@@ -521,7 +521,7 @@ describe('EnterpriseMlsSessionManager', () => {
     await manager.createKeyPackage()
     expect(replacementKernel.createKeyPackage).toHaveBeenCalledOnce()
     expect(kernel.createKeyPackage).not.toHaveBeenCalled()
-  });
+  })
 
   it('blocks the MLS lifecycle when security-state reset fails', async () => {
     const kernel = fakeKernel()
@@ -545,7 +545,7 @@ describe('EnterpriseMlsSessionManager', () => {
       state: 'blocked',
       reason: 'security-state-reset-failed',
     })
-  });
+  })
 })
 
 function coordinatorHarness(keyPackages: MlsKeyPackage[] = []) {
@@ -814,7 +814,7 @@ describe('parseEnterpriseMlsTransportEvent', () => {
       memberAddDeviceId: 'device-a-2',
       memberAddKeyPackageReference: 'c'.repeat(64),
     })
-  });
+  })
 })
 
 describe('EnterpriseMlsSessionCoordinator', () => {
@@ -869,7 +869,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       ['device-a', claimed],
       ['device-a', expect.objectContaining({ reference: 'a'.repeat(64) })],
     ])
-  });
+  })
 
   it('retires an unclaimed server KeyPackage whose private key is absent locally', async () => {
     const { sessions, transport } = coordinatorHarness()
@@ -899,7 +899,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       'device-a',
       expect.objectContaining({ reference: 'a'.repeat(64) }),
     )
-  });
+  })
 
   it('replays a persisted pending invitation with stable event identifiers', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -942,7 +942,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       ),
     ).toEqual(firstIds)
     expect(sessions.mergePendingCommit).toHaveBeenCalledTimes(2)
-  });
+  })
 
   it('adds an approved same-account device with an exact KeyPackage target', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1023,7 +1023,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
         recipientDeviceId: 'device-a-2',
       }),
     )
-  });
+  })
 
   it('publishes and merges a crash-resumable MLS epoch refresh', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1069,7 +1069,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       transport.appendMlsTransportEvent.mock.calls[0]![1],
     ).not.toHaveProperty('keyPackageReference')
     expect(sessions.mergePendingEpochUpdate).toHaveBeenCalledWith('account-b')
-  });
+  })
 
   it('lets only the deterministic account initiate a new direct group', async () => {
     const { sessions, transport } = coordinatorHarness()
@@ -1094,7 +1094,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       0,
       100,
     )
-  });
+  })
 
   it('lets the deterministic receiver consume a pending handshake without exposing application plaintext', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1174,7 +1174,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
     expect(sessions.listPendingReceivedApplications).not.toHaveBeenCalled()
     expect(sessions.createGroup).not.toHaveBeenCalled()
     expect(transport.claimMlsKeyPackage).not.toHaveBeenCalled()
-  });
+  })
 
   it('fails closed when the deterministic receiver cannot poll its handshake', async () => {
     const { sessions, transport } = coordinatorHarness()
@@ -1197,7 +1197,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
     ).rejects.toThrow('transport offline')
     expect(sessions.createGroup).not.toHaveBeenCalled()
     expect(transport.claimMlsKeyPackage).not.toHaveBeenCalled()
-  });
+  })
 
   it('replays the durable application outbox before encrypting a new message', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1246,7 +1246,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
     ).toBeLessThan(
       sessions.encryptTransportApplication.mock.invocationCallOrder[0]!,
     )
-  });
+  })
 
   it('keeps a pending application when transport delivery fails', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1278,7 +1278,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
     ).rejects.toThrow('transport unavailable')
     expect(sessions.acknowledgePendingApplication).not.toHaveBeenCalled()
     expect(sessions.encryptTransportApplication).not.toHaveBeenCalled()
-  });
+  })
 
   it('does not acknowledge a transport response with different security bindings', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1325,7 +1325,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       coordinator.flushPendingApplications('account-b'),
     ).rejects.toThrow('acknowledgement binding is invalid')
     expect(sessions.acknowledgePendingApplication).not.toHaveBeenCalled()
-  });
+  })
 
   it('continues flushing other peer outboxes and reports partial failure', async () => {
     const { sessions, transport } = coordinatorHarness()
@@ -1346,7 +1346,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       'failed for 1 peer session',
     )
     expect(flush.mock.calls).toEqual([['account-b'], ['account-c']])
-  });
+  })
 
   it('joins from Welcome and atomically advances application cursor on decrypt', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1420,7 +1420,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
         },
       ],
     })
-  });
+  })
 
   it('processes a later remote Commit through the native atomic epoch transition', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1461,7 +1461,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       null,
     )
     expect(sessions.advanceTransportCursor).not.toHaveBeenCalled()
-  });
+  })
 
   it('retires the old local group before joining a targeted reset Welcome', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1526,7 +1526,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       replacementGroupId,
       'd2VsY29tZS1yZXNldA==',
     )
-  });
+  })
 
   it('passes a verified KeyPackage target into a remote membership Commit', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1568,7 +1568,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       'account-b',
       'account-b',
     )
-  });
+  })
 
   it('fails closed when a remote Commit skips an epoch', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1590,7 +1590,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
     )
     expect(sessions.receiveTransportCommit).not.toHaveBeenCalled()
     expect(sessions.advanceTransportCursor).not.toHaveBeenCalled()
-  });
+  })
 
   it('re-delivers the encrypted native inbox until the consumer acknowledges it', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1628,7 +1628,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
       'account-b',
       pending.eventId,
     )
-  });
+  })
 
   it('stages background applications without exposing pending plaintext', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1664,7 +1664,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
     )
     expect(sessions.receiveTransportApplication).not.toHaveBeenCalled()
     expect(sessions.listPendingReceivedApplications).not.toHaveBeenCalled()
-  });
+  })
 
   it('polls an inbound Welcome peer before the local conversation is opened', async () => {
     const { group, sessions, transport } = coordinatorHarness()
@@ -1719,7 +1719,7 @@ describe('EnterpriseMlsSessionCoordinator', () => {
     )
     expect(sessions.stageTransportApplication).toHaveBeenCalledOnce()
     expect(sessions.receiveTransportApplication).not.toHaveBeenCalled()
-  });
+  })
 })
 
 describe('EnterpriseMlsOutboxRetryScheduler', () => {
@@ -1759,7 +1759,7 @@ describe('EnterpriseMlsOutboxRetryScheduler', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(flushAllPendingApplications).toHaveBeenCalledTimes(4)
     await scheduler.stop()
-  });
+  })
 
   it('waits for an active delivery and schedules nothing after stop', async () => {
     vi.useFakeTimers()
@@ -1780,14 +1780,14 @@ describe('EnterpriseMlsOutboxRetryScheduler', () => {
     let stopped = false
     const stopping = scheduler.stop().then(() => {
       stopped = true
-    });
+    })
     await Promise.resolve()
     expect(stopped).toBe(false)
     finishDelivery(0)
     await stopping
     await vi.advanceTimersByTimeAsync(120_000)
     expect(flushAllPendingApplications).toHaveBeenCalledOnce()
-  });
+  })
 })
 
 describe('EnterpriseMlsInboundPollScheduler', () => {
@@ -1818,5 +1818,5 @@ describe('EnterpriseMlsInboundPollScheduler', () => {
     await scheduler.stop()
     await vi.advanceTimersByTimeAsync(2_000)
     expect(pollAllActiveSessions).toHaveBeenCalledTimes(2)
-  });
+  })
 })

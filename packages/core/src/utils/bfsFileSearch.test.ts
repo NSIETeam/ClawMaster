@@ -31,17 +31,17 @@ describe('bfsFileSearch', () => {
     testRootDir = await fsPromises.mkdtemp(
       path.join(os.tmpdir(), 'bfs-file-search-test-'),
     )
-  });
+  })
 
   afterEach(async () => {
     await fsPromises.rm(testRootDir, { recursive: true, force: true })
-  });
+  })
 
   it('should find a file in the root directory', async () => {
     const targetFilePath = await createTestFile('content', 'target.txt')
     const result = await bfsFileSearch(testRootDir, { fileName: 'target.txt' })
     expect(result).toEqual([targetFilePath])
-  });
+  })
 
   it('should find a file in a nested directory', async () => {
     const targetFilePath = await createTestFile(
@@ -52,7 +52,7 @@ describe('bfsFileSearch', () => {
     )
     const result = await bfsFileSearch(testRootDir, { fileName: 'target.txt' })
     expect(result).toEqual([targetFilePath])
-  });
+  })
 
   it('should find multiple files with the same name', async () => {
     const targetFilePath1 = await createTestFile('content1', 'a', 'target.txt')
@@ -60,13 +60,13 @@ describe('bfsFileSearch', () => {
     const result = await bfsFileSearch(testRootDir, { fileName: 'target.txt' })
     result.sort()
     expect(result).toEqual([targetFilePath1, targetFilePath2].sort())
-  });
+  })
 
   it('should return an empty array if no file is found', async () => {
     await createTestFile('content', 'other.txt')
     const result = await bfsFileSearch(testRootDir, { fileName: 'target.txt' })
     expect(result).toEqual([])
-  });
+  })
 
   it('should ignore directories specified in ignoreDirs', async () => {
     await createTestFile('content', 'ignored', 'target.txt')
@@ -80,7 +80,7 @@ describe('bfsFileSearch', () => {
       ignoreDirs: ['ignored'],
     })
     expect(result).toEqual([targetFilePath])
-  });
+  })
 
   it('should respect the maxDirs limit and not find the file', async () => {
     await createTestFile('content', 'a', 'b', 'c', 'target.txt')
@@ -89,7 +89,7 @@ describe('bfsFileSearch', () => {
       maxDirs: 3,
     })
     expect(result).toEqual([])
-  });
+  })
 
   it('should respect the maxDirs limit and find the file', async () => {
     const targetFilePath = await createTestFile(
@@ -104,14 +104,14 @@ describe('bfsFileSearch', () => {
       maxDirs: 4,
     })
     expect(result).toEqual([targetFilePath])
-  });
+  })
 
   describe('with FileDiscoveryService', () => {
     let projectRoot: string
 
     beforeEach(async () => {
       projectRoot = await createEmptyDir('project')
-    });
+    })
 
     it('should ignore gitignored files', async () => {
       await createEmptyDir('project', '.git')
@@ -135,7 +135,7 @@ describe('bfsFileSearch', () => {
       })
 
       expect(result).toEqual([targetFilePath])
-    });
+    })
 
     it('should ignore clawmasterignored files', async () => {
       await createTestFile('node_modules/', 'project', '.clawmasterignore')
@@ -158,7 +158,7 @@ describe('bfsFileSearch', () => {
       })
 
       expect(result).toEqual([targetFilePath])
-    });
+    })
 
     it('should not ignore files if respect flags are false', async () => {
       await createEmptyDir('project', '.git')
@@ -187,6 +187,6 @@ describe('bfsFileSearch', () => {
       })
 
       expect(result.sort()).toEqual([target1, target2].sort())
-    });
+    })
   })
-});
+})

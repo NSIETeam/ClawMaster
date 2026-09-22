@@ -325,4 +325,4 @@ describe('SQLite to PostgreSQL import', () => {
       source.close()
     }
   })
-});
+})

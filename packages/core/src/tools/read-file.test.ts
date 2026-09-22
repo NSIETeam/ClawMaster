@@ -31,7 +31,7 @@ describe('ReadFileTool', () => {
       getUsageStatisticsEnabled: () => false,
     } as unknown as Config
     tool = new ReadFileTool(mockConfigInstance)
-  });
+  })
 
   afterEach(async () => {
     // Clean up the temporary root directory
@@ -86,7 +86,7 @@ describe('ReadFileTool', () => {
         absolute_path: path.join(tempRootDir, 'test.txt'),
       }
       expect(tool.validateToolParams(params)).toBeNull()
-    });
+    })
 
     it('should return null for valid params with offset and limit', () => {
       const params: ReadFileToolParams = {
@@ -95,14 +95,14 @@ describe('ReadFileTool', () => {
         limit: 10,
       }
       expect(tool.validateToolParams(params)).toBeNull()
-    });
+    })
 
     it('should return error for relative path', () => {
       const params: ReadFileToolParams = { absolute_path: 'test.txt' }
       expect(tool.validateToolParams(params)).toContain(
         'File path must be absolute',
       )
-    });
+    })
 
     it('should return error for path outside root', () => {
       const outsidePath = path.resolve(os.tmpdir(), 'outside-root.txt')
@@ -110,7 +110,7 @@ describe('ReadFileTool', () => {
       const error = tool.validateToolParams(params)
       expect(error).toContain('This file is outside the workspace.')
       expect(error).toContain('allow_external_access: true')
-    });
+    })
 
     it('should return error for negative offset', () => {
       const params: ReadFileToolParams = {
@@ -121,7 +121,7 @@ describe('ReadFileTool', () => {
       expect(tool.validateToolParams(params)).toBe(
         'Offset must be a non-negative number',
       )
-    });
+    })
 
     it('should return error for non-positive limit', () => {
       const paramsZero: ReadFileToolParams = {
@@ -140,14 +140,14 @@ describe('ReadFileTool', () => {
       expect(tool.validateToolParams(paramsNegative)).toBe(
         'Limit must be a positive number',
       )
-    });
+    })
 
     it('should return error for schema validation failure (e.g. missing path)', () => {
       const params = { offset: 0 } as unknown as ReadFileToolParams
       expect(tool.validateToolParams(params)).toBe(
         'params must have required property \'absolute_path\'',
       )
-    });
+    })
   })
 
   describe('getDescription', () => {
@@ -157,12 +157,12 @@ describe('ReadFileTool', () => {
       expect(tool.getDescription(params)).toBe(
         path.join('sub', 'dir', 'file.txt'),
       )
-    });
+    })
 
     it('should return . if path is the root directory', () => {
       const params: ReadFileToolParams = { absolute_path: tempRootDir }
       expect(tool.getDescription(params)).toBe('.')
-    });
+    })
   })
 
   describe('execute', () => {
@@ -173,7 +173,7 @@ describe('ReadFileTool', () => {
       const result = await tool.execute(params, abortSignal)
       expect(result.llmContent).toContain('Error: Invalid parameters provided')
       expect(result.returnDisplay).toContain('File path must be absolute')
-    });
+    })
 
     it('should return error if file does not exist', async () => {
       const filePath = path.join(tempRootDir, 'nonexistent.txt')
@@ -183,7 +183,7 @@ describe('ReadFileTool', () => {
         llmContent: `File not found: ${filePath}`,
         returnDisplay: 'File not found.',
       })
-    });
+    })
 
     it('should return success result for a text file', async () => {
       const filePath = path.join(tempRootDir, 'textfile.txt')
@@ -195,7 +195,7 @@ describe('ReadFileTool', () => {
         llmContent: fileContent,
         returnDisplay: '(1 lines)',
       })
-    });
+    })
 
     it('should return success result for an image file', async () => {
       // A minimal 1x1 transparent PNG file.
@@ -212,7 +212,7 @@ describe('ReadFileTool', () => {
       const result = await tool.execute(params, abortSignal)
       expect(result.llmContent).toBeDefined()
       expect(result.returnDisplay).toContain('Read image file')
-    });
+    })
 
     it('should treat a non-image file with image extension as an image', async () => {
       const filePath = path.join(tempRootDir, 'fake-image.png')
@@ -228,7 +228,7 @@ describe('ReadFileTool', () => {
         },
       })
       expect(result.returnDisplay).toMatch(/^Read image file: fake-image\.png/)
-    });
+    })
 
     it('should pass offset and limit to read a slice of a text file', async () => {
       const filePath = path.join(tempRootDir, 'paginated.txt')
@@ -253,7 +253,7 @@ describe('ReadFileTool', () => {
         ].join('\n'),
         returnDisplay: 'read lines: 6-8',
       })
-    });
+    })
 
     it('should read all paragraphs from a Word document', async () => {
       const filePath = path.join(tempRootDir, 'report.docx')
@@ -280,7 +280,7 @@ describe('ReadFileTool', () => {
       expect(content).toContain(longChineseParagraph)
       expect(content).toContain('第12段：后续内容-9')
       expect(content).not.toContain('[Word content truncated')
-    });
+    })
 
     it('should read an external Word document without forwarding to read_many_files', async () => {
       const externalDir = await fsp.mkdtemp(
@@ -315,7 +315,7 @@ describe('ReadFileTool', () => {
           path.join(tempRootDir, '.clawmasterignore'),
           ['foo.*', 'ignored/'].join('\n'),
         )
-      });
+      })
 
       it('should return error if path is ignored by a .clawmasterignore pattern', async () => {
         const ignoredFilePath = path.join(tempRootDir, 'foo.bar')
@@ -328,7 +328,7 @@ describe('ReadFileTool', () => {
         const result = await tool.execute(params, abortSignal)
         expect(result.llmContent).toContain(expectedError)
         expect(result.returnDisplay).toBe(expectedError)
-      });
+      })
 
       it('should return error if path is in an ignored directory', async () => {
         const ignoredDirPath = path.join(tempRootDir, 'ignored')
@@ -344,7 +344,7 @@ describe('ReadFileTool', () => {
         const result = await tool.execute(params, abortSignal)
         expect(result.llmContent).toContain(expectedError)
         expect(result.returnDisplay).toBe(expectedError)
-      });
+      })
     })
-  });
+  })
 })

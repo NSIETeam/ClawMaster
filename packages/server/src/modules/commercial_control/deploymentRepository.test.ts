@@ -665,4 +665,4 @@ describe('private deployment license repository', () => {
       database.close()
     }
   })
-});
+})

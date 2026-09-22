@@ -184,7 +184,7 @@ describe('SQLCipher database lifecycle', () => {
     expect(status.migratedFromPlaintext).toBe(true)
     expect(status.recoveryPath).toBeTruthy()
     expect(fs.readFileSync(status.recoveryPath!)).toEqual(plaintext)
-  });
+  })
 
   it('leaves the plaintext database untouched when migration verification fails', () => {
     const paths = createPaths()
@@ -206,7 +206,7 @@ describe('SQLCipher database lifecycle', () => {
     expect(
       fs.readdirSync(paths.dataDirectory).filter(name => name !== 'data.db'),
     ).toEqual([])
-  });
+  })
 
   it('restores plaintext WAL sidecars when final replacement verification fails', () => {
     const paths = createPaths()
@@ -230,7 +230,7 @@ describe('SQLCipher database lifecycle', () => {
     expect(fs.readFileSync(`${paths.databasePath}-shm`, 'utf8')).toBe(
       'wal index',
     )
-  });
+  })
 
   it('fails closed on a wrong key and never treats ciphertext as plaintext', () => {
     const paths = createPaths()
@@ -247,7 +247,7 @@ describe('SQLCipher database lifecycle', () => {
     expect(fs.readFileSync(paths.databasePath)).toEqual(
       encryptedBytes(OLD_KEY),
     )
-  });
+  })
 
   it('recovers an interrupted key-provider commit from a persisted candidate', () => {
     const paths = createPaths()
@@ -265,7 +265,7 @@ describe('SQLCipher database lifecycle', () => {
 
     expect(provider.recovered).toEqual([2])
     expect(lifecycle.getStatus().keyVersion).toBe(2)
-  });
+  })
 
   it('rotates the key only after retaining an encrypted recovery snapshot', () => {
     const paths = createPaths()
@@ -289,7 +289,7 @@ describe('SQLCipher database lifecycle', () => {
       encryptedBytes(OLD_KEY),
     )
     expect(result.keyVersion).toBe(2)
-  });
+  })
 
   it('restores the previous encrypted snapshot when rekey verification fails', () => {
     const paths = createPaths()
@@ -309,5 +309,5 @@ describe('SQLCipher database lifecycle', () => {
       encryptedBytes(OLD_KEY),
     )
     expect(fs.existsSync(`${paths.databasePath}-wal`)).toBe(false)
-  });
+  })
 })

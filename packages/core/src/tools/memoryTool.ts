@@ -202,10 +202,10 @@ async function findContextFilesInDirectory(baseDir: string, filePatterns: string
           absolute: true,
           nodir: true,
           ignore: COMMON_IGNORE_PATTERNS,
-        });
+        })
         if (matches.length > 0) {
           foundFiles.push(...matches)
-          break; // Use first pattern that has matches
+          break // Use first pattern that has matches
         }
       } catch (error) {
         console.warn(`Warning: failed to glob pattern ${pattern} in ${baseDir}: ${error}`)
@@ -222,7 +222,7 @@ async function findContextFilesInDirectory(baseDir: string, filePatterns: string
         return relativePath.startsWith(cleanPattern) ||
                relativePath.includes(`/${cleanPattern}/`) ||
                relativePath.includes(`\\${cleanPattern}\\`)
-      });
+      })
 
       if (shouldIgnore) {
         continue // Skip this file
@@ -231,7 +231,7 @@ async function findContextFilesInDirectory(baseDir: string, filePatterns: string
       try {
         await fs.access(filePath)
         foundFiles.push(filePath)
-        break; // Use first existing file
+        break // Use first existing file
       } catch {
         // File doesn't exist, continue to next pattern
       }
@@ -399,7 +399,7 @@ export class MemoryTool extends BaseTool<SaveMemoryParams, ToolResult> {
         console.warn(
           `[MemoryTool] Memory file ${memoryFilePath} has reached the size limit (${MAX_MEMORY_FILE_SIZE} bytes); skipping new memory entry.`,
         )
-        return;
+        return
       }
 
       const memorySection = findMemorySectionHeader(content)

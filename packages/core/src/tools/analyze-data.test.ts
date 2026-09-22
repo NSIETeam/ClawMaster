@@ -16,71 +16,71 @@ describe('AnalyzeDataTool', () => {
     vi.clearAllMocks()
     tool = new AnalyzeDataTool(createMockConfig())
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-test-data-'))
-  });
+  })
 
   afterEach(() => {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch {}
   })
 
   // --- Metadata ---
-  it('has correct name', () => { expect(AnalyzeDataTool.Name).toBe('analyze_data') });
-  it('has display name', () => { expect(tool.displayName).toBe('AnalyzeData') });
-  it('has Info icon', () => { expect(tool.icon).toBe('info') });
+  it('has correct name', () => { expect(AnalyzeDataTool.Name).toBe('analyze_data') })
+  it('has display name', () => { expect(tool.displayName).toBe('AnalyzeData') })
+  it('has Info icon', () => { expect(tool.icon).toBe('info') })
 
   // --- Validation ---
   it('rejects missing input_path', () => {
     expect(tool.validateToolParams({ operation: 'summary' } as unknown as Parameters<typeof tool.validateToolParams>[0])).not.toBeNull()
-  });
+  })
   it('rejects relative input_path', () => {
     expect(tool.validateToolParams({ input_path: 'data.csv', operation: 'summary' })).toContain('absolute')
-  });
+  })
   it('rejects non-existent file', () => {
     expect(tool.validateToolParams({ input_path: '/nonexistent/data.csv', operation: 'summary' })).toContain('not found')
-  });
+  })
   it('requires query for query operation', () => {
     const f = path.join(tmpDir, 'data.csv'); fs.writeFileSync(f, 'a,b\n1,2')
     expect(tool.validateToolParams({ input_path: f, operation: 'query' })).toContain('query')
-  });
+  })
   it('requires chart_type for chart operation', () => {
     const f = path.join(tmpDir, 'data.csv'); fs.writeFileSync(f, 'a,b\n1,2')
     expect(tool.validateToolParams({ input_path: f, operation: 'chart' })).toContain('chart_type')
-  });
+  })
   it('requires x_column for chart/bar', () => {
     const f = path.join(tmpDir, 'data.csv'); fs.writeFileSync(f, 'a,b\n1,2')
     expect(tool.validateToolParams({ input_path: f, operation: 'chart', chart_type: 'bar' })).toContain('x_column')
-  });
+  })
   it('accepts chart/pie with only x_column', () => {
     const f = path.join(tmpDir, 'data.csv'); fs.writeFileSync(f, 'a,b\n1,2')
     expect(tool.validateToolParams({ input_path: f, operation: 'chart', chart_type: 'pie', x_column: 'a' })).toBeNull()
-  });
+  })
   it('requires group_column+aggregate for pivot', () => {
     const f = path.join(tmpDir, 'data.csv'); fs.writeFileSync(f, 'a,b\n1,2')
     expect(tool.validateToolParams({ input_path: f, operation: 'pivot' })).toContain('group_column')
-  });
+  })
   it('accepts export_excel', () => {
     const f = path.join(tmpDir, 'data.csv'); fs.writeFileSync(f, 'a,b\n1,2')
     expect(tool.validateToolParams({ input_path: f, operation: 'export_excel' })).toBeNull()
-  });
+  })
   it('accepts summary', () => {
     const f = path.join(tmpDir, 'data.csv'); fs.writeFileSync(f, 'a,b\n1,2')
     expect(tool.validateToolParams({ input_path: f, operation: 'summary' })).toBeNull()
-  });
+  })
 
   // --- getDescription ---
   it('getDescription includes operation', () => {
     expect(tool.getDescription({ input_path: '/tmp/data.csv', operation: 'summary' })).toContain('summary')
-  });
+  })
 
   // --- shouldConfirmExecute ---
   it('shouldConfirmExecute returns confirmation in DEFAULT mode', async () => {
     const f = path.join(tmpDir, 'data.csv'); fs.writeFileSync(f, 'a,b\n1,2')
     const r = await tool.shouldConfirmExecute({ input_path: f, operation: 'summary' }, new AbortController().signal)
     expect(r).not.toBe(false)
-  });
+  })
 
   // --- Real SVG pie chart (zero external dependency) ---
   const sig = () => new AbortController().signal
-  const writeCsv = (name: string, body: string) => { const f = path.join(tmpDir, name); fs.writeFileSync(f, body); return f };
+  const writeCsv = (name: string, body: string) => { const f = path.join(tmpDir, name); fs.writeFileSync(f, body); return f }
 
   it('pie chart writes a real SVG with one slice path per category (summing value column)', async () => {
     const f = writeCsv('sales.csv', 'category,amount\nA,30\nB,10\nC,10\nA,20')
@@ -96,7 +96,7 @@ describe('AnalyzeDataTool', () => {
     // A=50/70=71.4%, B=10/70=14.3%, C=14.3%
     expect(svg).toContain('71.4%')
     expect(svg).toContain('14.3%')
-  });
+  })
 
   it('pie chart without y_column counts occurrences per label', async () => {
     const f = writeCsv('cat.csv', 'kind\nx\ny\nx\nx\ny')
@@ -107,14 +107,14 @@ describe('AnalyzeDataTool', () => {
     // x=3/5=60%, y=2/5=40%
     expect(svg).toContain('60.0%')
     expect(svg).toContain('40.0%')
-  });
+  })
 
   it('pie chart terminal output shows percentages', async () => {
     const f = writeCsv('t.csv', 'g,v\nP,3\nQ,1')
     const r = await tool.execute({ input_path: f, operation: 'chart', chart_type: 'pie', x_column: 'g', y_column: 'v', output_format: 'terminal' }, sig())
     expect(r.llmContent).toContain('75.0%')
     expect(r.llmContent).toContain('25.0%')
-  });
+  })
 
   it('pie chart .png request is auto-written as real .svg (no gnuplot)', async () => {
     const f = writeCsv('p.csv', 'c,v\nA,1\nB,1')
@@ -122,7 +122,7 @@ describe('AnalyzeDataTool', () => {
     const r = await tool.execute({ input_path: f, operation: 'chart', chart_type: 'pie', x_column: 'c', y_column: 'v', output_path: out }, sig())
     expect(r.llmContent).toContain('OK')
     expect(fs.existsSync(path.join(tmpDir, 'want.svg'))).toBe(true)
-  });
+  })
 
   // --- bar / line / scatter / histogram: pure-TS inline SVG (zero dependency) ---
   it('bar chart writes a real SVG with one rect per aggregated category', async () => {
@@ -140,7 +140,7 @@ describe('AnalyzeDataTool', () => {
     // x labels present
     expect(svg).toContain('Jan')
     expect(svg).toContain('Feb')
-  });
+  })
 
   it('bar chart .png request auto-writes a real .svg (no gnuplot)', async () => {
     const f = writeCsv('barpng.csv', 'm,r\nA,1\nB,2')
@@ -149,7 +149,7 @@ describe('AnalyzeDataTool', () => {
     expect(r.llmContent).toContain('OK')
     expect(fs.existsSync(path.join(tmpDir, 'bar.svg'))).toBe(true)
     expect(fs.existsSync(out)).toBe(false)
-  });
+  })
 
   it('line chart writes an SVG polyline plus one circle per point', async () => {
     const f = writeCsv('line.csv', 'x,y\n1,10\n3,5\n2,8')
@@ -159,7 +159,7 @@ describe('AnalyzeDataTool', () => {
     expect(svg).toContain('<polyline')
     const dots = (svg.match(/<circle /g) || []).length
     expect(dots).toBe(3)
-  });
+  })
 
   it('scatter chart writes one circle per numeric row', async () => {
     const f = writeCsv('sc2.csv', 'x,y\n1,2\n2,4\n3,6\n4,8')
@@ -169,7 +169,7 @@ describe('AnalyzeDataTool', () => {
     expect(svg).not.toContain('<polyline')
     const dots = (svg.match(/<circle /g) || []).length
     expect(dots).toBe(4)
-  });
+  })
 
   it('histogram bins a single numeric column into rects', async () => {
     const f = writeCsv('hist.csv', 'v,ignored\n1,a\n2,a\n2,a\n3,a\n3,a\n3,a\n9,a\n10,a')
@@ -180,7 +180,7 @@ describe('AnalyzeDataTool', () => {
     // at least one histogram bar rect
     const bars = (svg.match(/<rect [^>]*fill="#4A90D9"/g) || []).length
     expect(bars).toBeGreaterThanOrEqual(1)
-  });
+  })
 
   it('line chart on JSON also renders SVG (zero dependency)', async () => {
     const f = path.join(tmpDir, 'line.json')
@@ -189,14 +189,14 @@ describe('AnalyzeDataTool', () => {
     await tool.execute({ input_path: f, operation: 'chart', chart_type: 'line', x_column: 'x', y_column: 'y', output_path: out }, sig())
     const svg = fs.readFileSync(out, 'utf8')
     expect((svg.match(/<circle /g) || []).length).toBe(3)
-  });
+  })
 
   it('line chart fails loud on non-numeric columns (does not fake a chart)', async () => {
     const f = writeCsv('cat.csv', 'name,city\nAlice,NYC\nBob,LA')
     const r = await tool.execute({ input_path: f, operation: 'chart', chart_type: 'line', x_column: 'name', y_column: 'city' }, sig())
     expect(r.llmContent).toContain('FAIL')
     expect(r.llmContent.toLowerCase()).toContain('numeric')
-  });
+  })
 
   // --- box chart still needs gnuplot -> doctor preflight fail-loud when missing ---
   it('box chart fails loud when gnuplot is missing (with install command)', async () => {
@@ -206,7 +206,7 @@ describe('AnalyzeDataTool', () => {
     expect(r.llmContent).toContain('FAIL')
     expect(r.llmContent.toLowerCase()).toContain('gnuplot')
     expect(r.llmContent).toContain('brew install gnuplot')
-  });
+  })
 
   // --- doctor preflight: duckdb-dependent ops fail loud when duckdb is missing ---
   // 之前误改为"summary 是纯 TS 实现"的断言是错的：analyze-data.ts 里 summary 分支
@@ -218,12 +218,12 @@ describe('AnalyzeDataTool', () => {
     const r = await tool.execute({ input_path: f, operation: 'summary' }, sig())
     if (!(await preflightBinaries(['duckdb']))) {
       expect(r.llmContent).toContain('analyze_data OK')
-      return;
+      return
     }
     expect(r.llmContent).toContain('FAIL')
     expect(r.llmContent.toLowerCase()).toContain('duckdb')
     expect(r.llmContent).toContain('brew install duckdb')
-  });
+  })
 
   it('export_excel from CSV fails loud when duckdb is missing', async () => {
     const f = writeCsv('e.csv', 'a,b\n1,2')
@@ -231,7 +231,7 @@ describe('AnalyzeDataTool', () => {
     const r = await tool.execute({ input_path: f, operation: 'export_excel', output_path: out }, sig())
     expect(r.llmContent).toContain('FAIL')
     expect(r.llmContent.toLowerCase()).toContain('duckdb')
-  });
+  })
 
   // --- 2-D cross-tab pivot (pure TS, no duckdb) ---
   it('2-D pivot builds a correct cross-tab from CSV', async () => {
@@ -247,7 +247,7 @@ describe('AnalyzeDataTool', () => {
     expect(east).toBe('East,13,5')
     const west = csv.find(l => l.startsWith('West'))!
     expect(west).toBe('West,7,')
-  });
+  })
 
   it('2-D pivot supports AVG aggregate', async () => {
     const f = writeCsv('avg.csv', 'r,c,v\nA,X,10\nA,X,20\nB,X,4')
@@ -256,7 +256,7 @@ describe('AnalyzeDataTool', () => {
     const csv = fs.readFileSync(out, 'utf8').trim().split('\n')
     expect(csv.find(l => l.startsWith('A'))).toBe('A,15') // (10+20)/2
     expect(csv.find(l => l.startsWith('B'))).toBe('B,4')
-  });
+  })
 
   it('2-D pivot COUNT does not require a value column', async () => {
     const f = writeCsv('cnt.csv', 'r,c\nA,X\nA,X\nA,Y\nB,X')
@@ -266,7 +266,7 @@ describe('AnalyzeDataTool', () => {
     expect(csv[0]).toBe('r\\c,X,Y')
     expect(csv.find(l => l.startsWith('A'))).toBe('A,2,1')
     expect(csv.find(l => l.startsWith('B'))).toBe('B,1,0')
-  });
+  })
 
   // --- 1-D pivot (pure TS for CSV) ---
   it('1-D pivot on CSV computes group sums in pure TS', async () => {
@@ -277,7 +277,7 @@ describe('AnalyzeDataTool', () => {
     const csv = fs.readFileSync(out, 'utf8').trim().split('\n')
     expect(csv.find(l => l.startsWith('East'))).toBe('East,30')
     expect(csv.find(l => l.startsWith('West'))).toBe('West,5')
-  });
+  })
 
   it('pivot on JSON works in pure TS', async () => {
     const f = path.join(tmpDir, 'd.json')
@@ -288,5 +288,5 @@ describe('AnalyzeDataTool', () => {
     expect(csv[0]).toBe('region\\q,Q1,Q2')
     expect(csv.find(l => l.startsWith('E'))).toBe('E,10,')
     expect(csv.find(l => l.startsWith('W'))).toBe('W,,5')
-  });
+  })
 })

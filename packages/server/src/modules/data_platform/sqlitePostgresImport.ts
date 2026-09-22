@@ -159,7 +159,7 @@ function tableDescriptors(database: DatabaseHandle): SqliteTableDescriptor[] {
         )
       }
       return column.name
-    });
+    })
     const primaryKey = visibleColumns
       .filter(column => Number(column.pk) > 0)
       .sort((left, right) => Number(left.pk) - Number(right.pk))
@@ -174,7 +174,7 @@ function tableDescriptors(database: DatabaseHandle): SqliteTableDescriptor[] {
           ? primaryKey.map(quoteIdentifier).join(', ')
           : 'rowid',
     }
-  });
+  })
 }
 
 function scanTable(input: {

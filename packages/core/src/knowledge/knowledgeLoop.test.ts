@@ -67,13 +67,13 @@ describe('KnowledgeCapturePipeline integration (capture → store → search)', 
     process.env.CLAWMASTER_USER_DIR = tempDir
     store = new LocalKnowledgeStore(path.join(tempDir, 'knowledge'))
     pipeline = new KnowledgeCapturePipeline(store)
-  });
+  })
 
   afterEach(async () => {
     delete process.env.CLAWMASTER_USER_DIR
     resetKnowledgeCapturePipeline()
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
-  });
+  })
 
   // ── Test 1: worklog → pipeline.run → store has entry ─────────────────
   it('should capture knowledge and store it for search', async () => {
@@ -92,7 +92,7 @@ describe('KnowledgeCapturePipeline integration (capture → store → search)', 
     const searchResults = await store.search('SQLite')
     expect(searchResults.length).toBeGreaterThan(0)
     expect(searchResults[0].score).toBeGreaterThan(0)
-  });
+  })
 
   // ── Test 2: duplicate worklog entry → skipped ─────────────────────────
   it('should skip duplicate entries via fingerprint dedup', async () => {
@@ -113,7 +113,7 @@ describe('KnowledgeCapturePipeline integration (capture → store → search)', 
     // Store should still only have the original entries
     const entries = await store.loadAll()
     expect(entries.length).toBe(firstWritten)
-  });
+  })
 
   // ── Test 3: full loop — capture → store → search ──────────────────────
   it('should complete the full capture → store → search loop', async () => {
@@ -151,7 +151,7 @@ describe('KnowledgeCapturePipeline integration (capture → store → search)', 
     const status = await pipeline.status()
     expect(status.totalEntries).toBeGreaterThan(0)
     expect(status.capturedThisSession).toBeGreaterThan(0)
-  });
+  })
 
   // ── Test 4: should NOT capture short conversations ────────────────────
   it('should skip capture for short conversations', async () => {
@@ -160,7 +160,7 @@ describe('KnowledgeCapturePipeline integration (capture → store → search)', 
     expect(result.captured).toBe(false)
     expect(result.written).toBe(0)
     expect(result.candidatesFound).toBe(0)
-  });
+  })
 
   // ── Test 5: status is observable ──────────────────────────────────────
   it('should provide observable status', async () => {
@@ -175,7 +175,7 @@ describe('KnowledgeCapturePipeline integration (capture → store → search)', 
     expect(s2.totalEntries).toBeGreaterThan(0)
     expect(s2.capturedThisSession).toBeGreaterThan(0)
     expect(s2.lastCapturedAt).toBeTruthy()
-  });
+  })
 
   // ── Test 6: duplicate via normalized whitespace fingerprints ──────────
   it('should deduplicate entries with different whitespace formatting', async () => {
@@ -201,7 +201,7 @@ describe('KnowledgeCapturePipeline integration (capture → store → search)', 
     const found = await store.findByFingerprint(fp1)
     expect(found).toBeTruthy()
     expect(found!.content).toContain('dark color')
-  });
+  })
 })
 
 describe('KnowledgeCapturePipeline singleton', () => {
@@ -211,5 +211,5 @@ describe('KnowledgeCapturePipeline singleton', () => {
     const b = getKnowledgeCapturePipeline()
     expect(a).toBe(b)
     resetKnowledgeCapturePipeline()
-  });
+  })
 })

@@ -110,7 +110,7 @@ export class AuditLogger {
 
     await fs.appendFile(filePath, line, { encoding: 'utf-8', mode: 0o600 }).catch((err) => {
       console.warn(`[AuditLog] Failed to write: ${err instanceof Error ? err.message : String(err)}`)
-    });
+    })
     if (process.platform !== 'win32') {
       await fs.chmod(filePath, 0o600).catch(() => undefined)
     }
@@ -199,29 +199,29 @@ export class AuditLogger {
     }
 
     const lines: string[] = []
-    lines.push('# 审计日志报告');
+    lines.push('# 审计日志报告')
     lines.push(`## 时间范围：${startDate} 至 ${endDate}`)
     lines.push('')
-    lines.push('## 概览');
+    lines.push('## 概览')
     lines.push(`- 总操作数：${entries.length}`)
     lines.push(`- 成功：${successCount}  失败：${entries.length - successCount}`)
     lines.push(`- 高风险操作：${highRiskCount}`)
     lines.push(`- 涉及用户：${Object.keys(byUser).length}`)
     lines.push('')
 
-    lines.push('## 按用户');
+    lines.push('## 按用户')
     for (const [user, count] of Object.entries(byUser).sort((a, b) => b[1] - a[1])) {
       lines.push(`- ${user}: ${count} 次操作`)
     }
     lines.push('')
 
-    lines.push('## 按类别');
+    lines.push('## 按类别')
     for (const [cat, count] of Object.entries(byCategory).sort((a, b) => b[1] - a[1])) {
       lines.push(`- ${cat}: ${count} 次`)
     }
     lines.push('')
 
-    lines.push('## 高风险操作');
+    lines.push('## 高风险操作')
     const highRisk = entries.filter(e => e.riskLevel === 'high')
     if (highRisk.length === 0) {
       lines.push('无高风险操作。')

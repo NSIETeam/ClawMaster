@@ -145,7 +145,7 @@ export class MultiAgentCollaboration {
     await this.loadRegistry()
     return Array.from(this.agents.values()).filter(
       a => a.capabilities.includes(capability) && a.status !== 'offline',
-    );
+    )
   }
 
   /**
@@ -243,7 +243,7 @@ export class MultiAgentCollaboration {
    */
   private formatCollabRequestForFeishu(req: CollaborationRequest): string {
     const lines: string[] = []
-    lines.push('[ClawMaster 协作请求]');
+    lines.push('[ClawMaster 协作请求]')
     lines.push(`来自：${req.fromUserName} 的 ClawMaster`)
     lines.push(`任务：${req.task}`)
     if (req.context) {

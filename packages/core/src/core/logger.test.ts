@@ -26,7 +26,7 @@ vi.mock('../utils/paths.js', async (importOriginal) => {
     ...actual,
     getProjectTempDir: vi.fn(),
   }
-});
+})
 
 const LOG_FILE_NAME = 'logs.json'
 
@@ -52,7 +52,7 @@ describe('Logger', () => {
 
     logger = new Logger(testSessionId)
     await logger.initialize()
-  });
+  })
 
   afterEach(async () => {
     if (logger) {
@@ -62,7 +62,7 @@ describe('Logger', () => {
     await fs.rm(testGeminiDir, { recursive: true, force: true })
     vi.useRealTimers()
     vi.restoreAllMocks()
-  });
+  })
 
   async function readLogFile(): Promise<LogEntry[]> {
     try {
@@ -92,7 +92,7 @@ describe('Logger', () => {
 
       const logContent = await readLogFile()
       expect(logContent).toEqual([])
-    });
+    })
 
     it('should load existing logs and set correct messageId for the current session', async () => {
       const currentSessionId = 'session-123'
@@ -129,7 +129,7 @@ describe('Logger', () => {
       expect(newLogger['messageId']).toBe(2)
       expect(newLogger['logs']).toEqual(existingLogs)
       newLogger.close()
-    });
+    })
 
     it('should set messageId to 0 for a new session if log file exists but has no logs for current session', async () => {
       const existingLogs: LogEntry[] = [
@@ -149,7 +149,7 @@ describe('Logger', () => {
       await newLogger.initialize()
       expect(newLogger['messageId']).toBe(0)
       newLogger.close()
-    });
+    })
 
     it('should be idempotent', async () => {
       await logger.logMessage(MessageSenderType.USER, 'test message')
@@ -162,7 +162,7 @@ describe('Logger', () => {
       expect(logger['logs'].length).toBe(initialLogCount)
       const logsFromFile = await readLogFile()
       expect(logsFromFile.length).toBe(1)
-    });
+    })
 
     it('should handle invalid JSON in log file by backing it up and starting fresh', async () => {
       await fs.writeFile(testLogFilePath, 'invalid json')
@@ -187,7 +187,7 @@ describe('Logger', () => {
         ),
       ).toBe(true)
       newLogger.close()
-    });
+    })
 
     it('should handle non-array JSON in log file by backing it up and starting fresh', async () => {
       await fs.writeFile(
@@ -215,7 +215,7 @@ describe('Logger', () => {
         ),
       ).toBe(true)
       newLogger.close()
-    });
+    })
   })
 
   describe('logMessage', () => {
@@ -233,7 +233,7 @@ describe('Logger', () => {
       expect(logger['logs'].length).toBe(1)
       expect(logger['logs'][0]).toEqual(logsFromFile[0])
       expect(logger['messageId']).toBe(1)
-    });
+    })
 
     it('should correctly increment messageId for subsequent messages in the same session', async () => {
       await logger.logMessage(MessageSenderType.USER, 'First')
@@ -245,7 +245,7 @@ describe('Logger', () => {
       expect(logs[1].messageId).toBe(1)
       expect(logs[1].timestamp).not.toBe(logs[0].timestamp)
       expect(logger['messageId']).toBe(2)
-    });
+    })
 
     it('should handle logger not initialized', async () => {
       const uninitializedLogger = new Logger(testSessionId)
@@ -259,7 +259,7 @@ describe('Logger', () => {
       )
       expect((await readLogFile()).length).toBe(0)
       uninitializedLogger.close()
-    });
+    })
 
     it('should simulate concurrent writes from different logger instances to the same file', async () => {
       const concurrentSessionId = 'concurrent-session'
@@ -296,7 +296,7 @@ describe('Logger', () => {
 
       logger1.close()
       logger2.close()
-    });
+    })
 
     it('should not throw, not increment messageId, and log error if writing to file fails', async () => {
       vi.spyOn(fs, 'writeFile').mockRejectedValueOnce(new Error('Disk full'))
@@ -314,7 +314,7 @@ describe('Logger', () => {
       )
       expect(logger['messageId']).toBe(initialMessageId) // Not incremented
       expect(logger['logs'].length).toBe(initialLogCount) // Log not added to in-memory cache
-    });
+    })
   })
 
   describe('getPreviousUserMessages', () => {
@@ -350,13 +350,13 @@ describe('Logger', () => {
         'S1M0_ts100000',
       ])
       finalLogger.close()
-    });
+    })
 
     it('should return empty array if no user messages exist', async () => {
       await logger.logMessage('system' as MessageSenderType, 'System boot')
       const messages = await logger.getPreviousUserMessages()
       expect(messages).toEqual([])
-    });
+    })
 
     it('should return empty array if logger not initialized', async () => {
       const uninitializedLogger = new Logger(testSessionId)
@@ -364,7 +364,7 @@ describe('Logger', () => {
       const messages = await uninitializedLogger.getPreviousUserMessages()
       expect(messages).toEqual([])
       uninitializedLogger.close()
-    });
+    })
   })
 
   describe('saveCheckpoint', () => {
@@ -382,7 +382,7 @@ describe('Logger', () => {
       )
       const fileContent = await fs.readFile(taggedFilePath, 'utf-8')
       expect(JSON.parse(fileContent)).toEqual(conversation)
-    });
+    })
 
     it('should not throw if logger is not initialized', async () => {
       const uninitializedLogger = new Logger(testSessionId)
@@ -397,7 +397,7 @@ describe('Logger', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         '[CHECKPOINT DEBUG] Logger not initialized, cannot save checkpoint',
       )
-    });
+    })
   })
 
   describe('loadCheckpoint', () => {
@@ -423,17 +423,17 @@ describe('Logger', () => {
 
       const loaded = await logger.loadCheckpoint(tag)
       expect(loaded).toEqual(taggedConversation)
-    });
+    })
 
     it('should return an empty array if a tagged checkpoint file does not exist', async () => {
       const loaded = await logger.loadCheckpoint('nonexistent-tag')
       expect(loaded).toEqual([])
-    });
+    })
 
     it('should return an empty array if the checkpoint file does not exist', async () => {
       const loaded = await logger.loadCheckpoint('missing')
       expect(loaded).toEqual([])
-    });
+    })
 
     it('should return an empty array if the file contains invalid JSON', async () => {
       const tag = 'invalid-json'
@@ -449,7 +449,7 @@ describe('Logger', () => {
         expect.stringContaining('[CHECKPOINT DEBUG] Failed to load checkpoint:'),
         expect.any(Error),
       )
-    });
+    })
 
     it('should return an empty array if logger is not initialized', async () => {
       const uninitializedLogger = new Logger(testSessionId)
@@ -462,7 +462,7 @@ describe('Logger', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         '[CHECKPOINT DEBUG] Logger not initialized, cannot load checkpoint',
       )
-    });
+    })
   })
 
   describe('close', () => {
@@ -483,6 +483,6 @@ describe('Logger', () => {
       expect(logger['logs']).toEqual([])
       expect(logger['sessionId']).toBeUndefined()
       expect(logger['messageId']).toBe(0)
-    });
+    })
   })
-});
+})

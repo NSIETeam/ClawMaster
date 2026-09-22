@@ -828,7 +828,7 @@ export class ModelCreditCatalog {
         creditMultiplier,
         multiplierLabel: `${formatMultiplier(rule.multiplierMilli)}× 积分`,
       }
-    });
+    })
   }
 
   charge(modelId: string, baseCredits: number): number {

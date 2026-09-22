@@ -181,5 +181,5 @@ if (import.meta.url === invokedPath) {
       )}`,
     )
     process.exitCode = 1
-  });
+  })
 }

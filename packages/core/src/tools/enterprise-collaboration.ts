@@ -247,14 +247,14 @@ export class EnterpriseCollaborationTool extends BaseTool<
         }
         if (outcome === ToolConfirmationOutcome.Cancel) {
           relayState.status = 'cancelled'
-          return;
+          return
         }
 
         const rawResult = payload?.newContent
         if (typeof rawResult !== 'string' || !rawResult.trim()) {
           relayState.status = 'error'
           relayState.error = '客户端没有返回 JSON 执行结果'
-          return;
+          return
         }
 
         let parsed: unknown
@@ -263,12 +263,12 @@ export class EnterpriseCollaborationTool extends BaseTool<
         } catch {
           relayState.status = 'error'
           relayState.error = '客户端返回的执行结果不是有效 JSON'
-          return;
+          return
         }
         if (parsed === null || typeof parsed !== 'object') {
           relayState.status = 'error'
           relayState.error = '客户端执行结果必须是 JSON 对象或数组'
-          return;
+          return
         }
 
         relayState.status = 'result'

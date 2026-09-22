@@ -98,7 +98,7 @@ async function writeState(filePath: string, state: ReporterState): Promise<void>
       if (process.platform !== 'win32' || !['EEXIST', 'EPERM'].includes(error.code ?? '')) throw error
       await fs.rm(filePath, { force: true })
       await fs.rename(temporaryPath, filePath)
-    });
+    })
   } finally {
     await fs.rm(temporaryPath, { force: true }).catch(() => undefined)
   }

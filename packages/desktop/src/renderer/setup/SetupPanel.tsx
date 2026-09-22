@@ -164,7 +164,7 @@ export function SetupPanel({
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose()
-    };
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -177,7 +177,7 @@ export function SetupPanel({
 
   const patch = (next: Partial<SetupFormState>): void => {
     setForm(f => ({ ...f, ...next }))
-  };
+  }
 
   const selectPreset = (id: string): void => {
     const p = findPreset(id)
@@ -191,7 +191,7 @@ export function SetupPanel({
       selectedModels: [],
       modelId: '',
     })
-  };
+  }
 
   const startEdit = (model: ModelInfo): void => {
     const matched = PROVIDER_PRESETS.find(
@@ -211,12 +211,12 @@ export function SetupPanel({
     })
     setTouched({})
     setRevealKey(false)
-  };
+  }
 
   const cancelEdit = (): void => {
     setForm(initialForm())
     setTouched({})
-  };
+  }
 
   /** 勾选 / 取消一个示例模型（进出 selectedModels）。 */
   const toggleModel = (id: string): void => {
@@ -227,7 +227,7 @@ export function SetupPanel({
         : [...f.selectedModels, id],
     }))
     markTouched('modelId')
-  };
+  }
 
   /** 把输入框里的自定义模型 id 加入已选集合，并清空输入框。 */
   const addTypedModel = (): void => {
@@ -241,11 +241,11 @@ export function SetupPanel({
         : [...f.selectedModels, id],
     }))
     markTouched('modelId')
-  };
+  }
 
   const markTouched = (field: string): void => {
     setTouched(t => ({ ...t, [field]: true }))
-  };
+  }
 
   // 粘贴：input 原生即支持 Cmd/Ctrl+V；额外提供「从剪贴板粘贴」按钮兜底
   // （某些环境右键菜单缺失时）。
@@ -288,7 +288,7 @@ export function SetupPanel({
     if (!valid || saving) return
     // 按固定契约发 `save_custom_model` 帧；成功/失败由上层监听 models_list / error 裁决。
     onSave(buildSavePayload(form))
-  };
+  }
 
   /** 应用本地测试地址：通知 app→server 用 customProxyServerUrl 郤盖默认连接。 */
   const applyLocalTestUrl = (): void => {
@@ -303,7 +303,7 @@ export function SetupPanel({
     setLocalTestApplied(true)
     // 通过 IPC 通知主进程把 customProxyServerUrl 和 CLAWMASTER_SERVER_URL 郤盖到 localTestUrl
     void window.clawmaster?.setLocalTestUrl?.(url)
-  };
+  }
 
   /** 清除本地测试：恢复默认连接。 */
   const clearLocalTestUrl = (): void => {
@@ -315,7 +315,7 @@ export function SetupPanel({
     }
     setLocalTestApplied(false)
     void window.clawmaster?.setLocalTestUrl?.('')
-  };
+  }
 
   const showErr = (field: string): string | undefined =>
     touched[field] ? errors[field] : undefined

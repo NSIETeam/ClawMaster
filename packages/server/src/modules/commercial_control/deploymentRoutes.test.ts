@@ -49,7 +49,7 @@ describe('deployment update policy route', () => {
       401,
       { error: 'member authentication required' },
     )
-  });
+  })
 
   it('forwards only the requested distribution and current version', async () => {
     const route = routeInput({ organizationId: 'org_1' })
@@ -66,7 +66,7 @@ describe('deployment update policy route', () => {
         reason: 'online_license_required',
       },
     )
-  });
+  })
 })
 
 describe('deployment operations security status route', () => {
@@ -119,5 +119,5 @@ describe('deployment operations security status route', () => {
       dataProtection: { backupCount: 2 },
       operationsSecurity,
     })
-  });
+  })
 })

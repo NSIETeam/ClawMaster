@@ -292,7 +292,7 @@ export class LocalKnowledgeStore {
         JSON.stringify(entry) + '\n',
         'utf-8',
       )
-    });
+    })
     return entry
   }
 
@@ -350,7 +350,7 @@ export class LocalKnowledgeStore {
       }
       await this.rewriteEntries(remaining)
       return true
-    });
+    })
   }
 
   /**
@@ -396,7 +396,7 @@ export class LocalKnowledgeStore {
       entries[index] = next
       await this.rewriteEntries(entries)
       return next
-    });
+    })
   }
 
   /** 记录真正进入回答上下文的知识，供后续排序与 Skill 提炼使用。 */
@@ -418,7 +418,7 @@ export class LocalKnowledgeStore {
         changed = true
       }
       if (changed) await this.rewriteEntries(entries)
-    });
+    })
   }
 
   /**
@@ -516,7 +516,7 @@ export class LocalKnowledgeStore {
         .filter(entry => !removed.has(entry.id))
         .map(entry => mergedById.get(entry.id) ?? entry)
       await this.rewriteEntries(remaining)
-    });
+    })
 
     return removed.size
   }
@@ -533,7 +533,7 @@ export class LocalKnowledgeStore {
         grams.add(t.slice(i, i + 3))
       }
       return grams
-    };
+    }
 
     const ga = getGrams(a)
     const gb = getGrams(b)

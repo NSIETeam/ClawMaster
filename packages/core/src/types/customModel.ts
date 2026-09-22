@@ -294,7 +294,7 @@ export function applyOpenAIChatThinking(
         ? (requestBody['extra_body'] as Record<string, unknown>)
         : {}
     requestBody['extra_body'] = { ...existing, ...patch }
-  };
+  }
 
   switch (vendor) {
     case 'openai': {
@@ -318,13 +318,13 @@ export function applyOpenAIChatThinking(
             ? { type: 'disabled' }
             : { type: 'enabled', clear_thinking: false }, // Preserved Thinking
       })
-      return;
+      return
     }
     case 'qwen': {
       writeExtraBody({
         enable_thinking: thinking.mode !== 'off',
       })
-      return;
+      return
     }
     case 'unknown':
     default:
@@ -469,7 +469,7 @@ export function generateCustomModelId(config: CustomModelConfig): string {
       hash = hash & hash // Convert to 32bit integer
     }
     return Math.abs(hash).toString(36).substring(0, 6)
-  };
+  }
 
   const baseUrlHash = hashString(config.baseUrl)
   return `custom:${config.provider}:${config.modelId}@${baseUrlHash}`

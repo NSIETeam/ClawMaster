@@ -43,7 +43,7 @@ vi.mock('../transport.js', () => ({
     capturedHandler = handler
     return () => {
       capturedHandler = null
-    };
+    }
   },
   // 模拟 preload：注册时立即以「已连接」回调一次（onConnectionChange 契约）。
   onConnectionChange: (handler: (connected: boolean) => void) => {
@@ -51,7 +51,7 @@ vi.mock('../transport.js', () => ({
     handler(true)
     return () => {
       _capturedConnHandler = null
-    };
+    }
   },
   isConnected: () => true,
 }))
@@ -65,7 +65,7 @@ function setup(enterpriseOrganizationId?: string) {
   const push = (frame: ServerToClient) => {
     act(() => {
       capturedHandler?.(frame)
-    });
+    })
   }
   return { view, push }
 }
@@ -120,11 +120,11 @@ beforeEach(() => {
       enterpriseOrganizationFeaturesGet: organizationFeaturesSpy,
     },
   })
-});
+})
 
 afterEach(() => {
   vi.clearAllMocks()
-});
+})
 
 describe('applyFrame 各帧分支', () => {
   it('sessions_list：批量 upsert + 无选中时默认选第一个', async () => {
@@ -140,7 +140,7 @@ describe('applyFrame 各帧分支', () => {
     })
     expect(view.result.current.state.sessionIds).toEqual(['a', 'b'])
     expect(view.result.current.state.activeSessionId).toBe('a')
-  });
+  })
 
   it('sessions_list：选中仍在快照里则保持不动', () => {
     const { view, push } = setup()
@@ -155,7 +155,7 @@ describe('applyFrame 各帧分支', () => {
       payload: { sessions: [makeSession({ sessionId: 'b' }), makeSession({ sessionId: 'a' })] },
     })
     expect(view.result.current.state.activeSessionId).toBe('a')
-  });
+  })
 
   it('sessions_list 是权威快照：快照里没有的会话被剔除（删除落地）', () => {
     const { view, push } = setup()
@@ -171,7 +171,7 @@ describe('applyFrame 各帧分支', () => {
     expect(view.result.current.state.sessionIds).toEqual(['a'])
     expect(view.result.current.state.sessions['b']).toBeUndefined()
     expect(view.result.current.state.messages['b']).toBeUndefined()
-  });
+  })
 
   it('sessions_list：删掉当前选中会话 → 落到快照第一个', () => {
     const { view, push } = setup()
@@ -183,7 +183,7 @@ describe('applyFrame 各帧分支', () => {
     // 删掉当前选中的 a：新快照只剩 b → active 落到 b。
     push({ type: 'sessions_list', payload: { sessions: [makeSession({ sessionId: 'b' })] } })
     expect(view.result.current.state.activeSessionId).toBe('b')
-  });
+  })
 
   it('sessions_list：删光所有会话 → activeSessionId 置 null', () => {
     const { view, push } = setup()
@@ -194,7 +194,7 @@ describe('applyFrame 各帧分支', () => {
     expect(view.result.current.state.sessionIds).toEqual([])
     // 空快照仍标记为已加载（sessionsLoaded），供 App 引导 effect 判空建会话。
     expect(view.result.current.state.sessionsLoaded).toBe(true)
-  });
+  })
 
   it('session_upsert：新增不重复 / 更新已存在', () => {
     const { view, push } = setup()
@@ -202,7 +202,7 @@ describe('applyFrame 各帧分支', () => {
     push({ type: 'session_upsert', payload: { session: makeSession({ sessionId: 'a', title: 'T2' }) } })
     expect(view.result.current.state.sessionIds).toEqual(['a']) // 不重复
     expect(view.result.current.state.sessions['a'].title).toBe('T2') // 更新
-  });
+  })
 
   it('session_created：忽略内部 A2A 临时会话，且不清除用户自己的待创建请求', () => {
     const { view, push } = setup()
@@ -225,7 +225,7 @@ describe('applyFrame 各帧分支', () => {
     expect(view.result.current.state.sessions['a2a-internal-session']).toBeUndefined()
     expect(view.result.current.state.pendingCreateRequestId).toBe(pendingRequestId)
     expect(view.result.current.state.activeSessionId).toBeNull()
-  });
+  })
 
   it('history：整列替换该 session 消息', () => {
     const { view, push } = setup()
@@ -235,7 +235,7 @@ describe('applyFrame 各帧分支', () => {
       payload: { sessionId: 's1', messages: [makeMsg({ id: 'h1' }), makeMsg({ id: 'h2' })] },
     })
     expect(view.result.current.state.messages['s1'].map(m => m.id)).toEqual(['h1', 'h2'])
-  });
+  })
 
   it('history：server 返回截断历史时保留更完整的本地缓存并对账同 id 消息', () => {
     const { view, push } = setup()
@@ -252,7 +252,7 @@ describe('applyFrame 各帧分支', () => {
     const messages = view.result.current.state.messages['s1']
     expect(messages.map(message => message.id)).toEqual(['h1', 'h2', 'h3'])
     expect(messages[0].content[0]).toEqual({ type: 'text', value: 'server-new' })
-  });
+  })
 
   it('message_start：append + 相同 id 覆盖（流式占位→定稿对账）', () => {
     const { view, push } = setup()
@@ -261,7 +261,7 @@ describe('applyFrame 各帧分支', () => {
     const list = view.result.current.state.messages['s1']
     expect(list).toHaveLength(1) // 同 id 覆盖，不追加
     expect(list[0].content[0]).toEqual({ type: 'text', value: 'v2' })
-  });
+  })
 
   it('chat_chunk：mergeTextDelta 把 delta 并进末尾 text 片段 + isStreaming', () => {
     const { view, push } = setup()
@@ -270,14 +270,14 @@ describe('applyFrame 各帧分支', () => {
     const m = view.result.current.state.messages['s1'][0]
     expect(m.content).toEqual([{ type: 'text', value: 'Hello world' }])
     expect(m.isStreaming).toBe(true)
-  });
+  })
 
   it('chat_chunk：空 content 时起首段', () => {
     const { view, push } = setup()
     push({ type: 'message_start', payload: { message: makeMsg({ id: 'm1', content: [] }) } })
     push({ type: 'chat_chunk', payload: { sessionId: 's1', messageId: 'm1', delta: 'X' } })
     expect(view.result.current.state.messages['s1'][0].content).toEqual([{ type: 'text', value: 'X' }])
-  });
+  })
 
   it('chat_chunk：末尾非 text 时新起一段', () => {
     const { view, push } = setup()
@@ -299,7 +299,7 @@ describe('applyFrame 各帧分支', () => {
     const content = view.result.current.state.messages['s1'][0].content
     expect(content).toHaveLength(2)
     expect(content[1]).toEqual({ type: 'text', value: 'txt' })
-  });
+  })
 
   it('chat_reasoning：累加 reasoning', () => {
     const { view, push } = setup()
@@ -309,7 +309,7 @@ describe('applyFrame 各帧分支', () => {
     const m = view.result.current.state.messages['s1'][0]
     expect(m.reasoning).toBe('想法')
     expect(m.isReasoning).toBe(true)
-  });
+  })
 
   it('chat_complete：isStreaming/isReasoning=false，tokenUsage 有则覆盖', () => {
     const { view, push } = setup()
@@ -326,7 +326,7 @@ describe('applyFrame 各帧分支', () => {
     expect(m.isStreaming).toBe(false)
     expect(m.isReasoning).toBe(false)
     expect(m.tokenUsage).toEqual({ inputTokens: 1, outputTokens: 2, totalTokens: 3 })
-  });
+  })
 
   it('chat_complete：将当前登录会话的 provider Token 用量异步上报', () => {
     const { push } = setup()
@@ -354,7 +354,7 @@ describe('applyFrame 各帧分支', () => {
       outputTokens: 22,
       totalTokens: 33,
     })
-  });
+  })
 
   it('Token 上报失败不阻断 chat_complete 收口，也不污染对话错误状态', () => {
     usageSpy.mockRejectedValueOnce(new Error('企业用量服务暂不可用'))
@@ -372,7 +372,7 @@ describe('applyFrame 各帧分支', () => {
     expect(view.result.current.state.messages['s1'][0].isStreaming).toBe(false)
     expect(view.result.current.state.messages['s1'][0].tokenUsage?.totalTokens).toBe(3)
     expect(view.result.current.state.lastError).toBeNull()
-  });
+  })
 
   it('knowledge_activity 只把本次新捕获条目主动同步到已启用的组织知识库', async () => {
     const { push } = setup('org-enabled')
@@ -416,7 +416,7 @@ describe('applyFrame 各帧分支', () => {
       significanceSignals: [],
       observedAt: '2026-07-15T00:00:00.000Z',
     })
-  });
+  })
 
   it('同步重复知识观察，让企业侧按跨会话证据晋级而不是保存整段对话', async () => {
     const { push } = setup('org-retention')
@@ -451,7 +451,7 @@ describe('applyFrame 各帧分支', () => {
       verified: true,
       impactScore: 0.88,
     }))
-  });
+  })
 
   it('组织 knowledge=false 时保留个人本地捕获但不上传企业知识', async () => {
     organizationFeaturesSpy.mockResolvedValueOnce({
@@ -483,7 +483,7 @@ describe('applyFrame 各帧分支', () => {
     await waitFor(() => expect(organizationFeaturesSpy).toHaveBeenCalledOnce())
     expect(knowledgeSpy).not.toHaveBeenCalled()
     expect(view.result.current.state.lastError).toBeNull()
-  });
+  })
 
   it('chat_complete(cancelled)：工具执行阶段取消也清掉 isProcessingTools，停止按钮不再卡住', () => {
     const { view, push } = setup()
@@ -522,7 +522,7 @@ describe('applyFrame 各帧分支', () => {
     expect(m.isReasoning).toBe(false)
     expect(m.isProcessingTools).toBe(false)
     expect(m.associatedToolCalls?.[0]?.status).toBe('cancelled')
-  });
+  })
 
   it('chat_complete：无 tokenUsage 则保留旧值', () => {
     const { view, push } = setup()
@@ -536,7 +536,7 @@ describe('applyFrame 各帧分支', () => {
       outputTokens: 9,
       totalTokens: 18,
     })
-  });
+  })
 
   it('chat_complete：带 text 时覆盖 content 对账自愈（切走期间丢的 chunk 补齐）', () => {
     const { view, push } = setup()
@@ -558,7 +558,7 @@ describe('applyFrame 各帧分支', () => {
     const m = view.result.current.state.messages['s1'][0]
     expect(m.content).toEqual([{ type: 'text', value: '完整开头+尾巴' }])
     expect(m.isStreaming).toBe(false)
-  });
+  })
 
   it('chat_complete：不带 text 时保留本地 content（旧 server 兼容）', () => {
     const { view, push } = setup()
@@ -572,7 +572,7 @@ describe('applyFrame 各帧分支', () => {
     expect(view.result.current.state.messages['s1'][0].content).toEqual([
       { type: 'text', value: '本地已有' },
     ])
-  });
+  })
 
   it('tool_calls_update：有 messageId 挂指定消息 + isProcessingTools 推导', () => {
     const { view, push } = setup()
@@ -590,7 +590,7 @@ describe('applyFrame 各帧分支', () => {
     const m = view.result.current.state.messages['s1'][0]
     expect(m.associatedToolCalls).toHaveLength(1)
     expect(m.isProcessingTools).toBe(true) // executing → 处理中
-  });
+  })
 
   it('tool_calls_update：无 messageId 挂最后一条 assistant', () => {
     const { view, push } = setup()
@@ -609,7 +609,7 @@ describe('applyFrame 各帧分支', () => {
     expect(assistant.isProcessingTools).toBe(false) // success 非处理中
     // user 消息不应被挂
     expect(list.find(m => m.id === 'u1')!.associatedToolCalls).toBeUndefined()
-  });
+  })
 
   it('tool_calls_update：无 assistant 时原样返回（不崩）', () => {
     const { view, push } = setup()
@@ -620,14 +620,14 @@ describe('applyFrame 各帧分支', () => {
       payload: { sessionId: 's1', toolCalls: [{ id: 't1', toolName: 'x', parameters: {}, status: 'success' as never }] },
     })
     expect(view.result.current.state.messages['s1']).toBe(before) // 引用不变 = 原样
-  });
+  })
 
   it('session_status：更新已存在 session', () => {
     const { view, push } = setup()
     push({ type: 'session_upsert', payload: { session: makeSession({ sessionId: 's1', status: 'idle' }) } })
     push({ type: 'session_status', payload: { sessionId: 's1', status: 'thinking' } })
     expect(view.result.current.state.sessions['s1'].status).toBe('thinking')
-  });
+  })
 
   it.each(['idle', 'error'] as const)(
     'session_status(%s)：权威终态清理历史里残留的工具处理中标记',
@@ -662,7 +662,7 @@ describe('applyFrame 各帧分支', () => {
     const before = view.result.current.state
     push({ type: 'session_status', payload: { sessionId: 'ghost', status: 'error' } })
     expect(view.result.current.state).toBe(before)
-  });
+  })
 
   it('models_list：填 models，current 有则覆盖', () => {
     const { view, push } = setup()
@@ -675,7 +675,7 @@ describe('applyFrame 各帧分支', () => {
     })
     expect(view.result.current.state.models).toHaveLength(1)
     expect(view.result.current.state.currentModel).toBe('m')
-  });
+  })
 
   it('models_list：当前模型被服务端标记不可用时清除旧选择', () => {
     const { view, push } = setup()
@@ -701,7 +701,7 @@ describe('applyFrame 各帧分支', () => {
       },
     })
     expect(view.result.current.state.currentModel).toBeNull()
-  });
+  })
 
   it('模型切换：旧 models_list 回包不得把乐观选择跳回上一个模型', () => {
     const { view, push } = setup()
@@ -748,7 +748,7 @@ describe('applyFrame 各帧分支', () => {
     })
     expect(view.result.current.state.currentModel).toBe('new-model')
     expect(view.result.current.state.pendingModelSwitch).toBeUndefined()
-  });
+  })
 
   it('模型确认会修复 pending 期间被旧会话快照覆盖的 session.model', () => {
     const { view, push } = setup()
@@ -802,7 +802,7 @@ describe('applyFrame 各帧分支', () => {
     expect(view.result.current.state.currentModel).toBe('model-b')
     act(() => view.result.current.actions.selectSession('a'))
     expect(view.result.current.state.currentModel).toBe('new-model')
-  });
+  })
 
   it('会话切换时模型药丸同步各自 session.model，两个会话不串', () => {
     const { view, push } = setup()
@@ -822,7 +822,7 @@ describe('applyFrame 各帧分支', () => {
     expect(view.result.current.state.currentModel).toBe('model-b')
     act(() => view.result.current.actions.selectSession('a'))
     expect(view.result.current.state.currentModel).toBe('model-a')
-  });
+  })
 
   it('非当前会话的 pending 确认不覆盖当前会话模型', () => {
     const { view, push } = setup()
@@ -859,7 +859,7 @@ describe('applyFrame 各帧分支', () => {
     })
     expect(view.result.current.state.pendingModelSwitch).toBeUndefined()
     expect(view.result.current.state.currentModel).toBe('model-b')
-  });
+  })
 
   it.each(['unknown_model', 'model_switch_failed'])(
     '模型切换：服务端返回 %s 时回滚 UI 与会话摘要',
@@ -897,7 +897,7 @@ describe('applyFrame 各帧分支', () => {
     const { view, push } = setup()
     push({ type: 'error', payload: { code: 'x', message: '出错了' } })
     expect(view.result.current.state.lastError).toBe('出错了')
-  });
+  })
 
   it('error：收口在途消息（清 isStreaming/isReasoning/isProcessingTools 解 busy 卡死）', () => {
     const { view, push } = setup()
@@ -919,7 +919,7 @@ describe('applyFrame 各帧分支', () => {
     expect(m.isReasoning).toBe(false)
     expect(m.isProcessingTools).toBe(false)
     expect(view.result.current.state.lastError).toBe('模型报错')
-  });
+  })
 
   it('error：无 sessionId 时兜底收口全部会话的在途消息', () => {
     const { view, push } = setup()
@@ -934,7 +934,7 @@ describe('applyFrame 各帧分支', () => {
     push({ type: 'error', payload: { code: 'x', message: '全局错误' } })
     expect(view.result.current.state.messages['a'][0].isStreaming).toBe(false)
     expect(view.result.current.state.messages['b'][0].isStreaming).toBe(false)
-  });
+  })
 
   it('feishu_push_result(ok:false)：写 lastError', () => {
     const { view, push } = setup()
@@ -943,7 +943,7 @@ describe('applyFrame 各帧分支', () => {
       payload: { sessionId: 's1', feishuChatId: 'oc', messageId: 'm', ok: false, error: '断网' },
     })
     expect(view.result.current.state.lastError).toContain('断网')
-  });
+  })
 
   it('feishu_push_result(ok:true)：不动 state', () => {
     const { view, push } = setup()
@@ -953,14 +953,14 @@ describe('applyFrame 各帧分支', () => {
       payload: { sessionId: 's1', feishuChatId: 'oc', messageId: 'm', ok: true },
     })
     expect(view.result.current.state).toBe(before)
-  });
+  })
 
   it('welcome / 未知帧：返回原 state（恒等）', () => {
     const { view, push } = setup()
     const before = view.result.current.state
     push({ type: 'welcome', payload: { protocolVersion: '1', serverVersion: '0.1.0' } })
     expect(view.result.current.state).toBe(before)
-  });
+  })
 })
 
 describe('deleteSession / renameSession actions（发帧）', () => {
@@ -968,49 +968,49 @@ describe('deleteSession / renameSession actions（发帧）', () => {
     const { view } = setup()
     act(() => {
       view.result.current.actions.deleteSession('sX')
-    });
+    })
     expect(sendSpy).toHaveBeenCalledWith({
       type: 'delete_session',
       payload: { sessionId: 'sX' },
     })
-  });
+  })
 
   it('deleteSession(空 id) → 不发帧', () => {
     const { view } = setup()
     sendSpy.mockClear()
     act(() => {
       view.result.current.actions.deleteSession('')
-    });
+    })
     expect(
       sendSpy.mock.calls.some(
         c => (c[0] as { type?: string })?.type === 'delete_session',
       ),
     ).toBe(false)
-  });
+  })
 
   it('renameSession(id, title) → 发 rename_session 帧（title 已 trim）', () => {
     const { view } = setup()
     act(() => {
       view.result.current.actions.renameSession('sX', '  新名  ')
-    });
+    })
     expect(sendSpy).toHaveBeenCalledWith({
       type: 'rename_session',
       payload: { sessionId: 'sX', title: '新名' },
     })
-  });
+  })
 
   it('renameSession(id, 纯空白) → 不发帧', () => {
     const { view } = setup()
     sendSpy.mockClear()
     act(() => {
       view.result.current.actions.renameSession('sX', '   ')
-    });
+    })
     expect(
       sendSpy.mock.calls.some(
         c => (c[0] as { type?: string })?.type === 'rename_session',
       ),
     ).toBe(false)
-  });
+  })
 })
 
 describe('目录附件发送', () => {
@@ -1028,7 +1028,7 @@ describe('目录附件发送', () => {
         folderName: '客户资料',
         folderPath: 'C:\\Users\\tester\\Documents\\客户资料',
       }])
-    });
+    })
 
     expect(sendSpy).toHaveBeenCalledWith({
       type: 'send_user_message',
@@ -1043,7 +1043,7 @@ describe('目录附件发送', () => {
         }],
       }),
     })
-  });
+  })
 })
 
 describe('真实工作目录切换', () => {
@@ -1069,7 +1069,7 @@ describe('真实工作目录切换', () => {
     })
     expect(view.result.current.state.sessions['workspace-session'].workspacePath)
       .toBe('/Users/test/project')
-  });
+  })
 })
 
 describe('Agent profile 启动动作', () => {
@@ -1082,7 +1082,7 @@ describe('Agent profile 启动动作', () => {
         'claw-enterprise-work',
         '请总结这段企业聊天。',
       )
-    });
+    })
     const createFrame = sendSpy.mock.calls.map(([frame]) => frame).find(
       frame => (frame as { type?: string }).type === 'create_session',
     ) as { payload: { clientRequestId: string } }
@@ -1116,12 +1116,12 @@ describe('Agent profile 启动动作', () => {
           content: [{ type: 'text', value: '请总结这段企业聊天。' }],
         }),
       })
-    });
+    })
     const sentPrompts = sendSpy.mock.calls.filter(
       ([frame]) => (frame as { type?: string }).type === 'send_user_message',
     )
     expect(sentPrompts).toHaveLength(1)
-  });
+  })
 
   it('用 clientRequestId 隔离并发启动，并按顺序继承工作目录、授权和附件', () => {
     const { view, push } = setup()
@@ -1147,7 +1147,7 @@ describe('Agent profile 启动动作', () => {
         '/Users/test/project-b',
         { mode: 'manual', scope: 'session' },
       )
-    });
+    })
 
     const creates = sendSpy.mock.calls
       .map(([frame]) => frame as { type: string; payload: { clientRequestId?: string } })
@@ -1183,13 +1183,13 @@ describe('Agent profile 启动动作', () => {
         ],
       }) },
     ])
-  });
+  })
 
   it('断线会清除尚未确认的 Agent 启动，迟到回包不会误发任务', () => {
     const { view, push } = setup()
     act(() => {
       view.result.current.actions.launchAgentProfileWithPrompt('PPT', 'ppt', '不要串到后续会话')
-    });
+    })
     const create = sendSpy.mock.calls
       .map(([frame]) => frame as { type: string; payload: { clientRequestId?: string } })
       .find(frame => frame.type === 'create_session')!
@@ -1203,14 +1203,14 @@ describe('Agent profile 启动动作', () => {
       && (frame as { payload?: { sessionId?: string } }).payload?.sessionId === 'late'
     ))).toBe(false)
     expect(view.result.current.state.lastError).toContain('Agent 任务未发送')
-  });
+  })
 
   it('服务端拒绝一个 Agent 会话时只清除最早的待启动事务', () => {
     const { view, push } = setup()
     act(() => {
       view.result.current.actions.launchAgentProfileWithPrompt('PPT', 'ppt', '不应发送的 PPT 任务')
       view.result.current.actions.launchAgentProfileWithPrompt('会议', 'meeting', '应继续发送的会议任务')
-    });
+    })
     const creates = sendSpy.mock.calls
       .map(([frame]) => frame as { type: string; payload: { clientRequestId?: string } })
       .filter(frame => frame.type === 'create_session')
@@ -1246,13 +1246,13 @@ describe('Agent profile 启动动作', () => {
       }),
     ])
     expect(view.result.current.state.lastError).toContain('当前账号无权启动该 Agent')
-  });
+  })
 
   it('已有会话的 Agent 权限错误不会取消无关的新 Agent 启动', () => {
     const { view, push } = setup()
     act(() => {
       view.result.current.actions.launchAgentProfileWithPrompt('PPT', 'ppt', '继续创建')
-    });
+    })
     const create = sendSpy.mock.calls
       .map(([frame]) => frame as { type: string; payload: { clientRequestId?: string } })
       .find(frame => frame.type === 'create_session')!
@@ -1277,5 +1277,5 @@ describe('Agent profile 启动动作', () => {
       (frame as { type?: string; payload?: { sessionId?: string } }).type === 'send_user_message'
       && (frame as { payload?: { sessionId?: string } }).payload?.sessionId === 'new-ppt'
     ))).toBe(true)
-  });
+  })
 })

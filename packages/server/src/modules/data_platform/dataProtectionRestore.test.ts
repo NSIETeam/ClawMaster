@@ -185,7 +185,7 @@ describe('data protection restore', () => {
         'utf8',
       ),
     ).toBe('newer-current-tombstone')
-  });
+  })
 
   it('restores deletion tombstones on a fresh host and removes them on rollback', async () => {
     const root = fs.mkdtempSync(
@@ -248,7 +248,7 @@ describe('data protection restore', () => {
     expect(
       fs.existsSync(path.join(dataDirectory, 'privacy-deletions.key')),
     ).toBe(false)
-  });
+  })
 
   it('refuses future schemas and a data directory used by a live server', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-restore-'))
@@ -285,7 +285,7 @@ describe('data protection restore', () => {
         maximumSchemaVersion: 100,
       }),
     ).rejects.toThrow('is still running')
-  });
+  })
 
   it('rejects a backup whose referenced attachment cannot be authenticated', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-restore-'))
@@ -352,5 +352,5 @@ describe('data protection restore', () => {
       }),
     ).rejects.toThrow()
     expect(readState(path.join(dataDirectory, 'data.db'))).toBe('old')
-  });
+  })
 })

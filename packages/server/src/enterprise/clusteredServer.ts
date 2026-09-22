@@ -137,10 +137,10 @@ async function readJsonBody(
       if (length > limit) {
         reject(new Error('request body is too large'))
         req.destroy()
-        return;
+        return
       }
       chunks.push(bytes)
-    });
+    })
     req.on('end', () => {
       try {
         const text = Buffer.concat(chunks).toString('utf8').trim()
@@ -154,7 +154,7 @@ async function readJsonBody(
       }
     })
     req.on('error', reject)
-  });
+  })
 }
 
 function bearerToken(req: IncomingMessage): string {
@@ -604,7 +604,7 @@ export function createClusteredEnterpriseServer(
       ...governanceAuthorization,
       license: decision!.summary,
     }
-  };
+  }
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url || '/', 'http://127.0.0.1')
@@ -680,7 +680,7 @@ export function createClusteredEnterpriseServer(
             ...(options.sharedState ? ['redis_shared_state_v1'] : []),
           ],
         })
-        return;
+        return
       }
 
       if (path === '/enterprise/legal' && method === 'GET') {
@@ -705,7 +705,7 @@ export function createClusteredEnterpriseServer(
           ...(await repository.getDataGovernanceProfile(account)),
           authorization: await governanceAuthorizationFor(account, res),
         })
-        return;
+        return
       }
 
       if (path === '/enterprise/privacy/accept' && method === 'POST') {
@@ -719,7 +719,7 @@ export function createClusteredEnterpriseServer(
         const body = await readJsonBody(req)
         if (body.accepted !== true) {
           sendJson(res, 400, { error: '请明确同意当前用户协议和隐私规则' })
-          return;
+          return
         }
         try {
           const documents = requireCurrentLegalDocumentReferences(
@@ -730,13 +730,13 @@ export function createClusteredEnterpriseServer(
           sendJson(res, 409, {
             error: error instanceof Error ? error.message : '协议版本校验失败',
           })
-          return;
+          return
         }
         sendJson(res, 200, {
           ...(await repository.getDataGovernanceProfile(account)),
           authorization: await governanceAuthorizationFor(account, res),
         })
-        return;
+        return
       }
 
       if (path.startsWith('/enterprise/join/') && method === 'GET') {
@@ -745,11 +745,11 @@ export function createClusteredEnterpriseServer(
           code = decodeURIComponent(path.slice('/enterprise/join/'.length))
         } catch {
           sendPublicInvitePage(res, 404)
-          return;
+          return
         }
         if (!isOrganizationInviteCode(code)) {
           sendPublicInvitePage(res, 404)
-          return;
+          return
         }
         const invite = await repository.inspectOrganizationInvite(code)
         if (invite.status === 'invalid') {
@@ -771,7 +771,7 @@ export function createClusteredEnterpriseServer(
             error: 'SMS registration is not configured',
             code: 'SMS_UNAVAILABLE',
           })
-          return;
+          return
         }
         const body = await readJsonBody(req)
         const inviteCode =
@@ -796,7 +796,7 @@ export function createClusteredEnterpriseServer(
                 error: 'organization registration is unavailable',
                 code: admission?.code ?? 'deployment_license_inactive',
               })
-              return;
+              return
             }
           }
         }
@@ -811,13 +811,13 @@ export function createClusteredEnterpriseServer(
         })
         if (issued.state === 'phone-conflict') {
           sendJson(res, 409, { error: 'phone is already registered' })
-          return;
+          return
         }
         if (issued.state === 'invalid-invite') {
           sendJson(res, 403, {
             error: 'organization invitation is unavailable',
           })
-          return;
+          return
         }
         if (issued.state === 'cooldown' || issued.state === 'hourly-limit') {
           res.setHeader('Retry-After', String(issued.retryAfterSeconds))
@@ -825,13 +825,13 @@ export function createClusteredEnterpriseServer(
             error: 'SMS verification requests are rate limited',
             retryAfterSeconds: issued.retryAfterSeconds,
           })
-          return;
+          return
         }
         if (issued.state !== 'issued') {
           sendJson(res, 503, {
             error: 'SMS registration state is unavailable',
           })
-          return;
+          return
         }
         let sent = false
         try {
@@ -842,7 +842,7 @@ export function createClusteredEnterpriseServer(
         if (!sent) {
           await repository.discardSmsRegistrationChallenge(issued.challengeId)
           sendJson(res, 502, { error: 'SMS verification delivery failed' })
-          return;
+          return
         }
         sendJson(res, 200, {
           challengeId: issued.challengeId,
@@ -852,7 +852,7 @@ export function createClusteredEnterpriseServer(
           organization: issued.organization,
           legalDocuments: currentLegalDocumentReferences(),
         })
-        return;
+        return
       }
 
       if (
@@ -867,7 +867,7 @@ export function createClusteredEnterpriseServer(
         const password = typeof body.password === 'string' ? body.password : ''
         if (body.legalConsent !== true) {
           sendJson(res, 400, { error: 'legal consent is required' })
-          return;
+          return
         }
         let legalDocuments
         try {
@@ -881,7 +881,7 @@ export function createClusteredEnterpriseServer(
                 ? error.message
                 : 'legal document version is invalid',
           })
-          return;
+          return
         }
         if (
           !challengeId.startsWith('smsreg_') ||
@@ -891,7 +891,7 @@ export function createClusteredEnterpriseServer(
           !isAcceptableAccountPassword(password)
         ) {
           sendJson(res, 400, { error: 'registration details are invalid' })
-          return;
+          return
         }
         const challenge =
           await repository.inspectSmsRegistrationChallenge(challengeId)
@@ -914,7 +914,7 @@ export function createClusteredEnterpriseServer(
               error: 'organization registration is unavailable',
               code: license?.code ?? 'deployment_license_inactive',
             })
-            return;
+            return
           }
           seatAdmission = license.seatAdmission
         }
@@ -929,27 +929,27 @@ export function createClusteredEnterpriseServer(
         })
         if (completed.state === 'phone-conflict') {
           sendJson(res, 409, { error: 'phone is already registered' })
-          return;
+          return
         }
         if (completed.state === 'invite-unavailable') {
           sendJson(res, 409, {
             error: 'organization invitation is unavailable',
           })
-          return;
+          return
         }
         if (completed.state === 'seat-limit-exceeded') {
           sendJson(res, 402, {
             error: 'deployment seat limit is exceeded',
             code: 'deployment_seat_limit_exceeded',
           })
-          return;
+          return
         }
         if (completed.state === 'license-admission-invalid') {
           sendJson(res, 402, {
             error: 'deployment license changed; retry authorization',
             code: 'deployment_license_inactive',
           })
-          return;
+          return
         }
         if (completed.state !== 'registered') {
           sendJson(res, 401, {
@@ -960,7 +960,7 @@ export function createClusteredEnterpriseServer(
                 ? completed.attemptsRemaining
                 : undefined,
           })
-          return;
+          return
         }
         const session = await repository.createAuthSession(
           completed.account.id,
@@ -975,7 +975,7 @@ export function createClusteredEnterpriseServer(
           ...session,
           legalConsentRecorded: true,
         })
-        return;
+        return
       }
 
       if (path === '/enterprise/auth/login' && method === 'POST') {
@@ -997,7 +997,7 @@ export function createClusteredEnterpriseServer(
             code: 'LOGIN_RATE_LIMITED',
             retryAfterSeconds: retryAfter,
           })
-          return;
+          return
         }
         const account = await repository.authenticateAccount(
           identifier,
@@ -1017,10 +1017,10 @@ export function createClusteredEnterpriseServer(
               code: 'LOGIN_RATE_LIMITED',
               retryAfterSeconds: failureRetryAfter,
             })
-            return;
+            return
           }
           sendJson(res, 401, { error: 'account or password is invalid' })
-          return;
+          return
         }
         if (options.sharedState) {
           await options.sharedState.clearLoginFailures(identifier)
@@ -1034,7 +1034,7 @@ export function createClusteredEnterpriseServer(
           account,
         )
         sendJson(res, 200, { account, ...session })
-        return;
+        return
       }
 
       if (path === '/enterprise/auth/me' && method === 'GET') {
@@ -1045,7 +1045,7 @@ export function createClusteredEnterpriseServer(
           options.sharedState,
         )
         if (account) sendJson(res, 200, { account })
-        return;
+        return
       }
 
       if (path === '/enterprise/auth/logout' && method === 'POST') {
@@ -1060,7 +1060,7 @@ export function createClusteredEnterpriseServer(
         if (options.sharedState) await options.sharedState.revokeSession(token)
         else await repository.revokeAuthSession(token)
         sendJson(res, 200, { status: 'logged_out' })
-        return;
+        return
       }
 
       if (path === '/enterprise/accounts' && method === 'GET') {
@@ -1088,7 +1088,7 @@ export function createClusteredEnterpriseServer(
         sendJson(res, 200, {
           accounts: await repository.listAccounts(principal.organizationId),
         })
-        return;
+        return
       }
 
       if (path === '/enterprise/accounts' && method === 'POST') {
@@ -1150,7 +1150,7 @@ export function createClusteredEnterpriseServer(
           throw error
         }
         sendJson(res, 201, { account })
-        return;
+        return
       }
 
       const accountRoute = /^\/enterprise\/accounts\/([^/]+)$/.exec(path)
@@ -1248,7 +1248,7 @@ export function createClusteredEnterpriseServer(
             Number(url.searchParams.get('limit') || 200),
           ),
         })
-        return;
+        return
       }
 
       if (
@@ -1280,7 +1280,7 @@ export function createClusteredEnterpriseServer(
           method === 'POST'
             ? await (async () => {
               const body = await readJsonBody(req)
-                return repository.issueOrganizationInvite({
+              return repository.issueOrganizationInvite({
                 organizationId: principal.organizationId,
                 createdByAccountId:
                     principal.kind === 'account' ? principal.account.id : null,
@@ -1306,11 +1306,11 @@ export function createClusteredEnterpriseServer(
                       : null,
                 maxUses: body.maxUses == null ? null : Number(body.maxUses),
               })
-              })()
+            })()
             : await repository.getOrganizationInvite(principal.organizationId)
         if (!invite) {
           sendJson(res, 404, { error: 'organization invitation not found' })
-          return;
+          return
         }
         sendJson(res, method === 'POST' ? 201 : 200, {
           invite: {
@@ -1318,7 +1318,7 @@ export function createClusteredEnterpriseServer(
             link: buildOrganizationInviteLink(publicBaseUrl, invite.code),
           },
         })
-        return;
+        return
       }
 
       if (path === '/enterprise/auth/join-organization' && method === 'POST') {
@@ -1334,7 +1334,7 @@ export function createClusteredEnterpriseServer(
           typeof body.inviteCode === 'string' ? body.inviteCode.trim() : ''
         if (!isOrganizationInviteCode(inviteCode)) {
           sendJson(res, 400, { error: 'organization invitation is invalid' })
-          return;
+          return
         }
         const inspectedInvite =
           await repository.inspectOrganizationInvite(inviteCode)
@@ -1366,47 +1366,47 @@ export function createClusteredEnterpriseServer(
           sendJson(res, 403, {
             error: 'organization invitation is unavailable',
           })
-          return;
+          return
         }
         if (joined.state === 'not-personal') {
           sendJson(res, 409, {
             error: 'only personal accounts can join an organization',
           })
-          return;
+          return
         }
         if (joined.state === 'security-state-present') {
           sendJson(res, 409, {
             error: 'local E2EE security state must be reset before joining',
             code: 'E2EE_STATE_RESET_REQUIRED',
           })
-          return;
+          return
         }
         if (joined.state === 'seat-limit-exceeded') {
           sendJson(res, 402, {
             error: 'deployment seat limit is exceeded',
             code: 'deployment_seat_limit_exceeded',
           })
-          return;
+          return
         }
         if (joined.state === 'license-admission-invalid') {
           sendJson(res, 402, {
             error: 'deployment license changed; retry authorization',
             code: 'deployment_license_inactive',
           })
-          return;
+          return
         }
         if (joined.state !== 'joined') {
           sendJson(res, 503, {
             error: 'organization join state is unavailable',
           })
-          return;
+          return
         }
         await options.sharedState?.revokeSession(bearerToken(req))
         sendJson(res, 200, {
           account: joined.account,
           requiresLogin: true,
         })
-        return;
+        return
       }
 
       const member = await requireMember(
@@ -1419,7 +1419,7 @@ export function createClusteredEnterpriseServer(
 
       if (path === '/enterprise/privacy/export' && method === 'GET') {
         sendJson(res, 200, await repository.exportAccountData(member))
-        return;
+        return
       }
 
       if (path === '/enterprise/privacy/account' && method === 'DELETE') {
@@ -1430,7 +1430,7 @@ export function createClusteredEnterpriseServer(
             error:
               'password and exact account deletion confirmation are required',
           })
-          return;
+          return
         }
         const verified = await repository.authenticateAccount(
           member.username,
@@ -1438,12 +1438,12 @@ export function createClusteredEnterpriseServer(
         )
         if (!verified || verified.id !== member.id) {
           sendJson(res, 403, { error: 'account password is invalid' })
-          return;
+          return
         }
         const receipt = await repository.deleteOwnAccountData(member)
         await options.sharedState?.revokeSession(bearerToken(req))
         sendJson(res, 200, receipt)
-        return;
+        return
       }
 
       if (!isLicenseMaintenanceRoute(path, method)) {
@@ -1530,13 +1530,13 @@ export function createClusteredEnterpriseServer(
         )
         if (!peer || peer.status !== 'active') {
           sendJson(res, 404, { error: 'member not found or disabled' })
-          return;
+          return
         }
         if (peer.id === member.id) {
           sendJson(res, 400, {
             error: 'attachment peer must be another member',
           })
-          return;
+          return
         }
         const ciphertext = attachmentCiphertext(body.ciphertext)
         const expectedChecksum =
@@ -1556,7 +1556,7 @@ export function createClusteredEnterpriseServer(
         sendJson(res, 201, {
           attachment: publicAttachmentMetadata(metadata),
         })
-        return;
+        return
       }
 
       if (
@@ -1573,13 +1573,13 @@ export function createClusteredEnterpriseServer(
         )
         if (!peer || peer.status !== 'active') {
           sendJson(res, 404, { error: 'member not found or disabled' })
-          return;
+          return
         }
         if (peer.id === member.id) {
           sendJson(res, 400, {
             error: 'attachment peer must be another member',
           })
-          return;
+          return
         }
         const mlsAuthorization =
           body.mlsBinding === undefined
@@ -1600,7 +1600,7 @@ export function createClusteredEnterpriseServer(
           mlsAuthorization,
         })
         sendJson(res, 201, { upload: { attachmentId: upload.attachmentId } })
-        return;
+        return
       }
 
       const attachmentPartPresign =
@@ -1632,7 +1632,7 @@ export function createClusteredEnterpriseServer(
           mlsAccess,
         })
         sendJson(res, 200, { request })
-        return;
+        return
       }
 
       const attachmentParts =
@@ -1661,7 +1661,7 @@ export function createClusteredEnterpriseServer(
           mlsAccess,
         })
         sendJson(res, 200, { recorded: true })
-        return;
+        return
       }
 
       const attachmentComplete =
@@ -1691,7 +1691,7 @@ export function createClusteredEnterpriseServer(
         sendJson(res, 200, {
           attachment: publicAttachmentMetadata(metadata),
         })
-        return;
+        return
       }
 
       const attachmentResume =
@@ -1710,7 +1710,7 @@ export function createClusteredEnterpriseServer(
           mlsAccess,
         })
         sendJson(res, 200, { upload })
-        return;
+        return
       }
 
       const attachmentDownload =
@@ -1737,7 +1737,7 @@ export function createClusteredEnterpriseServer(
                 ciphertext: download.ciphertext.toString('base64'),
               },
         })
-        return;
+        return
       }
 
       if (path === '/enterprise/organization/view' && method === 'GET') {
@@ -1769,7 +1769,7 @@ export function createClusteredEnterpriseServer(
           features,
           park: null,
         })
-        return;
+        return
       }
 
       if (path === '/enterprise/presence/heartbeat' && method === 'POST') {
@@ -1778,7 +1778,7 @@ export function createClusteredEnterpriseServer(
             error: 'shared presence state is unavailable',
             code: 'PRESENCE_UNAVAILABLE',
           })
-          return;
+          return
         }
         const body = await readJsonBody(req)
         const presence = await options.sharedState.touchAccountPresence({
@@ -1788,7 +1788,7 @@ export function createClusteredEnterpriseServer(
             typeof body.clientId === 'string' ? body.clientId : 'desktop',
         })
         sendJson(res, 200, { presence })
-        return;
+        return
       }
 
       if (path === '/enterprise/organization/features' && method === 'GET') {
@@ -1797,7 +1797,7 @@ export function createClusteredEnterpriseServer(
             member.organizationId,
           ),
         })
-        return;
+        return
       }
 
       if (
@@ -1806,7 +1806,7 @@ export function createClusteredEnterpriseServer(
       ) {
         if (!member.isAdmin) {
           sendJson(res, 403, { error: 'administrator permission required' })
-          return;
+          return
         }
         const body = await readJsonBody(req)
         const featureNames = [
@@ -1829,7 +1829,7 @@ export function createClusteredEnterpriseServer(
             patch,
           ),
         })
-        return;
+        return
       }
 
       if (
@@ -1838,7 +1838,7 @@ export function createClusteredEnterpriseServer(
       ) {
         if (!member.isAdmin) {
           sendJson(res, 403, { error: 'administrator permission required' })
-          return;
+          return
         }
         const body = await readJsonBody(req)
         const department = await repository.createOrganizationDepartment({
@@ -1846,7 +1846,7 @@ export function createClusteredEnterpriseServer(
           name: typeof body.name === 'string' ? body.name : '',
         })
         sendJson(res, 201, { department })
-        return;
+        return
       }
 
       const departmentRoute =
@@ -1854,7 +1854,7 @@ export function createClusteredEnterpriseServer(
       if (departmentRoute && (method === 'PATCH' || method === 'DELETE')) {
         if (!member.isAdmin) {
           sendJson(res, 403, { error: 'administrator permission required' })
-          return;
+          return
         }
         const departmentId = decodeURIComponent(departmentRoute[1]!)
         if (method === 'DELETE') {
@@ -1882,7 +1882,7 @@ export function createClusteredEnterpriseServer(
       if (path === '/enterprise/organization/positions' && method === 'POST') {
         if (!member.isAdmin) {
           sendJson(res, 403, { error: 'administrator permission required' })
-          return;
+          return
         }
         const body = await readJsonBody(req)
         const position = await repository.createOrganizationPosition({
@@ -1894,7 +1894,7 @@ export function createClusteredEnterpriseServer(
             typeof body.roleMapping === 'string' ? body.roleMapping : null,
         })
         sendJson(res, 201, { position })
-        return;
+        return
       }
 
       const positionRoute =
@@ -1902,7 +1902,7 @@ export function createClusteredEnterpriseServer(
       if (positionRoute && (method === 'PATCH' || method === 'DELETE')) {
         if (!member.isAdmin) {
           sendJson(res, 403, { error: 'administrator permission required' })
-          return;
+          return
         }
         const positionId = decodeURIComponent(positionRoute[1]!)
         if (method === 'DELETE') {
@@ -1949,7 +1949,7 @@ export function createClusteredEnterpriseServer(
               : '',
         })
         sendJson(res, 200, { device })
-        return;
+        return
       }
 
       if (path === '/enterprise/e2ee/devices' && method === 'GET') {
@@ -1962,7 +1962,7 @@ export function createClusteredEnterpriseServer(
           includePending: url.searchParams.get('includePending') === 'true',
         })
         sendJson(res, 200, { devices })
-        return;
+        return
       }
 
       if (path === '/enterprise/e2ee/key-transparency' && method === 'GET') {
@@ -1972,7 +1972,7 @@ export function createClusteredEnterpriseServer(
           accountId: url.searchParams.get('accountId') || member.id,
         })
         sendJson(res, 200, { transparency })
-        return;
+        return
       }
 
       if (
@@ -1987,7 +1987,7 @@ export function createClusteredEnterpriseServer(
         })
         res.setHeader('Cache-Control', 'no-store')
         sendJson(res, 200, { deviceId, keyPackages })
-        return;
+        return
       }
 
       const retireMlsKeyPackageRoute =
@@ -2033,7 +2033,7 @@ export function createClusteredEnterpriseServer(
             typeof body.keyPackage === 'string' ? body.keyPackage : '',
         })
         sendJson(res, 201, { keyPackage })
-        return;
+        return
       }
 
       if (
@@ -2068,7 +2068,7 @@ export function createClusteredEnterpriseServer(
             ? { keyPackage }
             : { error: 'no unclaimed MLS KeyPackage is available' },
         )
-        return;
+        return
       }
 
       if (
@@ -2087,7 +2087,7 @@ export function createClusteredEnterpriseServer(
         )
         res.setHeader('Cache-Control', 'no-store')
         sendJson(res, 200, { peerAccountIds })
-        return;
+        return
       }
 
       const mlsAttachmentSessionRoute =
@@ -2104,7 +2104,7 @@ export function createClusteredEnterpriseServer(
         })
         res.setHeader('Cache-Control', 'no-store')
         sendJson(res, 200, { session })
-        return;
+        return
       }
 
       const mlsEventsRoute =
@@ -2184,7 +2184,7 @@ export function createClusteredEnterpriseServer(
           signature: typeof body.signature === 'string' ? body.signature : '',
         })
         sendJson(res, 200, { device })
-        return;
+        return
       }
 
       const deviceRoute = /^\/enterprise\/e2ee\/devices\/([^/]+)$/.exec(path)
@@ -2199,7 +2199,7 @@ export function createClusteredEnterpriseServer(
           revoked ? 200 : 404,
           revoked ? { revoked: true } : { error: 'device not found' },
         )
-        return;
+        return
       }
 
       if (path === '/enterprise/messages/unread' && method === 'GET') {
@@ -2210,7 +2210,7 @@ export function createClusteredEnterpriseServer(
           sendJson(res, 403, {
             error: 'enterprise direct messages are disabled',
           })
-          return;
+          return
         }
         sendJson(res, 200, {
           notifications: await repository.listUnreadE2eeNotifications({
@@ -2219,7 +2219,7 @@ export function createClusteredEnterpriseServer(
             limit: Number(url.searchParams.get('limit') || 50),
           }),
         })
-        return;
+        return
       }
 
       const messageAttachmentRoute =
@@ -2238,7 +2238,7 @@ export function createClusteredEnterpriseServer(
           sendJson(res, 404, {
             error: 'attachment not found or access denied',
           })
-          return;
+          return
         }
         const download = await options.attachmentStorage.download({
           organizationId: member.organizationId,
@@ -2256,7 +2256,7 @@ export function createClusteredEnterpriseServer(
             },
           },
         })
-        return;
+        return
       }
 
       const messageRoute = /^\/enterprise\/messages\/([^/]+)$/.exec(path)
@@ -2268,7 +2268,7 @@ export function createClusteredEnterpriseServer(
           sendJson(res, 403, {
             error: 'enterprise direct messages are disabled',
           })
-          return;
+          return
         }
         const peerAccountId = decodeURIComponent(messageRoute[1]!)
         const peer = await repository.getAccount(
@@ -2277,7 +2277,7 @@ export function createClusteredEnterpriseServer(
         )
         if (!peer || peer.status !== 'active') {
           sendJson(res, 404, { error: 'member not found or disabled' })
-          return;
+          return
         }
         if (method === 'GET') {
           sendJson(res, 200, {
@@ -2288,7 +2288,7 @@ export function createClusteredEnterpriseServer(
               limit: Number(url.searchParams.get('limit') || 100),
             }),
           })
-          return;
+          return
         }
         const body = await readJsonBody(req, E2EE_BODY_LIMIT)
         const contentType =
@@ -2342,7 +2342,7 @@ export function createClusteredEnterpriseServer(
             : [],
         })
         sendJson(res, 201, { message })
-        return;
+        return
       }
 
       sendJson(res, 503, {
@@ -2442,14 +2442,14 @@ export async function startClusteredEnterpriseServer(
       maintenance.close()
       mlsMaintenance.close()
       void infrastructure.close()
-    });
+    })
     await new Promise<void>((resolve, reject) => {
       const onError = (error: Error) => reject(error)
       created.server.once('error', onError)
       created.server.listen(created.port, created.host, () => {
         created.server.off('error', onError)
         resolve()
-      });
+      })
     })
     maintenance.start()
     mlsMaintenance.start()

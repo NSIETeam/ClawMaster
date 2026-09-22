@@ -64,7 +64,7 @@ describe('GenerateDocumentTool', () => {
     vi.clearAllMocks()
     tool = new GenerateDocumentTool(createMockConfig())
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-test-gen-'))
-  });
+  })
 
   afterEach(() => {
     try {
@@ -75,9 +75,9 @@ describe('GenerateDocumentTool', () => {
   })
 
   // --- Metadata ---
-  it('has correct name', () => { expect(GenerateDocumentTool.Name).toBe('generate_document') });
-  it('has display name', () => { expect(tool.displayName).toBe('GenerateDocument') });
-  it('has Pencil icon', () => { expect(tool.icon).toBe('pencil') });
+  it('has correct name', () => { expect(GenerateDocumentTool.Name).toBe('generate_document') })
+  it('has display name', () => { expect(tool.displayName).toBe('GenerateDocument') })
+  it('has Pencil icon', () => { expect(tool.icon).toBe('pencil') })
 
   it('caches successful dependency preflight but refreshes missing dependencies quickly', async () => {
     let now = 0
@@ -101,32 +101,32 @@ describe('GenerateDocumentTool', () => {
     now += 1_001
     await cached(['pandoc'])
     expect(backend).toHaveBeenCalledTimes(4)
-  });
+  })
 
   // --- Validation ---
   it('rejects empty content', () => {
     expect(tool.validateToolParams({ content: '', format: 'report', output_format: 'pdf' })).toContain('content')
-  });
+  })
   it('rejects slides with docx output', () => {
     expect(tool.validateToolParams({ content: '# Hi', format: 'slides', output_format: 'docx' })).toContain('slides')
-  });
+  })
   it('accepts slides with pptx output', () => {
     expect(tool.validateToolParams({ content: '# Hi\n---\n# Page 2', format: 'slides', output_format: 'pptx' })).toBeNull()
-  });
+  })
   it('accepts report with pdf', () => {
     expect(tool.validateToolParams({ content: '# Report\nContent', format: 'report', output_format: 'pdf' })).toBeNull()
-  });
+  })
   it('accepts letter with html', () => {
     expect(tool.validateToolParams({ content: 'Dear...', format: 'letter', output_format: 'html' })).toBeNull()
-  });
+  })
   it('accepts resume with markdown', () => {
     expect(tool.validateToolParams({ content: '## Skills', format: 'resume', output_format: 'markdown' })).toBeNull()
-  });
+  })
 
   // --- getDescription ---
   it('getDescription includes format and output', () => {
     expect(tool.getDescription({ content: 'x', format: 'report', output_format: 'pdf' })).toContain('report')
-  });
+  })
 
   // --- shouldConfirmExecute ---
   it('shouldConfirmExecute returns confirmation in DEFAULT mode', async () => {
@@ -135,7 +135,7 @@ describe('GenerateDocumentTool', () => {
       new AbortController().signal,
     )
     expect(r).not.toBe(false)
-  });
+  })
 
   // --- markdown output needs no external tool (pure fs write) ---
   it('markdown output writes a file with zero dependencies', async () => {
@@ -152,7 +152,7 @@ describe('GenerateDocumentTool', () => {
     expect(updates.at(-1)).toContain('导出 Markdown 文件')
     expect(fs.existsSync(out)).toBe(true)
     expect(fs.readFileSync(out, 'utf8')).toContain('# T')
-  });
+  })
 
   it('markdown output uses the trusted ClawMaster department and name as its visible byline', async () => {
     const out = path.join(tmpDir, 'trusted-identity.md')
@@ -182,7 +182,7 @@ describe('GenerateDocumentTool', () => {
       '**产品与研发部 · 林一**',
     )
     expect(fs.readFileSync(out, 'utf8')).not.toContain('mac-login-name')
-  });
+  })
 
   it('omits an untrusted caller author when ClawMaster has no registered document identity', async () => {
     const out = path.join(tmpDir, 'untrusted-identity.md')
@@ -200,7 +200,7 @@ describe('GenerateDocumentTool', () => {
 
     expect(result.llmContent).toContain('generate_document OK')
     expect(fs.readFileSync(out, 'utf8')).not.toContain('mac-login-name')
-  });
+  })
 
   it('docx output uses bundled doc-writer and emits staged progress', async () => {
     const out = path.join(tmpDir, 'doc.docx')
@@ -209,7 +209,7 @@ describe('GenerateDocumentTool', () => {
     const runner: DocumentCommandRunner = vi.fn(async (file, args, options) => {
       commands.push({ file, args, env: options.env })
       fs.writeFileSync(out, Buffer.from('PK fake docx'))
-    });
+    })
     const docxTool = new GenerateDocumentTool(
       createMockConfig(),
       new ChromeHtmlToImageRenderer(null),
@@ -245,7 +245,7 @@ describe('GenerateDocumentTool', () => {
     expect(commands[0].env?.CLAWMASTER_DOCUMENT_AUTHOR).toBeUndefined()
     expect(updates.join('\n')).toContain('预检 Python 公文依赖')
     expect(updates.join('\n')).toContain('导出 DOCX 文件')
-  });
+  })
 
   it('docx output enforces trusted ClawMaster name and department instead of a computer login name', async () => {
     const out = path.join(tmpDir, 'trusted-identity.docx')
@@ -255,7 +255,7 @@ describe('GenerateDocumentTool', () => {
       docWriterScript = String(args[0])
       generatedMarkdown = fs.readFileSync(String(args[1]), 'utf8')
       fs.writeFileSync(out, Buffer.from('PK fake docx'))
-    });
+    })
     const docxTool = new GenerateDocumentTool(
       createMockConfig({
         getDocumentIdentity: () => ({
@@ -309,7 +309,7 @@ describe('GenerateDocumentTool', () => {
     expect(writerSource).toContain('CLAWMASTER_DOCUMENT_DEPARTMENT')
     expect(writerSource).toContain('meta.pop(key, None)')
     expect(writerSource.match(/self\.sig\(\)/g)).toHaveLength(1)
-  });
+  })
 
   // --- Doctor preflight: engine binaries checked BEFORE rendering ---
   const typstAvailable = hasBin('typst')
@@ -328,7 +328,7 @@ describe('GenerateDocumentTool', () => {
         ? 'winget install --id Typst.Typst'
         : 'brew install typst',
     )
-  });
+  })
 
   it('slides->pptx renders local HTML to images before packaging OOXML', async () => {
     const out = path.join(tmpDir, 's.pptx')
@@ -366,7 +366,7 @@ describe('GenerateDocumentTool', () => {
     expect(secondSlideXml).toContain('<p:pic>')
     expect(firstSlideXml).not.toContain('<a:t>Slide 1</a:t>')
     expect(firstSlideXml).not.toContain('<p:sp>')
-  });
+  })
 
   it('honors visual layout directives, selected colors, and 1920x1080 rendering', async () => {
     const out = path.join(tmpDir, 'visual.pptx')
@@ -416,7 +416,7 @@ describe('GenerateDocumentTool', () => {
     expect(rendered[3].html).toContain('class="panel"')
     expect(rendered.every(({ html }) => !html.includes('CLAWMASTER PRESENTATION'))).toBe(true)
     expect(rendered.every(({ html }) => !html.includes('class="shape-a"'))).toBe(true)
-  });
+  })
 
   it('infers varied layouts and keeps local images as visual material', async () => {
     const out = path.join(tmpDir, 'inferred.pptx')
@@ -455,7 +455,7 @@ describe('GenerateDocumentTool', () => {
       .toEqual(['cover', 'statement', 'timeline', 'visual'])
     expect(renderedHtml[3]).toContain('class="visual-image"')
     expect(renderedHtml[3]).toContain(pathToFileURL(imagePath).href)
-  });
+  })
 
   it.runIf(!marpAvailable)('slides->pdf fails loud with marp install command when marp is missing', async () => {
     const out = path.join(tmpDir, 's.pdf')
@@ -466,7 +466,7 @@ describe('GenerateDocumentTool', () => {
     expect(r.llmContent).toContain('FAIL')
     expect(r.llmContent.toLowerCase()).toContain('marp')
     expect(r.llmContent).toContain('@marp-team/marp-cli')
-  });
+  })
 
   it('article->docx fails loud with the Python dependency repair when bundled runtime is unavailable', async () => {
     const out = path.join(tmpDir, 'a.docx')
@@ -483,7 +483,7 @@ describe('GenerateDocumentTool', () => {
     expect(r.llmContent).toContain('FAIL')
     expect(r.llmContent.toLowerCase()).toContain('python-docx')
     expect(r.llmContent).toContain('pip install python-docx')
-  });
+  })
 
   it('passes Marp, Typst, and Pandoc paths as structured argv', async () => {
     const commandRunner = vi.fn(async (file: string, args: string[]) => {
@@ -493,7 +493,7 @@ describe('GenerateDocumentTool', () => {
           ? args[2]
           : args[args.indexOf('-o') + 1]
       fs.writeFileSync(outputPath, `rendered by ${file}`)
-    });
+    })
     const dependencyPreflight = vi.fn(async () => null)
     const unusedHtmlRenderer: HtmlToImageRenderer = { render: vi.fn() }
     const externalTool = new GenerateDocumentTool(
@@ -546,31 +546,31 @@ describe('GenerateDocumentTool', () => {
       ],
       expect.objectContaining({ signal }),
     )
-  });
+  })
 })
 
 describe('normalizeSlidesMarkdown', () => {
   it('keeps explicit Marp slide separators unchanged', () => {
     const markdown = '# One\n\n---\n\n# Two'
     expect(normalizeSlidesMarkdown(markdown)).toBe(markdown)
-  });
+  })
 
   it('drops a redundant leading separator because the tool adds front matter', () => {
     expect(normalizeSlidesMarkdown('---\n# One\n\n---\n\n# Two'))
       .toBe('# One\n\n---\n\n# Two')
-  });
+  })
 
   it('turns Chinese page headings into separate local slides', () => {
     expect(normalizeSlidesMarkdown(
       '第一页：开场\n要点 A\n\n第二页：结论\n要点 B',
     )).toBe('# 开场\n要点 A\n\n---\n\n# 结论\n要点 B')
-  });
+  })
 
   it('turns English slide headings into separate local slides', () => {
     expect(normalizeSlidesMarkdown(
       'Slide 1: Opening\nPoint A\n\nSlide 2: Close\nPoint B',
     )).toBe('# Opening\nPoint A\n\n---\n\n# Close\nPoint B')
-  });
+  })
 })
 
 describe('ChromeHtmlToImageRenderer', () => {
@@ -593,7 +593,7 @@ describe('ChromeHtmlToImageRenderer', () => {
       expect(fs.existsSync(browserProfilePath!)).toBe(true)
       expect(fs.existsSync(outputPath)).toBe(false)
       fs.writeFileSync(screenshotArg!.slice('--screenshot='.length), png)
-    });
+    })
 
     try {
       const renderer = new ChromeHtmlToImageRenderer('/local/chrome', runner)
@@ -630,7 +630,7 @@ describe('ChromeHtmlToImageRenderer', () => {
       expect(fs.existsSync(outputPath)).toBe(false)
       fs.writeFileSync(outputPath, png)
       if (args.includes('--headless=new')) throw new Error('unsupported headless mode')
-    });
+    })
 
     try {
       await new ChromeHtmlToImageRenderer('/local/chrome', runner).render({
@@ -743,7 +743,7 @@ describe('ChromeHtmlToImageRenderer', () => {
     let finishTreeCleanup: (() => void) | undefined
     const treeCleanup = new Promise<void>((resolve) => {
       finishTreeCleanup = resolve
-    });
+    })
     const promise = runBrowserScreenshotProcess(
       '/local/chrome',
       ['--screenshot=/tmp/clawmaster-tree-cleanup.png'],
@@ -760,7 +760,7 @@ describe('ChromeHtmlToImageRenderer', () => {
     let settled = false
     void promise.finally(() => {
       settled = true
-    });
+    })
 
     try {
       await vi.advanceTimersByTimeAsync(3)
@@ -802,7 +802,7 @@ describe('ChromeHtmlToImageRenderer', () => {
       fs.rmSync(tempDir, { recursive: true, force: true })
     }
   }, 30_000)
-});
+})
 
 describe('document external command runner', () => {
   it('passes paths as argv and decodes GBK stderr on Windows', async () => {
@@ -823,7 +823,7 @@ describe('document external command runner', () => {
         Buffer.alloc(0),
         iconv.encode('系统找不到指定的路径', 'gbk'),
       )
-    });
+    })
 
     const runDocumentCommand = module.runDocumentCommand as (
       file: string,
@@ -841,7 +841,7 @@ describe('document external command runner', () => {
       expect.objectContaining({ encoding: 'buffer', windowsHide: true }),
       expect.any(Function),
     )
-  });
+  })
 
   it('runs the Windows npm Marp shim through ComSpec without joining user paths', async () => {
     const module = await import('./generate-document.js') as Record<string, unknown>
@@ -875,5 +875,5 @@ describe('document external command runner', () => {
       expect.objectContaining({ encoding: 'buffer', windowsHide: true }),
       expect.any(Function),
     )
-  });
+  })
 })

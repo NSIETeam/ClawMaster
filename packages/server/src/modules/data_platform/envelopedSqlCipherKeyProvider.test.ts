@@ -84,7 +84,7 @@ describe('enveloped SQLCipher key provider', () => {
     })
     expect(reopened.getKeyCandidates()[0]!.key).toEqual(active)
     expect(harness.transport.unwrap).toHaveBeenCalledTimes(1)
-  });
+  })
 
   it('stages DEK rotation before the synchronous SQLCipher rekey transaction', async () => {
     const harness = createHarness()
@@ -107,7 +107,7 @@ describe('enveloped SQLCipher key provider', () => {
       pendingDekVersion: null,
       kekVersion: 'kek-v1',
     })
-  });
+  })
 
   it('rewraps the DEK under a new KEK without changing the database key', async () => {
     const harness = createHarness()
@@ -131,7 +131,7 @@ describe('enveloped SQLCipher key provider', () => {
     })
     expect(provider.getKeyCandidates()[0]!.key).toEqual(before)
     expect(provider.getEnvelopeStatus().kekVersion).toBe('kek-v2')
-  });
+  })
 
   it('refuses startup when KMS health validation fails', async () => {
     const harness = createHarness()
@@ -146,5 +146,5 @@ describe('enveloped SQLCipher key provider', () => {
       }),
     ).rejects.toThrow(/unavailable/i)
     expect(fs.existsSync(harness.manifestPath)).toBe(false)
-  });
+  })
 })

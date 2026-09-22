@@ -267,7 +267,7 @@ afterEach(async () => {
           new Promise<void>(resolve => server.close(() => resolve())),
       ),
   )
-});
+})
 
 async function listen(
   repo = repository(),
@@ -290,7 +290,7 @@ async function listen(
     created.server.listen(0, '127.0.0.1', () => {
       created.server.off('error', reject)
       resolve()
-    });
+    })
   })
   const address = created.server.address() as AddressInfo
   return {
@@ -314,7 +314,7 @@ describe('clustered PostgreSQL enterprise server', () => {
         'data_governance_v1',
       ]),
     })
-  });
+  })
 
   it('serves password login and session lookup from the async repository', async () => {
     const repo = repository()
@@ -343,7 +343,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       'correct-password',
     )
     expect(repo.clearLoginFailures).toHaveBeenCalledWith('admin')
-  });
+  })
 
   it('fails closed for missing, expired, unlicensed, and over-seat business execution', async () => {
     const authorization = 'Bearer clustered-session-token'
@@ -408,7 +408,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       headers: { authorization },
     })
     expect(exported.status).toBe(200)
-  });
+  })
 
   it('stores heartbeats in shared state and exposes presence in the organization tree', async () => {
     const touchAccountPresence = vi.fn(async () => ({
@@ -473,7 +473,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       'acc_admin',
       'acc_peer',
     ])
-  });
+  })
 
   it('serves complete versioned legal text and records exact document consent', async () => {
     const repo = repository()
@@ -522,7 +522,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       account,
       references,
     )
-  });
+  })
 
   it('relays MLS KeyPackages and opaque events through the PostgreSQL authority', async () => {
     const keyPackage = {
@@ -693,7 +693,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       'e2ee_mls_transport_session_reset_v1',
     )
     expect(health.capabilities).not.toContain('e2ee_mls_v1')
-  });
+  })
 
   it('enforces a PostgreSQL-shared login block before checking credentials', async () => {
     const repo = repository()
@@ -713,7 +713,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       retryAfterSeconds: 45,
     })
     expect(repo.authenticateAccount).not.toHaveBeenCalled()
-  });
+  })
 
   it('serves account sync from the PostgreSQL tenant authority', async () => {
     const repo = repository()
@@ -743,7 +743,7 @@ describe('clustered PostgreSQL enterprise server', () => {
         expectedVersion: 0,
       }),
     )
-  });
+  })
 
   it('allows sync export but blocks sync writes when the License is inactive', async () => {
     const repo = repository(null)
@@ -764,7 +764,7 @@ describe('clustered PostgreSQL enterprise server', () => {
     })
     expect(stored.status).toBe(402)
     expect(repo.putAccountSyncSnapshot).not.toHaveBeenCalled()
-  });
+  })
 
   it('allows an over-seat administrator to disable an account for remediation', async () => {
     const repo = {
@@ -791,7 +791,7 @@ describe('clustered PostgreSQL enterprise server', () => {
     expect(repo.updateAccount).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'disabled' }),
     )
-  });
+  })
 
   it('stores knowledge and skills under the authenticated PostgreSQL tenant', async () => {
     const repo = repository()
@@ -836,7 +836,7 @@ describe('clustered PostgreSQL enterprise server', () => {
         ownerAccountId: 'acc_admin',
       }),
     )
-  });
+  })
 
   it('accepts the desktop feature PATCH contract for migrated domains', async () => {
     const repo = repository()
@@ -860,7 +860,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       'org_default',
       { knowledge: false, skill_market: false },
     )
-  });
+  })
 
   it('mounts park, ticketing and commercial control on PostgreSQL authority', async () => {
     const repo = repository()
@@ -911,7 +911,7 @@ describe('clustered PostgreSQL enterprise server', () => {
         domain: 'ticketing',
       }),
     )
-  });
+  })
 
   it('preserves member update-policy and module-manifest contracts', async () => {
     const repo = repository()
@@ -944,7 +944,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       deploymentId: 'clustered-enterprise',
       modules: [],
     })
-  });
+  })
 
   it('exports and deletes account data through the PostgreSQL repository', async () => {
     const repo = repository()
@@ -973,7 +973,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       mode: 'cryptographic_and_soft_delete',
     })
     expect(repo.deleteOwnAccountData).toHaveBeenCalledWith(account)
-  });
+  })
 
   it('issues organization invites through PostgreSQL without exposing a stored code', async () => {
     const issueOrganizationInvite = vi.fn(async () => ({
@@ -1023,7 +1023,7 @@ describe('clustered PostgreSQL enterprise server', () => {
         maxUses: 3,
       }),
     )
-  });
+  })
 
   it('serves active public invitation pages from PostgreSQL inspection state', async () => {
     const repo = {
@@ -1042,7 +1042,7 @@ describe('clustered PostgreSQL enterprise server', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('text/html')
     expect(await response.text()).toContain('ABCD-EFGH-JKLM')
-  });
+  })
 
   it('requests and completes SMS registration through PostgreSQL state', async () => {
     const requestSmsRegistration = vi.fn(async () => ({
@@ -1119,7 +1119,7 @@ describe('clustered PostgreSQL enterprise server', () => {
         legalDocuments: currentLegalDocumentReferences(),
       }),
     )
-  });
+  })
 
   it('joins a personal account to an enterprise and expires stale sessions', async () => {
     const personal = {
@@ -1174,7 +1174,7 @@ describe('clustered PostgreSQL enterprise server', () => {
         inviteCode: 'ABCD-EFGH-JKLM',
       }),
     )
-  });
+  })
 
   it('does not authorize an empty configured system token', async () => {
     const repo = repository()
@@ -1189,7 +1189,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       created.server.listen(0, '127.0.0.1', () => {
         created.server.off('error', reject)
         resolve()
-      });
+      })
     })
     const address = created.server.address() as AddressInfo
     const response = await fetch(
@@ -1197,7 +1197,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       { headers: { 'x-clawmaster-admin-token': '' } },
     )
     expect(response.status).toBe(401)
-  });
+  })
 
   it('stores only E2EE ciphertext through the shared attachment service', async () => {
     const putInlineCiphertext = vi.fn(async () => ({
@@ -1254,7 +1254,7 @@ describe('clustered PostgreSQL enterprise server', () => {
         ciphertext,
       }),
     )
-  });
+  })
 
   it('atomically binds an MLS upload to the authoritative generation and device roster', async () => {
     const session = {
@@ -1338,5 +1338,5 @@ describe('clustered PostgreSQL enterprise server', () => {
     expect(JSON.stringify(initiateMultipartUpload.mock.calls)).not.toContain(
       'dek',
     )
-  });
+  })
 })

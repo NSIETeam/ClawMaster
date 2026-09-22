@@ -189,7 +189,7 @@ export class MCPOAuthProvider {
             if (url.pathname !== this.REDIRECT_PATH) {
               res.writeHead(404)
               res.end('Not found')
-              return;
+              return
             }
 
             const code = url.searchParams.get('code')
@@ -210,13 +210,13 @@ export class MCPOAuthProvider {
             `)
               server.close()
               reject(new Error(`OAuth error: ${error}`))
-              return;
+              return
             }
 
             if (!code || !state) {
               res.writeHead(400)
               res.end('Missing code or state parameter')
-              return;
+              return
             }
 
             if (state !== expectedState) {
@@ -224,7 +224,7 @@ export class MCPOAuthProvider {
               res.end('Invalid state parameter')
               server.close()
               reject(new Error('State mismatch - possible CSRF attack'))
-              return;
+              return
             }
 
             // Send success response to browser
@@ -268,7 +268,7 @@ export class MCPOAuthProvider {
         console.log(
           `OAuth callback server listening on port ${this.REDIRECT_PORT}`,
         )
-      });
+      })
 
       // Timeout after 5 minutes
       setTimeout(
@@ -278,7 +278,7 @@ export class MCPOAuthProvider {
         },
         5 * 60 * 1000,
       )
-    });
+    })
   }
 
   /**

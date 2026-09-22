@@ -87,7 +87,7 @@ describe('enterprise database lifecycle', () => {
       backup.prepare("SELECT name FROM sqlite_master WHERE name = 'current_record'").get(),
     ).toBeUndefined()
     backup.close()
-  });
+  })
 
   it('clears owned state on close and opens a fresh connection', () => {
     const paths = createPaths()
@@ -117,7 +117,7 @@ describe('enterprise database lifecycle', () => {
     expect(openCount).toBe(2)
     expect(initializeCount).toBe(2)
     expect(closeCount).toBe(1)
-  });
+  })
 
   it('rejects a newer schema without caching the failed connection', () => {
     const paths = createPaths()
@@ -139,7 +139,7 @@ describe('enterprise database lifecycle', () => {
     repaired.exec('PRAGMA user_version = 1;')
     repaired.close()
     expect(lifecycle.getReadiness()).toEqual({ ready: true, schemaVersion: 2 })
-  });
+  })
 
   it('retries the complete initialization after a migration failure', () => {
     const paths = createPaths()
@@ -157,7 +157,7 @@ describe('enterprise database lifecycle', () => {
     expect(() => lifecycle.getDatabase()).toThrow('migration interrupted')
     expect(lifecycle.getReadiness()).toEqual({ ready: true, schemaVersion: 1 })
     expect(attempts).toBe(2)
-  });
+  })
 
   it('owns schema version stamping after successful initialization', () => {
     const paths = createPaths()
@@ -169,7 +169,7 @@ describe('enterprise database lifecycle', () => {
     closeCallbacks.push(lifecycle.close)
 
     expect(lifecycle.getReadiness()).toEqual({ ready: true, schemaVersion: 1 })
-  });
+  })
 
   it('fails before opening SQLite when the database path is a network share', () => {
     const lifecycle = createEnterpriseDatabaseLifecycle({
@@ -180,5 +180,5 @@ describe('enterprise database lifecycle', () => {
     })
 
     expect(() => lifecycle.getDatabase()).toThrow(/SQLite.*network/i)
-  });
+  })
 })

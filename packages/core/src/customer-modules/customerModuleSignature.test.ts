@@ -18,5 +18,5 @@ describe('customer module signatures', () => {
     expect(verifyCustomerModuleSignature(signed, { 'market-v1': keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() })).toBe(true)
     expect(verifyCustomerModuleSignature({ ...signed, name: 'Tampered' }, { 'market-v1': keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() })).toBe(false)
     expect(verifyCustomerModuleSignature(signed, {})).toBe(false)
-  });
+  })
 })

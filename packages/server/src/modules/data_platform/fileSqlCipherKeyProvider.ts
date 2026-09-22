@@ -129,7 +129,7 @@ function orderCandidates(keyring: LoadedKeyring): SqlCipherKeyMaterial[] {
     emitted.add(version)
     const material = keyring.keys.find(entry => entry.version === version)
     return material ? [material] : []
-  });
+  })
 }
 
 /**

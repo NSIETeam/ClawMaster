@@ -205,22 +205,22 @@ export class RpaRunTool extends BaseTool<RpaRunToolParams, ToolResult> {
       switch (params.action) {
         case 'start':
           run = await runner.start(params.workflow!.id, params.workflow!.version)
-          break;
+          break
         case 'run_next':
           run = await runner.runNext(params.run_id!)
-          break;
+          break
         case 'recover':
           run = await runner.recover(params.run_id!)
-          break;
+          break
         case 'approve':
           run = await runner.approve(params.run_id!, params.approval_id!)
-          break;
+          break
         case 'take_over':
           run = await runner.takeOver(params.run_id!, params.takeover_note!)
-          break;
+          break
         case 'status':
           run = await this.status(params.run_id!)
-          break;
+          break
         default:
           throw new Error(`Unsupported RPA operation: ${params.action}`)
       }

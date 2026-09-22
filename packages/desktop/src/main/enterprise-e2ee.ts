@@ -1607,7 +1607,7 @@ export class EnterpriseE2eeCrypto {
           nonce: nonce.toString('base64'),
         },
       }
-    });
+    })
     const externalIds = new Set<string>()
     for (const attachment of externalAttachments) {
       if (
@@ -1667,7 +1667,7 @@ export class EnterpriseE2eeCrypto {
         ).toString('base64'),
         nonce: envelopeNonce.toString('base64'),
       }
-    });
+    })
     const unsigned = {
       organizationId: input.organizationId,
       messageId,

@@ -107,7 +107,7 @@ async function collectDirectorySnapshot(
       if (metadata.isDirectory()) {
         entries.push({ kind: 'directory', sourcePath: canonicalPath, relativePath, size: 0 })
         await visit(canonicalPath, relativePath, depth + 1)
-        continue;
+        continue
       }
       if (!metadata.isFile()) {
         throw new Error(`目录附件包含不支持的特殊文件：${relativePath}`)
@@ -251,11 +251,11 @@ export async function cacheChatFiles(
           value: { ...part.value, folderPath: targetPath },
         })
         changed = true
-        continue;
+        continue
       }
       if (part.type !== 'file_reference') {
         rewritten.push(part)
-        continue;
+        continue
       }
 
       const sourcePath = part.value.filePath
@@ -280,7 +280,7 @@ export async function cacheChatFiles(
           filePath: targetPath,
         },
       })
-      cachedFiles++;
+      cachedFiles++
       changed = true
     }
   } catch (error) {

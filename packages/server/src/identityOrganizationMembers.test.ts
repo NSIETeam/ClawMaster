@@ -183,4 +183,4 @@ describe('identity_organization member directory', () => {
       fs.rmSync(temporaryDirectory, { recursive: true, force: true })
     }
   })
-});
+})

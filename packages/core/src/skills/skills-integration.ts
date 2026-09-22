@@ -66,7 +66,7 @@ export async function initializeSkillsContext(projectRoot?: string): Promise<voi
       cachedSkillsContext = ''
       cachedProjectRoot = resolvedProjectRoot
       lastCacheTime = now
-      return;
+      return
     }
 
     // Format for system prompt - minimal, since detailed instructions are in use_skill tool

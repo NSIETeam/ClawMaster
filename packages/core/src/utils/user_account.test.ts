@@ -22,7 +22,7 @@ vi.mock('os', async (importOriginal) => {
     ...os,
     homedir: vi.fn(),
   }
-});
+})
 
 describe('user_account', () => {
   let tempHomeDir: string
@@ -33,11 +33,11 @@ describe('user_account', () => {
       path.join(os.tmpdir(), 'gemini-cli-test-home-'),
     );
     (os.homedir as Mock).mockReturnValue(tempHomeDir)
-  });
+  })
   afterEach(() => {
     fs.rmSync(tempHomeDir, { recursive: true, force: true })
     vi.clearAllMocks()
-  });
+  })
 
   describe('cacheGoogleAccount', () => {
     it('should create directory and write initial account file', async () => {
@@ -48,7 +48,7 @@ describe('user_account', () => {
       expect(fs.readFileSync(accountsFile(), 'utf-8')).toBe(
         JSON.stringify({ active: 'test1@google.com', old: [] }, null, 2),
       )
-    });
+    })
 
     it('should update active account and move previous to old', async () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
@@ -73,7 +73,7 @@ describe('user_account', () => {
           2,
         ),
       )
-    });
+    })
 
     it('should not add a duplicate to the old list', async () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
@@ -95,7 +95,7 @@ describe('user_account', () => {
           2,
         ),
       )
-    });
+    })
 
     it('should handle corrupted JSON by starting fresh', async () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
@@ -111,7 +111,7 @@ describe('user_account', () => {
         active: 'test1@google.com',
         old: [],
       })
-    });
+    })
   })
 
   describe('getCachedGoogleAccount', () => {
@@ -123,19 +123,19 @@ describe('user_account', () => {
       )
       const account = getCachedGoogleAccount()
       expect(account).toBe('active@google.com')
-    });
+    })
 
     it('should return null if file does not exist', () => {
       const account = getCachedGoogleAccount()
       expect(account).toBeNull()
-    });
+    })
 
     it('should return null if file is empty', () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
       fs.writeFileSync(accountsFile(), '')
       const account = getCachedGoogleAccount()
       expect(account).toBeNull()
-    });
+    })
 
     it('should return null and log if file is corrupted', () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
@@ -148,7 +148,7 @@ describe('user_account', () => {
 
       expect(account).toBeNull()
       expect(consoleDebugSpy).toHaveBeenCalled()
-    });
+    })
   })
 
   describe('clearCachedGoogleAccount', () => {
@@ -168,7 +168,7 @@ describe('user_account', () => {
       const stored = JSON.parse(fs.readFileSync(accountsFile(), 'utf-8'))
       expect(stored.active).toBeNull()
       expect(stored.old).toEqual(['old1@google.com', 'active@google.com'])
-    });
+    })
 
     it('should handle empty file gracefully', async () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
@@ -177,19 +177,19 @@ describe('user_account', () => {
       const stored = JSON.parse(fs.readFileSync(accountsFile(), 'utf-8'))
       expect(stored.active).toBeNull()
       expect(stored.old).toEqual([])
-    });
+    })
   })
 
   describe('getLifetimeGoogleAccounts', () => {
     it('should return 0 if the file does not exist', () => {
       expect(getLifetimeGoogleAccounts()).toBe(0)
-    });
+    })
 
     it('should return 0 if the file is empty', () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
       fs.writeFileSync(accountsFile(), '')
       expect(getLifetimeGoogleAccounts()).toBe(0)
-    });
+    })
 
     it('should return 0 if the file is corrupted', () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
@@ -200,7 +200,7 @@ describe('user_account', () => {
 
       expect(getLifetimeGoogleAccounts()).toBe(0)
       expect(consoleDebugSpy).toHaveBeenCalled()
-    });
+    })
 
     it('should return 1 if there is only an active account', () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
@@ -209,7 +209,7 @@ describe('user_account', () => {
         JSON.stringify({ active: 'test1@google.com', old: [] }),
       )
       expect(getLifetimeGoogleAccounts()).toBe(1)
-    });
+    })
 
     it('should correctly count old accounts when active is null', () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
@@ -221,7 +221,7 @@ describe('user_account', () => {
         }),
       )
       expect(getLifetimeGoogleAccounts()).toBe(2)
-    });
+    })
 
     it('should correctly count both active and old accounts', () => {
       fs.mkdirSync(path.dirname(accountsFile()), { recursive: true })
@@ -233,6 +233,6 @@ describe('user_account', () => {
         }),
       )
       expect(getLifetimeGoogleAccounts()).toBe(3)
-    });
+    })
   })
-});
+})

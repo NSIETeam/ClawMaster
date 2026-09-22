@@ -26,7 +26,9 @@ export function ProactiveToast(): React.ReactElement | null {
     const unsub = transport.onFrame((frame) => {
       if (frame.type !== 'proactive_alert') return
       const { ruleName, message, priority } = frame.payload as {
-        ruleName: string; message: string; priority: 'low' | 'medium' | 'high'
+        ruleName: string
+        message: string
+        priority: 'low' | 'medium' | 'high'
       }
 
       const toast: Toast = {
@@ -38,9 +40,9 @@ export function ProactiveToast(): React.ReactElement | null {
       }
 
       setToasts(prev => [toast, ...prev].slice(0, MAX_TOASTS))
-    });
+    })
 
-    return () => { unsub() };
+    return () => { unsub() }
   }, [])
 
   // Wake only when the next toast expires instead of polling twice per second.

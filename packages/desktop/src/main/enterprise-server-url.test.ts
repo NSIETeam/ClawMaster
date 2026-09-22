@@ -10,13 +10,13 @@ describe('enterprise server URL', () => {
   it('uses the reachable IP HTTPS endpoint by default', () => {
     expect(DEFAULT_ENTERPRISE_SERVER_URL).toBe('https://59.110.154.44:7777')
     expect(defaultEnterpriseServerUrl(undefined)).toBe(DEFAULT_ENTERPRISE_SERVER_URL)
-  });
+  })
 
   it('keeps an explicit environment override', () => {
     expect(defaultEnterpriseServerUrl('  https://enterprise.example.com/  ')).toBe(
       'https://enterprise.example.com/',
     )
-  });
+  })
 
   it('migrates the blocked legacy endpoint from persisted sessions', () => {
     expect(
@@ -25,13 +25,13 @@ describe('enterprise server URL', () => {
         DEFAULT_ENTERPRISE_SERVER_URL,
       ),
     ).toBe(DEFAULT_ENTERPRISE_SERVER_URL)
-  });
+  })
 
   it('preserves a custom persisted endpoint', () => {
     expect(
       migrateEnterpriseServerUrl('https://clawmaster.example.com/', DEFAULT_ENTERPRISE_SERVER_URL),
     ).toBe('https://clawmaster.example.com/')
-  });
+  })
 
   it('lets an explicit launch target override persisted state and invalidates its token', () => {
     expect(restoreEnterpriseServerTarget(
@@ -47,7 +47,7 @@ describe('enterprise server URL', () => {
       'http://127.0.0.1:7777',
       true,
     ).endpointChanged).toBe(false)
-  });
+  })
 
   it('keeps a persisted custom target when launch configuration is not explicit', () => {
     expect(restoreEnterpriseServerTarget(
@@ -58,5 +58,5 @@ describe('enterprise server URL', () => {
       serverUrl: 'https://clawmaster.example.com/',
       endpointChanged: false,
     })
-  });
+  })
 })

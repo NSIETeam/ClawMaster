@@ -61,7 +61,7 @@ export class FileDiscoveryService {
         return false
       }
       return true
-    });
+    })
   }
 
   /**

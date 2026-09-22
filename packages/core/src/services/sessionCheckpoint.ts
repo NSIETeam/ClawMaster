@@ -154,7 +154,7 @@ function fitCheckpointRecord(
       else high = middle - 1
     }
     record[field] = low > 0 ? `${value.slice(0, low)}…` : undefined
-  };
+  }
   shrinkField('summary')
   shrinkField('lastTask')
   shrinkField('reason')
@@ -377,7 +377,7 @@ export class SessionCheckpointService {
       await fs.rename(tempPath, filePath)
       if (process.platform !== 'win32')
         await fs.chmod(filePath, 0o600).catch(() => undefined)
-    };
+    }
     const current = this.writeQueue.then(operation, operation)
     this.writeQueue = current.catch(() => undefined)
     return current

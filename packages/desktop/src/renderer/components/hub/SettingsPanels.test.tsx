@@ -15,7 +15,7 @@ beforeEach(() => {
     themeGet: async () => 'system',
     themeSet: vi.fn(async () => undefined),
   }
-});
+})
 
 function settingsData(
   agentStyle = 'default',
@@ -83,7 +83,7 @@ describe('PrefsPanel 外观与回复', () => {
     ).toBeNull()
     expect(screen.queryByText('推荐设置已生效')).toBeNull()
     expect(screen.queryByText('不知道怎么选时保持默认就好，所有选项都会立即生效。')).toBeNull()
-  });
+  })
 
   it('新文案继续写入旧的稳定配置值，已有用户配置无需迁移', () => {
     const { value, setSetting } = settingsData('default')
@@ -94,7 +94,7 @@ describe('PrefsPanel 外观与回复', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /企业办公（资料与会议）/ }))
     expect(setSetting).toHaveBeenCalledWith('agentStyle', 'antigravity')
-  });
+  })
 
   it('只把当前页面的真实偏好恢复为默认值', async () => {
     window.localStorage.setItem('clawmaster.pet-widget.enabled', '1')
@@ -120,7 +120,7 @@ describe('PrefsPanel 外观与回复', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '深色' }).className).toContain('is-active')
-    });
+    })
     fireEvent.click(screen.getByRole('button', { name: '恢复默认设置' }))
 
     expect(confirm).toHaveBeenCalledWith(
@@ -134,7 +134,7 @@ describe('PrefsPanel 外观与回复', () => {
       expect(setSetting).toHaveBeenCalledWith('preferredLanguage', '')
       expect(window.localStorage.getItem('clawmaster.pet-widget.enabled')).toBe('0')
       expect(screen.getByRole('button', { name: '正在恢复…' })).toBeTruthy()
-    });
+    })
 
     const { value: restored } = settingsData('default', {
       healthyUse: true,
@@ -149,7 +149,7 @@ describe('PrefsPanel 外观与回复', () => {
     )
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '已恢复' })).toBeTruthy()
-    });
+    })
   })
 
   it('取消确认时不修改任何设置', async () => {
@@ -169,7 +169,7 @@ describe('PrefsPanel 外观与回复', () => {
     expect(setSetting).not.toHaveBeenCalled()
     expect(onUiModeChange).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: '恢复默认设置' })).toBeTruthy()
-  });
+  })
 
   it('主题恢复失败时恢复原状态并允许重试', async () => {
     const themeSet = vi.fn(async () => Promise.reject(new Error('theme failed')));
@@ -183,14 +183,14 @@ describe('PrefsPanel 外观与回复', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '深色' }).className).toContain('is-active')
-    });
+    })
     fireEvent.click(screen.getByRole('button', { name: '恢复默认设置' }))
 
     await waitFor(() => {
       const retry = screen.getByRole('button', { name: '恢复失败，重试' }) as HTMLButtonElement
       expect(retry.disabled).toBe(false)
       expect(screen.getByRole('button', { name: '深色' }).className).toContain('is-active')
-    });
+    })
   })
 
   it('服务端返回错误时不宣告成功并允许重试', async () => {
@@ -211,9 +211,9 @@ describe('PrefsPanel 外观与回复', () => {
     await waitFor(() => {
       const retry = screen.getByRole('button', { name: '恢复失败，重试' }) as HTMLButtonElement
       expect(retry.disabled).toBe(false)
-    });
+    })
     expect(screen.queryByRole('button', { name: '已恢复' })).toBeNull()
-  });
+  })
 
   it('把历史空白语言值视为需要恢复的非默认值', async () => {
     const { value, setSetting } = settingsData('default', {
@@ -228,7 +228,7 @@ describe('PrefsPanel 外观与回复', () => {
     await waitFor(() => {
       expect(setSetting).toHaveBeenCalledWith('preferredLanguage', '')
       expect(screen.getByRole('button', { name: '正在恢复…' })).toBeTruthy()
-    });
+    })
   })
 
   it('所有项目均为默认值时禁用恢复按钮', async () => {
@@ -239,7 +239,7 @@ describe('PrefsPanel 外观与回复', () => {
       expect(
         (screen.getByRole('button', { name: '恢复默认设置' }) as HTMLButtonElement).disabled,
       ).toBe(true)
-    });
+    })
   })
 
   it('后台付费分析默认关闭，只在用户操作后开启', () => {
@@ -250,7 +250,7 @@ describe('PrefsPanel 外观与回复', () => {
     expect(toggle.getAttribute('aria-pressed')).toBe('false')
     fireEvent.click(toggle)
     expect(setSetting).toHaveBeenCalledWith('backgroundModelTasksEnabled', true)
-  });
+  })
 })
 
 describe('PrefsPanel UI mode selection', () => {
@@ -269,5 +269,5 @@ describe('PrefsPanel UI mode selection', () => {
     fireEvent.click(screen.getByRole('radio', { name: /对话式 UI/ }))
     expect(onUiModeChange).toHaveBeenCalledWith('conversational')
     expect(setSetting).not.toHaveBeenCalled()
-  });
+  })
 })

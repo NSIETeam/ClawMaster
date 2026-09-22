@@ -67,7 +67,7 @@ export function DayAgenda({
       setLoadedWorkResults([])
       return () => {
         cancelled = true
-      };
+      }
     }
     void bridge.workLogRecent(92).then((days) => {
       if (cancelled) return
@@ -77,8 +77,8 @@ export function DayAgenda({
       )
     }).catch(() => {
       if (!cancelled) setLoadedWorkResults([])
-    });
-    return () => { cancelled = true };
+    })
+    return () => { cancelled = true }
   }, [date, providedWorkResults])
 
   const workResults = providedWorkResults ?? loadedWorkResults
@@ -96,7 +96,7 @@ export function DayAgenda({
     setTitle('')
     setNotes('')
     setAdding(false)
-  };
+  }
 
   return (
     <section className="claw-agenda-page" aria-label={`${date} 日程安排`}>

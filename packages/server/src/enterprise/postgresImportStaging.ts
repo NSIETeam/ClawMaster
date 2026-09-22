@@ -95,5 +95,5 @@ export async function loadVerifiedSqliteImportTable(
     return Object.fromEntries(
       columns.map((column, index) => [column, decodeValue(values[index])]),
     )
-  });
+  })
 }

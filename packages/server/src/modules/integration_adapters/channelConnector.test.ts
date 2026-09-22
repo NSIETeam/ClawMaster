@@ -63,7 +63,7 @@ describe('ChannelPairingCoordinator', () => {
     expect(events.map(event => event.to)).toEqual([
       'waiting_scan', 'user_authorized', 'installing', 'verifying', 'connected',
     ])
-  });
+  })
 
   it('requires explicit administrator approval when the provider requests it', async () => {
     const { coordinator } = setup()
@@ -83,7 +83,7 @@ describe('ChannelPairingCoordinator', () => {
     expect(waiting.status).toBe('waiting_admin')
     await expect(coordinator.complete(pairing.pairingId)).rejects.toThrow('waiting_admin')
     expect((await coordinator.approveAdmin(pairing.pairingId)).status).toBe('user_authorized')
-  });
+  })
 
   it('expires without accepting a late callback and audits the terminal state', async () => {
     const { coordinator, clock, events } = setup()
@@ -100,7 +100,7 @@ describe('ChannelPairingCoordinator', () => {
       { tenantId: 'late', tenantName: 'Late', botName: 'Late', grantedScopes: ['im:message'] },
     )).rejects.toThrow('expired')
     expect(events.at(-1)).toMatchObject({ to: 'expired', reason: 'pairing expired' })
-  });
+  })
 
   it('rejects nonce mismatches and scope escalation', async () => {
     const { coordinator } = setup()
@@ -119,5 +119,5 @@ describe('ChannelPairingCoordinator', () => {
       'single-use-pairing-nonce-with-enough-entropy',
       { tenantId: 't', tenantName: 'T', botName: 'B', grantedScopes: ['admin:all'] },
     )).rejects.toThrow('unrequested channel scope')
-  });
+  })
 })

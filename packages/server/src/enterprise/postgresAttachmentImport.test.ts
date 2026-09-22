@@ -168,7 +168,7 @@ describe('verified SQLite attachment import', () => {
         '--execute',
       ]),
     ).toThrow(/cannot be combined/i)
-  });
+  })
 
   it('rehearses the complete plan without reading or writing object storage', async () => {
     const { pool, writes } = poolFor()
@@ -191,7 +191,7 @@ describe('verified SQLite attachment import', () => {
     })
     expect(store.putCiphertext).not.toHaveBeenCalled()
     expect(writes).toEqual([])
-  });
+  })
 
   it('uploads and fully verifies inline E2EE ciphertext before recording it', async () => {
     const { pool, writes } = poolFor()
@@ -231,7 +231,7 @@ describe('verified SQLite attachment import', () => {
         `attachments/v1/ab/${'a'.repeat(32)}.bin`,
       ]),
     )
-  });
+  })
 
   it('decrypts a legacy filesystem object through the explicit source reader', async () => {
     const { pool } = poolFor({
@@ -260,7 +260,7 @@ describe('verified SQLite attachment import', () => {
     expect(sourceReader).toHaveBeenCalledWith(
       'ab/cd/' + 'a'.repeat(64) + '.clawmaster-object',
     )
-  });
+  })
 
   it('revalidates and skips an already prepared S3 object during a resumed run', async () => {
     const { pool, writes } = poolFor({
@@ -292,7 +292,7 @@ describe('verified SQLite attachment import', () => {
     expect(store.headObject).toHaveBeenCalledOnce()
     expect(store.getCiphertext).toHaveBeenCalledOnce()
     expect(writes).toEqual([])
-  });
+  })
 
   it('redacts database URLs and both legacy and S3 object keys from CLI errors', () => {
     const legacyKey = `ab/cd/${'b'.repeat(64)}.clawmaster-object`
@@ -308,5 +308,5 @@ describe('verified SQLite attachment import', () => {
     expect(message).not.toContain('secret')
     expect(message).toContain('[REDACTED_OBJECT_KEY]')
     expect(message).toContain('postgresql://[REDACTED]')
-  });
+  })
 })

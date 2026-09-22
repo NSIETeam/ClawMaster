@@ -74,14 +74,14 @@ describe('order state machine (CONTROL-11)', () => {
     // 确定性
     const again = deterministicLicenseId({ deploymentId: 'dep-1', orderId: 'ord-1', plan: 'pro' })
     expect(result.entitlement?.licenseId).toBe(again)
-  });
+  })
 
   it('同 eventId 幂等 → idempotent_replayed', () => {
     const projection: OrderProjection = { records: new Map(), processedEventIds: new Set() }
     applyOrderEvent(projection, makeEvent(), f => deterministicLicenseId(f))
     const second = applyOrderEvent(projection, makeEvent(), f => deterministicLicenseId(f))
     expect(second.status).toBe('idempotent_replayed')
-  });
+  })
 
   it('乱序（version 回退）→ rejected_out_of_order', () => {
     const projection: OrderProjection = { records: new Map(), processedEventIds: new Set() }
@@ -89,7 +89,7 @@ describe('order state machine (CONTROL-11)', () => {
     const bad = applyOrderEvent(projection, makeEvent({ eventId: 'evt-2', version: 1 }),
       f => deterministicLicenseId(f))
     expect(bad.status).toBe('rejected_out_of_order')
-  });
+  })
 
   it('篡改客户/部署 → rejected_tampered', () => {
     const projection: OrderProjection = { records: new Map(), processedEventIds: new Set() }
@@ -100,7 +100,7 @@ describe('order state machine (CONTROL-11)', () => {
       f => deterministicLicenseId(f),
     )
     expect(tampered.status).toBe('rejected_tampered')
-  });
+  })
 
   it('降配（减席位）无整改窗口 → rejected_tampered', () => {
     const projection: OrderProjection = { records: new Map(), processedEventIds: new Set() }
@@ -111,7 +111,7 @@ describe('order state machine (CONTROL-11)', () => {
       f => deterministicLicenseId(f),
     )
     expect(downgrade.status).toBe('rejected_tampered')
-  });
+  })
 
   it('升配（加席位）→ accepted', () => {
     const projection: OrderProjection = { records: new Map(), processedEventIds: new Set() }
@@ -122,7 +122,7 @@ describe('order state machine (CONTROL-11)', () => {
       f => deterministicLicenseId(f),
     )
     expect(upgrade.status).toBe('accepted')
-  });
+  })
 })
 
 describe('license issuance (CONTROL-11)', () => {
@@ -145,20 +145,20 @@ describe('license issuance (CONTROL-11)', () => {
     })
     const verify = verifyEd25519Envelope(issued.license, issued.signature, [publicKey])
     expect(verify.valid).toBe(true)
-  });
+  })
 
   it('USB 签发显式保留待激活的 machineFingerprint', () => {
     const entitlement = deriveEntitlement(makeEvent(), undefined, 'lic_usb', 1)
     const payload = buildLicensePayload(entitlement, 1, undefined, 'nonce-1')
     expect(payload).toMatchObject({ activationNonce: 'nonce-1', machineFingerprint: '' })
-  });
+  })
 
   it('digest 稳定且无秘密', () => {
     const entitlement = deriveEntitlement(makeEvent(), undefined, 'lic_x', 1)
     const p1 = buildLicensePayload(entitlement, 1)
     const p2 = buildLicensePayload(entitlement, 1)
     expect(licensePayloadDigest(p1)).toBe(licensePayloadDigest(p2))
-  });
+  })
 })
 
 describe('order license processor (CONTROL-11)', () => {
@@ -170,7 +170,7 @@ describe('order license processor (CONTROL-11)', () => {
     const verify = verifyEd25519Envelope(r.issued!.license, r.issued!.signature, [publicKey])
     expect(verify.valid).toBe(true)
     expect(r.issued!.signingKeyId).toBe('ctl-sign-2026')
-  });
+  })
 
   it('同 eventId 重复 ingest → 幂等返回既有 license', () => {
     const p = makeDeps()
@@ -178,14 +178,14 @@ describe('order license processor (CONTROL-11)', () => {
     const second = p.ingest(makeEvent())
     expect(second.kind).toBe('license_issued') // 因持久化后重放既有
     expect(second.licenseId).toBe(first.licenseId)
-  });
+  })
 
   it('乱序事件 → rejected_out_of_order（持久化层单调）', () => {
     const p = makeDeps()
     p.ingest(makeEvent({ version: 2 }))
     const bad = p.ingest(makeEvent({ eventId: 'evt-2', version: 1 }))
     expect(bad.kind).toBe('rejected_out_of_order')
-  });
+  })
 
   it('latestEntitlement 响应丢失恢复', () => {
     const p = makeDeps()
@@ -194,7 +194,7 @@ describe('order license processor (CONTROL-11)', () => {
     expect(ent).not.toBeNull()
     expect(ent!.license_id).toBeTruthy()
     expect(ent!.deployment_id).toBe('dep-1')
-  });
+  })
 
   it('审核修复：多事件生命周期保留既有上下文（篡改客户被拒）', () => {
     const p = makeDeps()
@@ -209,7 +209,7 @@ describe('order license processor (CONTROL-11)', () => {
       }),
     })
     expect(tampered.kind).toBe('rejected_tampered')
-  });
+  })
 
   it('审核修复：多事件生命周期降配（减席位）在编排层被拒', () => {
     const p = makeDeps()
@@ -223,7 +223,7 @@ describe('order license processor (CONTROL-11)', () => {
       }),
     })
     expect(downgrade.kind).toBe('rejected_tampered')
-  });
+  })
 
   it('审核修复：同 order 升配（加席位）编排层接受并递增版本', () => {
     const p = makeDeps()
@@ -240,7 +240,7 @@ describe('order license processor (CONTROL-11)', () => {
     expect(upgrade.licenseId).toBeTruthy()
     const ent = p.latestEntitlement('ord-1')
     expect(ent!.seat_limit).toBe(100)
-  });
+  })
 })
 
 describe('control license activation (CONTROL-11)', () => {
@@ -266,7 +266,7 @@ describe('control license activation (CONTROL-11)', () => {
     const r = await controlLicenseClaim(makeClaimDeps(db))
     expect(r.kind).toBe('activated')
     expect(r.license?.id).toBe('lic_1')
-  });
+  })
 
   it('已有 License → already_active（不重复消耗订单）', async () => {
     const db = new Database(':memory:')
@@ -283,7 +283,7 @@ describe('control license activation (CONTROL-11)', () => {
     )
     expect(r.kind).toBe('already_active')
     expect(claims).toBe(0) // 未向 Control 发起领取
-  });
+  })
 
   it('Control 断网 → claim_failed', async () => {
     const db = new Database(':memory:')
@@ -293,7 +293,7 @@ describe('control license activation (CONTROL-11)', () => {
       }),
     )
     expect(r.kind).toBe('claim_failed')
-  });
+  })
 
   it('激活校验失败（篡改/签名无效）→ invalid_license', async () => {
     const db = new Database(':memory:')
@@ -306,5 +306,5 @@ describe('control license activation (CONTROL-11)', () => {
     )
     expect(r.kind).toBe('invalid_license')
     expect(r.reason).toContain('signature invalid')
-  });
+  })
 })

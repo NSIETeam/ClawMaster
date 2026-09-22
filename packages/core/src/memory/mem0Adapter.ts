@@ -234,7 +234,7 @@ export class Mem0Adapter implements MemoryProvider {
           ? ` [${Array.isArray(r.metadata.tags) ? r.metadata.tags.join(', ') : r.metadata.tags}]`
           : ''
         return `- ${r.memory}${tags}`
-      });
+      })
 
       const fileFacts = new Set(
         fileMemory
@@ -249,7 +249,7 @@ export class Mem0Adapter implements MemoryProvider {
           .trim()
           .toLocaleLowerCase()
         return normalized.length > 0 && !fileFacts.has(normalized)
-      });
+      })
 
       return [fileMemory.trim(), structuredMemory.join('\n')]
         .filter(Boolean)
@@ -269,7 +269,7 @@ export class Mem0Adapter implements MemoryProvider {
     // session 层仍用文件
     if (scope === 'session') {
       await this.fileFallback.save(scope, trimmed)
-      return;
+      return
     }
 
     // 同时写 Mem0 和文件（双写保证一致性）
@@ -389,7 +389,7 @@ export class Mem0Adapter implements MemoryProvider {
             },
           },
         )
-        count++;
+        count++
       }
 
       console.log(`[Mem0Adapter] Imported ${count} memories for user=${newUserId}`)

@@ -25,7 +25,7 @@ describe('企业登录态持久化', () => {
       serverUrl: 'https://59.110.154.44:7777',
       token: 'session-token',
     })
-  });
+  })
 
   it('文件损坏或无法解密时安全回到内置服务器的未登录状态', () => {
     expect(decodeEnterpriseSession('{bad json', 'https://enterprise.clawmaster.test', () => 'x'))
@@ -35,5 +35,5 @@ describe('企业登录态持久化', () => {
       'https://enterprise.clawmaster.test',
       () => { throw new Error('keychain unavailable') },
     )).toEqual({ serverUrl: 'https://enterprise.clawmaster.test', token: null })
-  });
+  })
 })

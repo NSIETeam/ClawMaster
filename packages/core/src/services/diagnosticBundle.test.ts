@@ -23,7 +23,7 @@ describe('diagnostic bundle', () => {
     expect(redacted).not.toContain('hidden-token')
     expect(redacted).not.toContain('query-secret')
     expect(redacted).toContain('[REDACTED]')
-  });
+  })
 
   it('生成 zip 且不包含 secrets 目录', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'clawmaster-diagnostic-'))
@@ -45,7 +45,7 @@ describe('diagnostic bundle', () => {
     expect(zip.file('clawmaster-user/logs/server.log')).not.toBeNull()
     expect(zip.file(/secrets/)).toHaveLength(0)
     expect(await zip.file('clawmaster-user/logs/server.log')!.async('string')).toContain('[REDACTED]')
-  });
+  })
 
   it('脱敏模型 baseUrl 中的 URL 凭证和查询密钥', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'clawmaster-diagnostic-model-url-'))
@@ -66,7 +66,7 @@ describe('diagnostic bundle', () => {
     expect(modelConfig).not.toContain('plain-password')
     expect(modelConfig).not.toContain('query-secret')
     expect(modelConfig).toContain('[REDACTED]')
-  });
+  })
 
   it('跳过符号链接日志，防止诊断包越界读取', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'clawmaster-diagnostic-link-'))
@@ -91,5 +91,5 @@ describe('diagnostic bundle', () => {
     })
     const zip = await JSZip.loadAsync(await readFile(result.path))
     expect(zip.file('clawmaster-user/logs/linked/outside.log')).toBeNull()
-  });
+  })
 })

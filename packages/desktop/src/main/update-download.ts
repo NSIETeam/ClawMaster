@@ -82,7 +82,7 @@ export type DownloadOutcome =
 function writeChunk(stream: fs.WriteStream, chunk: Uint8Array): Promise<void> {
   return new Promise((resolve, reject) => {
     stream.write(chunk, err => (err ? reject(err) : resolve()))
-  });
+  })
 }
 
 /** 关闭写流（end 完成后 resolve）。 */
@@ -107,7 +107,7 @@ export async function downloadToFile(job: DownloadJob): Promise<DownloadOutcome>
       out = null
     }
     await fs.promises.rm(job.partPath, { force: true }).catch(() => undefined)
-  };
+  }
 
   try {
     const res = await fetchImpl(job.url, {

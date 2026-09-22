@@ -47,7 +47,7 @@ describe('NativeSessionStoreRuntime', () => {
     await expect(runtime.load('s1')).resolves.toEqual({ status: 'fallback' })
     await expect(runtime.list()).resolves.toEqual({ status: 'fallback' })
     expect(bridge.calls).toEqual([])
-  });
+  })
 
   it('opens once and routes session operations through Rust when available', async () => {
     const bridge = createBridge({ enabled: true })
@@ -68,13 +68,13 @@ describe('NativeSessionStoreRuntime', () => {
       'session_store.size_bytes',
     ])
     expect(bridge.calls[0].params).toEqual({ path: '/sessions.db', cache_size: 20 })
-  });
+  })
 
   it('fails fast in required mode when native session store calls fail', async () => {
     const bridge = createBridge({ enabled: true, required: true, fail: true })
     const runtime = new NativeSessionStoreRuntime({ bridge, path: '/sessions.db' })
 
     await expect(runtime.load('s1')).rejects.toThrow('native session store unavailable')
-  });
+  })
 })
 

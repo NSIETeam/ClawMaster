@@ -289,7 +289,7 @@ export function saveCustomModel(
     : {
       ...model,
       apiKey: writeApiKeySecret(model.displayName, model.apiKey),
-    };
+    }
   const next =
     existingIndex >= 0
       ? models.map((m, i) => (i === existingIndex ? toSave : m))

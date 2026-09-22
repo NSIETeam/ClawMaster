@@ -19,12 +19,12 @@ let tempDir: string
 beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-schedule-'))
   vi.stubEnv('CLAWMASTER_SCHEDULE_FILE', path.join(tempDir, 'schedules.json'))
-});
+})
 
 afterEach(() => {
   vi.unstubAllEnvs()
   fs.rmSync(tempDir, { recursive: true, force: true })
-});
+})
 
 describe('本地日程数据层', () => {
   it('创建后可按指定时区的日期查询，并保留 ClawMaster 自动创建原因', () => {
@@ -45,7 +45,7 @@ describe('本地日程数据层', () => {
       }),
     ])
     expect(listLocalSchedules('2026-07-11', 'Asia/Shanghai')).toEqual([])
-  });
+  })
 
   it('拒绝结束时间早于开始时间', () => {
     expect(() =>
@@ -56,7 +56,7 @@ describe('本地日程数据层', () => {
         source: 'user',
       }),
     ).toThrow(/结束时间/)
-  });
+  })
 
   it('支持更新和删除，重复删除保持幂等', () => {
     const created = createLocalSchedule({
@@ -69,7 +69,7 @@ describe('本地日程数据层', () => {
     expect(updated.title).toBe('终稿评审')
     expect(deleteLocalSchedule(created.id)).toBe(true)
     expect(deleteLocalSchedule(created.id)).toBe(false)
-  });
+  })
 })
 
 describe('local_schedule 工具', () => {
@@ -93,7 +93,7 @@ describe('local_schedule 工具', () => {
       source: 'clawmaster',
       reason: '访谈前需要整理问题清单',
     })
-  });
+  })
 
   it('list 不要求标题，create 缺少标题则校验失败', () => {
     const tool = new LocalScheduleTool(config)
@@ -105,5 +105,5 @@ describe('local_schedule 工具', () => {
         startAt: '2026-07-12T08:00:00+08:00',
       }),
     ).toContain('title')
-  });
+  })
 })

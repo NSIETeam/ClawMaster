@@ -24,13 +24,13 @@ describe('KnowledgeCapturePipeline', () => {
     process.env.CLAWMASTER_USER_DIR = tempDir
     const store = new LocalKnowledgeStore(path.join(tempDir, 'knowledge'))
     pipeline = new KnowledgeCapturePipeline(store)
-  });
+  })
 
   afterEach(async () => {
     delete process.env.CLAWMASTER_USER_DIR
     resetKnowledgeCapturePipeline()
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
-  });
+  })
 
   describe('runFromMessages', () => {
     it('should capture decision-type knowledge from assistant messages', async () => {
@@ -60,7 +60,7 @@ describe('KnowledgeCapturePipeline', () => {
       const result = await pipeline.runFromMessages(messages, 'test-session-2')
       expect(result.candidatesFound).toBe(0)
       expect(result.captured).toBe(false)
-    });
+    })
 
     it('should not capture API keys or secrets', async () => {
       const messages: SimpleMessage[] = [
@@ -99,7 +99,7 @@ describe('KnowledgeCapturePipeline', () => {
 
       // 第二次不应该有新的写入
       expect(result2.written).toBe(0)
-    });
+    })
   })
 
   describe('status', () => {
@@ -107,7 +107,7 @@ describe('KnowledgeCapturePipeline', () => {
       const s = await pipeline.status()
       expect(s.totalEntries).toBe(0)
       expect(s.lastCapturedAt).toBeNull()
-    });
+    })
 
     it('should reflect captured entries', async () => {
       const messages: SimpleMessage[] = [
@@ -121,7 +121,7 @@ describe('KnowledgeCapturePipeline', () => {
       await pipeline.runFromMessages(messages, 'test-session-5')
       const s = await pipeline.status()
       expect(s.capturedThisSession).toBeGreaterThanOrEqual(0)
-    });
+    })
   })
 
   describe('formatStatus', () => {
@@ -129,6 +129,6 @@ describe('KnowledgeCapturePipeline', () => {
       const formatted = await pipeline.formatStatus()
       expect(typeof formatted).toBe('string')
       expect(formatted).toContain('Knowledge Status')
-    });
+    })
   })
-});
+})

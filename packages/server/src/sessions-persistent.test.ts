@@ -21,7 +21,7 @@ function tmpDb(): string {
 }
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
-});
+})
 
 describe('PersistentSessionStore 落盘 + 重启恢复', () => {
   it('会话与消息重启后原样恢复（顺序、内容一致）', () => {
@@ -48,7 +48,7 @@ describe('PersistentSessionStore 落盘 + 重启恢复', () => {
     const hist = b.getHistory(list[0].sessionId)
     expect(hist.map(m => m.role)).toEqual(['user', 'assistant'])
     expect(hist[1].content[0]).toMatchObject({ type: 'text', value: 'hello' })
-  });
+  })
 
   it('rename 落盘、delete 落盘、重启后状态归一为 idle', async () => {
     const db = tmpDb()
@@ -64,7 +64,7 @@ describe('PersistentSessionStore 落盘 + 重启恢复', () => {
     expect(list.find(x => x.sessionId === keep.sessionId)?.title).toBe('new')
     expect(list.find(x => x.sessionId === keep.sessionId)?.status).toBe('idle')
     expect(list.find(x => x.sessionId === gone.sessionId)).toBeUndefined()
-  });
+  })
 
   it('重启后清掉「进行中」态（isStreaming=false）', () => {
     const db = tmpDb()
@@ -81,7 +81,7 @@ describe('PersistentSessionStore 落盘 + 重启恢复', () => {
     const b = new PersistentSessionStore(db)
     const hist = b.getHistory(s.sessionId)
     expect(hist[0].isStreaming).toBe(false)
-  });
+  })
 
   it('工作目录切换后落盘并在重启后恢复', () => {
     const db = tmpDb()
@@ -90,7 +90,7 @@ describe('PersistentSessionStore 落盘 + 重启恢复', () => {
     a.patchSessionWorkspace(session.sessionId, '/Users/test/project')
     expect(new PersistentSessionStore(db).getSession(session.sessionId)?.workspacePath)
       .toBe('/Users/test/project')
-  });
+  })
 
   it('临时 A2A 会话只存在内存，消息与状态变化也绝不落盘', async () => {
     const db = tmpDb()
@@ -113,5 +113,5 @@ describe('PersistentSessionStore 落盘 + 重启恢复', () => {
 
     await a.deleteSession(session.sessionId)
     expect(a.isEphemeralSession(session.sessionId)).toBe(false)
-  });
+  })
 })

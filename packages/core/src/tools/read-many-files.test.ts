@@ -34,7 +34,7 @@ describe('ReadManyFilesTool', () => {
       }),
     } as unknown as Config
     tool = new ReadManyFilesTool(mockConfigInstance)
-  });
+  })
 
   afterEach(async () => {
     if (fs.existsSync(tempRootDir)) {
@@ -72,7 +72,7 @@ describe('ReadManyFilesTool', () => {
       expect((result.llmContent as string[])[1]).toContain('content2')
       expect(result.returnDisplay).toContain('Successfully read')
       expect(result.returnDisplay).toContain('2 file(s)')
-    });
+    })
 
     it('should handle binary files by including a skip message in content', async () => {
       await createBinaryFile('app.exe', Buffer.from([0, 1, 2]))
@@ -86,7 +86,7 @@ describe('ReadManyFilesTool', () => {
       expect((result.llmContent as string[]).some((c: string) => c.includes('notes.txt'))).toBe(true)
       expect((result.llmContent as string[]).some((c: string) => c.includes('Cannot display content of binary file'))).toBe(true)
       expect(result.returnDisplay).toContain('2 file(s)')
-    });
+    })
 
     it('should respect glob patterns in paths', async () => {
       await createTestFile('src/main.ts', 'main code')
@@ -102,7 +102,7 @@ describe('ReadManyFilesTool', () => {
       expect(result.returnDisplay).toContain('main.ts')
       expect(result.returnDisplay).toContain('utils.ts')
       expect(result.returnDisplay).not.toContain('test.ts')
-    });
+    })
 
     it('should handle exclude patterns', async () => {
       await createTestFile('file1.ts', 'content1')
@@ -115,7 +115,7 @@ describe('ReadManyFilesTool', () => {
       expect((result.llmContent as string[]).length).toBe(1)
       expect((result.llmContent as string[])[0]).toContain('file1.ts')
       expect(result.returnDisplay).not.toContain('file2.test.ts')
-    });
+    })
 
     it('should handle no matches found', async () => {
       const params = { paths: ['*.nonexistent'] }
@@ -125,13 +125,13 @@ describe('ReadManyFilesTool', () => {
         'No files matching the criteria were found or all were skipped.',
       ] as unknown as PartListUnion)
       expect(result.returnDisplay).toContain('No files were read')
-    });
+    })
 
     it('should return error if search pattern is empty', async () => {
       const params = { paths: [] }
       const result = await tool.execute(params, abortSignal)
       expect(result.llmContent).toContain('Error: Invalid parameters')
-    });
+    })
 
     describe('with .clawmasterignore', () => {
       beforeEach(async () => {
@@ -139,7 +139,7 @@ describe('ReadManyFilesTool', () => {
           path.join(tempRootDir, '.clawmasterignore'),
           ['foo.bar', 'baz/'].join('\n'),
         )
-      });
+      })
 
       it('should return error if path is ignored by a .clawmasterignore pattern', async () => {
         await createTestFile('foo.bar', 'content')
@@ -153,7 +153,7 @@ describe('ReadManyFilesTool', () => {
         expect(result.returnDisplay).not.toContain('foo.bar')
         expect(result.returnDisplay).toContain('bar.ts')
         expect(result.returnDisplay).toContain('gemini ignored')
-      });
+      })
     })
-  });
+  })
 })

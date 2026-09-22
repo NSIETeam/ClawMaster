@@ -12,7 +12,7 @@ async function load(file: string): Promise<Store> { try { const value = JSON.par
 export async function registerMeetingActions(file: string, source: string, items: ActionItem[]) {
   if (!source.trim() || items.length === 0) throw new Error('会议来源和行动项不能为空')
   const store = await load(file); const ids = new Set(store.actionItems.map(x => x.id))
-  const added = items.map((item) => { if (!item.task.trim() || !item.assignee.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(item.due)) throw new Error('行动项必须包含 task、assignee 和 YYYY-MM-DD due'); let id = item.id || `AI-${randomUUID().slice(0, 8)}`; if (ids.has(id)) id = `AI-${randomUUID().slice(0, 8)}`; ids.add(id); return { ...item, id, status: item.status || 'open', source_meeting: source } });
+  const added = items.map((item) => { if (!item.task.trim() || !item.assignee.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(item.due)) throw new Error('行动项必须包含 task、assignee 和 YYYY-MM-DD due'); let id = item.id || `AI-${randomUUID().slice(0, 8)}`; if (ids.has(id)) id = `AI-${randomUUID().slice(0, 8)}`; ids.add(id); return { ...item, id, status: item.status || 'open', source_meeting: source } })
   store.actionItems.push(...added as Store['actionItems']); await mkdir(path.dirname(file), { recursive: true }); const temporary = `${file}.tmp`; await writeFile(temporary, `${JSON.stringify(store, null, 2)}\n`, { mode: 0o600 }); await rename(temporary, file); return added
 }
 export async function dueMeetingActions(file: string, today: string) { return (await load(file)).actionItems.filter(x => (x.status === 'open' || x.status === 'doing') && x.due <= today) }

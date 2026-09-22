@@ -23,7 +23,7 @@ function productionTypeScriptFiles(directory: string): string[] {
       return []
     }
     return [target]
-  });
+  })
 }
 
 describe('identity_organization invitation kernel', () => {
@@ -56,7 +56,7 @@ describe('identity_organization invitation kernel', () => {
         configuredUrl: 'https://user:pass@join.clawmaster.example',
       }),
     ).toThrow(/CLAWMASTER_ENTERPRISE_PUBLIC_URL/)
-  });
+  })
 
   it('publishes repository and facade capabilities from one public entrypoint', () => {
     expect(identityOrganization.createOrganizationInviteFacade).toBeTypeOf(
@@ -78,7 +78,7 @@ describe('identity_organization invitation kernel', () => {
     expect(
       identityOrganization.resolveOrganizationInviteWithDefaults,
     ).toBeTypeOf('function')
-  });
+  })
 
   it('publishes the canonical organization boundary without enterprise aliases', () => {
     expect(identityOrganization.createMemberDirectoryFacade).toBeTypeOf(
@@ -181,7 +181,7 @@ describe('identity_organization invitation kernel', () => {
       )
       .map(file => path.relative(moduleDir, file))
     expect(offenders).toEqual([])
-  });
+  })
 
   it('routes production imports through the identity_organization public entrypoint', () => {
     const offenders = productionTypeScriptFiles(sourceRoot)
@@ -193,7 +193,7 @@ describe('identity_organization invitation kernel', () => {
       )
       .map(file => path.relative(sourceRoot, file))
     expect(offenders).toEqual([])
-  });
+  })
 
   it('does not let the enterprise database facade import the legacy employee repository', () => {
     const databaseFacade = fs.readFileSync(
@@ -260,7 +260,7 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).toMatch(
       /IDENTITY_ORGANIZATION_STRUCTURE_SCHEMA_CONTRIBUTOR,[\s\S]*?createMemberSchemaContributor\(\{[\s\S]*?createWorklogSchemaContributor\(\{/,
     )
-  });
+  })
 
   it('keeps department invite creation and consumption behind the identity facade', () => {
     const databaseFacade = fs.readFileSync(
@@ -275,7 +275,7 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).not.toContain(
       'UPDATE invite_codes SET used_count = used_count + 1',
     )
-  });
+  })
 
   it('keeps enterprise invite schema ownership in the identity module', () => {
     const databaseFacade = fs.readFileSync(
@@ -299,7 +299,7 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).toMatch(
       /createAccountAuthSchemaContributor\(\{[\s\S]*?createEnterpriseInviteSchemaContributor\(\{[\s\S]*?createCreditsSchemaContributor\(\{/,
     )
-  });
+  })
 
   it('keeps auth-session implementation behind the identity module facade', () => {
     const databaseFacade = fs.readFileSync(
@@ -312,7 +312,7 @@ describe('identity_organization invitation kernel', () => {
       /export function (?:createAuthSession|getAccountBySession|revokeAuthSession)/,
     )
     expect(databaseFacade).not.toContain('function tokenHash(')
-  });
+  })
 
   it('keeps account and authentication schema ownership in the identity module', () => {
     const databaseFacade = fs.readFileSync(
@@ -375,7 +375,7 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).toContain(
       'migrateLegacyAuthSessions(database, DEFAULT_ORGANIZATION_ID)',
     )
-  });
+  })
 
   it('keeps account directory reads behind the identity module facade', () => {
     const databaseFacade = fs.readFileSync(
@@ -388,7 +388,7 @@ describe('identity_organization invitation kernel', () => {
       /export function (?:getAccount|listAccounts|authenticateAccount|findAccountByPhone|findActiveAccountByPhone)/,
     )
     expect(databaseFacade).not.toContain('WHERE feishu_open_id = ? AND status')
-  });
+  })
 
   it('composes account access internals behind one module factory', () => {
     const databaseFacade = fs.readFileSync(
@@ -430,7 +430,7 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).not.toMatch(
       /export function (?:createAccount|updateAccount|deleteAccount)/,
     )
-  });
+  })
 
   it('keeps account registration transactions behind the identity module facade', () => {
     const databaseFacade = fs.readFileSync(
@@ -442,7 +442,7 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).not.toMatch(
       /export function (?:createSelfRegisteredAccount|createPersonalRegisteredAccount|joinOrganizationWithInvite)/,
     )
-  });
+  })
 
   it('keeps organization provisioning behind the identity module facade', () => {
     const databaseFacade = fs.readFileSync(
@@ -456,7 +456,7 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).not.toMatch(
       /export function (?:createOrganization|provisionOrganization)\s*\(/,
     )
-  });
+  })
 
   it('keeps organization directory reads behind the identity module facade', () => {
     const databaseFacade = fs.readFileSync(
@@ -469,7 +469,7 @@ describe('identity_organization invitation kernel', () => {
       /export function (?:getOrganization|listOrganizations|getEnterpriseOrganization|listEnterpriseOrganizations)\s*\(/,
     )
     expect(databaseFacade).not.toContain('function toOrganizationView(')
-  });
+  })
 
   it('keeps organization structure writes behind the identity module facade', () => {
     const databaseFacade = fs.readFileSync(
@@ -487,7 +487,7 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).not.toContain(
       'SELECT role_mapping FROM organization_positions',
     )
-  });
+  })
 
   it('keeps assignment identity resolution behind the identity module facade', () => {
     const databaseFacade = fs.readFileSync(
@@ -503,7 +503,7 @@ describe('identity_organization invitation kernel', () => {
       'SELECT id, name FROM organization_departments WHERE organization_id = ?',
     )
     expect(databaseFacade).not.toContain('该职位 ID 已绑定其他部门或职位名称')
-  });
+  })
 
   it('composes organization workforce internals behind one module factory', () => {
     const databaseFacade = fs.readFileSync(
@@ -540,7 +540,7 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).not.toContain(
       'SELECT feature_key, enabled FROM organization_features',
     )
-  });
+  })
 
   it('keeps credential policy and SMS challenge state behind the identity module facade', () => {
     const databaseFacade = fs.readFileSync(
@@ -563,5 +563,5 @@ describe('identity_organization invitation kernel', () => {
     expect(databaseFacade).not.toContain(
       "['password', 'password1', '12345678', '123456789', 'qwerty123']",
     )
-  });
+  })
 })

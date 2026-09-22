@@ -16,7 +16,7 @@ afterEach(async () => {
       .splice(0)
       .map(root => fs.rm(root, { recursive: true, force: true })),
   )
-});
+})
 
 describe('AuditLogger security', () => {
   it('redacts JSON, bearer, URL and common provider credentials', () => {
@@ -31,7 +31,7 @@ describe('AuditLogger security', () => {
     expect(redacted).not.toContain('bearer-secret')
     expect(redacted).not.toContain('url-secret')
     expect(redacted).not.toContain('eyJhbGci')
-  });
+  })
 
   it('sanitizes before writing and creates private audit files', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-audit-'))
@@ -61,4 +61,4 @@ describe('AuditLogger security', () => {
       expect((await fs.stat(filePath)).mode & 0o777).toBe(0o600)
     }
   })
-});
+})

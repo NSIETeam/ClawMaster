@@ -64,7 +64,7 @@ describe('升级后的办公 Skill 随客户端真实分发', () => {
       expect(loadBuiltinSkillInstructions(name)).toBe(
         readFileSync(resolve(seedDir, 'SKILL.md'), 'utf8'),
       )
-    });
+    })
   }
 
   it('数据可视化 Skill 随包携带可重建的 Python 依赖清单', () => {
@@ -85,4 +85,4 @@ describe('升级后的办公 Skill 随客户端真实分发', () => {
       )
     }
   })
-});
+})

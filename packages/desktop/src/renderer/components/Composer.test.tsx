@@ -67,7 +67,7 @@ describe('输入区工具布局与弹层', () => {
     const model = bar.querySelector('.claw-modelpill')!
     const send = bar.querySelector('.claw-send')!
     expect(model.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  });
+  })
 
   it('同一时间只打开一个列表，点击列表外或按 Esc 会关闭', () => {
     render(
@@ -93,7 +93,7 @@ describe('输入区工具布局与弹层', () => {
     expect(screen.getByRole('listbox', { name: '选择模型' })).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('listbox', { name: '选择模型' })).toBeNull()
-  });
+  })
 
   it('模型列表通过全局浮层渲染，不受输入面板层级限制', () => {
     const { container } = render(
@@ -115,7 +115,7 @@ describe('输入区工具布局与弹层', () => {
     expect(portal?.classList.contains('claw-modelmenu-portal')).toBe(true)
     expect(portal?.classList.contains('claw-popover-anchor')).toBe(true)
     expect(portal?.parentElement).toBe(document.body)
-  });
+  })
 
   it('回形针菜单同时保留添加文件与目录附件能力', () => {
     render(
@@ -124,7 +124,7 @@ describe('输入区工具布局与弹层', () => {
     fireEvent.click(screen.getByRole('button', { name: '添加附件' }))
     expect(screen.getByRole('menuitem', { name: '添加文件或图片' })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: '添加文件夹作为附件' })).toBeTruthy()
-  });
+  })
 
   it('发送按钮仅在有非空白内容时启用，并保持同一按钮语义', () => {
     render(
@@ -139,7 +139,7 @@ describe('输入区工具布局与弹层', () => {
     expect(send.disabled).toBe(true)
     fireEvent.change(textarea, { target: { value: '开始执行' } })
     expect(send.disabled).toBe(false)
-  });
+  })
 
   it('原生工作目录选择失败时给出非阻断错误，用户取消保持静默', async () => {
     const selectWorkspaceDirectory = vi.fn()
@@ -182,7 +182,7 @@ describe('输入区工具布局与弹层', () => {
       />,
     )
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
-  });
+  })
 })
 
 describe('专家提示词草稿', () => {
@@ -210,7 +210,7 @@ describe('专家提示词草稿', () => {
       [],
       { mode: 'manual', scope: 'session' },
     )
-  });
+  })
 })
 
 describe('右侧模块 Agent 标签', () => {
@@ -243,7 +243,7 @@ describe('右侧模块 Agent 标签', () => {
     expect(onSend).toHaveBeenCalledTimes(1)
     await act(async () => resolveSend(false))
     expect(textarea.value).toBe('制作发布会')
-  });
+  })
 })
 
 describe('PPT 专家内置入口', () => {
@@ -272,7 +272,7 @@ describe('PPT 专家内置入口', () => {
       'PPT 创作专家',
     )
     expect(onSend).not.toHaveBeenCalled()
-  });
+  })
 
   it('/doc 直接新建绑定 doc profile 的 Word 专家会话', () => {
     const onSend = vi.fn()
@@ -299,7 +299,7 @@ describe('PPT 专家内置入口', () => {
       '文档写作专家',
     )
     expect(onSend).not.toHaveBeenCalled()
-  });
+  })
 
   it('/pdf 和 /excel 也直接新建绑定专家 profile 的会话', () => {
     const onSend = vi.fn()
@@ -334,7 +334,7 @@ describe('PPT 专家内置入口', () => {
       'Excel 数据表格专家',
     )
     expect(onSend).not.toHaveBeenCalled()
-  });
+  })
 })
 
 describe('模型菜单搜索框显隐（阈值 8）', () => {
@@ -343,14 +343,14 @@ describe('模型菜单搜索框显隐（阈值 8）', () => {
     openMenu()
     expect(screen.queryByLabelText('搜索模型')).toBeNull()
     expect(screen.getAllByRole('option')).toHaveLength(8)
-  });
+  })
 
   it('模型数 > 8：显示搜索框', () => {
     renderComposer(makeModels(9), 'm0')
     openMenu()
     expect(screen.getByLabelText('搜索模型')).toBeTruthy()
     expect(screen.getAllByRole('option')).toHaveLength(9)
-  });
+  })
 })
 
 describe('旧企业模型显示迁移', () => {
@@ -358,7 +358,7 @@ describe('旧企业模型显示迁移', () => {
     renderComposer(makeModels(2), 'clawmaster:deepseek')
     expect(document.querySelector('.claw-modelpill')?.textContent).toContain('模型-01')
     expect(document.querySelector('.claw-modelpill')?.textContent).not.toContain('clawmaster:deepseek')
-  });
+  })
 })
 
 describe('执行授权菜单', () => {
@@ -408,7 +408,7 @@ describe('执行授权菜单', () => {
       type: 'set_authorization_mode',
       payload: { sessionId: 's1', mode: 'auto', scope: 'all' },
     })
-  });
+  })
 
   it('离开仅当前会话自动的会话时在服务端 fail closed 回手动', () => {
     const send = vi.spyOn(transport, 'send').mockImplementation(() => {})
@@ -432,7 +432,7 @@ describe('执行授权菜单', () => {
       payload: { sessionId: 's1', mode: 'manual', scope: 'session' },
     })
     expect(screen.getByRole('button', { name: '执行授权：手动授权' })).toBeTruthy()
-  });
+  })
 })
 
 describe('模型菜单搜索过滤', () => {
@@ -445,7 +445,7 @@ describe('模型菜单搜索过滤', () => {
     const opts = screen.getAllByRole('option')
     expect(opts).toHaveLength(1)
     expect(opts[0].textContent).toContain('模型-01')
-  });
+  })
 
   it('无匹配时显示「未找到」提示、无选项', () => {
     renderComposer(makeModels(12), 'm0')
@@ -455,7 +455,7 @@ describe('模型菜单搜索过滤', () => {
     })
     expect(screen.queryAllByRole('option')).toHaveLength(0)
     expect(screen.getByText('未找到匹配的模型')).toBeTruthy()
-  });
+  })
 })
 
 describe('每会话草稿隔离', () => {
@@ -516,7 +516,7 @@ describe('每会话草稿隔离', () => {
       />,
     )
     expect(ta().value).toBe('draft-for-s2')
-  });
+  })
 
   it('发送后清空，切走再切回不残留已发送内容', async () => {
     const onSend = vi.fn()
@@ -559,7 +559,7 @@ describe('每会话草稿隔离', () => {
       />,
     )
     expect(ta().value).toBe('')
-  });
+  })
 })
 
 describe('停止生成按钮', () => {
@@ -581,7 +581,7 @@ describe('停止生成按钮', () => {
     expect((stop as HTMLButtonElement).disabled).toBe(false)
     fireEvent.click(stop)
     expect(onCancel).toHaveBeenCalledTimes(1)
-  });
+  })
 })
 
 describe('模型菜单 provider 分组与勾选', () => {
@@ -594,7 +594,7 @@ describe('模型菜单 provider 分组与勾选', () => {
     ).map(el => el.textContent)
     expect(heads).toContain('anthropic')
     expect(heads).toContain('openai')
-  });
+  })
 
   it('当前模型仍被勾选高亮（分组不破坏 active 态）', () => {
     renderComposer(makeModels(10), 'm3')
@@ -603,7 +603,7 @@ describe('模型菜单 provider 分组与勾选', () => {
     expect(active).toBeTruthy()
     expect(active?.getAttribute('aria-selected')).toBe('true')
     expect(active?.textContent).toContain('模型-04') // m3 → 第 4 个
-  });
+  })
 })
 
 describe('语音录音配件', () => {
@@ -612,7 +612,7 @@ describe('语音录音配件', () => {
       <Composer models={[]} currentModel={null} sessionId="s1" onSend={vi.fn()} onSetModel={vi.fn()} />,
     )
     expect(screen.queryByRole('button', { name: '语音输入' })).toBeNull()
-  });
+  })
 })
 
 describe('附件预览卡片', () => {
@@ -657,7 +657,7 @@ describe('附件预览卡片', () => {
     expect(card?.lastElementChild).toBe(remove)
     fireEvent.click(remove)
     expect(screen.queryByText(displayName)).toBeNull()
-  });
+  })
 
   it('原生选择的目录以目录卡片展示并作为 folder_reference 附件发送', async () => {
     const onSend = vi.fn()
@@ -689,7 +689,7 @@ describe('附件预览卡片', () => {
       [{ folderName: '客户资料', folderPath }],
       { mode: 'manual', scope: 'session' },
     )
-  });
+  })
 
   it('拖入外部卷文件时通过 webUtils 保留真实路径并随消息发送', async () => {
     const onSend = vi.fn()
@@ -721,7 +721,7 @@ describe('附件预览卡片', () => {
       [{ fileName: '园区方案.pdf', filePath: externalPath }],
       { mode: 'manual', scope: 'session' },
     )
-  });
+  })
 
   it('拖入文件若无法由 preload/main 授权，不会附加或发送裸路径', async () => {
     const onSend = vi.fn()
@@ -749,7 +749,7 @@ describe('附件预览卡片', () => {
     expect(screen.queryByText('机密')).toBeNull()
     expect(screen.getByRole('button', { name: '发送' }).getAttribute('disabled')).not.toBeNull()
     expect(onSend).not.toHaveBeenCalled()
-  });
+  })
 
   it('右键粘贴使用系统剪贴板并插入当前输入位置', async () => {
     const read = vi.fn(async () => [{
@@ -779,7 +779,7 @@ describe('附件预览卡片', () => {
     await waitFor(() => {
       expect((container.querySelector('.claw-composer__textarea') as HTMLTextAreaElement).value)
         .toBe('粘贴内容')
-    });
+    })
     expect(read).toHaveBeenCalledOnce()
-  });
+  })
 })

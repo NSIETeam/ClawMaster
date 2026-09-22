@@ -68,7 +68,7 @@ describe('enterprise infrastructure preflight', () => {
     expect(database.close).toHaveBeenCalledOnce()
     expect(cache.close).toHaveBeenCalledOnce()
     expect(closeAttachments).toHaveBeenCalledOnce()
-  });
+  })
 
   it('redacts PostgreSQL and Redis credentials from failures', () => {
     expect(
@@ -79,5 +79,5 @@ describe('enterprise infrastructure preflight', () => {
         environment,
       ),
     ).toBe('failed postgresql://[REDACTED] and redis://[REDACTED]')
-  });
+  })
 })

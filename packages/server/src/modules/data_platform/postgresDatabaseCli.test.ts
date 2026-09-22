@@ -78,7 +78,7 @@ describe('enterprise PostgreSQL preparation CLI', () => {
     expect(output).toContain('db.internal:5432/clawmaster')
     expect(output).not.toContain('super-secret')
     expect(output).not.toContain('clawmaster@')
-  });
+  })
 
   it('refuses to run against the local SQLite topology', async () => {
     await expect(
@@ -89,7 +89,7 @@ describe('enterprise PostgreSQL preparation CLI', () => {
         },
       }),
     ).rejects.toThrow(/requires.*postgresql/i)
-  });
+  })
 
   it('redacts credentials from driver errors', () => {
     const connectionString =
@@ -102,5 +102,5 @@ describe('enterprise PostgreSQL preparation CLI', () => {
     expect(message).not.toContain('super-secret')
     expect(message).not.toContain('clawmaster@')
     expect(message).toContain('[REDACTED]')
-  });
+  })
 })

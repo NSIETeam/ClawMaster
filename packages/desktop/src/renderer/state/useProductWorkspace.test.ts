@@ -31,7 +31,7 @@ describe('product workspace connection lifecycle', () => {
     onConnectionChange(false)
     onConnectionChange(true)
     expect(send).toHaveBeenCalledTimes(6)
-  });
+  })
 })
 
 describe('productWorkspaceReducer', () => {
@@ -59,7 +59,7 @@ describe('productWorkspaceReducer', () => {
     })
     expect(state.workspace?.context.edition).toBe('enterprise')
     expect(state.loading).toBe(false)
-  });
+  })
 
   it('保存最后生成的企业链接和日程列表', () => {
     const inviteState = productWorkspaceReducer(initialProductWorkspaceState, {
@@ -98,7 +98,7 @@ describe('productWorkspaceReducer', () => {
     expect(scheduleState.lastInvite?.kind).toBe('position')
     expect(scheduleState.schedules[0]).toMatchObject({ source: 'clawmaster', reason: '报告完成' })
     expect(scheduleState.selectedDate).toBe('2026-07-12')
-  });
+  })
 
   it('只接管 workspace/schedule 相关错误', () => {
     const ignored = productWorkspaceReducer(initialProductWorkspaceState, {
@@ -112,7 +112,7 @@ describe('productWorkspaceReducer', () => {
 
     expect(ignored.error).toBeNull()
     expect(handled.error).toBe('无权限')
-  });
+  })
 
   it('自动 Skill 候选只接收服务端脱敏字段和明确处理结果', () => {
     const state = productWorkspaceReducer(initialProductWorkspaceState, {
@@ -139,5 +139,5 @@ describe('productWorkspaceReducer', () => {
 
     expect(state.pendingAutoSkills).toHaveLength(1)
     expect(state.lastAutoSkillAction).toMatchObject({ kind: 'confirmed' })
-  });
+  })
 })

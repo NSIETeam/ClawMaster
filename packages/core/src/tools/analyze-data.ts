@@ -48,12 +48,12 @@ export async function preflightBinaries(
         (err, stdout, stderr) => {
           if (err) {
             reject(err)
-            return;
+            return
           }
           resolve((stdout || stderr || '').trim())
         },
       )
-    });
+    })
   }
   const report = await new DoctorService(gatedRunner).check()
   const missing = report.checks.filter(c => wanted.has(c.name) && !c.present)
@@ -243,18 +243,18 @@ DEPENDENCIES: pie/bar/line/scatter/histogram charts on CSV/JSON + CSV/JSON pivot
         case 'summary':
           await this.requireDuckdb('summary')
           r = await this.doSummary(p.input_path)
-          break;
+          break
         case 'query':
           await this.requireDuckdb('query')
           r = await this.doQuery(p.input_path, p.query!)
-          break;
+          break
         case 'chart':
           r = await this.doChart(p)
-          break;
+          break
         case 'transform':
           await this.requireDuckdb('transform')
           r = await this.doTransform(p.input_path, p.query!, p.output_path)
-          break;
+          break
         case 'pivot':
           r = await this.doPivot(
             p.input_path,
@@ -263,10 +263,10 @@ DEPENDENCIES: pie/bar/line/scatter/histogram charts on CSV/JSON + CSV/JSON pivot
             p.output_path,
             p.x_column,
           )
-          break;
+          break
         case 'export_excel':
           r = await this.doExportExcel(p.input_path, p.output_path)
-          break;
+          break
         default:
           return {
             llmContent: 'analyze_data FAIL: unknown operation',
@@ -327,7 +327,7 @@ DEPENDENCIES: pie/bar/line/scatter/histogram charts on CSV/JSON + CSV/JSON pivot
       .map((l) => {
         const p = l.split(',')
         return { name: p[0]?.replace(/"/g, ''), type: p[1]?.replace(/"/g, '') }
-      });
+      })
     const nums = lines.filter(c =>
       [
         'integer',
@@ -467,29 +467,29 @@ DEPENDENCIES: pie/bar/line/scatter/histogram charts on CSV/JSON + CSV/JSON pivot
             "plot '" +
             tmpCsv +
             "' using 2:xtic(1) with boxes lc rgb '#4A90D9' notitle\n"
-          break;
+          break
         case 'line':
           gp +=
             "plot '" +
             tmpCsv +
             "' using 1:2 with linespoints lc rgb '#4A90D9' lw 2 pt 7 ps 1 notitle\n"
-          break;
+          break
         case 'scatter':
           gp +=
             "plot '" +
             tmpCsv +
             "' using 1:2 with points lc rgb '#D94A90' pt 7 ps 1.5 notitle\n"
-          break;
+          break
         case 'histogram':
           gp += 'set style fill solid\nset boxwidth 0.8\n'
           gp +=
             "plot '" +
             tmpCsv +
             "' using 1 with histogram lc rgb '#4A90D9' notitle\n"
-          break;
+          break
         case 'box':
           gp += "plot '" + tmpCsv + "' using 1:2 with boxplot notitle\n"
-          break;
+          break
         default:
           gp += "plot '" + tmpCsv + "' using 1:2 with linespoints notitle\n"
       }
@@ -572,7 +572,7 @@ DEPENDENCIES: pie/bar/line/scatter/histogram charts on CSV/JSON + CSV/JSON pivot
         if (ch === '"') {
           if (line[i + 1] === '"') {
             cur += '"'
-            i++;
+            i++
           } else inQ = false
         } else cur += ch
       } else {
@@ -599,7 +599,7 @@ DEPENDENCIES: pie/bar/line/scatter/histogram charts on CSV/JSON + CSV/JSON pivot
       const rec: Record<string, string> = {}
       columns.forEach((c, idx) => {
         rec[c] = cells[idx] ?? ''
-      });
+      })
       rows.push(rec)
     }
     return { columns, rows }
@@ -613,10 +613,10 @@ DEPENDENCIES: pie/bar/line/scatter/histogram charts on CSV/JSON + CSV/JSON pivot
   ): string {
     const total = values.reduce((a, b) => a + b, 0)
     const W = 800
-      const H = 600
-      const cx = 300
-      const cy = 300
-      const r = 220
+    const H = 600
+    const cx = 300
+    const cy = 300
+    const r = 220
     const palette = [
       '#4A90D9',
       '#D94A90',
@@ -647,9 +647,9 @@ DEPENDENCIES: pie/bar/line/scatter/histogram charts on CSV/JSON + CSV/JSON pivot
       if (total > 0 && frac > 0) {
         const end = angle + frac * Math.PI * 2
         const x1 = cx + r * Math.cos(angle)
-          const y1 = cy + r * Math.sin(angle)
+        const y1 = cy + r * Math.sin(angle)
         const x2 = cx + r * Math.cos(end)
-          const y2 = cy + r * Math.sin(end)
+        const y2 = cy + r * Math.sin(end)
         const large = frac > 0.5 ? 1 : 0
         // Full circle (single slice = 100%) needs a special path
         if (frac >= 0.9999) {
@@ -664,7 +664,7 @@ DEPENDENCIES: pie/bar/line/scatter/histogram charts on CSV/JSON + CSV/JSON pivot
         // percentage label at slice midpoint
         const mid = angle + (frac * Math.PI * 2) / 2
         const lx = cx + r * 0.6 * Math.cos(mid)
-          const ly = cy + r * 0.6 * Math.sin(mid)
+        const ly = cy + r * 0.6 * Math.sin(mid)
         slices.push(
           `<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" font-size="16" fill="#fff" text-anchor="middle" dominant-baseline="middle">${pct.toFixed(1)}%</text>`,
         )
@@ -799,7 +799,7 @@ ${legend.join('\n')}
     body: string,
   ): string {
     const W = 800
-      const H = 600
+    const H = 600
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <rect width="${W}" height="${H}" fill="#ffffff"/>
 <text x="${W / 2}" y="36" font-size="22" font-family="sans-serif" text-anchor="middle" fill="#222">${this.svgEsc(title)}</text>
@@ -834,7 +834,7 @@ ${body}
     const { x0, y0, x1, y1 } = this.plotBox()
     const ticks = this.niceTicks(min, max)
     const lo = Math.min(min, ticks[0])
-      const hi = Math.max(max, ticks[ticks.length - 1])
+    const hi = Math.max(max, ticks[ticks.length - 1])
     const range = hi - lo || 1
     const parts: string[] = []
     for (const t of ticks) {
@@ -852,7 +852,7 @@ ${body}
   private bounds(vals: number[]): { min: number; max: number } {
     if (!vals.length) return { min: 0, max: 1 }
     let min = Math.min(...vals)
-      let max = Math.max(...vals)
+    let max = Math.max(...vals)
     if (min === max) {
       min = min - 1
       max = max + 1
@@ -909,7 +909,7 @@ ${body}
       xb.max += 1
     }
     const yr = yb.max - yb.min || 1
-      const xr = xb.max - xb.min || 1
+    const xr = xb.max - xb.min || 1
     const px = (x: number) => x0 + ((x - xb.min) / xr) * (x1 - x0)
     const py = (y: number) => y1 - ((y - yb.min) / yr) * (y1 - y0)
     const pts = xs
@@ -949,7 +949,7 @@ ${body}
       xb.max += 1
     }
     const yr = yb.max - yb.min || 1
-      const xr = xb.max - xb.min || 1
+    const xr = xb.max - xb.min || 1
     const px = (x: number) => x0 + ((x - xb.min) / xr) * (x1 - x0)
     const py = (y: number) => y1 - ((y - yb.min) / yr) * (y1 - y0)
     const dots = xs
@@ -971,7 +971,7 @@ ${body}
   ): string {
     const { x0, y0, x1, y1 } = this.plotBox()
     let lo = Math.min(...values)
-      let hi = Math.max(...values)
+    let hi = Math.max(...values)
     if (lo === hi) {
       lo -= 0.5
       hi += 0.5
@@ -1161,7 +1161,7 @@ ${body}
     col: string,
   ): string {
     let lo = Math.min(...values)
-      let hi = Math.max(...values)
+    let hi = Math.max(...values)
     if (lo === hi) {
       lo -= 0.5
       hi += 0.5

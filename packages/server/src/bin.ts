@@ -61,7 +61,7 @@ async function cmdStart(): Promise<void> {
     await server.stop()
     clearEndpoint()
     process.exit(0)
-  };
+  }
   process.on('SIGINT', () => void shutdown())
   process.on('SIGTERM', () => void shutdown())
 }
@@ -72,7 +72,7 @@ function cmdStatus(): void {
 
     console.log('[clawmaster-server] 未发现运行中的 server（无端点文件）。')
     process.exitCode = 1
-    return;
+    return
   }
   const alive = isAlive(ep.pid)
 
@@ -90,7 +90,7 @@ function cmdStop(): void {
 
     console.log('[clawmaster-server] 没有运行中的 server 可停止。')
     clearEndpoint()
-    return;
+    return
   }
   try {
     process.kill(ep.pid, 'SIGTERM')
@@ -118,13 +118,13 @@ async function main(): Promise<void> {
   switch (cmd) {
     case 'start':
       await cmdStart()
-      break;
+      break
     case 'status':
       cmdStatus()
-      break;
+      break
     case 'stop':
       cmdStop()
-      break;
+      break
     default:
 
       console.error(`未知命令: ${cmd}（用 start | stop | status）`)

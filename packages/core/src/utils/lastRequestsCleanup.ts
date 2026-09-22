@@ -87,7 +87,7 @@ export async function cleanupLastRequestsDir(
         // Use mtime so user-edited files (rare) are also subject to the rule.
         if (now - stat.mtimeMs > retentionMs) {
           await fs.promises.unlink(file)
-          deleted++;
+          deleted++
         }
       } catch {
         // best-effort

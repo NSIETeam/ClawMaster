@@ -34,7 +34,7 @@ function findPython3(): PythonLauncher | undefined {
       : [
         { command: 'python3', prefix: [] },
         { command: 'python', prefix: [] },
-      ];
+      ]
   return candidates.find(
     ({ command, prefix }) =>
       spawnSync(command, [...prefix, '--version'], { encoding: 'utf8' })
@@ -256,7 +256,7 @@ print(json.dumps({"rejected": rejected, "layout": layout}))
       '"source": "ClawMaster Data-Viz-Pro 自动分析"',
     )
     expect(analyzeSource).toContain('cfg["source"] = input_path.name')
-  });
+  })
 
   it('声明完整运行依赖，并提供跨平台 Python 3 命令', () => {
     const requirements = readFileSync(
@@ -287,5 +287,5 @@ print(json.dumps({"rejected": rejected, "layout": layout}))
     expect(skillInstructions).not.toMatch(/\/Users\/|[A-Z]:\\\\Users\\\\/)
     expect(analyzeSource).not.toMatch(/\.clawmaster(?:-user)?\/skills/)
     expect(chartSource).not.toMatch(/\.clawmaster(?:-user)?\/skills/)
-  });
+  })
 })

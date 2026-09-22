@@ -186,7 +186,7 @@ export function buildFederationAtoaDecision(
       v: 1,
       ...input,
       createdAt: new Date().toISOString(),
-    };
+    }
   return DECISION_PREFIX + JSON.stringify(payload)
 }
 

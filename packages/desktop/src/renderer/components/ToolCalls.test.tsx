@@ -67,7 +67,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
     expect(summary).toContain('构建项目（npm run build）没有完成')
     expect(summary).toContain('缺少 TypeScript 依赖')
     expect(summary).toContain('已完成：查看相关资料（PDF：report.pdf）')
-  });
+  })
 
   it('全部完成时用自然结果句，不机械汇报步骤数', () => {
     const summary = buildToolCompletionSummary([
@@ -87,7 +87,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
 
     expect(summary).toBe('查看相关资料（PDF：report.pdf）、构建项目（npm run build）已完成。')
     expect(summary).not.toContain('步骤')
-  });
+  })
 
   it('最多列出 3 个关键步骤，避免长工具链刷屏', () => {
     const tools = Array.from({ length: 4 }, (_, index): ToolCall => ({
@@ -102,7 +102,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
     expect(summary).toContain('file-3.txt')
     expect(summary).not.toContain('file-4.txt')
     expect(summary).toContain('主要处理了')
-  });
+  })
 
   it('工具区域标题展示自然语言进度，不暴露原始工具名', () => {
     render(
@@ -119,7 +119,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
     expect(screen.getByRole('button', { name: /正在查看相关资料：PDF：report.pdf/ })).toBeTruthy()
     expect(screen.queryByText(/调用了/)).toBeNull()
     expect(screen.queryByText('read_file')).toBeNull()
-  });
+  })
 
   it('识别常见命令意图，标题直接说明正在做什么', () => {
     render(
@@ -135,7 +135,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
 
     expect(screen.getByRole('button', { name: /正在运行测试/ })).toBeTruthy()
     expect(screen.getByText('运行测试')).toBeTruthy()
-  });
+  })
 
   it('文件目标显示成更短的业务对象，而不是整段路径', () => {
     render(
@@ -150,7 +150,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
     )
 
     expect(screen.getByText('代码文件：client.ts')).toBeTruthy()
-  });
+  })
 
   it('把 RPA 的未知结果明确展示为需要人工接管，而不是已完成', () => {
     render(
@@ -173,7 +173,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
     expect(screen.getByText('网页自动化流程')).toBeTruthy()
     expect(screen.getByRole('status').textContent).toContain('不会自动重试')
     expect(screen.queryByText('已完成：网页自动化流程')).toBeNull()
-  });
+  })
 
   it('Bash 结果提供可用的复制按钮并写入系统剪贴板', async () => {
     const writeClipboard = vi.fn(async () => true)
@@ -201,7 +201,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
     fireEvent.click(screen.getByRole('button', { name: '复制结果' }))
     await vi.waitFor(() => expect(writeClipboard).toHaveBeenCalledWith('测试输出\n全部通过'))
     expect(await screen.findByRole('button', { name: '已复制' })).toBeTruthy()
-  });
+  })
 })
 
 describe('ToolCalls · AskUserQuestion 问答卡', () => {
@@ -233,7 +233,7 @@ describe('ToolCalls · AskUserQuestion 问答卡', () => {
     expect(onRespond).toHaveBeenCalledWith('call-1', 'approved', {
       answers: { '选哪个？': 'A 方案' },
     })
-  });
+  })
 
   it('选 Other → 输入自由文本 → 提交用输入内容作答', () => {
     const onRespond = vi.fn()
@@ -260,7 +260,7 @@ describe('ToolCalls · AskUserQuestion 问答卡', () => {
     expect(onRespond).toHaveBeenCalledWith('call-1', 'approved', {
       answers: { '选哪个？': 'C 自定义' },
     })
-  });
+  })
 
   it('跳过 → 以 rejected 回传（不带答案）', () => {
     const onRespond = vi.fn()
@@ -273,7 +273,7 @@ describe('ToolCalls · AskUserQuestion 问答卡', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '跳过' }))
     expect(onRespond).toHaveBeenCalledWith('call-1', 'rejected')
-  });
+  })
 
   it('多选题：选中多项，提交以逗号连接答案', () => {
     const onRespond = vi.fn()
@@ -310,7 +310,7 @@ describe('ToolCalls · AskUserQuestion 问答卡', () => {
     expect(onRespond).toHaveBeenCalledWith('call-1', 'approved', {
       answers: { '要哪些？': '甲, 丙' },
     })
-  });
+  })
 
   it('提交后进入已提交态，按钮禁用防重复提交', () => {
     const onRespond = vi.fn()
@@ -328,7 +328,7 @@ describe('ToolCalls · AskUserQuestion 问答卡', () => {
     expect((sent as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(sent)
     expect(onRespond).toHaveBeenCalledTimes(1)
-  });
+  })
 })
 
 describe('ToolCalls · 敏感操作确认卡', () => {
@@ -351,7 +351,7 @@ describe('ToolCalls · 敏感操作确认卡', () => {
       undefined,
       tool,
     )
-  });
+  })
 })
 
 describe('ToolCalls · 飞书授权二维码', () => {
@@ -376,7 +376,7 @@ describe('ToolCalls · 飞书授权二维码', () => {
     expect(screen.getByText('授权码：9NVZ-JH8A')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '在浏览器中打开授权页面' }))
     expect(openExternal).toHaveBeenCalledWith(authUrl)
-  });
+  })
 
   it('拒绝把非飞书域名伪装成授权二维码', () => {
     const tool: ToolCall = {
@@ -391,7 +391,7 @@ describe('ToolCalls · 飞书授权二维码', () => {
     render(<ToolCallsCard toolCalls={[tool]} />)
 
     expect(screen.queryByRole('img', { name: '飞书授权二维码' })).toBeNull()
-  });
+  })
 
   it('同时校验 HTTPS、官方主机和已知授权路径', () => {
     const invalidCases = [
@@ -438,7 +438,7 @@ describe('ToolCalls · 飞书授权二维码', () => {
       />,
     )
     expect(screen.queryByRole('img', { name: '飞书授权二维码' })).toBeNull()
-  });
+  })
 
   it('从彩色终端输出中提取官方授权链接', () => {
     const escape = String.fromCharCode(27)
@@ -456,5 +456,5 @@ describe('ToolCalls · 飞书授权二维码', () => {
 
     expect(screen.getByRole('img', { name: '飞书授权二维码' })).toBeTruthy()
     expect(screen.getByText('授权码：COLOR-1234')).toBeTruthy()
-  });
+  })
 })

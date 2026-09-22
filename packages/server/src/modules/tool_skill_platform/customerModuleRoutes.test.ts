@@ -36,7 +36,7 @@ describe('customer module marketplace routes', () => {
       method: 'POST', path: `/enterprise/platform/customer-modules/${manifest.id}/${manifest.version}/review`,
       actor: { accountId: 'publisher', isPlatformReviewer: false }, body: { decision: 'approve' },
     }).status).toBe(403)
-  });
+  })
 
   it('lists only approved signed versions and accepts idempotent install receipts', () => {
     const market = new CustomerModuleMarketplace()
@@ -59,7 +59,7 @@ describe('customer module marketplace routes', () => {
       actor: { accountId: 'buyer', isPlatformReviewer: false }, body: {},
     })
     expect(status).toMatchObject({ status: 200, body: { status: 'approved' } })
-  });
+  })
 
   it('fails closed when the platform signing key is unavailable', () => {
     const market = new CustomerModuleMarketplace()
@@ -73,5 +73,5 @@ describe('customer module marketplace routes', () => {
     })
     expect(response.status).toBe(503)
     expect(market.get(manifest.id, manifest.version)?.status).toBe('review')
-  });
+  })
 })

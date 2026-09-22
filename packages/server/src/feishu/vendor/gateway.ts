@@ -703,7 +703,7 @@ function splitMarkdownBlocks(markdown: string): string[] {
       inFence = true
       fenceMarker = t.startsWith('```') ? '```' : '~~~'
       cur.push(line)
-      continue;
+      continue
     }
     if (inFence) {
       cur.push(line)
@@ -1224,7 +1224,7 @@ export class FeishuGateway {
     if (this.tokenRefreshPromise) return this.tokenRefreshPromise
     this.tokenRefreshPromise = this.fetchTenantToken().finally(() => {
       this.tokenRefreshPromise = null
-    });
+    })
     return this.tokenRefreshPromise
   }
 
@@ -1389,7 +1389,7 @@ export class FeishuGateway {
         text = parts.join('\n')
       } catch (e: unknown) {
         derror('Parse feishu post message failed in sub-parser:', e)
-        text = '[解析富文本消息失败]';
+        text = '[解析富文本消息失败]'
       }
     } else if (msgType === 'interactive') {
       // 交互式卡片（其他 bot 发出的卡片转发过来时即为此类型）。
@@ -1490,7 +1490,7 @@ export class FeishuGateway {
 
     if (Array.isArray(node)) {
       for (const item of node) this.extractCardText(item, out, seen)
-      return;
+      return
     }
 
     if (typeof node === 'object') {
@@ -1593,7 +1593,7 @@ export class FeishuGateway {
         return String(valRecord['text'] ?? valRecord['content'] ?? '').trim()
       }
       return ''
-    };
+    }
 
     const rows: Array<Record<string, unknown>> = Array.isArray(node.rows)
       ? node.rows.filter((row): row is Record<string, unknown> => Boolean(asRecord(row)))
@@ -1678,7 +1678,7 @@ export class FeishuGateway {
         (a, b) =>
           parseInt(String(a.create_time || '0'), 10) -
           parseInt(String(b.create_time || '0'), 10),
-      );
+      )
     }
 
     const renderSubtree = (parentId: string, depth: number): string => {
@@ -1708,7 +1708,7 @@ export class FeishuGateway {
             item.body?.content as string,
             pendingImages,
             pendingFiles,
-          );
+          )
         }
 
         const indent = '  '.repeat(depth)
@@ -1718,11 +1718,11 @@ export class FeishuGateway {
             .split('\n')
             .map(line => `${indent}${line}`)
             .join('\n'),
-        );
+        )
         parts.push(`${indent}---`)
       }
       return parts.join('\n')
-    };
+    }
 
     return renderSubtree(rootId, 0)
   }
@@ -1752,7 +1752,7 @@ export class FeishuGateway {
           method: 'GET',
           headers: { Authorization: `Bearer ${token}` },
         },
-      );
+      )
       const data = await res.json() as FeishuApiResponse<{ items?: MergedForwardItem[] }>
 
       if (data.code !== 0) {
@@ -1844,7 +1844,7 @@ export class FeishuGateway {
 
       if (data.code !== 0) {
         dlog(`[Feishu] fetchChatInfo(${chatId}) failed: ${JSON.stringify(data)}`)
-        return;
+        return
       }
 
       // chat_mode：'p2p' / 'group' / 'topic'。即便群名为空（p2p 单聊）也要缓存类型。
@@ -2018,7 +2018,7 @@ export class FeishuGateway {
       while (fs.existsSync(localPath)) {
         safeFileName = `${safeBase}_${counter}${ext}`
         localPath = path.join(targetDir, safeFileName)
-        counter++;
+        counter++
       }
 
       await fs.promises.writeFile(localPath, Buffer.from(buffer))
@@ -2065,51 +2065,51 @@ export class FeishuGateway {
       'im.message.receive_v1': async (data: FeishuIncomingPayload) => {
         try {
           const event = data.event || (data as FeishuIncomingEvent)
-        const header = data.header || {}
-        const message = event.message || {}
-        const sender = event.sender || {}
+          const header = data.header || {}
+          const message = event.message || {}
+          const sender = event.sender || {}
 
-        // 提取消息创建时间（飞书事件 header.create_time，毫秒时间戳字符串）
-        const messageCreateTime: number | undefined =
+          // 提取消息创建时间（飞书事件 header.create_time，毫秒时间戳字符串）
+          const messageCreateTime: number | undefined =
             header.create_time ? parseInt(String(header.create_time), 10) : undefined
 
-        // 解析文本内容，确保始终返回字符串
-        let text = ''
-        const msgType = message.message_type || 'text'
-        // 收集待下载的图片元数据（延迟到 feishuCommand 确定 projectRoot 后统一下载）
-        const pendingImages: Array<{ imageKey: string; placeholder: string }> = []
-        // 收集待下载的文件元数据（延迟到 feishuCommand 确定 projectRoot 后统一下载）
-        const pendingFiles: Array<{ fileKey: string; fileName: string; placeholder: string }> = []
+          // 解析文本内容，确保始终返回字符串
+          let text = ''
+          const msgType = message.message_type || 'text'
+          // 收集待下载的图片元数据（延迟到 feishuCommand 确定 projectRoot 后统一下载）
+          const pendingImages: Array<{ imageKey: string; placeholder: string }> = []
+          // 收集待下载的文件元数据（延迟到 feishuCommand 确定 projectRoot 后统一下载）
+          const pendingFiles: Array<{ fileKey: string; fileName: string; placeholder: string }> = []
 
-        if (msgType === 'merge_forward') {
+          if (msgType === 'merge_forward') {
             try {
               dlog(`Received merge_forward message, fetching sub-messages for ${message.message_id}...`)
-            const { items: subMessages, error } = await this.getMergedForwardMessages(message.message_id as string)
-            if (subMessages && subMessages.length > 0) {
+              const { items: subMessages, error } = await this.getMergedForwardMessages(message.message_id as string)
+              if (subMessages && subMessages.length > 0) {
                 const body = this.renderMergedForwardItems(
                   message.message_id as string,
                   subMessages,
                   pendingImages,
-                  pendingFiles
-                );
+                  pendingFiles,
+                )
                 text = body
                   ? `📢 **[合并转发的消息记录]**\n---\n${body}`
-                  : '[合并转发消息，但未能解析出任何子消息内容]';
+                  : '[合并转发消息，但未能解析出任何子消息内容]'
               } else {
                 text = `[合并转发消息，但未获取到任何子消息内容${error ? `。原因: ${error}` : ''}]`
-            }
+              }
             } catch (err: unknown) {
               derror('Failed to parse merge_forward message:', err)
-            text = `[解析合并转发消息失败: ${errorMessage(err)}]`
-          }
+              text = `[解析合并转发消息失败: ${errorMessage(err)}]`
+            }
           } else {
             text = this.parseSingleMessageContent(
               message.message_id as string,
               msgType,
               message.content as string,
               pendingImages,
-              pendingFiles
-            );
+              pendingFiles,
+            )
           }
 
           // 去掉 @bot 占位符
@@ -2117,14 +2117,14 @@ export class FeishuGateway {
             for (const m of event.mentions) {
               if (m.key) {
                 text = text.replace(m.key, '').trim()
-            }
+              }
             }
           }
 
           const chatType = message.chat_type === 'p2p' ? 'p2p' :
             message.chat_type === 'group' ? 'group' : 'topic'
 
-        const feishuMsg: FeishuMessage = {
+          const feishuMsg: FeishuMessage = {
             text,
             messageId: message.message_id as string,
             chatId: message.chat_id || event.conversation?.chat_id || '',
@@ -2138,37 +2138,37 @@ export class FeishuGateway {
             pendingImages: pendingImages.length > 0 ? pendingImages : undefined,
             pendingFiles: pendingFiles.length > 0 ? pendingFiles : undefined,
             createTime: messageCreateTime && !isNaN(messageCreateTime) ? messageCreateTime : undefined,
-          };
+          }
 
           // 陈旧消息过滤：丢弃早于连接就绪时间创建的消息（飞书重连后推送的积压旧消息）
           if (feishuMsg.createTime && this.connectedAtMs) {
             const staleThreshold = this.connectedAtMs - this.STALE_CLOCK_SKEW_MS
-          if (feishuMsg.createTime < staleThreshold) {
+            if (feishuMsg.createTime < staleThreshold) {
               const ageSec = ((this.connectedAtMs - feishuMsg.createTime) / 1000).toFixed(1)
-            dlog(`Skipped stale message (created ${ageSec}s before connection): ${feishuMsg.messageId}`)
-            return { code: 0 }
-          }
+              dlog(`Skipped stale message (created ${ageSec}s before connection): ${feishuMsg.messageId}`)
+              return { code: 0 }
+            }
           }
 
           // 消息去重：先按 messageId (包括正在执行的和已成功执行的)，再按内容+时间窗口兜底
           if (feishuMsg.messageId && feishuMsg.messageId.startsWith('om_')) {
             if (this.inFlightMessages.has(feishuMsg.messageId)) {
               dlog(`Skipped in-flight message (messageId): ${feishuMsg.messageId}`)
-            return { code: 0 }
-          }
+              return { code: 0 }
+            }
             if (this.processedMessages.has(feishuMsg.messageId)) {
               dlog(`Skipped duplicate message (messageId): ${feishuMsg.messageId}`)
-            return { code: 0 }
-          }
+              return { code: 0 }
+            }
           }
 
           const contentKey = `${feishuMsg.chatId}:${feishuMsg.text}`
-        const now = Date.now()
-        const firstSeen = this.recentContents.get(contentKey)
-        if (firstSeen !== undefined && now - firstSeen < this.dedupWindowMs) {
+          const now = Date.now()
+          const firstSeen = this.recentContents.get(contentKey)
+          if (firstSeen !== undefined && now - firstSeen < this.dedupWindowMs) {
             dlog(`Skipped duplicate message (content dedup): "${feishuMsg.text.slice(0, 30)}" (within ${now - firstSeen}ms)`)
-          return { code: 0 }
-        }
+            return { code: 0 }
+          }
 
           // 高风险操作内容哈希去重：防止 restart / self-update 等命令因飞书重发而反复执行
           if (this.checkHighRiskDedup(feishuMsg.chatId, feishuMsg.text)) {
@@ -2176,80 +2176,80 @@ export class FeishuGateway {
             const preview = Array.from(feishuMsg.text).length > 30
               ? truncateByCodePoints(feishuMsg.text, 30) + '…'
               : feishuMsg.text
-          await this.sendMessage(feishuMsg.chatId,
+            await this.sendMessage(feishuMsg.chatId,
               `检测到疑似重复的飞书服务端消息推送：「${preview}」，已丢弃。如果是您自己发的消息，请变换措辞重发。`)
-          return { code: 0 }
-        }
+            return { code: 0 }
+          }
 
           // 标记为正在处理（内存级并发拦截）。processed 必须等上层把消息写入
           // durable inbox 后才能落盘；否则进程在“已去重、未执行”窗口崩溃时会永久丢消息。
           if (feishuMsg.messageId && feishuMsg.messageId.startsWith('om_')) {
             this.inFlightMessages.add(feishuMsg.messageId)
-        }
+          }
 
           this.recentContents.set(contentKey, now)
-        // 清理过期的内容去重记录
-        for (const [key, ts] of this.recentContents) {
+          // 清理过期的内容去重记录
+          for (const [key, ts] of this.recentContents) {
             if (now - ts > this.dedupWindowMs * 2) this.recentContents.delete(key)
-        }
+          }
           // 硬上限兜底：洪泛（同窗口内大量不同内容）时按插入顺序淘汰最旧条目，
           // 防止 recentContents 无界增长导致内存泄漏 / OOM。
           while (this.recentContents.size > this.maxRecentContents) {
             const oldest = this.recentContents.keys().next().value
-          if (oldest === undefined) break
-          this.recentContents.delete(oldest)
-        }
+            if (oldest === undefined) break
+            this.recentContents.delete(oldest)
+          }
 
           try {
           // 文本选择模式：如果该 chat 正在等待用户文本回复选项，优先处理（C3：按 chatId 取回调）
             const textChoiceCb = this.textChoiceCallbacks.get(feishuMsg.chatId)
-          if (textChoiceCb) {
+            if (textChoiceCb) {
               const consumed = textChoiceCb(feishuMsg)
-            if (consumed) {
+              if (consumed) {
               // 该消息已被文本选择器消费，不触发 onMessage。
                 if (feishuMsg.messageId?.startsWith('om_')) {
                   this.recordProcessedMessage(feishuMsg.messageId)
-              }
+                }
                 return { code: 0 }
-            }
+              }
             }
 
             if (this.onMessage) {
             // 添加"思考中"表情，让用户知道 Bot 正在处理
               const reactionId = await this.addReaction(feishuMsg.messageId, 'THINKING')
-            try {
+              try {
                 const reply = await this.onMessage(feishuMsg)
-              if (reply) {
+                if (reply) {
                   await this.sendMessage(feishuMsg.chatId, reply, feishuMsg.messageId)
-              }
+                }
                 // onMessage 只有在消息已经持久写入 adapter inbox 后才返回。
                 if (feishuMsg.messageId?.startsWith('om_')) {
                   this.recordProcessedMessage(feishuMsg.messageId)
-              }
+                }
               } catch (err) {
                 derror('feishu onMessage handler error:', err)
-              throw err
-            } finally {
+                throw err
+              } finally {
               // 处理完成，移除"思考中"表情
                 await this.removeReaction(feishuMsg.messageId, reactionId)
-            }
+              }
             } else if (feishuMsg.messageId?.startsWith('om_')) {
               this.recordProcessedMessage(feishuMsg.messageId)
-          }
+            }
           } finally {
           // 无论成功还是失败，只要该消息处理流程结束，就从 in-flight 集合中移除
             if (feishuMsg.messageId && feishuMsg.messageId.startsWith('om_')) {
               this.inFlightMessages.delete(feishuMsg.messageId)
-          }
+            }
           }
 
           return { code: 0 }
-      } catch (err) {
+        } catch (err) {
           derror('feishu event handler error:', err)
-        return { code: 1 }
-      }
+          return { code: 1 }
+        }
       },
-    });
+    })
 
     // 注册卡片按钮点击回调事件
     dispatcher.register({
@@ -2361,7 +2361,7 @@ export class FeishuGateway {
           if (this.onMeetingEnded) {
             await this.onMeetingEnded(meetingEvent).catch((err: unknown) => {
               derror('[Feishu] onMeetingEnded handler error:', err)
-            });
+            })
           }
         } catch (err) {
           derror('[Feishu] meeting event handler error:', err)
@@ -2408,7 +2408,7 @@ export class FeishuGateway {
       client.start({ eventDispatcher: dispatcher }).catch((err: unknown) => {
         if (!settled) { settled = true; reject(err) }
       })
-    });
+    })
   }
 
   /**
@@ -2786,13 +2786,13 @@ export class FeishuGateway {
 
       if (inCodeBlock) {
         codeBlockContent.push(line)
-        continue;
+        continue
       }
 
       // --- 空行 = 段落分隔 ---
       if (line.trim() === '') {
         flushPara()
-        continue;
+        continue
       }
 
       // --- 标题 ---
@@ -2802,7 +2802,7 @@ export class FeishuGateway {
         paragraphs.push([
           { tag: 'text', text: headingMatch[2], style: ['bold'] },
         ])
-        continue;
+        continue
       }
 
       // --- 无序列表（- / * / +） ---
@@ -2815,7 +2815,7 @@ export class FeishuGateway {
           { tag: 'text', text: bullet },
           ...this.parseInlineMarkdown(ulMatch[2]),
         ])
-        continue;
+        continue
       }
 
       // --- 有序列表（1. 2. 3.） ---
@@ -2829,7 +2829,7 @@ export class FeishuGateway {
           { tag: 'text', text: prefix },
           ...this.parseInlineMarkdown(olMatch[3]),
         ])
-        continue;
+        continue
       }
 
       // --- 表格行（| ... |） ---
@@ -2842,7 +2842,7 @@ export class FeishuGateway {
         paragraphs.push([
           { tag: 'text', text: tableText },
         ])
-        continue;
+        continue
       }
 
       // --- 普通文本（含行内 Markdown） ---
@@ -3417,7 +3417,7 @@ export class FeishuGateway {
       const ok = await this.streamCardKitElement(cardId, CARDKIT_STREAMING_ELEMENT_ID, optimizeMarkdownStyle(content, 2) || ' ', sequence)
       if (ok) lastPushedContent = content
       return ok
-    };
+    }
 
     const pushFooter = async (metrics: FeishuFooterMetrics): Promise<boolean> => {
       const next = renderFooterMarkdown(metrics)
@@ -3426,7 +3426,7 @@ export class FeishuGateway {
       const ok = await this.streamCardKitElement(cardId, CARDKIT_FOOTER_ELEMENT_ID, next, sequence)
       if (ok) lastPushedFooter = next
       return ok
-    };
+    }
 
     const finalize = async (
       finalContent: string,
@@ -3440,7 +3440,7 @@ export class FeishuGateway {
       sequence += 1
       const finalCard = buildCardKitFinalCard(finalContent, finalFooterMetrics)
       return await this.updateCardKitCard(cardId, finalCard, sequence)
-    };
+    }
 
     return { messageId, cardId, pushContent, pushFooter, finalize }
   }
@@ -3740,7 +3740,7 @@ export class FeishuGateway {
         name: `q${idx}_other`,
         placeholder: { tag: 'plain_text', content: '如选「其他」，请在此填写自定义答案' },
       })
-    });
+    })
 
     // 提交按钮
     formElements.push({
@@ -3801,7 +3801,7 @@ export class FeishuGateway {
         resolve({ value: '', openId: '', messageId })
       }, timeoutMs)
       this.cardCallbacks.set(messageId, { resolve, timer })
-    });
+    })
 
     if (actionData.value === 'other_ideas') {
       // 🎯 更新原表单卡片为反馈已收到，避免原表单一直晾着
@@ -3821,7 +3821,7 @@ export class FeishuGateway {
       const emptyAnswers: FeishuQuestionAnswers = {}
       questions.forEach((q) => {
         emptyAnswers[q.question] = ''
-      });
+      })
       return { ok: true, answers: emptyAnswers }
     }
 
@@ -3876,7 +3876,7 @@ export class FeishuGateway {
         }
       }
       answers[q.question] = answer
-    });
+    })
 
     // 🎯 用户提交答案后，将原表单卡片更新为“已收到回答”和具体的问答内容，避免原表单一直晾着
     const summaryLines: string[] = []
@@ -4027,7 +4027,7 @@ export class FeishuGateway {
         resolve({ value: '', openId: '', messageId })
       }, timeoutMs)
       this.cardCallbacks.set(messageId, { resolve, timer })
-    });
+    })
 
     // 超时未提交
     if (!actionData.formValue && !actionData.value) {
@@ -4046,7 +4046,7 @@ export class FeishuGateway {
       const v = formValue[k]
       if (Array.isArray(v)) return (v[0] ?? '').trim()
       return (typeof v === 'string' ? v : '').trim()
-    };
+    }
 
     return {
       ok: true,
@@ -4161,7 +4161,7 @@ export class FeishuGateway {
         resolve({ value: defaultValue, openId: '', messageId })
       }, timeoutMs)
       this.cardCallbacks.set(messageId, { resolve, timer })
-    });
+    })
 
     return actionData.value || defaultValue
   }
@@ -4193,7 +4193,7 @@ export class FeishuGateway {
 
     buttons.forEach((btn, i) => {
       lines.push(`> **${i + 1}**. ${btn.label}`)
-    });
+    })
     lines.push('\n请回复序号或选项名称进行选择。')
     const textContent = lines.join('\n')
 
@@ -4201,11 +4201,11 @@ export class FeishuGateway {
     // label → value 映射（不区分大小写）
     buttons.forEach((btn) => {
       buttonMap.set(btn.label.toLowerCase(), btn.value)
-    });
+    })
     // 序号 → value 映射
     buttons.forEach((btn, i) => {
       buttonMap.set(String(i + 1), btn.value)
-    });
+    })
 
     // 先发送选项列表（在 Promise 之外 await，避免 async-executor 反模式：
     // 旧实现 `new Promise(async ...)` 中 sendMarkdown 抛错会被吞掉、resolve 永不触发，
@@ -4236,7 +4236,7 @@ export class FeishuGateway {
         }
         // 不匹配的回复，不做处理（交给主消息循环）
         return false
-      });
+      })
     })
   }
 

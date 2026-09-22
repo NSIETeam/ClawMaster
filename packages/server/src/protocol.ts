@@ -109,7 +109,7 @@ export type MessageContentPart =
       language?: string
       size: number
     }
-  };
+  }
 
 export type MessageContent = MessageContentPart[]
 
@@ -1422,7 +1422,7 @@ export type HabitInsightMsg = Envelope<
   {
     insights: Array<{
       id: string
-      type: 'workflow' | 'bottleneck' | 'suggestion' | 'peak_hour' | 'tool_chain' | 'summary';
+      type: 'workflow' | 'bottleneck' | 'suggestion' | 'peak_hour' | 'tool_chain' | 'summary'
       title: string
       description: string
       evidence: string[]

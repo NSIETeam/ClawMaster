@@ -19,7 +19,7 @@ afterEach(async () => {
       .splice(0)
       .map(dir => fs.rm(dir, { recursive: true, force: true })),
   )
-});
+})
 
 describe('KnowledgeCapturePipeline', () => {
   it('captures a completed agent turn once and writes a reusable work result', async () => {
@@ -56,7 +56,7 @@ describe('KnowledgeCapturePipeline', () => {
     const status = await pipeline.getStatus()
     expect(status.agentEvents).toBe(1)
     expect(status.lastEventAt).toBe(now.toISOString())
-  });
+  })
 
   it('records tool/session lifecycle while redacting credentials', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-capture-'))
@@ -92,7 +92,7 @@ describe('KnowledgeCapturePipeline', () => {
     expect(raw).not.toContain('secret-token-123')
     expect(raw).not.toContain('sk-super-secret-value')
     expect(raw).toContain('[REDACTED]')
-  });
+  })
 
   it('never persists private enterprise messaging payloads', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-capture-'))
@@ -112,7 +112,7 @@ describe('KnowledgeCapturePipeline', () => {
 
     expect((await pipeline.getStatus()).toolEvents).toBe(0)
     await expect(fs.access(path.join(root, 'events'))).rejects.toThrow()
-  });
+  })
 
   it('extracts typed durable knowledge, deduplicates by content hash, and searches it', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-capture-'))
@@ -175,7 +175,7 @@ describe('KnowledgeCapturePipeline', () => {
     expect(status.knowledgeRecords).toBe(index.records.length)
     expect(status.deduplicatedKnowledge).toBeGreaterThan(0)
     expect(status.knowledgeByType.bugfix).toBeGreaterThan(0)
-  });
+  })
 
   it('captures reusable knowledge from worklog/tool events and session end', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-capture-'))
@@ -223,7 +223,7 @@ describe('KnowledgeCapturePipeline', () => {
     expect(status.knowledgeRecords).toBe(index.records.length)
     expect(status.lastCapturedAt).toBe(now.toISOString())
     expect(formatKnowledgeCaptureStatus(status)).toContain('按类型')
-  });
+  })
 
   it('reads the legacy knowledge/index.json and migrates new writes to memory-index.json', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-capture-'))
@@ -291,7 +291,7 @@ describe('KnowledgeCapturePipeline', () => {
         (record: { content?: string }) => record.content === undefined,
       ),
     ).toBe(true)
-  });
+  })
 
   it('bounds prompt dedupe memory and the durable knowledge index for long-running ClawMaster sessions', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-capture-'))
@@ -327,5 +327,5 @@ describe('KnowledgeCapturePipeline', () => {
       file => file.endsWith('.json'),
     )
     expect(recordFiles).toHaveLength(2)
-  });
+  })
 })

@@ -69,7 +69,7 @@ export class BinaryManager {
     if (fs.existsSync(destDir)) {
       console.log(`[LSP] Cleaning corrupted binary cache for ${id} at ${destDir}`)
       removeDirectoryRecursive(destDir)
-      console.log('[LSP] Cache cleaned successfully');
+      console.log('[LSP] Cache cleaned successfully')
     }
   }
 
@@ -144,20 +144,20 @@ export class BinaryManager {
             cwd: destDir,
             shell: false,
             stdio: 'inherit',
-            })
+          })
           : spawn('npm', npmArgs, {
             cwd: destDir,
             shell: false,
             stdio: 'inherit',
-            });
+          })
         child.on('close', (code) => {
           if (code === 0) resolve()
           else reject(new Error(`npm install failed with code ${code}`))
-        });
+        })
       })
 
       return binPath
-    };
+    }
   }
 
   /**
@@ -206,7 +206,7 @@ export class BinaryManager {
         let stderrBuf = ''
         child.stdout?.on('data', (d) => {
           process.stdout.write(d)
-        });
+        })
         child.stderr?.on('data', (d) => {
           const s = d.toString()
           stderrBuf += s
@@ -215,7 +215,7 @@ export class BinaryManager {
             stderrBuf = stderrBuf.slice(stderrBuf.length - 16_384)
           }
           process.stderr.write(d)
-        });
+        })
 
         child.on('close', (code) => {
           if (code === 0) resolve()
@@ -237,7 +237,7 @@ export class BinaryManager {
                 'Please ensure Go is installed and available in PATH.',
             ),
           )
-        });
+        })
       })
 
       if (!fs.existsSync(binPath)) {
@@ -248,7 +248,7 @@ export class BinaryManager {
       }
 
       return binPath
-    };
+    }
   }
 
   /**
@@ -277,13 +277,13 @@ export class BinaryManager {
       const apiUri = `https://api.github.com/repos/${owner}/${repo}/releases/latest`
       const res = await request(apiUri, {
         headers,
-      });
+      })
       const release = (await res.body.json()) as { assets: Array<{ name: string; size: number; browser_download_url: string }> }
 
       let asset = release.assets.find((a) => {
         if (typeof expectedName === 'string') return a.name === expectedName
         return expectedName.test(a.name)
-      });
+      })
 
       // Fallback: If exact match not found, try platform-arch patterns for common naming schemes
       if (!asset) {
@@ -298,29 +298,29 @@ export class BinaryManager {
               /rust-analyzer.*x86_64.*windows.*\.zip/i,
               /rust-analyzer.*x64.*windows.*\.zip/i,
               /rust-analyzer.*msvc.*\.zip/i,
-            );
+            )
           } else if (platformArch === 'win32-arm64') {
             fallbackPatterns.push(/rust-analyzer.*aarch64.*windows.*\.zip/i)
           } else if (platformArch === 'darwin-x64') {
             fallbackPatterns.push(
               /rust-analyzer.*x86_64.*apple-darwin.*\.gz/i,
               /rust-analyzer.*x86_64.*macos.*\.gz/i,
-            );
+            )
           } else if (platformArch === 'darwin-arm64') {
             fallbackPatterns.push(
               /rust-analyzer.*aarch64.*apple-darwin.*\.gz/i,
               /rust-analyzer.*aarch64.*macos.*\.gz/i,
-            );
+            )
           } else if (platformArch === 'linux-x64') {
             fallbackPatterns.push(
               /rust-analyzer.*x86_64.*linux.*\.gz/i,
               /rust-analyzer.*x86_64.*gnu.*\.gz/i,
-            );
+            )
           } else if (platformArch === 'linux-arm64') {
             fallbackPatterns.push(
               /rust-analyzer.*aarch64.*linux.*\.gz/i,
               /rust-analyzer.*aarch64.*gnu.*\.gz/i,
-            );
+            )
           }
         }
 
@@ -328,7 +328,7 @@ export class BinaryManager {
         if (fallbackPatterns.length > 0) {
           asset = release.assets.find(a =>
             fallbackPatterns.some(p => p.test(a.name)),
-          );
+          )
         }
       }
 
@@ -351,7 +351,7 @@ export class BinaryManager {
           '--fail',                  // fail on HTTP errors
           '-o', tempDownloadPath,    // output file
           asset.browser_download_url,
-        ]);
+        ])
 
         let stderrOutput = ''
 
@@ -368,7 +368,7 @@ export class BinaryManager {
 
         curlProcess.stderr.on('data', (data) => {
           stderrOutput += data.toString()
-        });
+        })
 
         curlProcess.on('close', (code) => {
           clearInterval(progressInterval)
@@ -390,16 +390,16 @@ export class BinaryManager {
           reject(new Error(
             `[LSP] Failed to spawn curl: ${err.message}. ` +
             'curl may not be installed or available in PATH. ' +
-            'Please install curl and add it to your system PATH.'
+            'Please install curl and add it to your system PATH.',
           ))
-        });
+        })
       })
 
       // 验证文件是否成功下载
       if (!fs.existsSync(tempDownloadPath)) {
         throw new Error(
           `[LSP] Downloaded file not found at ${tempDownloadPath}. curl may have failed silently.`,
-        );
+        )
       }
 
       const actualSize = fs.statSync(tempDownloadPath).size
@@ -407,7 +407,7 @@ export class BinaryManager {
         fs.unlinkSync(tempDownloadPath)
         throw new Error(
           `[LSP] Downloaded file is empty (0 bytes) for ${asset.name}. ` +
-          'The download URL may be invalid or temporarily unavailable. Please retry.'
+          'The download URL may be invalid or temporarily unavailable. Please retry.',
         )
       }
 
@@ -428,7 +428,7 @@ export class BinaryManager {
           const errorMsg = gzError instanceof Error ? gzError.message : String(gzError)
           throw new Error(
             `[LSP] Failed to decompress ${asset.name}: ${errorMsg}. ` +
-            'The file may be corrupted. Please retry.'
+            'The file may be corrupted. Please retry.',
           )
         }
         fs.unlinkSync(tempDownloadPath)
@@ -441,7 +441,7 @@ export class BinaryManager {
           fs.unlinkSync(tempDownloadPath)
           throw new Error(
             `[LSP] ZIP file is too small (${zipBuffer.length} bytes) for ${asset.name}. ` +
-            'The download is corrupted. Please retry or check your network connection.'
+            'The download is corrupted. Please retry or check your network connection.',
           )
         }
 
@@ -450,7 +450,7 @@ export class BinaryManager {
           fs.unlinkSync(tempDownloadPath)
           throw new Error(
             `[LSP] ZIP file header is corrupted for ${asset.name}. ` +
-            'The download may have been interrupted. Please retry.'
+            'The download may have been interrupted. Please retry.',
           )
         }
 
@@ -462,7 +462,7 @@ export class BinaryManager {
           const errorMsg = zipError instanceof Error ? zipError.message : String(zipError)
           throw new Error(
             `[LSP] Failed to parse ZIP file ${asset.name}: ${errorMsg}. ` +
-            'The file may be corrupted. Please retry the download.'
+            'The file may be corrupted. Please retry the download.',
           )
         }
 
@@ -504,6 +504,6 @@ export class BinaryManager {
       }
 
       return binPath
-    };
+    }
   }
 }

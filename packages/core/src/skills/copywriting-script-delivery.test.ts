@@ -43,7 +43,7 @@ function findPython3(): PythonLauncher | undefined {
       : [
         { command: 'python3', prefixArgs: [] },
         { command: 'python', prefixArgs: [] },
-      ];
+      ]
   return candidates.find(
     ({ command, prefixArgs }) =>
       spawnSync(command, [...prefixArgs, '--version'], { encoding: 'utf8' })
@@ -150,7 +150,7 @@ describe('copywriting Python 3 交付脚本', () => {
     expect(existsSync(outputPath)).toBe(false)
     expect(existsSync(outputPath.replace(/\.html$/, '.md'))).toBe(false)
     expect(existsSync(outputPath.replace(/\.html$/, '.txt'))).toBe(false)
-  });
+  })
 
   it.skipIf(!python)('接受并规范合法颜色为大写 #RRGGBB', () => {
     const { outputPath, result } = runCopywriting({
@@ -162,7 +162,7 @@ describe('copywriting Python 3 交付脚本', () => {
     const html = readFileSync(outputPath, 'utf8')
     expect(html).toContain('background:#A1B2C3')
     expect(html).toContain('solid #0D9E8F')
-  });
+  })
 
   it('文档同时给出 macOS/Linux 和 Windows 的 Python 3 命令，不写死用户目录', () => {
     expect(skillInstructions).toMatch(/macOS|Linux/)
@@ -171,5 +171,5 @@ describe('copywriting Python 3 交付脚本', () => {
     expect(skillInstructions).toContain('.clawmaster-user')
     expect(skillInstructions).not.toContain('python .clawmaster/skills/')
     expect(skillInstructions).not.toMatch(/\/Users\/[^/]+|C:\\Users\\[^\\]+/)
-  });
+  })
 })

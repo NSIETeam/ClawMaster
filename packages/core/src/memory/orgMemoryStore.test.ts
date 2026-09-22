@@ -12,17 +12,17 @@ describe('OrgMemoryStore', () => {
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-org-memory-'))
     store = new OrgMemoryStore(dir)
-  });
+  })
 
   afterEach(async () => {
     await fs.rm(dir, { recursive: true, force: true })
-  });
+  })
 
   it('loads an empty store when no file exists', async () => {
     const data = await store.load()
     expect(data.projects).toEqual([])
     expect(data.memories).toEqual([])
-  });
+  })
 
   it('persists project memory records locally', async () => {
     const project: ProjectRecord = {
@@ -64,5 +64,5 @@ describe('OrgMemoryStore', () => {
     const reloaded = new OrgMemoryStore(dir)
     expect((await reloaded.load()).projects).toHaveLength(1)
     expect(await reloaded.listProjectMemories('project-1')).toEqual([memory])
-  });
+  })
 })

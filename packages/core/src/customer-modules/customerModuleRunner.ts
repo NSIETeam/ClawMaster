@@ -164,31 +164,31 @@ export class CustomerModuleRunner {
       })
       return await new Promise((resolve) => {
         let settled = false
-      const cancel = (): void => finish({ status: 'cancelled', exitCode: null, output: '', error: 'execution cancelled' })
-      const finish = (result: CustomerModuleRunResult): void => {
+        const cancel = (): void => finish({ status: 'cancelled', exitCode: null, output: '', error: 'execution cancelled' })
+        const finish = (result: CustomerModuleRunResult): void => {
           if (settled) return
-        settled = true
-        clearTimeout(timer)
-        request.signal?.removeEventListener('abort', cancel)
-        void worker.terminate()
-        this.audit(
+          settled = true
+          clearTimeout(timer)
+          request.signal?.removeEventListener('abort', cancel)
+          void worker.terminate()
+          this.audit(
             request,
             result.status === 'completed' ? 'customer_module.completed' : 'customer_module.failed',
             result.status,
             startedAt,
             result.error,
-          );
+          )
           resolve(result)
-      };
+        }
         const timer = setTimeout(() => finish({ status: 'timed_out', exitCode: null, output: '', error: 'execution timed out' }), request.limits.timeoutMs)
-      request.signal?.addEventListener('abort', cancel, { once: true })
-      if (request.signal?.aborted) cancel()
-      let output = ''
-      let emittedOutputBytes = 0
-      let hostCallCount = 0
-      let progressEventCount = 0
-      const capabilityCalls = { storage: 0, file: 0, http: 0, model: 0 }
-      worker.on('message', (message: {
+        request.signal?.addEventListener('abort', cancel, { once: true })
+        if (request.signal?.aborted) cancel()
+        let output = ''
+        let emittedOutputBytes = 0
+        let hostCallCount = 0
+        let progressEventCount = 0
+        const capabilityCalls = { storage: 0, file: 0, http: 0, model: 0 }
+        worker.on('message', (message: {
           type: string
           exitCode?: number
           output?: string
@@ -199,42 +199,42 @@ export class CustomerModuleRunner {
         }) => {
           if (message.type === 'host_request' && message.capability) {
             hostCallCount += 1
-          if (hostCallCount > 100) { finish({ status: 'crashed', exitCode: null, output: '', error: 'Host ABI call limit exceeded' }); return }
+            if (hostCallCount > 100) { finish({ status: 'crashed', exitCode: null, output: '', error: 'Host ABI call limit exceeded' }); return }
             capabilityCalls[message.capability] += 1
-          const capabilityLimit = { storage: 64, file: 16, http: 32, model: 4 }[message.capability]
-          if (capabilityCalls[message.capability] > capabilityLimit) { finish({ status: 'crashed', exitCode: null, output: '', error: `${message.capability} call limit exceeded` }); return }
+            const capabilityLimit = { storage: 64, file: 16, http: 32, model: 4 }[message.capability]
+            if (capabilityCalls[message.capability] > capabilityLimit) { finish({ status: 'crashed', exitCode: null, output: '', error: `${message.capability} call limit exceeded` }); return }
             void this.handleHostRequest(request, bridge, message.capability, message.payload)
-          return;
+            return
           }
           if (message.type === 'progress') {
             progressEventCount += 1
-          if (progressEventCount > 1_000) { finish({ status: 'crashed', exitCode: null, output: '', error: 'progress event limit exceeded' }); return }
+            if (progressEventCount > 1_000) { finish({ status: 'crashed', exitCode: null, output: '', error: 'progress event limit exceeded' }); return }
             this.audit(request, 'customer_module.progress', 'running', startedAt)
-          return;
+            return
           }
           if (message.type === 'result') {
             output = message.output ?? ''
-          emittedOutputBytes += Buffer.byteLength(output)
-          if (emittedOutputBytes > request.limits.maxOutputBytes) {
+            emittedOutputBytes += Buffer.byteLength(output)
+            if (emittedOutputBytes > request.limits.maxOutputBytes) {
               finish({ status: 'crashed', exitCode: null, output: '', error: 'output limit exceeded' })
-          }
-            return;
+            }
+            return
           }
           if (message.type === 'completed') {
             if (Buffer.byteLength(output) > request.limits.maxOutputBytes) {
               finish({ status: 'crashed', exitCode: null, output: '', error: 'output limit exceeded' })
-          } else finish({ status: 'completed', exitCode: message.exitCode ?? 0, output })
-        } else finish({ status: 'crashed', exitCode: null, output: '', error: message.error ?? 'worker crashed' })
-      });
+            } else finish({ status: 'completed', exitCode: message.exitCode ?? 0, output })
+          } else finish({ status: 'crashed', exitCode: null, output: '', error: message.error ?? 'worker crashed' })
+        })
         worker.once('error', error => finish({
           status: 'crashed',
           exitCode: null,
           output: '',
           error: error instanceof Error ? error.message : String(error),
         }))
-      worker.once('exit', (code) => {
+        worker.once('exit', (code) => {
           if (!settled && code !== 0) finish({ status: 'crashed', exitCode: code, output: '', error: `worker exited with code ${code}` })
-      });
+        })
       })
     } finally {
       activeCustomerModuleRuns -= 1

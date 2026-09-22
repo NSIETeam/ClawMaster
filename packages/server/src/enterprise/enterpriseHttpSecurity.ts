@@ -160,7 +160,7 @@ export function createLoginRateLimiter(
       entries.delete(oldest)
     }
     entries.set(key, entry)
-  };
+  }
 
   const currentEntryIn = (
     entries: Map<string, RateEntry>,
@@ -178,7 +178,7 @@ export function createLoginRateLimiter(
     }
     touch(entries, key, entry)
     return entry
-  };
+  }
 
   const retryAfterFor = (
     entries: Map<string, RateEntry>,
@@ -189,7 +189,7 @@ export function createLoginRateLimiter(
     return entry && entry.blockedUntil > timestamp
       ? Math.max(1, Math.ceil((entry.blockedUntil - timestamp) / 1000))
       : 0
-  };
+  }
 
   const recordFailureFor = (
     entries: Map<string, RateEntry>,
@@ -208,7 +208,7 @@ export function createLoginRateLimiter(
     return entry.blockedUntil > timestamp
       ? Math.max(1, Math.ceil((entry.blockedUntil - timestamp) / 1000))
       : 0
-  };
+  }
 
   return {
     keys(req, identifier) {

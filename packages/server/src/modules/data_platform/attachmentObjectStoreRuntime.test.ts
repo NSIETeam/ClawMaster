@@ -31,7 +31,7 @@ describe('attachment object-store runtime', () => {
 
     expect(runtime.config).toEqual({ backend: 'encrypted-filesystem' })
     expect(runtime.store.backend).toBe('encrypted-filesystem')
-  });
+  })
 
   it('fails closed when an S3 bucket has not been confirmed private', () => {
     expect(() =>
@@ -41,7 +41,7 @@ describe('attachment object-store runtime', () => {
         CLAWMASTER_S3_REGION: 'us-east-1',
       }),
     ).toThrow(/private.*confirmed/i)
-  });
+  })
 
   it('refuses local attachment storage for multiple server replicas', () => {
     expect(() =>
@@ -50,7 +50,7 @@ describe('attachment object-store runtime', () => {
         CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '2',
       }),
     ).toThrow(/local.*one.*replica/i)
-  });
+  })
 
   it('configures an S3-compatible MinIO endpoint and optional SSE-KMS', () => {
     const clientFactory = vi.fn(() => ({
@@ -86,7 +86,7 @@ describe('attachment object-store runtime', () => {
       region: 'us-east-1',
     })
     expect(runtime.store.backend).toBe('s3')
-  });
+  })
 
   it('rejects insecure object-store endpoints unless explicitly enabled', () => {
     expect(() =>
@@ -98,5 +98,5 @@ describe('attachment object-store runtime', () => {
         CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
       }),
     ).toThrow(/insecure.*explicitly enabled/i)
-  });
+  })
 })

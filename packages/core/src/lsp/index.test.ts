@@ -45,7 +45,7 @@ describe('LSPManager robustness', () => {
     tempRootDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'clawmaster-lsp-'))
     pyFile = path.join(tempRootDir, 'a.py')
     await fsp.writeFile(pyFile, 'x = 1\n', 'utf8')
-  });
+  })
 
   afterEach(async () => {
     vi.unstubAllEnvs()
@@ -91,5 +91,5 @@ describe('LSPManager robustness', () => {
 
     await manager.shutdown()
     serverConnection.dispose()
-  });
+  })
 })

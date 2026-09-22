@@ -15,11 +15,11 @@ let tempDir: string
 
 beforeEach(async () => {
   tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-worklog-report-'))
-});
+})
 
 afterEach(async () => {
   await fs.rm(tempDir, { recursive: true, force: true })
-});
+})
 
 describe('generateAndSaveWorkReport', () => {
   it('生成可直接打开的 HTML 今日总结，并保留结构化文本预览', async () => {
@@ -63,7 +63,7 @@ describe('generateAndSaveWorkReport', () => {
     const html = await fs.readFile(report.path, 'utf8')
     expect(html).toContain('<h2>今日概览</h2>')
     expect(html).toContain('前沿AI科技报告')
-  });
+  })
 
   it('共享服务容忍单行损坏，并为所有桌面外壳返回同一份今日数据', async () => {
     const date = '2026-07-20'
@@ -97,5 +97,5 @@ describe('generateAndSaveWorkReport', () => {
     await expect(service.recent(1)).resolves.toEqual([
       expect.objectContaining({ date, entries: [expect.objectContaining({ action: '读取材料' })] }),
     ])
-  });
+  })
 })

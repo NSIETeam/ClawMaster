@@ -51,7 +51,7 @@ describe('file SQLCipher key provider', () => {
     ).toEqual([2, 1])
     expect(committed.getKeyCandidates()[0]!.key).toEqual(stagedNextKey)
     expect(committed.getKeyCandidates()[1]!.key).toEqual(stagedCurrentKey)
-  });
+  })
 
   it('promotes a recovery key after an interrupted database replacement', () => {
     const keyPath = createKeyPath()
@@ -66,7 +66,7 @@ describe('file SQLCipher key provider', () => {
     const recovered = createFileSqlCipherKeyProvider({ keyPath })
     expect(recovered.getKeyCandidates()[0]!.version).toBe(1)
     expect(recovered.getKeyCandidates()[0]!.key).toEqual(previousKey)
-  });
+  })
 
   it('removes a staged key when a rotation is safely aborted', () => {
     const keyPath = createKeyPath()
@@ -80,7 +80,7 @@ describe('file SQLCipher key provider', () => {
     expect(
       reopened.getKeyCandidates().map(candidate => candidate.version),
     ).toEqual([1])
-  });
+  })
 
   it('supports a read-only raw offline key without rewriting it', () => {
     const keyPath = createKeyPath()
@@ -98,7 +98,7 @@ describe('file SQLCipher key provider', () => {
     ])
     expect(() => provider.beginRotation()).toThrow(/read-only offline key/i)
     expect(fs.readFileSync(keyPath)).toEqual(raw)
-  });
+  })
 
   it('does not silently create a replacement for a missing custody key', () => {
     const keyPath = createKeyPath()
@@ -110,5 +110,5 @@ describe('file SQLCipher key provider', () => {
 
     expect(() => provider.getKeyCandidates()).toThrow(/does not exist/i)
     expect(fs.existsSync(keyPath)).toBe(false)
-  });
+  })
 })

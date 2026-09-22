@@ -19,7 +19,7 @@ afterEach(async () => {
       .splice(0)
       .map(root => fs.rm(root, { recursive: true, force: true })),
   )
-});
+})
 
 describe('SessionCheckpointService', () => {
   it('atomically restores a resumable same-project session', async () => {
@@ -71,7 +71,7 @@ describe('SessionCheckpointService', () => {
     expect(await service.restoreLatest('s1', '/workspace/b')).toBeNull()
     await service.markSessionEnded('s1', '/workspace/a', 'user_exit')
     expect(await service.restoreLatest('s1', '/workspace/a')).toBeNull()
-  });
+  })
 
   it('does not restore a normally completed ready checkpoint', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-checkpoint-'))
@@ -93,7 +93,7 @@ describe('SessionCheckpointService', () => {
 
     expect((await service.getStatus('s-ready'))?.state).toBe('ready')
     expect(await service.restoreLatest('s-ready', '/workspace/a')).toBeNull()
-  });
+  })
 
   it('keeps a durable summary and last task when low-memory trimming drops middle history', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-checkpoint-'))
@@ -134,7 +134,7 @@ describe('SessionCheckpointService', () => {
     await service.markRecoveryApplied('s-low-memory')
     expect((await service.getStatus('s-low-memory'))?.recoveryCount).toBe(1)
     expect((await service.getStatus('s-low-memory'))?.state).toBe('running')
-  });
+  })
 
   it('keeps the pending lastTask resumable after a turn throws', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-checkpoint-'))
@@ -161,7 +161,7 @@ describe('SessionCheckpointService', () => {
     expect(JSON.stringify(buildCheckpointRecoveryHistory(restored!))).toContain(
       '继续处理还没有完成的客户任务',
     )
-  });
+  })
 
   it('never persists binary attachment data and enforces the whole-record byte cap', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-checkpoint-'))
@@ -189,5 +189,5 @@ describe('SessionCheckpointService', () => {
     expect(
       (await service.restoreLatest('s-attachment', '/workspace'))?.lastTask,
     ).toBe('分析这个附件并继续任务')
-  });
+  })
 })

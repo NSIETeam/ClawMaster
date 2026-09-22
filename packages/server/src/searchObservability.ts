@@ -185,7 +185,7 @@ export function mergePersistedSearchDiagnostics(
   for (const event of events) {
     if (event.kind === 'cache_hit') {
       cacheHits += 1
-      continue;
+      continue
     }
     if (event.kind !== 'provider_attempt' || !event.provider) continue
     const item = usage[event.provider]
@@ -204,7 +204,7 @@ export function mergePersistedSearchDiagnostics(
       failures: persisted.failures,
       estimatedCostCny: Number(persisted.estimatedCostCny.toFixed(6)),
     }
-  });
+  })
   return {
     ...live,
     cacheHits,

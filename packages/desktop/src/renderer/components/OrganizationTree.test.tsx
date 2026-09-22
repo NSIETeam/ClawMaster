@@ -35,7 +35,7 @@ vi.mock('../peerClawMasterRunner.js', async () => {
     ...actual,
     askLocalPeerClawMaster: askLocalPeerClawMasterMock,
   }
-});
+})
 
 afterEach(() => {
   vi.useRealTimers()
@@ -197,7 +197,7 @@ describe('OrganizationTree', () => {
     expect((await screen.findByRole('status')).textContent).toContain(
       '加密会话已重置',
     )
-  });
+  })
 
   it('treats SQLite chat timestamps without a timezone as UTC', () => {
     expect(
@@ -206,7 +206,7 @@ describe('OrganizationTree', () => {
     expect(
       parseDirectMessageTimestamp('2026-07-28T11:51:00+08:00').toISOString(),
     ).toBe('2026-07-28T03:51:00.000Z')
-  });
+  })
   it('默认展示公司和一级部门，仍可手动收起整棵组织树', () => {
     render(<OrganizationTree workspace={workspace} />)
     const toggle = screen.getByRole('button', { name: '企业组织' })
@@ -219,7 +219,7 @@ describe('OrganizationTree', () => {
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByText('北辰科技')).toBeNull()
-  });
+  })
 
   it('右栏请求打开组织树时展开左侧真实组织入口', () => {
     const { rerender } = render(
@@ -233,20 +233,25 @@ describe('OrganizationTree', () => {
 
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByText('北辰科技')).toBeTruthy()
-  });
+  })
 
   it('成员视图挂载即通过 preload 加载组织架构，并正确显示 loading 和数据', async () => {
     let resolveOrganization!: (value: {
       organization: { id: string; name: string; status: 'active'; createdAt: string }
       members: Array<{
-        id: string; username: string; name: string; role: string
-        department: string; isAdmin: boolean; status: 'active'
+        id: string
+        username: string
+        name: string
+        role: string
+        department: string
+        isAdmin: boolean
+        status: 'active'
       }>
       employeeCount: number
     }) => void
     const pending = new Promise<Parameters<typeof resolveOrganization>[0]>((resolve) => {
       resolveOrganization = resolve
-    });
+    })
     const enterpriseOrganizationView = vi.fn(() => pending)
     Object.assign(window.clawmaster, { enterpriseOrganizationView })
 
@@ -284,7 +289,7 @@ describe('OrganizationTree', () => {
     expect(screen.getByText('研发部')).toBeTruthy()
     expect(screen.getByText('员工一号')).toBeTruthy()
     expect(screen.getByText('工程师')).toBeTruthy()
-  });
+  })
 
   it('远程组织树优先显示邀请码分配的职位，而不是泛化角色', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -323,12 +328,12 @@ describe('OrganizationTree', () => {
     expect(await screen.findByText('品牌运营')).toBeTruthy()
     expect(screen.queryByText('成员')).toBeNull()
     expect(screen.queryByText('管理员')).toBeNull()
-  });
+  })
 
   it('组织架构请求失败时结束 loading 并显示明确错误', async () => {
     const enterpriseOrganizationView = vi.fn(async () => {
       throw new Error('服务器暂不可用')
-    });
+    })
     Object.assign(window.clawmaster, { enterpriseOrganizationView })
 
     render(
@@ -342,7 +347,7 @@ describe('OrganizationTree', () => {
     expect(await screen.findByText('组织信息加载失败：服务器暂不可用')).toBeTruthy()
     expect(screen.queryByText('正在加载组织信息…')).toBeNull()
     expect(enterpriseOrganizationView).toHaveBeenCalledOnce()
-  });
+  })
 
   it('邀请码认证后的真实企业账号可从默认个人工作区连接远程组织树', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -377,7 +382,7 @@ describe('OrganizationTree', () => {
     expect(await screen.findByText('星河科技')).toBeTruthy()
     expect(screen.getByText('研发部')).toBeTruthy()
     expect(screen.getByText('员工一号')).toBeTruthy()
-  });
+  })
 
   it('本地 ProductWorkspace 尚未连接时，真实企业账号仍可加载远程组织树', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -410,7 +415,7 @@ describe('OrganizationTree', () => {
     await waitFor(() => expect(enterpriseOrganizationView).toHaveBeenCalledOnce())
     ensureOrganizationTreeOpen()
     expect(await screen.findByText('星河科技')).toBeTruthy()
-  });
+  })
 
   it('默认免登录的本地测试身份不会冒充企业账号或触发组织请求', () => {
     const enterpriseOrganizationView = vi.fn()
@@ -425,7 +430,7 @@ describe('OrganizationTree', () => {
 
     expect(container.innerHTML).toBe('')
     expect(enterpriseOrganizationView).not.toHaveBeenCalled()
-  });
+  })
 
   it('真实企业账号覆盖机器上残留的本机企业树，以服务端组织为权威', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -459,7 +464,7 @@ describe('OrganizationTree', () => {
     ensureOrganizationTreeOpen()
     expect(await screen.findByText('服务端星河科技')).toBeTruthy()
     expect(screen.queryByText('北辰科技')).toBeNull()
-  });
+  })
 
   it('CEO 保存职位后按修订号重新读取服务端组织树', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -490,7 +495,7 @@ describe('OrganizationTree', () => {
     )
 
     await waitFor(() => expect(enterpriseOrganizationView).toHaveBeenCalledTimes(2))
-  });
+  })
 
   it('员工收到后台身份更新后按 updatedAt 重新读取服务端组织树', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -524,7 +529,7 @@ describe('OrganizationTree', () => {
     )
 
     await waitFor(() => expect(enterpriseOrganizationView).toHaveBeenCalledTimes(2))
-  });
+  })
 
   it('本机企业成员只有内测假身份时不调用远程接口', () => {
     const enterpriseOrganizationView = vi.fn()
@@ -541,7 +546,7 @@ describe('OrganizationTree', () => {
     expect(enterpriseOrganizationView).not.toHaveBeenCalled()
     expect(screen.getByText('已通过链接加入；组织详情将在企业服务同步后显示。'))
       .toBeTruthy()
-  });
+  })
 
   it('真实企业组织树会定时刷新，新成员无需重启即可出现', async () => {
     vi.useFakeTimers()
@@ -598,7 +603,7 @@ describe('OrganizationTree', () => {
 
       await act(async () => {
         await Promise.resolve()
-      });
+      })
       expect(enterpriseOrganizationView).toHaveBeenCalledOnce()
       ensureOrganizationTreeOpen()
       expect(screen.getByText('Alice')).toBeTruthy()
@@ -607,7 +612,7 @@ describe('OrganizationTree', () => {
       await act(async () => {
         vi.advanceTimersByTime(10_000)
         await Promise.resolve()
-      });
+      })
 
       expect(screen.getByText('Bob')).toBeTruthy()
       expect(enterpriseOrganizationView).toHaveBeenCalledTimes(2)
@@ -665,7 +670,7 @@ describe('OrganizationTree', () => {
 
     expect(department.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByText('Alice')).toBeNull()
-  });
+  })
 
   it('can ask ClawMaster from a direct chat with recent messages', async () => {
     const messages: EnterpriseDirectMessage[] = [{
@@ -757,7 +762,7 @@ describe('OrganizationTree', () => {
       'acc_2',
       expect.stringContaining('本机 ClawMaster 给出的建议。'),
     )
-  });
+  })
 
   it('shows unread direct-message counts on enterprise members and clears them when opening chat', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -813,7 +818,7 @@ describe('OrganizationTree', () => {
     expect(onMessageRead).toHaveBeenCalledWith('acc_2')
     await waitFor(() => expect(enterpriseMessagesList).toHaveBeenCalledWith('acc_2'))
     expect(await screen.findByText('还没有消息，开始聊聊吧。')).toBeTruthy()
-  });
+  })
 
   it('同时保留多个同事聊天窗口，并让每个窗口独立最小化、最大化、还原、拖动和关闭', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -899,7 +904,7 @@ describe('OrganizationTree', () => {
       const event = new MouseEvent(type, { bubbles: true, button: 0, clientX, clientY })
       Object.defineProperty(event, 'pointerId', { value: 7 })
       fireEvent(header, event)
-    };
+    }
     firePointer('pointerdown', 300, 100)
     firePointer('pointermove', 360, 150)
     firePointer('pointerup', 360, 150)
@@ -909,7 +914,7 @@ describe('OrganizationTree', () => {
     fireEvent.click(within(bobChat).getByRole('button', { name: '关闭聊天' }))
     expect(screen.queryByRole('dialog', { name: '与 Bob 聊天' })).toBeNull()
     expect(screen.getByRole('dialog', { name: '与 Carol 聊天' })).toBeTruthy()
-  });
+  })
 
   it('打开聊天及轮询到新消息后滚到最新消息，并为对应同事续清未读', async () => {
     const oldMessage: EnterpriseDirectMessage = {
@@ -964,7 +969,7 @@ describe('OrganizationTree', () => {
       .mockImplementation((task, delay) => {
         if (delay === 2_000) messagePoll = task
         return () => undefined
-      });
+      })
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: scrollIntoView,
@@ -995,7 +1000,7 @@ describe('OrganizationTree', () => {
     expect(messagePoll).toBeTruthy()
     await act(async () => {
       await messagePoll!()
-    });
+    })
 
     expect(await screen.findByText('轮询到的新消息')).toBeTruthy()
     await waitFor(() => {
@@ -1007,9 +1012,9 @@ describe('OrganizationTree', () => {
     scrollIntoView.mockClear()
     await act(async () => {
       await messagePoll!()
-    });
+    })
     expect(scrollIntoView).not.toHaveBeenCalled()
-  });
+  })
 
   it('从托盘未读消息请求直接打开对应同事会话', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -1057,7 +1062,7 @@ describe('OrganizationTree', () => {
     await waitFor(() => expect(enterpriseMessagesList).toHaveBeenCalledWith('acc_2'))
     expect(onMessageRead).toHaveBeenCalledWith('acc_2')
     expect(await screen.findByText('还没有消息，开始聊聊吧。')).toBeTruthy()
-  });
+  })
 
   it('支持选择 PDF 附件并在无文字时直接发送', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -1132,7 +1137,7 @@ describe('OrganizationTree', () => {
       }],
     ))
     expect(await screen.findByRole('button', { name: '下载 方案.pdf' })).toBeTruthy()
-  });
+  })
 
   it('summarizes enterprise ClawMaster presence, refreshes on demand, and keeps online members easy to find', async () => {
     let calls = 0
@@ -1176,7 +1181,7 @@ describe('OrganizationTree', () => {
         }],
         employeeCount: 3,
       }
-    });
+    })
     Object.assign(window.clawmaster, { enterpriseOrganizationView })
 
     render(
@@ -1199,7 +1204,7 @@ describe('OrganizationTree', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '刷新企业组织在线状态' }))
     await waitFor(() => expect(calls).toBeGreaterThanOrEqual(2))
-  });
+  })
 
   it('uses @clawmaster as a direct-chat shortcut instead of sending it as a message', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -1260,7 +1265,7 @@ describe('OrganizationTree', () => {
       'acc_2',
       expect.stringContaining('我问了自己的 ClawMaster'),
     )
-  });
+  })
 
   it('sends a peer ClawMaster request as a structured direct message', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -1315,7 +1320,7 @@ describe('OrganizationTree', () => {
     expect(enterpriseMessageSend.mock.calls[0][0]).toBe('acc_2')
     expect(enterpriseMessageSend.mock.calls[0][1]).toContain('CLAWMASTER_ATOA_REQUEST ')
     expect(await screen.findByText(/向对方 ClawMaster 提问：Are you free now\?/)).toBeTruthy()
-  });
+  })
 
   it('把低频双方 ClawMaster 协商折叠在加号里，并在发送前打开资料选择与提案预览流程', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
@@ -1364,5 +1369,5 @@ describe('OrganizationTree', () => {
     ).toBeTruthy()
     expect(screen.getByText(/默认不选/)).toBeTruthy()
     expect(screen.getByRole('button', { name: '让我的 ClawMaster 生成提案' })).toBeTruthy()
-  });
+  })
 })

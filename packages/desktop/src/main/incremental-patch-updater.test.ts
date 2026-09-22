@@ -87,7 +87,7 @@ describe('incremental patch updater', () => {
     const registry = await readIncrementalPatchRegistry(resolvePatchUpdateRoot(userDataPath))
     expect(registry.active.rendererCssPatchId).toBe('patch-renderer-css-enterprise-login')
     await expect(fs.access(path.join(resolvePatchUpdateRoot(userDataPath), 'downloads', 'patch-renderer-css-enterprise-login', '2026.07.25', 'artifact.bin'))).rejects.toThrow()
-  });
+  })
 
   it('rejects unapproved artifact origins before writing registry state', async () => {
     const userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-patch-apply-'))
@@ -103,7 +103,7 @@ describe('incremental patch updater', () => {
     expect(result.ok).toBe(false)
     const registry = await readIncrementalPatchRegistry(resolvePatchUpdateRoot(userDataPath))
     expect(Object.keys(registry.patches)).toEqual([])
-  });
+  })
 
   it('rejects invalid Ed25519 signatures before registry install', async () => {
     const userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-patch-apply-'))
@@ -120,5 +120,5 @@ describe('incremental patch updater', () => {
     expect(result).toEqual({ ok: false, error: 'artifact Ed25519 signature verification failed' })
     const registry = await readIncrementalPatchRegistry(resolvePatchUpdateRoot(userDataPath))
     expect(Object.keys(registry.patches)).toEqual([])
-  });
+  })
 })

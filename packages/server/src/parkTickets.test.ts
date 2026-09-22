@@ -217,7 +217,7 @@ function createStore(database: Database): {
       department: row.department,
       tags: JSON.parse(row.tags_json) as string[],
     } : null
-  };
+  }
   const listOrganizationAccounts = (organizationId: string): TestAccount[] =>
     (database.prepare(
       `SELECT id FROM accounts
@@ -377,7 +377,7 @@ describe('park ticket module', () => {
     expect(tickets.createTicket(repairInput()).applicationNumber).toBe(
       '20260729001',
     )
-  });
+  })
 
   it('uses the Asia/Shanghai business day for application numbers at midnight', () => {
     const database = createDatabase()
@@ -392,7 +392,7 @@ describe('park ticket module', () => {
     expect(tickets.createTicket(repairInput()).applicationNumber).toBe(
       '20260729001',
     )
-  });
+  })
 
   it('routes park tickets to active specialists and falls back to active admins', () => {
     const database = createDatabase()
@@ -406,7 +406,7 @@ describe('park ticket module', () => {
     database.prepare("UPDATE accounts SET status = 'disabled' WHERE id = 'park-worker'").run()
     const second = tickets.createTicket(repairInput())
     expect(second.recipients).toEqual([{ id: 'park-admin', name: 'Park Admin' }])
-  });
+  })
 
   it('rolls back the ticket, initial event and deliveries when audit fails', () => {
     const database = createDatabase()
@@ -423,7 +423,7 @@ describe('park ticket module', () => {
       .toEqual({ count: 0 })
     expect(database.prepare('SELECT COUNT(*) AS count FROM park_application_sequences').get())
       .toEqual({ count: 0 })
-  });
+  })
 
   it('fails closed for unrelated, disabled and feature-revoked accounts', () => {
     const database = createDatabase()
@@ -451,7 +451,7 @@ describe('park ticket module', () => {
     database.prepare("UPDATE parks SET status = 'disabled' WHERE id = 'park-a'").run()
     expect(tickets.getTicketForAccount(ticket.id, 'park-worker')).toBeNull()
     expect(tickets.getTicketNotificationRecipients(ticket.id)).toEqual([])
-  });
+  })
 
   it('requires customer service to reply and transfer to engineering atomically without choosing a person', () => {
     const database = createDatabase()
@@ -547,7 +547,7 @@ describe('park ticket module', () => {
       responseType: '现场工作已完成',
       responseText: '工作人员已完成转交事项。',
     })
-  });
+  })
 
   it('keeps creator progress unread across transfer until the creator explicitly reads it', () => {
     const database = createDatabase()
@@ -601,7 +601,7 @@ describe('park ticket module', () => {
         'SELECT status, read_at FROM ticket_deliveries WHERE ticket_id = ? AND account_id = ?',
       ).get(ticket.id, 'park-worker'),
     ).toEqual({ status: 'transferred', read_at: null })
-  });
+  })
 
   it('only records notifications for the creator or assigned recipients', () => {
     const database = createDatabase()
@@ -630,7 +630,7 @@ describe('park ticket module', () => {
       event: 'created',
       status: 'sent',
     })).toThrow('Notification recipient is not assigned')
-  });
+  })
 
   it('keeps pricing and 30-minute meeting rules in the form-rules layer', () => {
     const common = {
@@ -726,7 +726,7 @@ describe('park ticket module', () => {
       endTime: '10:00',
       priceHalfDay: '200',
     })).toThrow('并按 30 分钟选择')
-  });
+  })
 
   it('round-trips a validated vehicle visit time through the ticket view', () => {
     const database = createDatabase()
@@ -753,7 +753,7 @@ describe('park ticket module', () => {
     })
 
     expect(ticket.formData.visitTime).toBe('09:30')
-  });
+  })
 
   it('routes a ticket to every matching specialist so the pool can race to claim it', () => {
     const database = createDatabase()
@@ -767,7 +767,7 @@ describe('park ticket module', () => {
       'park-worker',
       'park-worker-2',
     ])
-  });
+  })
 
   it('only one worker wins the claim and everyone else gets a stable already-claimed error', () => {
     const database = createDatabase()
@@ -811,7 +811,7 @@ describe('park ticket module', () => {
     ).get(ticket.id) as { status: string; accepted_by_account_id: string | null }
     expect(stored.status).toBe('维修中')
     expect(stored.accepted_by_account_id).toBeTruthy()
-  });
+  })
 
   it('allows the handler to release the ticket back to the pool and another worker to re-claim', () => {
     const database = createDatabase()
@@ -869,7 +869,7 @@ describe('park ticket module', () => {
       'release',
       'accept',
     ])
-  });
+  })
 
   it('never allows re-claiming a completed ticket, a non-specialist, or a cross-enterprise account', () => {
     const database = createDatabase()
@@ -919,5 +919,5 @@ describe('park ticket module', () => {
       accountId: 'other-worker',
       action: 'accept',
     })).toThrow('Ticket not found')
-  });
+  })
 })

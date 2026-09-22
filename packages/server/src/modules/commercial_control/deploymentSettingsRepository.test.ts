@@ -82,7 +82,7 @@ describe('deployment settings repository', () => {
       const settings = createDeploymentSettingsRepository(() => {
         resolutions += 1
         return active
-      });
+      })
 
       expect(resolutions).toBe(0)
       settings.writeSetting('deployment_id', 'first-deployment')
@@ -102,4 +102,4 @@ describe('deployment settings repository', () => {
       second.close()
     }
   })
-});
+})

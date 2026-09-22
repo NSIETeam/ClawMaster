@@ -210,7 +210,7 @@ export class MarketplaceLoader implements IPluginLoader {
     const getFullPath = (p: string) => {
       const targetPath = pluginRootPrefix ? path.join(pluginRootPrefix, p) : p
       return path.isAbsolute(targetPath) ? targetPath : path.join(pluginDir, targetPath)
-    };
+    }
 
     // 🔧 新增：处理 marketplace.json 中的显式定义（ui-ux-pro-max 情景）
     if (pluginDef.skills && (Array.isArray(pluginDef.skills) || typeof pluginDef.skills === 'string')) {
@@ -291,7 +291,7 @@ export class MarketplaceLoader implements IPluginLoader {
       for (const task of discoveryTasks) {
         discoveredComponents.push(...await this.scanComponents(
           pluginDir, task.name, task.type, id, marketplaceId,
-        ));
+        ))
       }
 
       // 合并显式定义的组件和自动发现的组件（去重）
@@ -302,7 +302,7 @@ export class MarketplaceLoader implements IPluginLoader {
         if (!existingIds.has(discovered.id)) {
           components.push(discovered)
           existingIds.add(discovered.id)
-          addedCount++;
+          addedCount++
         }
       }
 
@@ -351,7 +351,7 @@ export class MarketplaceLoader implements IPluginLoader {
         name: marketplaceId,
       },
       rawConfig: pluginDef as unknown as Record<string, unknown>,
-    };
+    }
   }
 
   private async discoverPluginDirs(mpPath: string): Promise<string[]> {
@@ -487,7 +487,7 @@ export class MarketplaceLoader implements IPluginLoader {
       // 这种结构常见于旧性 ClawMaster 插件，如 document-skills
       const skills = await this.scanComponents(
         pluginDir, '.', ComponentType.SKILL, id, marketplaceId,
-      );
+      )
       skills.forEach(addComponent)
     }
 
@@ -510,7 +510,7 @@ export class MarketplaceLoader implements IPluginLoader {
       marketplace: {
         id: marketplaceId,
         name: marketplaceId,
-      }
+      },
     }
   }
 
@@ -540,7 +540,7 @@ export class MarketplaceLoader implements IPluginLoader {
         pluginId,
         marketplaceId,
         pluginDir,
-      );
+      )
 
       if (component) {
         components.push(component)
@@ -620,7 +620,7 @@ export class MarketplaceLoader implements IPluginLoader {
       const result = spawnSync('git', args, {
         stdio: 'pipe',
         encoding: 'utf-8',
-      });
+      })
 
       if (result.status !== 0) {
         const errorMsg = result.stderr || result.error?.message || 'Unknown error'

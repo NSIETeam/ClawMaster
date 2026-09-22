@@ -66,7 +66,7 @@ describe('CoreSessionRuntime 会话标题生成', () => {
       '帮我分析登录接口为什么报错',
     )
     expect(getChat).not.toHaveBeenCalled()
-  });
+  })
 })
 
 describe('PPT 内置 Skill 自动路由', () => {
@@ -75,7 +75,7 @@ describe('PPT 内置 Skill 自动路由', () => {
     expect(messageNeedsBuiltinPptSkill('把这份材料整理成演示文稿')).toBe(true)
     expect(messageNeedsBuiltinPptSkill('生成一个 pitch deck')).toBe(true)
     expect(messageNeedsBuiltinPptSkill('写一份 Word 工作总结')).toBe(false)
-  });
+  })
 
   it('命中后把随包 Skill 写入 system rules 并刷新当前 chat', async () => {
     async function* stream(): AsyncGenerator<unknown> {
@@ -109,7 +109,7 @@ describe('PPT 内置 Skill 自动路由', () => {
     expect(rules).toContain('<skill_loaded name="ppt-creator" source="clawmaster-builtin">')
     expect(rules).toContain('# 发布会级 PPT 视觉导演')
     expect(refreshSystem).toHaveBeenCalledTimes(1)
-  });
+  })
 })
 
 describe('CoreSessionRuntime 模型切换', () => {
@@ -140,7 +140,7 @@ describe('CoreSessionRuntime 模型切换', () => {
       expect.any(AbortSignal),
     )
     expect(setModel).not.toHaveBeenCalled()
-  });
+  })
 
   it('live chat 拒绝切换时如实失败，不能伪装成已生效', async () => {
     const config = {
@@ -165,7 +165,7 @@ describe('CoreSessionRuntime 模型切换', () => {
     await expect(runtime.setModel('target')).rejects.toThrow(
       '上下文无法适配目标模型',
     )
-  });
+  })
 })
 
 /** 构造一条只有文本的流式 chunk（结构对齐 GenerateContentResponse）。 */
@@ -242,7 +242,7 @@ describe('CoreSessionRuntime tool-free 安全边界', () => {
       expect.any(String),
       expect.anything(),
     )
-  });
+  })
 
   it('provider 越界返回 functionCall 时在执行前 fail closed', async () => {
     async function* stream(): AsyncGenerator<unknown> {
@@ -273,7 +273,7 @@ describe('CoreSessionRuntime tool-free 安全边界', () => {
     })
     expect(frames.some(frame => frame.type === 'tool_calls_update')).toBe(false)
     expect(frames.some(frame => frame.type === 'chat_complete')).toBe(false)
-  });
+  })
 
   it('首 token 前连接失败也不切换到未获授权的备用模型', async () => {
     const primary: CustomModelConfig = {
@@ -331,7 +331,7 @@ describe('CoreSessionRuntime tool-free 安全边界', () => {
 
     expect(switchModel).not.toHaveBeenCalled()
     expect(store.getSession(session.sessionId)?.model).toBe(primaryId)
-  });
+  })
 })
 
 describe('CoreSessionRuntime 流式落库与收口对账', () => {
@@ -370,7 +370,7 @@ describe('CoreSessionRuntime 流式落库与收口对账', () => {
     expect(error?.type === 'error' && error.payload.message).toBe(
       '模型服务地址尚未配置，请先绑定个人 API。',
     )
-  });
+  })
 
   it('模型网络失败且没有备用模型时返回可操作提示，不暴露 fetch failed', async () => {
     async function* stream(): AsyncGenerator<unknown> {
@@ -399,7 +399,7 @@ describe('CoreSessionRuntime 流式落库与收口对账', () => {
     expect(assistant?.content).toEqual([{ type: 'text', value: expected }])
     expect(error?.type === 'error' && error.payload.message).toBe(expected)
     expect(JSON.stringify(frames)).not.toContain('fetch failed')
-  });
+  })
 
   it('首个 token 前网络失败时自动切到不同接口的备用模型并完成回复', async () => {
     const brokenModel: CustomModelConfig = {
@@ -424,7 +424,7 @@ describe('CoreSessionRuntime 流式落库与收口对账', () => {
     const switchModel = vi.fn(async (model: string) => {
       currentModel = model
       return { success: true, modelName: model }
-    });
+    })
     async function* brokenStream(): AsyncGenerator<unknown> {
       yield await Promise.reject(new TypeError('fetch failed'))
     }
@@ -484,7 +484,7 @@ describe('CoreSessionRuntime 流式落库与收口对账', () => {
     expect(complete?.type === 'chat_complete' && complete.payload.text).toBe(
       'FALLBACK_OK',
     )
-  });
+  })
 
   it('流式中途增量落库（getHistory 有已累积文本）+ chat_complete 带定稿全文', async () => {
     const store = new InMemorySessionStore()
@@ -552,7 +552,7 @@ describe('CoreSessionRuntime 流式落库与收口对账', () => {
       { type: 'text', value: '你好，世界' },
     ])
     expect(finalAssistant!.isStreaming).toBe(false)
-  });
+  })
 
   it('终轮完成后记录用户任务与最终工作结果', async () => {
     async function* stream(): AsyncGenerator<unknown> {
@@ -589,7 +589,7 @@ describe('CoreSessionRuntime 流式落库与收口对账', () => {
       projectRoot: 'D:\\work\\clawmaster-demo',
       success: true,
     })
-  });
+  })
 })
 
 // ── AskUserQuestion 交互闸门 ──────────────────────────────────────────────
@@ -804,7 +804,7 @@ describe('CoreSessionRuntime · AskUserQuestion 交互闸门', () => {
     expect(String(result?.data)).not.toContain('declined')
     // 会话不再卡在 running（可继续下一轮）。
     expect(session).toBeDefined()
-  });
+  })
 
   it('用户跳过（rejected）→ 工具如实回落 declined', async () => {
     const config = makeFakeConfigWithAsk([
@@ -836,7 +836,7 @@ describe('CoreSessionRuntime · AskUserQuestion 交互闸门', () => {
     const result = askCardResult(frames, 'call-2')
     // rejected → onConfirm 标记 cancelled → execute() 回落 declined（如实，不假装作答）。
     expect(String(result?.data)).toContain('declined')
-  });
+  })
 
   it('工具阶段取消后持久消息清掉 isProcessingTools，重新拉历史不会恢复卡死停止态', async () => {
     const config = makeFakeConfigWithAsk([
@@ -859,7 +859,7 @@ describe('CoreSessionRuntime · AskUserQuestion 交互闸门', () => {
     expect(assistant).toBeDefined()
     expect(assistant?.isStreaming).toBe(false)
     expect(assistant?.isProcessingTools).toBe(false)
-  });
+  })
 
   it('模型未提供 functionCall.id 时，同一次调用仍沿用唯一稳定 id', async () => {
     const config = makeFakeConfigWithAsk([
@@ -891,21 +891,21 @@ describe('CoreSessionRuntime · AskUserQuestion 交互闸门', () => {
       expect(request.payload.callId).toBe(initial.payload.toolCalls[0]?.id)
     }
   })
-});
+})
 
 describe('CoreSessionRuntime · 工具状态收口', () => {
   it('飞书适配器发起的高风险工具必须由原请求确认后执行', async () => {
     let markProgress!: () => void
     const progress = new Promise<void>((resolve) => {
       markProgress = resolve
-    });
+    })
     const onConfirm = vi.fn(async () => {
       markProgress()
-    });
+    })
     const execute = vi.fn(async () => {
       markProgress()
       return { llmContent: 'tool done', returnDisplay: 'tool done' }
-    });
+    })
     const config = makeFakeConfigWithTool(
       [
         () =>
@@ -932,7 +932,7 @@ describe('CoreSessionRuntime · 工具状态收口', () => {
     store.subscribe(session.sessionId, (frame) => {
       frames.push(frame)
       if (frame.type === 'tool_confirmation_request') markProgress()
-    });
+    })
     const runtime = new CoreSessionRuntime(
       store,
       session.sessionId,
@@ -960,7 +960,7 @@ describe('CoreSessionRuntime · 工具状态收口', () => {
       undefined,
     )
     expect(execute).toHaveBeenCalledTimes(1)
-  });
+  })
 
   it('桌面在飞书绑定会话里发起工具时仍保留确认', async () => {
     const onConfirm = vi.fn(async () => undefined)
@@ -992,10 +992,10 @@ describe('CoreSessionRuntime · 工具状态收口', () => {
     let confirmRequested!: () => void
     const confirmation = new Promise<void>((resolve) => {
       confirmRequested = resolve
-    });
+    })
     store.subscribe(session.sessionId, (frame) => {
       if (frame.type === 'tool_confirmation_request') confirmRequested()
-    });
+    })
     const runtime = new CoreSessionRuntime(
       store,
       session.sessionId,
@@ -1013,7 +1013,7 @@ describe('CoreSessionRuntime · 工具状态收口', () => {
     runtime.resolveToolConfirmation('local-confirm', 'approved')
     await running
     expect(execute).toHaveBeenCalledTimes(1)
-  });
+  })
 
   it('工具尚未结束时就把实时授权 URL 写入 liveOutput 并发布给桌面端', async () => {
     const authUrl =
@@ -1021,11 +1021,11 @@ describe('CoreSessionRuntime · 工具状态收口', () => {
     let releaseTool!: () => void
     const toolGate = new Promise<void>((resolve) => {
       releaseTool = resolve
-    });
+    })
     let markToolInvoked!: () => void
     const toolInvoked = new Promise<void>((resolve) => {
       markToolInvoked = resolve
-    });
+    })
     const config = makeFakeConfigWithTool(
       [
         () =>
@@ -1069,7 +1069,7 @@ describe('CoreSessionRuntime · 工具状态收口', () => {
     releaseTool()
     await running
     expect(liveFrame).toBeDefined()
-  });
+  })
 
   it('普通工具成功并进入下一轮后，历史消息不残留 isProcessingTools=true', async () => {
     const config = makeFakeConfigWithTool(
@@ -1108,7 +1108,7 @@ describe('CoreSessionRuntime · 工具状态收口', () => {
     expect(assistants[0]?.associatedToolCalls?.[0]?.status).toBe(
       ToolCallStatus.Success,
     )
-  });
+  })
 
   it('工具忽略 AbortSignal 时，cancel 也立即发布取消终态，不等待工具返回', async () => {
     let releaseTool!: () => void
@@ -1164,5 +1164,5 @@ describe('CoreSessionRuntime · 工具状态收口', () => {
 
     expect(cancelledBeforeToolReturned).toBe(true)
     expect(cardCancelledBeforeToolReturned).toBe(true)
-  });
+  })
 })

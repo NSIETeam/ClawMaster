@@ -54,7 +54,7 @@ vi.mock('../skills/index.js', async () => {
       RESOURCES: 'RESOURCES',
     },
   }
-});
+})
 
 // Import after mock setup
 import { UseSkillTool } from './use-skill.js'
@@ -67,39 +67,39 @@ describe('UseSkillTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useSkillTool = new UseSkillTool()
-  });
+  })
 
   afterEach(() => {
     vi.restoreAllMocks()
-  });
+  })
 
   describe('basic properties', () => {
     it('should have correct name and displayName', () => {
       expect(useSkillTool.name).toBe('use_skill')
       expect(useSkillTool.displayName).toBe('Use Skill')
-    });
+    })
 
     it('should have schema with skillName parameter', () => {
       expect(useSkillTool.schema).toBeDefined()
       expect(useSkillTool.schema.parameters?.properties?.skillName).toBeDefined()
-    });
+    })
   })
 
   describe('validateToolParams', () => {
     it('should return error for missing skillName', () => {
       const result = useSkillTool.validateToolParams({} as unknown as Parameters<typeof useSkillTool.validateToolParams>[0])
       expect(result).toContain('skillName is required')
-    });
+    })
 
     it('should return error for empty skillName', () => {
       const result = useSkillTool.validateToolParams({ skillName: '  ' })
       expect(result).toContain('cannot be empty')
-    });
+    })
 
     it('should return null for valid skillName', () => {
       const result = useSkillTool.validateToolParams({ skillName: 'test-skill' })
       expect(result).toBeNull()
-    });
+    })
   })
 
   describe('execute - plugin root directory output', () => {
@@ -110,7 +110,7 @@ describe('UseSkillTool', () => {
         marketplaceId,
         'skills',
         'agent-browser',
-      );
+      )
 
       const mockSkill = {
         id: 'agent-browser:agent-browser',
@@ -143,7 +143,7 @@ describe('UseSkillTool', () => {
       expect(result.llmContent).toContain('**Skill directory**')
       expect(result.llmContent).toContain(skillPath)
       expect(result.returnDisplay).toContain('✅ Loaded skill')
-    });
+    })
 
     it('should include scripts with full paths when available', async () => {
       const marketplaceId = 'document-skills'
@@ -152,7 +152,7 @@ describe('UseSkillTool', () => {
         marketplaceId,
         'skills',
         'pptx',
-      );
+      )
       const scriptsPath = path.join(skillPath, 'scripts')
 
       const mockSkill = {
@@ -188,7 +188,7 @@ describe('UseSkillTool', () => {
       expect(result.llmContent).toContain('**Available scripts**')
       expect(result.llmContent).toContain('generate.js')
       expect(result.llmContent).toContain('convert.py')
-    });
+    })
 
     it('should not show plugin root directory for non-marketplace skills', async () => {
       const skillPath = '/mock/project/.clawmaster/skills/custom-skill'
@@ -221,7 +221,7 @@ describe('UseSkillTool', () => {
       expect(result.llmContent).toContain(skillPath)
       // Should not contain Plugin root directory line
       expect(result.llmContent).not.toContain('**Plugin root directory**')
-    });
+    })
 
     it('should return error when skill not found', async () => {
       mockLoaderInstance = {
@@ -232,14 +232,14 @@ describe('UseSkillTool', () => {
 
       expect(result.llmContent).toContain('❌ Skill "nonexistent" not found')
       expect(result.returnDisplay).toContain('not found')
-    });
+    })
   })
 
   describe('getDescription', () => {
     it('should return description with skill name', () => {
       const desc = useSkillTool.getDescription({ skillName: 'test-skill' })
       expect(desc).toBe('Loading skill: test-skill')
-    });
+    })
   })
 
   describe('shouldConfirmExecute', () => {
@@ -247,9 +247,9 @@ describe('UseSkillTool', () => {
       const result = await useSkillTool.shouldConfirmExecute(
         { skillName: 'test' },
         mockAbortSignal,
-      );
+      )
       expect(result).toBe(false)
-    });
+    })
   })
 
   describe('skill name matching', () => {
@@ -284,7 +284,7 @@ describe('UseSkillTool', () => {
 
       const result3 = await useSkillTool.execute({ skillName: 'PpTx' }, mockAbortSignal)
       expect(result3.returnDisplay).toContain('✅ Loaded skill')
-    });
+    })
 
     it('should match skill by ID suffix', async () => {
       const mockSkill = {
@@ -311,7 +311,7 @@ describe('UseSkillTool', () => {
       // Should match by just the skill name
       const result = await useSkillTool.execute({ skillName: 'my-skill' }, mockAbortSignal)
       expect(result.returnDisplay).toContain('✅ Loaded skill')
-    });
+    })
 
     it('should match skill by full ID', async () => {
       const mockSkill = {
@@ -339,9 +339,9 @@ describe('UseSkillTool', () => {
       const result = await useSkillTool.execute(
         { skillName: 'marketplace:plugin:my-skill' },
         mockAbortSignal,
-      );
+      )
       expect(result.returnDisplay).toContain('✅ Loaded skill')
-    });
+    })
 
     it('should provide detailed debug info when skill not found', async () => {
       const mockSkills = [
@@ -391,6 +391,6 @@ describe('UseSkillTool', () => {
       expect(result.llmContent).toContain('marketplace:plugin1:skill1')
       expect(result.llmContent).toContain('marketplace:plugin2:skill2')
       expect(result.llmContent).toContain('Inconsistency between list and use_skill')
-    });
+    })
   })
-});
+})

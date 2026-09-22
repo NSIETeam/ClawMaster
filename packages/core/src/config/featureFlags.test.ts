@@ -34,7 +34,7 @@ vi.mock('fs', async () => {
     constants: actual.constants,
     promises: actual.promises,
   }
-});
+})
 
 function allFlags(): FeatureFlag[] {
   return Object.keys(FEATURE_FLAGS) as FeatureFlag[]
@@ -67,12 +67,12 @@ describe('FeatureFlagManager', () => {
   it('park_service is off by default', () => {
     const mgr = createManager()
     expect(mgr.isEnabled('park_service')).toBe(false)
-  });
+  })
 
   it('rpa is off by default', () => {
     const mgr = createManager()
     expect(mgr.isEnabled('rpa')).toBe(false)
-  });
+  })
 
   it('getAll returns correct state', () => {
     const mgr = createManager()
@@ -81,7 +81,7 @@ describe('FeatureFlagManager', () => {
     expect(Object.keys(all).sort()).toEqual(allFlags().sort())
     expect(all.park_service).toBe(false)
     expect(all.feishu_auto_reply).toBe(true)
-  });
+  })
 
   it('enable and disable a flag works', () => {
     const mgr = createManager()
@@ -96,7 +96,7 @@ describe('FeatureFlagManager', () => {
     // 再关闭
     mgr.setEnabled('park_service', false)
     expect(mgr.isEnabled('park_service')).toBe(false)
-  });
+  })
 
   it('setEnabled persists across new manager instances', () => {
     const mgr1 = createManager()
@@ -104,7 +104,7 @@ describe('FeatureFlagManager', () => {
 
     // 用同一个 settings（通过 managers 共享底层存储）验证持久化
     expect(mgr1.isEnabled('park_service')).toBe(true)
-  });
+  })
 
   it('onChange fires when flag changes', () => {
     const mgr = createManager()
@@ -112,13 +112,13 @@ describe('FeatureFlagManager', () => {
 
     mgr.onChange((flag, newVal, oldVal) => {
       calls.push({ flag, newVal, oldVal })
-    });
+    })
 
     mgr.setEnabled('audit_log', false)
 
     expect(calls.length).toBe(1)
     expect(calls[0]).toEqual({ flag: 'audit_log', newVal: false, oldVal: true })
-  });
+  })
 
   it('onChange does not fire when value unchanged', () => {
     const mgr = createManager()
@@ -126,13 +126,13 @@ describe('FeatureFlagManager', () => {
 
     mgr.onChange(() => {
       fireCount++
-    });
+    })
 
     // feishu_auto_reply 默认 true，再设 true 不触发
     mgr.setEnabled('feishu_auto_reply', true)
 
     expect(fireCount).toBe(0)
-  });
+  })
 
   it('unsubscribe stops receiving changes', () => {
     const mgr = createManager()
@@ -140,7 +140,7 @@ describe('FeatureFlagManager', () => {
 
     const unsub = mgr.onChange(() => {
       fireCount++
-    });
+    })
 
     mgr.setEnabled('checkpoints', false)
     expect(fireCount).toBe(1)
@@ -148,7 +148,7 @@ describe('FeatureFlagManager', () => {
     unsub()
     mgr.setEnabled('checkpoints', true)
     expect(fireCount).toBe(1) // 未再触发
-  });
+  })
 
   it('configured value overrides default', () => {
     // 预先写入 park_service: true
@@ -157,7 +157,7 @@ describe('FeatureFlagManager', () => {
     expect(mgr.isEnabled('park_service')).toBe(true)   // 覆盖默认 false
     expect(mgr.isEnabled('knowledge_loop')).toBe(false) // 覆盖默认 true
     expect(mgr.isEnabled('feishu_auto_reply')).toBe(true) // 未配置，走默认
-  });
+  })
 
   it('getAll reflects configured overrides', () => {
     const mgr = createManager({ audit_log: false, memory_injection: false })
@@ -166,5 +166,5 @@ describe('FeatureFlagManager', () => {
     expect(all.audit_log).toBe(false)
     expect(all.memory_injection).toBe(false)
     expect(all.enterprise_tree).toBe(true) // 默认
-  });
+  })
 })

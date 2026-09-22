@@ -16,11 +16,11 @@ let rootDir: string
 
 beforeEach(() => {
   rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-product-workspace-'))
-});
+})
 
 afterEach(() => {
   fs.rmSync(rootDir, { recursive: true, force: true })
-});
+})
 
 describe('ProductWorkspaceStore', () => {
   const authenticatedAccount = (
@@ -47,7 +47,7 @@ describe('ProductWorkspaceStore', () => {
     expect(initial.context.capabilities).toContain('model:byok')
     expect(initial.context.capabilities).not.toContain('organization:read')
     expect(reopened.context.userId).toBe(initial.context.userId)
-  });
+  })
 
   it('管理者建档后持久化六部门框架和 CEO 身份', () => {
     const store = new ProductWorkspaceStore({ rootDir })
@@ -72,7 +72,7 @@ describe('ProductWorkspaceStore', () => {
       '人力与行政部',
     ])
     expect(new ProductWorkspaceStore({ rootDir }).snapshot()).toEqual(snapshot)
-  });
+  })
 
   it('职位链接签名可验证、只能本地核销一次，并让成员进入指定岗位', () => {
     const store = new ProductWorkspaceStore({ rootDir })
@@ -104,7 +104,7 @@ describe('ProductWorkspaceStore', () => {
     expect(() =>
       store.acceptInvite(invite.link, { userId: 'member-2', displayName: '林二' }),
     ).toThrow(/已使用/)
-  });
+  })
 
   it('renderer 快照不包含邀请私钥，企业成员不能签发链接', () => {
     const store = new ProductWorkspaceStore({ rootDir })
@@ -114,7 +114,7 @@ describe('ProductWorkspaceStore', () => {
     expect(JSON.stringify(snapshot)).not.toMatch(/privateKey|BEGIN PRIVATE KEY/)
     expect(onDisk).not.toMatch(/BEGIN PRIVATE KEY/)
     expect(() => store.issueInvite({ kind: 'company' })).toThrow(/权限/)
-  });
+  })
 
   it('个人和企业可以来回切换，个人 API 配置不会被删除', () => {
     const store = new ProductWorkspaceStore({ rootDir })
@@ -128,7 +128,7 @@ describe('ProductWorkspaceStore', () => {
       userId: personalUserId,
     })
     expect(personal.managerWorkspace?.profile.companyName).toBe('北辰科技')
-  });
+  })
 
   it('中心认证身份只按 isAdmin 映射权限，并以内存覆盖返回当前组织与成员', () => {
     const store = new ProductWorkspaceStore({ rootDir })
@@ -171,7 +171,7 @@ describe('ProductWorkspaceStore', () => {
     store.setAuthenticatedEnterpriseAccount(null)
     expect(store.snapshot()).toEqual(local)
     expect(new ProductWorkspaceStore({ rootDir }).snapshot()).toEqual(local)
-  });
+  })
 
   it('中心认证快照包含 active 同事目录，且当前账号字段始终以认证账号为准', () => {
     const store = new ProductWorkspaceStore({ rootDir })
@@ -235,7 +235,7 @@ describe('ProductWorkspaceStore', () => {
       }),
     ])
     expect(snapshot.members).toHaveLength(2)
-  });
+  })
 
   it('中心身份指纹包含目录，目录成员变化会触发运行时身份刷新', () => {
     const store = new ProductWorkspaceStore({ rootDir })
@@ -263,7 +263,7 @@ describe('ProductWorkspaceStore', () => {
     )
 
     expect(store.enterpriseIdentityState().fingerprint).not.toBe(first)
-  });
+  })
 
   it('中心认证身份存在时拒绝所有本机企业身份变更', () => {
     const store = new ProductWorkspaceStore({ rootDir })
@@ -283,7 +283,7 @@ describe('ProductWorkspaceStore', () => {
       /中心认证身份/,
     )
     expect(() => store.issueInvite({ kind: 'company' })).toThrow(/中心认证身份/)
-  });
+  })
 
   it('中心身份租约必须有效，过期后快照与本机身份变更都 fail closed', () => {
     let now = new Date('2026-07-19T00:00:00.000Z')
@@ -323,7 +323,7 @@ describe('ProductWorkspaceStore', () => {
 
     store.setAuthenticatedEnterpriseAccount(null)
     expect(store.snapshot().context.edition).toBe('personal')
-  });
+  })
 
   it('总公司签发引入子公司链接，子公司输入后持久化父子关系且不改变自身 CEO 身份', () => {
     const parentRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-parent-workspace-'))
@@ -434,4 +434,4 @@ describe('ProductWorkspaceStore', () => {
       fs.rmSync(wrongRoot, { recursive: true, force: true })
     }
   })
-});
+})

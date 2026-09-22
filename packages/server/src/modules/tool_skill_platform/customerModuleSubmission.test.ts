@@ -36,7 +36,7 @@ describe('customer module package submission', () => {
     })
     expect(result.status).toBe('review')
     expect(store.getArtifacts('com.acme.upload', '1.0.0').get('module.wasm')).toEqual(WASM)
-  });
+  })
 
   it('records a failed scan and never persists invalid artifacts', async () => {
     const store = new InMemoryCustomerModuleMarketplaceStore()
@@ -49,7 +49,7 @@ describe('customer module package submission', () => {
     })).rejects.toThrow(/clawmaster_run/)
     expect(store.getArtifacts('com.acme.upload', '1.0.0').size).toBe(0)
     expect(market.get('com.acme.upload', '1.0.0')?.scanReport?.passed).toBe(false)
-  });
+  })
 
   it('rejects a statically valid module that never yields in the sandbox', async () => {
     const store = new InMemoryCustomerModuleMarketplaceStore()
@@ -60,5 +60,5 @@ describe('customer module package submission', () => {
       files: new Map([['module.wasm', LOOP_WASM], ['icon.svg', ICON]]), market, store,
     })).rejects.toThrow(/sandbox negative test/)
     expect(store.getArtifacts('com.acme.upload', '1.0.0').size).toBe(0)
-  });
+  })
 })

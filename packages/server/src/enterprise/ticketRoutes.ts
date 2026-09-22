@@ -71,7 +71,7 @@ async function sendRepairNotifications(input: {
         status: 'skipped',
         detail: input.feishuSender ? '接收人未配置该通道账号' : '服务器未配置该通知通道',
       })
-      return;
+      return
     }
     let sent = false
     try {
@@ -90,7 +90,7 @@ async function sendRepairNotifications(input: {
         status: 'sent',
         detail: '供应商已接收',
       })
-      return;
+      return
     }
     // 飞书失败进入可重试队列（不影响工单创建）。
     db.scheduleTicketNotificationTask({
@@ -455,7 +455,7 @@ export async function handleTicketRoute({
       const recipients = [
         ...new Map(recipientCandidates.map(item => [item.id, item])).values(),
       ]
-       const title = action === 'respond'
+      const title = action === 'respond'
         ? `ClawMaster 办理回复 · ${ticket.title}`
         : action === 'accept'
           ? `ClawMaster 申请已受理 · ${ticket.title}`
@@ -464,7 +464,7 @@ export async function handleTicketRoute({
               ? `ClawMaster 工作已完成 · ${ticket.title}`
               : `ClawMaster 待确认 · ${ticket.title}`
             : `ClawMaster 办理已确认 · ${ticket.title}`
-       const detail = action === 'respond'
+      const detail = action === 'respond'
         ? `${ticket.responseType || '处理回复'}：${ticket.responseText || ''}`
         : `工单 ${ticket.id} 当前状态：${ticket.status}`
       await sendRepairNotifications({

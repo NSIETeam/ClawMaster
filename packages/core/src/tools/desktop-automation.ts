@@ -43,14 +43,24 @@ public class Win32Api {
 
 export interface DesktopAutomationToolParams {
   action: 'launch_app'|'quit_app'|'window_manager'|'keyboard'|'type_text'|'hotkey'|'mouse'|'drag'|'scroll'|'screenshot'|'clipboard'|'run_script'|'get_active_app'|'list_windows'|'screen_info'|'wait_for_app'|'get_window_position'
-  app_name?: string; app_path?: string; script?: string
-  keys?: string; text?: string
-  x?: number; y?: number; to_x?: number; to_y?: number
-  button?: 'left'|'right'|'middle'; click_type?: 'single'|'double'
-  duration?: number; modifiers?: string
+  app_name?: string
+  app_path?: string
+  script?: string
+  keys?: string
+  text?: string
+  x?: number
+  y?: number
+  to_x?: number
+  to_y?: number
+  button?: 'left'|'right'|'middle'
+  click_type?: 'single'|'double'
+  duration?: number
+  modifiers?: string
   window_operation?: 'minimize'|'maximize'|'restore'|'close'|'front'|'tile_left'|'tile_right'|'tile_top'|'tile_bclawmasterm'|'fullscreen'
-  output_path?: string; clipboard_text?: string
-  scroll_amount?: number; timeout_ms?: number
+  output_path?: string
+  clipboard_text?: string
+  scroll_amount?: number
+  timeout_ms?: number
 }
 
 function ok<T extends ToolResult>(result: string): T {
@@ -149,7 +159,7 @@ DEPENDENCIES: macOS needs cliclick (brew install cliclick). Windows needs nothin
     const danger = p.action==='run_script'||p.action==='quit_app'||p.action==='drag'
     const prefix = danger ? '[WARN] ' : ''
     return { type:'exec', title: prefix+'Confirm: '+this.getDescription(p),
-      command:'desktop_automation('+p.action+')', rootCommand:'desktop_automation', onConfirm: async ()=>{} };
+      command:'desktop_automation('+p.action+')', rootCommand:'desktop_automation', onConfirm: async ()=>{} }
   }
 
   async execute(p: DesktopAutomationToolParams, _s: AbortSignal): Promise<ToolResult> {
@@ -227,8 +237,8 @@ DEPENDENCIES: macOS needs cliclick (brew install cliclick). Windows needs nothin
     return result.stdout.trim()
   }
   private async macScreenSize(): Promise<{ w:number;h:number }> {
-    try { const o=await this.osa('tell application "Finder" to get bounds of window of desktop'); const m=o.match(/(\d+),\s*(\d+)$/); if(m) return { w:+m[1],h:+m[2] }; } catch {}
-    return { w:1920,h:1080 };
+    try { const o=await this.osa('tell application "Finder" to get bounds of window of desktop'); const m=o.match(/(\d+),\s*(\d+)$/); if(m) return { w:+m[1],h:+m[2] } } catch {}
+    return { w:1920,h:1080 }
   }
   private async macLaunch(p: DesktopAutomationToolParams): Promise<string> {
     const t=p.app_path||p.app_name!
@@ -278,7 +288,7 @@ DEPENDENCIES: macOS needs cliclick (brew install cliclick). Windows needs nothin
   private async macHotkey(keys: string): Promise<string> {
     const parts=keys.toLowerCase().replace(/\s+/g,'').split('+')
     const key=parts.pop()!
-    const modMap: Record<string,string>={ cmd:'command',ctrl:'control',alt:'option',shift:'shift' };
+    const modMap: Record<string,string>={ cmd:'command',ctrl:'control',alt:'option',shift:'shift' }
     const modParts=parts.map(m=>modMap[m]||m).map(m=>m+' down')
     const modStr=modParts.length>0?' using {'+modParts.join(', ')+'}':''
     await this.osa('tell application "System Events" to keystroke "'+this.esc(key)+'"'+modStr)
@@ -316,7 +326,7 @@ DEPENDENCIES: macOS needs cliclick (brew install cliclick). Windows needs nothin
       return 'Clipboard read: '+stdout.trim().substring(0,200)
     }
     const child=exec('pbcopy'); child.stdin!.write(text); child.stdin!.end()
-    await new Promise<void>((res,rej)=>{ child.on('close',c=>c===0?res():rej(new Error('pbcopy exit '+c))); child.on('error',rej) });
+    await new Promise<void>((res,rej)=>{ child.on('close',c=>c===0?res():rej(new Error('pbcopy exit '+c))); child.on('error',rej) })
     return 'Clipboard set: '+text.substring(0,80)
   }
   private async macScript(script: string): Promise<string> {
@@ -402,7 +412,7 @@ $h=$t.MainWindowHandle; if($h -eq [IntPtr]::Zero){throw "No main window: ${this.
     return 'Typed: '+t.substring(0,80)
   }
   private async winHotkey(keys: string): Promise<string> {
-    const VK: Record<string,number>={ ctrl:0x11,alt:0x12,shift:0x10,win:0x5B,cmd:0x5B,enter:0x0D,tab:0x09,esc:0x1B,space:0x20,left:0x25,up:0x26,right:0x27,down:0x28,delete:0x2E,f1:0x70,f2:0x71,f3:0x72,f4:0x73,f5:0x74,f6:0x75,f7:0x76,f8:0x77,f9:0x78,f10:0x79,f11:0x7A,f12:0x7B };
+    const VK: Record<string,number>={ ctrl:0x11,alt:0x12,shift:0x10,win:0x5B,cmd:0x5B,enter:0x0D,tab:0x09,esc:0x1B,space:0x20,left:0x25,up:0x26,right:0x27,down:0x28,delete:0x2E,f1:0x70,f2:0x71,f3:0x72,f4:0x73,f5:0x74,f6:0x75,f7:0x76,f8:0x77,f9:0x78,f10:0x79,f11:0x7A,f12:0x7B }
     const parts=keys.toLowerCase().replace(/\s+/g,'').split('+'); const key=parts.pop()!; const mods=parts
     const pd=mods.map(m=>'[Win32Api]::keybd_event('+(VK[m]||m.charCodeAt(0))+',0,0,[UIntPtr]::Zero)').join(';')
     const pu=mods.reverse().map(m=>'[Win32Api]::keybd_event('+(VK[m]||m.charCodeAt(0))+',0,2,[UIntPtr]::Zero)').join(';')
@@ -412,7 +422,7 @@ $h=$t.MainWindowHandle; if($h -eq [IntPtr]::Zero){throw "No main window: ${this.
     return 'Hotkey: '+keys
   }
   private async winClick(x:number,y:number,b:string,ct:string): Promise<string> {
-    const f: Record<string,string>={ left:'0x0002',right:'0x0008',middle:'0x0020' };
+    const f: Record<string,string>={ left:'0x0002',right:'0x0008',middle:'0x0020' }
     const d=f[b]||'0x0002'; const u=(parseInt(d, 16)*2).toString()
     const clicks=ct==='double'?2:1
     await this.ps(`[Win32Api]::SetCursorPos(${x},${y});1..${clicks}|%{[Win32Api]::mouse_event(${d},0,0,0,[UIntPtr]::Zero);Start-Sleep -ms 20;[Win32Api]::mouse_event(${u},0,0,0,[UIntPtr]::Zero);Start-Sleep -ms 30}`)
@@ -466,7 +476,7 @@ $h=$t.MainWindowHandle; if($h -eq [IntPtr]::Zero){throw "No main window: ${this.
       await this.ps('$d='+timeout+';$sw=[Diagnostics.Stopwatch]::StartNew();'+
       'while($sw.ElapsedMilliseconds -lt $d){$p=Get-Process "'+this.pe(this.wpn(app))+'" -ErrorAction SilentlyContinue;if($p){$p.ProcessName;exit}}'+
       'throw "timeout"')
-          return 'App running: '+app
+      return 'App running: '+app
     } catch(e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('timeout')) throw new Error('Timeout: '+app+' not started within '+timeout+'ms')

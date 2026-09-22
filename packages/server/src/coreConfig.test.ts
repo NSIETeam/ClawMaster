@@ -23,7 +23,7 @@ describe('createCoreConfig v1.7 模式隔离', () => {
     })
 
     expect(config.getApprovalMode()).toBe(ApprovalMode.DEFAULT)
-  });
+  })
 
   it('内部测试阶段遇到旧 ClawMaster 托管模型 id 时回退个人 BYOK', () => {
     const config = createCoreConfig({
@@ -33,7 +33,7 @@ describe('createCoreConfig v1.7 模式隔离', () => {
     })
 
     expect(config.getModel()).toMatch(/^custom:/)
-  });
+  })
 
   it('会话 Agent profile 进入 system userRules，个人版可排除企业工具', () => {
     const config = createCoreConfig({
@@ -46,7 +46,7 @@ describe('createCoreConfig v1.7 模式隔离', () => {
 
     expect(config.getUserRules()).toContain('会议发起 Agent')
     expect(config.getExcludeTools()).toEqual(['multi_channel', 'feishu_project_collab'])
-  });
+  })
 
   it('飞书会话把 channel context 注入 core 配置', () => {
     const config = createCoreConfig({
@@ -57,7 +57,7 @@ describe('createCoreConfig v1.7 模式隔离', () => {
     })
 
     expect(config.getFeishuMode()).toBe(true)
-  });
+  })
 
   it('tool-free 会话把禁用 MCP 发现下沉到真实 Core Config', () => {
     const config = createCoreConfig({
@@ -71,7 +71,7 @@ describe('createCoreConfig v1.7 模式隔离', () => {
     expect(config.getMcpDiscoveryDisabled()).toBe(true)
     expect(config.getEnvironmentContextDisabled()).toBe(true)
     expect(config.getToolsDisabled()).toBe(true)
-  });
+  })
 
   it('把桌面搜索 API 配置装配进 Core，并支持运行时读取', () => {
     const config = createCoreConfig({
@@ -91,7 +91,7 @@ describe('createCoreConfig v1.7 模式隔离', () => {
       'https://ark.example.com/api/v3/responses',
     )
     expect(config.getSearchModel()).toBe('doubao-search-model')
-  });
+  })
 
   it('把服务端受信文档署名身份装配进 Core', () => {
     const config = createCoreConfig({
@@ -107,5 +107,5 @@ describe('createCoreConfig v1.7 模式隔离', () => {
       name: '林一',
       department: '产品与研发部',
     })
-  });
+  })
 })

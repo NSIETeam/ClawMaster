@@ -20,7 +20,7 @@ const roots: string[] = []
 afterEach(async () => {
   delete process.env.CLAWMASTER_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS
   await Promise.all(roots.splice(0).map(root => fs.promises.rm(root, { recursive: true, force: true })))
-});
+})
 
 function packageFixture(permissions: CustomerModulePermission[] = [{ kind: 'model', paid: true }]) {
   const wasm = Uint8Array.from([
@@ -63,7 +63,7 @@ describe('customer module installer', () => {
     expect(record.receiptStatus).toBe('committed')
     expect(await fs.promises.readFile(path.join(record.artifactPath, 'module.wasm'))).toBeTruthy()
     expect(client.recordCustomerModuleInstall).toHaveBeenCalledWith(record.id, record.version, record.receiptId)
-  });
+  })
 
   it('keeps a pending receipt after network failure and recovers without reinstalling', async () => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-recover-')); roots.push(root)
@@ -80,7 +80,7 @@ describe('customer module installer', () => {
     client.recordCustomerModuleInstall.mockResolvedValueOnce(undefined)
     await recoverCustomerModuleInstallReceipts(root, client as never)
     expect((await listInstalledCustomerModules(root))[0].receiptStatus).toBe('committed')
-  });
+  })
 
   it('rejects untrusted signatures before writing artifacts', async () => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-untrusted-')); roots.push(root)
@@ -92,7 +92,7 @@ describe('customer module installer', () => {
       approvedPermissions: bundle.manifest.permissions, clawmasterVersion,
     })).rejects.toThrow(/不可信/)
     expect(await listInstalledCustomerModules(root)).toEqual([])
-  });
+  })
 
   it('rejects a package that requires a newer ClawMaster version', async () => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-version-')); roots.push(root)
@@ -102,7 +102,7 @@ describe('customer module installer', () => {
       moduleId: bundle.manifest.id, version: bundle.manifest.version,
       approvedPermissions: bundle.manifest.permissions, clawmasterVersion: '1.15.2',
     })).rejects.toThrow(/1\.15\.3/)
-  });
+  })
 
   it('refuses to reuse a tampered version directory', async () => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-tamper-')); roots.push(root)
@@ -111,7 +111,7 @@ describe('customer module installer', () => {
     const record = await installCustomerModule({ root, client: client as never, moduleId: bundle.manifest.id, version: bundle.manifest.version, approvedPermissions: bundle.manifest.permissions, clawmasterVersion })
     await fs.promises.writeFile(path.join(record.artifactPath, 'module.wasm'), 'tampered')
     await expect(installCustomerModule({ root, client: client as never, moduleId: bundle.manifest.id, version: bundle.manifest.version, approvedPermissions: bundle.manifest.permissions, clawmasterVersion })).rejects.toThrow(/hash mismatch/)
-  });
+  })
 
   it('separates disable, uninstall, and scoped-data clearing', async () => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-lifecycle-')); roots.push(root)
@@ -132,7 +132,7 @@ describe('customer module installer', () => {
     await expect(fs.promises.access(dataRoot)).resolves.toBeUndefined()
     await clearCustomerModuleData(root, record.id)
     await expect(fs.promises.access(dataRoot)).rejects.toThrow()
-  });
+  })
 
   it('fail-closes an installed version after marketplace suspension', async () => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-suspend-')); roots.push(root)
@@ -144,7 +144,7 @@ describe('customer module installer', () => {
     } as never)
     expect(records[0]).toMatchObject({ enabled: false, riskStatus: 'suspended' })
     await expect(setCustomerModuleEnabled(root, bundle.manifest.id, true)).rejects.toThrow(/风险状态/)
-  });
+  })
 
   it('preserves the committed registry when an atomic switch fails with disk full', async () => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-disk-full-')); roots.push(root)
@@ -155,7 +155,7 @@ describe('customer module installer', () => {
     await expect(setCustomerModuleEnabled(root, bundle.manifest.id, false)).rejects.toMatchObject({ code: 'ENOSPC' })
     rename.mockRestore()
     expect((await listInstalledCustomerModules(root))[0].enabled).toBe(true)
-  });
+  })
 
   it('keeps declared background capability off until a separate explicit authorization', async () => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-background-')); roots.push(root)
@@ -165,5 +165,5 @@ describe('customer module installer', () => {
     expect(installed.backgroundEnabled).toBe(false)
     expect((await setCustomerModuleBackgroundEnabled(root, installed.id, true)).backgroundEnabled).toBe(true)
     expect((await setCustomerModuleBackgroundEnabled(root, installed.id, false)).backgroundEnabled).toBe(false)
-  });
+  })
 })

@@ -88,10 +88,10 @@ function resolveScopePath(
     case 'project':
     {
       const root = ctx.projectRoot.replace(/[/\\]+$/, '')
-        const currentPath = `${root}/${DEFAULT_CONTEXT_FILENAME}`
-        const legacyPath = `${root}/${LEGACY_CONTEXT_FILENAME}`
-        return existsSync(currentPath) || !existsSync(legacyPath) ? currentPath : legacyPath
-      }
+      const currentPath = `${root}/${DEFAULT_CONTEXT_FILENAME}`
+      const legacyPath = `${root}/${LEGACY_CONTEXT_FILENAME}`
+      return existsSync(currentPath) || !existsSync(legacyPath) ? currentPath : legacyPath
+    }
     case 'session':
       return ctx.sessionId ? getFeishuSessionMemoryPath(ctx.sessionId) : null
     default:

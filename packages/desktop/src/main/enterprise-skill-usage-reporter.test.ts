@@ -36,7 +36,7 @@ async function fixture(): Promise<{
 
 afterEach(async () => {
   await Promise.all(roots.splice(0).map(root => fs.rm(root, { recursive: true, force: true })))
-});
+})
 
 describe('EnterpriseSkillUsageReporter', () => {
   it('reports only installed market Skills and does not upload an event twice', async () => {
@@ -59,7 +59,7 @@ describe('EnterpriseSkillUsageReporter', () => {
     expect(report).toHaveBeenCalledTimes(1)
     expect(report).toHaveBeenCalledWith('skill-1', true, expect.stringMatching(/^[a-f0-9]{64}$/u))
     expect(JSON.stringify(report.mock.calls)).not.toContain('private output')
-  });
+  })
 
   it('keeps failed reports pending and isolates delivery state by account', async () => {
     const files = await fixture()
@@ -82,5 +82,5 @@ describe('EnterpriseSkillUsageReporter', () => {
     await expect(reporter.poll()).resolves.toBe(1)
     expect(report).toHaveBeenCalledTimes(3)
     expect(report.mock.calls[1]?.[2]).not.toBe(report.mock.calls[2]?.[2])
-  });
+  })
 })

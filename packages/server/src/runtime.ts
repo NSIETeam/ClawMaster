@@ -87,7 +87,7 @@ function runtimeErrorText(error: unknown): string {
       current = (current as Error & { cause?: unknown }).cause
     } else {
       messages.push(String(current))
-      break;
+      break
     }
   }
   return messages.join(' | ')
@@ -144,19 +144,19 @@ function messageContentToParts(content: MessageContent): Part[] {
     switch (part.type) {
       case 'text':
         textChunks.push(part.value)
-        break;
+        break
       case 'file_reference':
         textChunks.push(`@${part.value.filePath}`)
-        break;
+        break
       case 'folder_reference':
         textChunks.push(`@${part.value.folderPath}`)
-        break;
+        break
       case 'code_reference':
         textChunks.push(`\n\`\`\`\n${part.value.code}\n\`\`\`\n`)
-        break;
+        break
       case 'text_file_content':
         textChunks.push(`\n[${part.value.fileName}]\n${part.value.content}\n`)
-        break;
+        break
       case 'image_reference':
         imageParts.push({
           inlineData: {
@@ -164,7 +164,7 @@ function messageContentToParts(content: MessageContent): Part[] {
             data: part.value.data,
           },
         })
-        break;
+        break
       default:
         break
     }
@@ -465,7 +465,7 @@ export class CoreSessionRuntime implements SessionRuntime {
         const bSameEndpoint =
           b.model.baseUrl === currentConfig?.baseUrl ? 1 : 0
         return aSameEndpoint - bSameEndpoint
-      });
+      })
 
     for (const candidate of candidates) {
       attemptedModels.add(candidate.id)
@@ -539,7 +539,7 @@ export class CoreSessionRuntime implements SessionRuntime {
           message: '该会话正在生成回复，请稍候或先取消。',
         },
       })
-      return;
+      return
     }
     this.running = true
     this.abort = new AbortController()
@@ -550,7 +550,7 @@ export class CoreSessionRuntime implements SessionRuntime {
       // initialize 未成功：直接报错收口，避免 NPE。
       this.fail('not_initialized', 'core 运行时未初始化')
       this.running = false
-      return;
+      return
     }
     const toolRegistry = this.toolRegistry
 
@@ -605,7 +605,7 @@ export class CoreSessionRuntime implements SessionRuntime {
       if (cancellationPublished) return
       cancellationPublished = true
       this.onCancelled(assistantId, assistantText)
-    };
+    }
     const onAbort = (): void => publishCancellation()
     signal.addEventListener('abort', onAbort, { once: true })
 
@@ -622,7 +622,7 @@ export class CoreSessionRuntime implements SessionRuntime {
         payload: { message: msg },
       })
       return msg.id
-    };
+    }
 
     try {
       this.store.setStatus(this.sessionId, 'thinking')
@@ -636,11 +636,11 @@ export class CoreSessionRuntime implements SessionRuntime {
         turnCount++
         if (maxTurns > 0 && turnCount > maxTurns) {
           this.fail('max_turns', '已达到本会话最大回合数。')
-          break;
+          break
         }
         if (signal.aborted) {
           publishCancellation()
-          break;
+          break
         }
 
         // 本轮一开始就落一条 assistant 占位（isStreaming=true、正文暂空）：让渲染层在
@@ -741,7 +741,7 @@ export class CoreSessionRuntime implements SessionRuntime {
 
         if (signal.aborted) {
           publishCancellation()
-          break;
+          break
         }
 
         // tool-free 是服务端安全边界。即使 provider 在未声明工具时仍返回了
@@ -758,7 +758,7 @@ export class CoreSessionRuntime implements SessionRuntime {
             'tool_free_violation',
             'A2A 安全会话拒绝了模型生成的工具调用。',
           )
-          break;
+          break
         }
 
         // 无工具调用：本轮即终轮，定稿 assistant 消息并收口。
@@ -792,7 +792,7 @@ export class CoreSessionRuntime implements SessionRuntime {
 
           this.store.setStatus(this.sessionId, 'idle')
           this.publishRuntimeActivity('turn', 'completed')
-          break;
+          break
         }
 
         // 有工具调用：定稿当前 assistant 文本段（若有），再执行工具并回灌。
@@ -841,7 +841,7 @@ export class CoreSessionRuntime implements SessionRuntime {
 
         if (signal.aborted) {
           publishCancellation()
-          break;
+          break
         }
 
         // 工具响应回灌为下一轮 user message；重置本段 assistant 累积。
@@ -935,7 +935,7 @@ export class CoreSessionRuntime implements SessionRuntime {
         }
       }
       if (changed) this.publishToolCards(cards, messageId)
-    };
+    }
     signal.addEventListener('abort', cancelActiveCards, { once: true })
     if (signal.aborted) cancelActiveCards()
 
@@ -1006,7 +1006,7 @@ export class CoreSessionRuntime implements SessionRuntime {
 
               if (signal.aborted) {
                 cards.set(callId, cancelToolCall(cards.get(callId) ?? card))
-                return;
+                return
               }
 
               const display = resultDisplayToString(toolResponse.resultDisplay)
@@ -1047,7 +1047,7 @@ export class CoreSessionRuntime implements SessionRuntime {
               const currentCard = cards.get(callId) ?? card
               if (signal.aborted) {
                 cards.set(callId, cancelToolCall(currentCard))
-                return;
+                return
               }
               cards.set(callId, {
                 ...currentCard,
@@ -1274,15 +1274,15 @@ export class CoreSessionRuntime implements SessionRuntime {
         this.pendingConfirmations.delete(callId)
         signal.removeEventListener('abort', onAbort)
         resolve(result)
-      };
+      }
       const onAbort = (): void => finish({ outcome: 'rejected' })
       if (signal.aborted) {
         finish({ outcome: 'rejected' })
-        return;
+        return
       }
       signal.addEventListener('abort', onAbort, { once: true })
       this.pendingConfirmations.set(callId, finish)
-    });
+    })
   }
 
   private callIdOf(fc: FunctionCall): string {

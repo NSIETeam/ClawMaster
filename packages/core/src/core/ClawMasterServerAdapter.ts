@@ -139,7 +139,7 @@ function getProxyToolNames(requestBody: ProxyRequestBody): string[] {
         ? [declaration.name]
         : [],
     )
-  });
+  })
 }
 
 function getFunctionCalls(response: GenerateContentResponse) {
@@ -268,7 +268,7 @@ function applyGenAIThinkingConfig(
     `\x1b[35m[thinking-debug]\x1b[0m model=\x1b[36m${model}\x1b[0m  userThinkingConfig=${
       thinkingConfig === undefined ? 'undefined (走默认 auto)' : JSON.stringify(thinkingConfig)
     }`,
-  );
+  )
 
   if (!thinkingConfig) return reqConfig
 
@@ -294,11 +294,11 @@ function applyGenAIThinkingConfig(
       if (isGemini3) {
         config.thinkingConfig = {
           thinkingLevel: 'minimal', // 🌟 Gemini 3/3.5 官方推荐的 "no thinking" 最小延迟档位
-        };
+        }
       } else {
         config.thinkingConfig = {
           thinkingBudget: 0, // 🌟 Gemini 2.5 官方标准的 "disable thinking" 档位
-        };
+        }
       }
     } else {
       // 检查是否为 Gemini 3 / 3.5 系列 (未来/现代模型)
@@ -307,7 +307,7 @@ function applyGenAIThinkingConfig(
         config.thinkingConfig = {
           thinkingLevel,
           includeThoughts: true,
-        };
+        }
       } else {
         // Gemini 2.5 系列
         const thinkingBudget = thinkingConfig.budgetTokens !== undefined
@@ -316,7 +316,7 @@ function applyGenAIThinkingConfig(
         config.thinkingConfig = {
           thinkingBudget,
           includeThoughts: true,
-        };
+        }
       }
     }
     // 同时清理掉旧的错位字段（避免老代码或下游误读到嵌套的旧值）
@@ -348,7 +348,7 @@ function applyGenAIThinkingConfig(
         config.generationConfig.thinking = {
           type: 'enabled',
           budget_tokens: budgetTokens,
-        };
+        }
       }
     }
   } else if (modelLower.includes('glm')) {
@@ -361,7 +361,7 @@ function applyGenAIThinkingConfig(
       config.generationConfig.thinking = {
         type: 'enabled',
         clear_thinking: false, // 保留式思考
-      };
+      }
     }
   } else if (modelLower.includes('o1') || modelLower.includes('o3') || modelLower.includes('gpt-')) {
     // 4. OpenAI 系列
@@ -402,7 +402,7 @@ function applyGenAIThinkingConfig(
     `\x1b[35m[thinking-debug]\x1b[0m \u2192 injected to generationConfig: ${
       Object.keys(injected).length === 0 ? '(none, model not matched)' : JSON.stringify(injected)
     }`,
-  );
+  )
 
   return config
 }
@@ -430,7 +430,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     this.authHandler = async () => {
       console.log('🔄 [ClawMaster Runtime] Authentication required, opening auth dialog...')
       throw new UnauthorizedError('Authentication required - please re-authenticate')
-    };
+    }
 
     // 只在调试模式下显示详细日志
     if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
@@ -462,7 +462,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         }
         return true
       } else {
-        console.warn('[ClawMaster Runtime] No user info found, please login first');
+        console.warn('[ClawMaster Runtime] No user info found, please login first')
         return false
       }
     } catch (error) {
@@ -487,15 +487,15 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         ? content.parts.filter((part) => {
           if (part.text !== undefined) {
             return part.text.trim() !== ''
-            }
+          }
           return true
-          })
+        })
         : []
 
       const clonedContent = {
         role: content.role,
         parts: clonedParts,
-      };
+      }
 
       if (clonedContent.role === MESSAGE_ROLES.MODEL) {
         const parts = clonedContent.parts || []
@@ -550,10 +550,10 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         if (part.text !== undefined) return part.text.trim() !== ''
         // 其他类型（functionCall, functionResponse, reasoning, etc.）视为有效
         return true
-      });
+      })
 
       return hasValidPart
-    });
+    })
 
     // 🛡️ 协议安全网：删除"真孤儿 functionResponse"（找不到任何可配对 functionCall）
     // 修复用户实拍 easyrouter 400：
@@ -584,9 +584,9 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           if (part.functionResponse) return `functionResponse(${part.functionResponse.name})`
           if (part.reasoning) return `reasoning(${part.reasoning.length})`
           return 'unknown'
-        });
+        })
         console.log(`  [${idx}] role=${c.role} parts=[${partTypes.join(', ')}]`)
-      });
+      })
     }
 
     return orphanCleaned
@@ -645,7 +645,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     for (const content of contents) {
       if (!Array.isArray(content?.parts)) {
         result.push(content)
-        continue;
+        continue
       }
 
       const keptParts = content.parts.filter((part) => {
@@ -675,7 +675,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           `${fr.name} (id: ${fr.id ?? 'n/a'}) — no matching functionCall found.`,
         )
         return false
-      });
+      })
 
       // 若该消息所有 part 都被删空，则整条丢弃；否则保留（可能含其他 part）
       if (keptParts.length > 0) {
@@ -768,9 +768,9 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               'X-Scene-Type': scene,
               'X-Scene-Display': SceneManager.getSceneDisplayName(scene),
             },
-          }
+          },
         },
-      };
+      }
 
       logger.info(`[ClawMaster Runtime] Calling unified chat API with model: ${modelToUse}`)
 
@@ -864,7 +864,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           return false
         },
       },
-    );
+    )
   }
 
   /**
@@ -889,7 +889,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         const handleAbort = () => {
           console.log('[ClawMaster Runtime] Request cancelled by user')
           controller.abort()
-        };
+        }
         abortSignal.addEventListener('abort', handleAbort)
         abortListener = () => abortSignal.removeEventListener('abort', handleAbort)
       }
@@ -920,7 +920,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         endpoint,
         url: proxyUrl,
         model: requestBody.model,
-      });
+      })
 
       // 🔍 [STOP-DEBUG][adapter] Outgoing tool manifest — non-stream path.
       // 用途：诊断"模型说要调 local_time 但工具调用却空了"这类问题。如果
@@ -933,11 +933,11 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         const names = Array.isArray(tools)
           ? tools.flatMap((tool): string[] => {
             if (!isRecord(tool) || !Array.isArray(tool.functionDeclarations)) return []
-              return tool.functionDeclarations.flatMap((declaration): string[] =>
+            return tool.functionDeclarations.flatMap((declaration): string[] =>
               isRecord(declaration) && typeof declaration.name === 'string'
                 ? [declaration.name]
                 : [],
-            );
+            )
           })
           : []
         console.log(
@@ -1000,7 +1000,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           retriableError.response = {
             status: response.status,
             headers: { 'retry-after': retryAfter },
-          };
+          }
         }
         throw apiError
       }
@@ -1011,7 +1011,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         response.json() as Promise<GenerateContentResponse>,
         300000,
         '[ClawMaster Runtime] API response parsing timeout after 300s - JSON.parse() or streaming took too long. Try: check your network, say "continue" to retry, or try a different model.',
-      );
+      )
       clearTimeout(dataTimeoutId)
 
       // 确保响应对象有 functionCalls getter
@@ -1034,7 +1034,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           },
           enumerable: false,
           configurable: true,
-        });
+        })
       }
 
       const duration = Date.now() - startTime
@@ -1042,7 +1042,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         endpoint,
         duration: `${duration}ms`,
         status: response.status,
-      });
+      })
 
       return responseData
 
@@ -1069,19 +1069,19 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           endpoint,
           duration: `${duration}ms`,
           reason: error.message,
-        });
+        })
       } else if (error instanceof Error && error.message.includes('abort')) {
         logger.warn('[ClawMaster Runtime] Request aborted', {
           endpoint,
           duration: `${duration}ms`,
           reason: error.message,
-        });
+        })
       } else {
         logger.error('[ClawMaster Runtime] API call failed', {
           endpoint,
           duration: `${duration}ms`,
           error: error instanceof Error ? error.message : error,
-        });
+        })
       }
 
       throw error
@@ -1114,7 +1114,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
        (error as RetriableProxyError).cause?.code === 'ECONNREFUSED')
 
     if (isConnectionError) {
-      console.error('❌ 无法连接到服务器，请检查网络连接或服务器状态');
+      console.error('❌ 无法连接到服务器，请检查网络连接或服务器状态')
     } else {
       console.error('[ClawMaster Runtime] Error in generateContent:', error)
     }
@@ -1124,7 +1124,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
       const friendlyError = new Error(
         `Authentication failed (401): ${error.message}\n\n` +
         'Please check your Feishu authentication token and try again.\n' +
-        'If the problem persists, you may need to re-authenticate.'
+        'If the problem persists, you may need to re-authenticate.',
       )
       const annotatedError = friendlyError as Error & { isAuthError?: boolean; statusCode?: number }
       annotatedError.isAuthError = true
@@ -1158,7 +1158,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
     if (isCustomModel(modelToUse) && this.config) {
       const customModelConfig = this.config.getCustomModelConfig(modelToUse)
       if (customModelConfig) {
-        console.log('[ClawMaster Runtime] Custom model detected, using streaming mode');
+        console.log('[ClawMaster Runtime] Custom model detected, using streaming mode')
         // 🆕 注入会话级/项目级 thinking 配置
         const thinkingOverride = this.config.getThinkingConfig()
         const resolvedConfig = {
@@ -1244,9 +1244,9 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               'X-Scene-Type': scene,
               'X-Scene-Display': SceneManager.getSceneDisplayName(scene),
             },
-          }
+          },
         },
-      };
+      }
 
       logger.info(`[ClawMaster Runtime] Starting stream with model: ${modelToUse}`)
 
@@ -1334,7 +1334,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           return false
         },
       },
-    );
+    )
   }
 
   /**
@@ -1379,7 +1379,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
             console.log('[ClawMaster Runtime] Stream request cancelled by user')
           }
           controller.abort()
-        };
+        }
         abortSignal.addEventListener('abort', handleAbort)
         abortListener = () => abortSignal.removeEventListener('abort', handleAbort)
       }
@@ -1399,7 +1399,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         endpoint,
         url: proxyUrl,
         model: requestBody.model,
-      });
+      })
 
       // 🔍 [STOP-DEBUG][adapter] Outgoing tool manifest — stream path.
       // 与 non-stream 路径同义，只是走的是 /v1/chat/stream。
@@ -1459,7 +1459,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         endpoint,
         duration: `${duration}ms`,
         status: response.status,
-      });
+      })
 
       return response
 
@@ -1484,13 +1484,13 @@ export class ClawMasterServerAdapter implements ContentGenerator {
           endpoint,
           duration: `${duration}ms`,
           reason: error.message,
-        });
+        })
       } else {
         logger.error('[ClawMaster Runtime] Stream API call failed', {
           endpoint,
           duration: `${duration}ms`,
           error: error instanceof Error ? error.message : error,
-        });
+        })
       }
 
       throw error
@@ -1584,13 +1584,13 @@ export class ClawMasterServerAdapter implements ContentGenerator {
             reader.read(),
             300000,
             '[ClawMaster Runtime] Stream read timeout after 300s (no data received in this chunk)',
-          );
+          )
         } catch (readError) {
           // 如果是 AbortError（由 reader.cancel() 引发），则优雅退出
           if (readError instanceof Error &&
               (readError.name === 'AbortError' || readError.message.includes('cancelled'))) {
             console.log('[ClawMaster Runtime] Stream read cancelled - exiting')
-            break;
+            break
           }
 
           // 🆕 捕获 TCP 中断错误（如服务器重启导致的连接断开）
@@ -1618,7 +1618,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
                 'Stream interrupted: Connection was terminated mid-stream. ' +
                 'This may be caused by server restart or network issues. ' +
                 `Please retry your request. (Original: ${readError.message})`,
-              );
+              )
               const annotatedError = streamInterruptError as Error & {
                 isStreamInterrupt?: boolean
                 isRetryable?: boolean
@@ -1758,7 +1758,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
                 console.log(
                   '[STOP-DEBUG][adapter] convertStreamChunkToGenAI returned null; chunk skipped',
                 )
-                continue;
+                continue
               }
 
               // 🛡️ 区分工具调用 chunk 与纯文本 chunk
@@ -1881,7 +1881,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         },
         enumerable: false,
         configurable: true,
-      });
+      })
     }
 
     return response
@@ -1906,7 +1906,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
         const trimmed = fc.args.trim()
         if (trimmed.length === 0) {
           fc.args = {}
-          continue;
+          continue
         }
         try {
           const parsed = JSON.parse(trimmed)
@@ -2102,7 +2102,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
       } = {
         model: modelToUse,
         contents: request.contents,
-      };
+      }
 
       // 从 request.config 中提取 systemInstruction 和 tools
       if (request.config?.systemInstruction || request.config?.tools) {
@@ -2182,11 +2182,11 @@ export class ClawMasterServerAdapter implements ContentGenerator {
 
       console.log('[ClawMaster Runtime] Token count response', {
         totalTokens: responseData.totalTokens,
-      });
+      })
 
       return {
         totalTokens: responseData.totalTokens || 0,
-      };
+      }
 
     } catch (error) {
       logger.error('[ClawMaster Runtime] Token count API call failed:', error)
@@ -2215,14 +2215,14 @@ export class ClawMasterServerAdapter implements ContentGenerator {
               const toolCallText = `[Tool: ${functionCall.name}]` +
                                   JSON.stringify(functionCall.args || {})
               totalChars += toolCallText.length
-           } else if (partRecord && isRecord(partRecord.functionResponse)) {
+            } else if (partRecord && isRecord(partRecord.functionResponse)) {
               // 估算工具响应的token数
               const functionResponse = partRecord.functionResponse
               const response = isRecord(functionResponse.response) ? functionResponse.response : {}
               const output = response.output || 'result'
               const toolResultText = `[Tool Result: ${output}]`
               totalChars += toolResultText.length + 20 // 额外的结构开销
-           }
+            }
           }
         } else if (typeof content === 'string') {
           totalChars += content.length
@@ -2287,7 +2287,7 @@ export class ClawMasterServerAdapter implements ContentGenerator {
       timeoutId = setTimeout(() => {
         reject(new Error(timeoutMessage))
       }, timeoutMs)
-    });
+    })
 
     return Promise.race([promise, timeoutPromise]).finally(() => {
       // 🔑 关键清理：如果 promise 先完成，必须清理 timeoutId

@@ -20,7 +20,7 @@ describe('KnowledgeBaseTool', () => {
     savedClawMasterUserDir = process.env.CLAWMASTER_USER_DIR
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-kb-tool-test-'))
     process.env.CLAWMASTER_USER_DIR = tmpDir
-  });
+  })
 
   afterEach(async () => {
     if (savedClawMasterUserDir === undefined) {
@@ -29,11 +29,11 @@ describe('KnowledgeBaseTool', () => {
       process.env.CLAWMASTER_USER_DIR = savedClawMasterUserDir
     }
     await fs.rm(tmpDir, { recursive: true, force: true })
-  });
+  })
 
   it('工具名为 knowledge_base', () => {
     expect(KnowledgeBaseTool.Name).toBe('knowledge_base')
-  });
+  })
 
   it('add → search → list → remove 全链路', async () => {
     const tool = new KnowledgeBaseTool()
@@ -81,7 +81,7 @@ describe('KnowledgeBaseTool', () => {
       signal,
     )
     expect(String(afterRemove.llmContent)).toContain('No knowledge entries matched')
-  });
+  })
 
   it('search 支持 category 过滤', async () => {
     const tool = new KnowledgeBaseTool()
@@ -100,7 +100,7 @@ describe('KnowledgeBaseTool', () => {
     const text = String(result.llmContent)
     expect(text).toContain('in life')
     expect(text).not.toContain('in dev')
-  });
+  })
 
   it('remove 不存在的 id 报"未找到"而不是假装成功', async () => {
     const tool = new KnowledgeBaseTool()
@@ -109,25 +109,25 @@ describe('KnowledgeBaseTool', () => {
       signal,
     )
     expect(String(result.llmContent)).toContain('not found')
-  });
+  })
 
   describe('参数校验', () => {
     it('add 缺 content 拒绝', async () => {
       const tool = new KnowledgeBaseTool()
       const result = await tool.execute({ action: 'add' }, signal)
       expect(String(result.llmContent)).toContain('content required')
-    });
+    })
 
     it('search 缺 query 拒绝', async () => {
       const tool = new KnowledgeBaseTool()
       const result = await tool.execute({ action: 'search' }, signal)
       expect(String(result.llmContent)).toContain('query required')
-    });
+    })
 
     it('remove 缺 id 拒绝', async () => {
       const tool = new KnowledgeBaseTool()
       const result = await tool.execute({ action: 'remove' }, signal)
       expect(String(result.llmContent)).toContain('id required')
-    });
+    })
   })
-});
+})

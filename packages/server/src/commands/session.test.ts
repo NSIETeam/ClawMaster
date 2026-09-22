@@ -26,7 +26,7 @@ describe('desktop long-running modes', () => {
   it('publishes plan, goal and system controls to the desktop slash menu', () => {
     const names = listSlashCommands().map(command => command.name)
     expect(names).toEqual(expect.arrayContaining(['plan', 'goal', 'system']))
-  });
+  })
 
   it('/plan enables read-only planning and can be cleared', async () => {
     const setPlanModeActive = vi.fn()
@@ -41,7 +41,7 @@ describe('desktop long-running modes', () => {
 
     await planCommand.action?.({ host, sessionId: 's1' }, 'off')
     expect(setPlanModeActive).toHaveBeenLastCalledWith(false)
-  });
+  })
 
   it('/plan can lazily initialize a fresh desktop session before the first message', async () => {
     const setPlanModeActive = vi.fn()
@@ -64,7 +64,7 @@ describe('desktop long-running modes', () => {
     expect(ensureConfig).toHaveBeenCalledWith('fresh-session')
     expect(setPlanModeActive).toHaveBeenCalledWith(true)
     expect(started).toMatchObject({ kind: 'submit_prompt' })
-  });
+  })
 
   it('/goal registers a durable goal context and clear releases it', async () => {
     const client = {
@@ -82,12 +82,12 @@ describe('desktop long-running modes', () => {
 
     await goalCommand.action?.({ host, sessionId: 's1' }, 'clear')
     expect(client.clearGoalContext).toHaveBeenCalledOnce()
-  });
+  })
 
   it('/system applies, shows and clears a session system prompt without replacing base rules', async () => {
     let customPrompt = ''
     const refresh = vi.fn(async () => undefined)
-    const setCustomSystemPrompt = vi.fn((value: string) => { customPrompt = value });
+    const setCustomSystemPrompt = vi.fn((value: string) => { customPrompt = value })
     const host = hostWithConfig({
       getCustomSystemPrompt: () => customPrompt,
       setCustomSystemPrompt,
@@ -108,7 +108,7 @@ describe('desktop long-running modes', () => {
     await systemCommand.action?.({ host, sessionId: 's1' }, 'clear')
     expect(setCustomSystemPrompt).toHaveBeenLastCalledWith('')
     expect(refresh).toHaveBeenCalledTimes(2)
-  });
+  })
 
   it('/init presents CLAWMASTER.md while preserving an existing legacy memory file', async () => {
     const cwd = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-init-'))
@@ -124,5 +124,5 @@ describe('desktop long-running modes', () => {
     const preserved = await initCommand.action?.({ host, sessionId: 's1' }, '')
     expect(preserved).toMatchObject({ kind: 'markdown', ok: true })
     expect(preserved && 'markdown' in preserved ? preserved.markdown : '').toContain('No changes were made')
-  });
+  })
 })

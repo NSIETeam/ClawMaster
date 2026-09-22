@@ -87,7 +87,7 @@ describe('S3 AttachmentObjectStore', () => {
     expect(JSON.stringify(put?.input)).not.toContain('organization')
     expect(JSON.stringify(put?.input)).not.toContain('filename')
     expect(JSON.stringify(put?.input)).not.toContain('public-read')
-  });
+  })
 
   it('presigns bounded multipart parts and verifies the completed ciphertext', async () => {
     const client = new FakeS3Client()
@@ -153,7 +153,7 @@ describe('S3 AttachmentObjectStore', () => {
         'GetObjectCommand',
       ]),
     )
-  });
+  })
 
   it('deletes a completed object when full ciphertext verification fails', async () => {
     const client = new FakeS3Client()
@@ -185,5 +185,5 @@ describe('S3 AttachmentObjectStore', () => {
       }),
     ).rejects.toThrow(/checksum/i)
     expect(client.commands.at(-1)?.name).toBe('DeleteObjectCommand')
-  });
+  })
 })

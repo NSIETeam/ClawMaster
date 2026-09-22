@@ -36,10 +36,10 @@ describe('buildRecallFromLayeredMemory', () => {
     expect(result).toContain('plugin interfaces should be keyed by plugin name')
     expect(result).toContain('--- Session Memory ---')
     expect(result).not.toContain('user prefers short answers')
-  });
+  })
 
   it('returns an empty string when there are no query terms', () => {
     const result = buildRecallFromLayeredMemory(layeredMemory, {})
     expect(result).toBe('')
-  });
+  })
 })

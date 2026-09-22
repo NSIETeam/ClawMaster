@@ -219,7 +219,7 @@ export class UpdateService {
       })()
       if (!result.ok) {
         manifestErrors.push(`${sourceName}：${result.error}`)
-        continue;
+        continue
       }
       const sourceAllowedOrigins = !source && (
         manifestUrl === GITHUB_MANIFEST_URL ||
@@ -230,7 +230,7 @@ export class UpdateService {
       const parsed = parseManifest(result.json, sourceAllowedOrigins)
       if (!parsed.ok) {
         manifestErrors.push(`${sourceName}：${parsed.error}`)
-        continue;
+        continue
       }
       return this.remember(
         resolveCheckOutcome(

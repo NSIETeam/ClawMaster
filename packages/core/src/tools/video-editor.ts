@@ -205,7 +205,7 @@ GPU: Uses WebGPU/WebCodecs for hardware acceleration.`
       switch (p.action) {
         case 'open': {
           r = await this.launchEditor()
-          break;
+          break
         }
 
         case 'import': {
@@ -213,29 +213,29 @@ GPU: Uses WebGPU/WebCodecs for hardware acceleration.`
           if (!await this.isEditorRunning() && !await this.isDevServerRunning()) await this.launchEditor()
           await new Promise(r => setTimeout(r, 2000))
           r = `Video "${path.basename(p.file_path!)}" ready for import. In the editor, use File > Import to load it.\nPath: ${p.file_path}`
-          break;
+          break
         }
 
         case 'add_subtitle': {
           r = `Subtitle command queued: "${p.text}" at ${p.start_time || 0}s for ${p.duration || 3}s (${p.position || 'bclawmasterm'}). Apply in editor timeline.`
-          break;
+          break
         }
 
         case 'add_text': {
           r = `Text overlay queued: "${p.text}" (${p.position || 'center'}, ${p.font_size || 48}px, ${p.color || '#FFFFFF'}).`
-          break;
+          break
         }
 
         case 'cut': {
           r = `Cut command queued: ${p.start_time}s → ${p.end_time}s. Apply in editor timeline.`
-          break;
+          break
         }
 
         case 'export': {
           if (!fs.existsSync(PROJECTS_DIR)) fs.mkdirSync(PROJECTS_DIR, { recursive: true })
           const outPath = path.join(PROJECTS_DIR, `export_${Date.now()}.${p.export_format || 'mp4'}`)
           r = `Export queued: ${p.export_format || 'mp4'} ${p.quality || '1080p'} → ${outPath}. Use editor's Export panel to start rendering.`
-          break;
+          break
         }
 
         case 'ai_edit': {
@@ -262,7 +262,7 @@ GPU: Uses WebGPU/WebCodecs for hardware acceleration.`
           const bundled = fs.existsSync(BUNDLED_EDITOR)
           const running = await this.isEditorRunning() || await this.isDevServerRunning()
           r = `Editor: ${running ? 'running' : 'not running'} | Bundled: ${bundled ? 'yes' : 'no'} | Path: ${bundled ? BUNDLED_EDITOR : DEV_URL}`
-          break;
+          break
         }
 
         case 'close': {
@@ -270,7 +270,7 @@ GPU: Uses WebGPU/WebCodecs for hardware acceleration.`
           r = stopped > 0
             ? `${stopped} managed process${stopped === 1 ? '' : 'es'} closed`
             : 'No managed editor process was running; no external process was touched'
-          break;
+          break
         }
 
         default:

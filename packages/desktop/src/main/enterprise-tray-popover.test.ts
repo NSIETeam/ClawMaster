@@ -31,7 +31,7 @@ describe('enterprise tray message popover', () => {
     expect(parseEnterpriseMessageTimestamp('2026-07-28 03:51:00')).toBe(
       Date.parse('2026-07-28T03:51:00.000Z'),
     )
-  });
+  })
 
   it('按发送人聚合未读数量并保留最新的真实消息', () => {
     expect(summarizeEnterpriseTrayContacts([
@@ -57,7 +57,7 @@ describe('enterprise tray message popover', () => {
         count: 1,
       }),
     ])
-  });
+  })
 
   it('preserves the backend unread count for an encrypted federation contact', () => {
     expect(summarizeEnterpriseTrayContacts([
@@ -73,7 +73,7 @@ describe('enterprise tray message popover', () => {
         count: 7,
       }),
     ])
-  });
+  })
 
   it('渲染美化后的消息摘要并转义不可信内容', () => {
     const html = renderEnterpriseTrayPopoverHtml([
@@ -92,7 +92,7 @@ describe('enterprise tray message popover', () => {
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt; 项目方案已更新')
     expect(html).toContain('clawmaster-tray://message/alice%2F%E7%A0%94%E5%8F%91')
     expect(html).not.toContain('<img src=x onerror=alert(1)>')
-  });
+  })
 
   it('把浮窗约束在托盘所在显示器的工作区内', () => {
     expect(positionEnterpriseTrayPopover(
@@ -100,5 +100,5 @@ describe('enterprise tray message popover', () => {
       { x: 0, y: 0, width: 1920, height: 1040 },
       { width: 392, height: 420 },
     )).toEqual({ x: 1516, y: 608 })
-  });
+  })
 })

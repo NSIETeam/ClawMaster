@@ -45,7 +45,7 @@ vi.mock('motion/react', async () => {
       ),
     },
   }
-});
+})
 
 // Motion exposes its React runtime through this documented package entrypoint.
 // eslint-disable-next-line import/no-internal-modules
@@ -124,7 +124,7 @@ describe('ModuleWorkspace drag reorder contract', () => {
     expect(onLayoutChange).toHaveBeenCalledOnce()
     expect(onLayoutChange.mock.calls[0][0].groups.map((group: { id: string }) => group.id))
       .toEqual(['daily-office', 'park-services'])
-  });
+  })
 
   it('keeps module reorder inside its group and persists only on drop', () => {
     const onLayoutChange = vi.fn()
@@ -151,7 +151,7 @@ describe('ModuleWorkspace drag reorder contract', () => {
     expect(onLayoutChange.mock.calls[0][0].groups[0].moduleIds)
       .toEqual(['park-satisfaction', 'park-announcement'])
     expect(onLayoutChange.mock.calls[0][0].groups[1].moduleIds).toEqual(['agent-ppt'])
-  });
+  })
 
   it('keeps the minimal edit controls for reduced-motion users', () => {
     vi.mocked(useReducedMotion).mockReturnValue(true)
@@ -172,7 +172,7 @@ describe('ModuleWorkspace drag reorder contract', () => {
     expect(screen.queryByRole('button', { name: '拖动功能组：园区服务' })).toBeNull()
     expect(screen.queryByRole('button', { name: '拖动模块：园区公告' })).toBeNull()
     expect(screen.getByRole('button', { name: '移除 园区公告' })).toBeTruthy()
-  });
+  })
 
   it('auto-scrolls the workspace viewport when dragging a group near its edge', () => {
     const { container } = render(
@@ -203,5 +203,5 @@ describe('ModuleWorkspace drag reorder contract', () => {
     Object.defineProperty(topMove, 'clientY', { value: 2 })
     fireEvent(groupList, topMove)
     expect(viewport.scrollTop).toBeLessThan(120)
-  });
+  })
 })

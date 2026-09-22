@@ -527,11 +527,11 @@ export function resolveEnterpriseDocumentIdentity(workspace: {
     const normalized = value
       ? Array.from(value, (character) => {
         const code = character.charCodeAt(0)
-          return code <= 31 || code === 127 ? ' ' : character
-        }).join('').trim().slice(0, 160)
+        return code <= 31 || code === 127 ? ' ' : character
+      }).join('').trim().slice(0, 160)
       : ''
     return normalized || undefined
-  };
+  }
   const member = workspace.members?.find(
     item => item.userId === workspace.context.userId,
   )
@@ -610,11 +610,11 @@ export function buildEnterpriseWorkspaceContext(workspace: {
     const clean = value
       ? Array.from(value, (character) => {
         const code = character.charCodeAt(0)
-          return code <= 31 || code === 127 ? ' ' : character
-        }).join('').trim()
+        return code <= 31 || code === 127 ? ' ' : character
+      }).join('').trim()
       : ''
     return clean ? clean.slice(0, 160) : fallback
-  };
+  }
   const coworkers = (workspace.members ?? [])
     .filter(
       member =>
@@ -681,6 +681,6 @@ export function buildAgentProfileRuntimeRules(
         '</skill_loaded>',
       ].join('\n'),
     ]
-  });
+  })
   return [profile.systemPrompt, ...embedded].join('\n\n---\n\n')
 }

@@ -31,11 +31,11 @@ describe('getFolderStructure', () => {
     testRootDir = await fsPromises.mkdtemp(
       path.join(os.tmpdir(), 'folder-structure-test-'),
     )
-  });
+  })
 
   afterEach(async () => {
     await fsPromises.rm(testRootDir, { recursive: true, force: true })
-  });
+  })
 
   it('should return basic folder structure', async () => {
     await createTestFile('fileA1.ts')
@@ -54,7 +54,7 @@ ${testRootDir}${path.sep}
     └───fileB1.md
 `.trim(),
     )
-  });
+  })
 
   it('should handle an empty folder', async () => {
     const structure = await getFolderStructure(testRootDir)
@@ -67,7 +67,7 @@ ${testRootDir}${path.sep}
         .trim()
         .trim(),
     )
-  });
+  })
 
   it('should ignore folders specified in ignoredFolders (default)', async () => {
     await createTestFile('.hiddenfile')
@@ -95,7 +95,7 @@ ${testRootDir}${path.sep}
         └───fileB1.md
 `.trim(),
     )
-  });
+  })
 
   it('should ignore folders specified in custom ignoredFolders', async () => {
     await createTestFile('.hiddenfile')
@@ -118,7 +118,7 @@ ${testRootDir}${path.sep}
 └───subfolderA${path.sep}...
 `.trim()
     expect(structure.trim()).toBe(expected)
-  });
+  })
 
   it('should filter files by fileIncludePattern', async () => {
     await createTestFile('fileA1.ts')
@@ -136,7 +136,7 @@ ${testRootDir}${path.sep}
 └───subfolderB${path.sep}
 `.trim()
     expect(structure.trim()).toBe(expected)
-  });
+  })
 
   it('should handle maxItems truncation for files within a folder', async () => {
     await createTestFile('fileA1.ts')
@@ -155,7 +155,7 @@ ${testRootDir}${path.sep}
 └───subfolderB${path.sep}
 `.trim()
     expect(structure.trim()).toBe(expected)
-  });
+  })
 
   it('should handle maxItems truncation for subfolders', async () => {
     for (let i = 0; i < 5; i++) {
@@ -176,7 +176,7 @@ ${testRootDir}${path.sep}
 └───...
 `.trim()
     expect(structure.trim()).toBe(expectedRevised)
-  });
+  })
 
   it('should handle maxItems that only allows the root folder itself', async () => {
     await createTestFile('fileA1.ts')
@@ -195,7 +195,7 @@ ${testRootDir}${path.sep}
 └───...
 `.trim()
     expect(structure.trim()).toBe(expected)
-  });
+  })
 
   it('should handle non-existent directory', async () => {
     const nonExistentPath = path.join(testRootDir, 'non-existent')
@@ -203,7 +203,7 @@ ${testRootDir}${path.sep}
     expect(structure).toContain(
       `Error: Could not read directory "${nonExistentPath}". Check path and permissions.`,
     )
-  });
+  })
 
   it('should handle deep folder structure within limits', async () => {
     await createTestFile('level1', 'level2', 'level3', 'file.txt')
@@ -221,7 +221,7 @@ ${testRootDir}${path.sep}
             └───file.txt
 `.trim()
     expect(structure.trim()).toBe(expected)
-  });
+  })
 
   it('should truncate deep folder structure if maxItems is small', async () => {
     await createTestFile('level1', 'level2', 'level3', 'file.txt')
@@ -238,14 +238,14 @@ ${testRootDir}${path.sep}
         └───level3${path.sep}
 `.trim()
     expect(structure.trim()).toBe(expected)
-  });
+  })
 
   describe('with gitignore', () => {
     beforeEach(async () => {
       await fsPromises.mkdir(path.join(testRootDir, '.git'), {
         recursive: true,
       })
-    });
+    })
 
     it('should ignore files and folders specified in .gitignore', async () => {
       await fsPromises.writeFile(
@@ -268,7 +268,7 @@ ${testRootDir}${path.sep}
       expect(structure).not.toContain('logs.json')
       expect(structure).toContain('config.yaml')
       expect(structure).toContain('file1.txt')
-    });
+    })
 
     it('should not ignore files if respectGitIgnore is false', async () => {
       await fsPromises.writeFile(
@@ -289,7 +289,7 @@ ${testRootDir}${path.sep}
 
       expect(structure).toContain('ignored.txt')
       expect(structure).toContain('file1.txt')
-    });
+    })
   })
 
   describe('with geminiignore', () => {
@@ -311,7 +311,7 @@ ${testRootDir}${path.sep}
       expect(structure).not.toContain('ignored.txt')
       expect(structure).toContain(`node_modules${path.sep}...`)
       expect(structure).not.toContain('logs.json')
-    });
+    })
 
     it('should not ignore files if respectGeminiIgnore is false', async () => {
       await fsPromises.writeFile(
@@ -335,6 +335,6 @@ ${testRootDir}${path.sep}
       expect(structure).toContain('ignored.txt')
       // node_modules is still ignored by default
       expect(structure).toContain(`node_modules${path.sep}...`)
-    });
+    })
   })
-});
+})

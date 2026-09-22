@@ -148,13 +148,13 @@ function runPdfWriter(script: string, inputPath: string, outPath: string): Promi
       (error, stdout, stderr) => {
         if (!error) {
           resolve()
-          return;
+          return
         }
         const detail = String(stderr || stdout || error.message).trim()
         reject(new Error('PDF 编辑稿导出失败：需要可用的 pdf-toolkit 运行时（python + fpdf2 + 中文字体）。' + (detail ? ' ' + detail : '')))
       },
     )
-  });
+  })
 }
 
 async function writePdfFromMarkdown(markdown: string, outPath: string): Promise<void> {

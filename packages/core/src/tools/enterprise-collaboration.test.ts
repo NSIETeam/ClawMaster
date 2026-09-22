@@ -58,7 +58,7 @@ describe('EnterpriseCollaborationTool', () => {
     expect(tool.description).toContain('enterprise administrator')
     expect(tool.description).toContain('assign_member_position')
     expect(tool.description).not.toContain('allow full access')
-  });
+  })
 
   it.each([
     { action: 'list_members' },
@@ -119,7 +119,7 @@ describe('EnterpriseCollaborationTool', () => {
     await expect(tool.execute(params, signal())).rejects.toThrow(
       '尚未通过客户端确认',
     )
-  });
+  })
 
   it('未确认、取消、缺少结果、非 JSON 和 JSON primitive 都会 fail-loud', async () => {
     const unconfirmedTool = new EnterpriseCollaborationTool()
@@ -173,7 +173,7 @@ describe('EnterpriseCollaborationTool', () => {
     await expect(
       primitiveTool.execute(primitiveParams, signal()),
     ).rejects.toThrow('必须是 JSON 对象或数组')
-  });
+  })
 
   it.each([
     [{ action: 'unknown' }, 'action'],
@@ -259,5 +259,5 @@ describe('EnterpriseCollaborationTool', () => {
       false,
     )
     await expect(tool.execute(params, signal())).rejects.toThrow(message)
-  });
+  })
 })

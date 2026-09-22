@@ -91,7 +91,7 @@ function renderSidebar(over: Partial<React.ComponentProps<typeof Sidebar>> = {})
 
 beforeEach(() => {
   window.localStorage.clear()
-});
+})
 
 describe('Sidebar：布局（工具区已迁右侧面板）', () => {
   it('左上角显示品牌皇冠但不重复显示产品名称', () => {
@@ -102,14 +102,14 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     expect(mark.getAttribute('viewBox')).toBe('-3 -3 70 70')
     expect(screen.queryByText('ClawMaster')).toBeNull()
     expect(screen.queryByText('clawmaster')).toBeNull()
-  });
+  })
 
   it('不再渲染常见任务 / 全部智能体入口（已迁 RightPanel）', () => {
     renderSidebar()
     expect(screen.queryByText('常见任务')).toBeNull()
     expect(screen.queryByText('PPT 创作专家')).toBeNull()
     expect(screen.queryByText('全部智能体')).toBeNull()
-  });
+  })
 
   it('只保留一个明确的新建对话入口，不再显示品牌行铅笔按钮', () => {
     const onNewChat = vi.fn()
@@ -119,7 +119,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     expect(buttons).toHaveLength(1)
     fireEvent.click(buttons[0])
     expect(onNewChat).toHaveBeenCalledTimes(1)
-  });
+  })
 
   it('任务标题只用一个数字表示总数，并支持整体展开收起', () => {
     renderSidebar({
@@ -136,7 +136,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByText('第二个任务')).toBeNull()
-  });
+  })
 
   it('用户操作任务区时显示滚动条，静止后自动隐藏', () => {
     vi.useFakeTimers()
@@ -181,7 +181,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     expect(settings.getAttribute('aria-current')).toBe('page')
     fireEvent.click(settings)
     expect(onOpenHub).toHaveBeenCalledOnce()
-  });
+  })
 
   it('企业管理员在我的工作下方看到企业管理，并可打开和高亮该页面', () => {
     const onOpenAccounts = vi.fn()
@@ -206,7 +206,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     expect(screen.queryByText('CEO 管理')).toBeNull()
     fireEvent.click(enterpriseManagement)
     expect(onOpenAccounts).toHaveBeenCalledOnce()
-  });
+  })
 
   it('主导航每个入口都有语义对应的图标，且新建对话与其他入口同级', () => {
     renderSidebar({
@@ -226,14 +226,14 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
       '企业管理',
     ])
     expect(buttons.every(button => button.querySelector('.claw-sidebar__navicon'))).toBe(true)
-  });
+  })
 
   it('新建对话与其他主导航入口使用一致的纵向间距', () => {
     const css = readFileSync(resolve(process.cwd(), 'src/renderer/styles/app.css'), 'utf8')
     expect(css).not.toMatch(
       /\.claw-sidebar__navitem:first-child\s*\{[^}]*margin-bclawmasterm\s*:/,
     )
-  });
+  })
 
   it('个人账号和非管理员企业账号不显示企业管理', () => {
     const onOpenAccounts = vi.fn()
@@ -280,7 +280,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
       />,
     )
     expect(screen.queryByRole('button', { name: '企业管理' })).toBeNull()
-  });
+  })
 
   it('纯本机个人版不显示企业连接、组织和消息入口', () => {
     renderSidebar({
@@ -295,7 +295,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     expect(screen.queryByRole('button', { name: '升级企业版' })).toBeNull()
     expect(screen.getByRole('button', { name: '工作台' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '我的工作' })).toBeTruthy()
-  });
+  })
 
   it('点击账户区打开账户菜单，点击外部或按 Escape 均会收起', () => {
     renderSidebar({
@@ -316,7 +316,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('menu', { name: '账户菜单' })).toBeNull()
     expect(document.activeElement).toBe(accountTrigger)
-  });
+  })
 
   it('没有退出能力时仍可打开完整账户菜单，但退出动作明确禁用', () => {
     renderSidebar({
@@ -328,7 +328,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     const accountMenu = screen.getByRole('menu', { name: '账户菜单' })
     expect(within(accountMenu).getByRole('menuitem', { name: '退出登录' })
       .hasAttribute('disabled')).toBe(true)
-  });
+  })
 
   it('个人版账号的退出登录入口位于账户菜单内，且仍需二次确认', async () => {
     const onLogout = vi.fn(async () => undefined)
@@ -351,7 +351,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     await waitFor(() => expect(
       screen.queryByRole('dialog', { name: '确认退出登录' }),
     ).toBeNull())
-  });
+  })
 
   it('个人版可在客户端内提交企业邀请码升级，成功后关闭弹窗', async () => {
     const onJoinEnterprise = vi.fn(async () => undefined)
@@ -373,7 +373,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     await waitFor(() => expect(
       screen.queryByRole('dialog', { name: '升级为企业版' }),
     ).toBeNull())
-  });
+  })
 
   it('邀请码升级失败时显示真实错误并保留输入，修正后可原地重试', async () => {
     const onJoinEnterprise = vi.fn()
@@ -400,7 +400,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     await waitFor(() => expect(
       screen.queryByRole('dialog', { name: '升级为企业版' }),
     ).toBeNull())
-  });
+  })
 
   it('企业版账号不显示重复升级入口', () => {
     renderSidebar({
@@ -409,18 +409,18 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     })
 
     expect(screen.queryByRole('button', { name: '升级企业版' })).toBeNull()
-  });
+  })
 })
 
 describe('Sidebar：对话任务日期', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 6, 12, 12))
-  });
+  })
 
   afterEach(() => {
     vi.useRealTimers()
-  });
+  })
 
   it('按自然日标注今天、昨天和 N 天前', () => {
     const day = 86_400_000
@@ -436,7 +436,7 @@ describe('Sidebar：对话任务日期', () => {
     expect(screen.getByText('今天')).toBeTruthy()
     expect(screen.getByText('昨天')).toBeTruthy()
     expect(screen.getByText('4天前')).toBeTruthy()
-  });
+  })
 })
 
 describe('Sidebar：任务分组方式', () => {
@@ -523,7 +523,7 @@ describe('Sidebar：任务分组方式', () => {
       ?.classList.contains('claw-session-group--workspace')).toBe(true)
     expect(JSON.parse(localStorage.getItem(sessionListPreferenceStorageKey(preferenceScope)) ?? '{}'))
       .toMatchObject({ mode: 'workspace' })
-  });
+  })
 
   it('分组菜单点击外部或按 Escape 都会关闭，并把焦点还给触发按钮', () => {
     renderSidebar({ sessions: workspaceSessions, preferenceScope })
@@ -537,7 +537,7 @@ describe('Sidebar：任务分组方式', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('menu', { name: '视图选项' })).toBeNull()
     expect(document.activeElement).toBe(trigger)
-  });
+  })
 
   it('工作目录可以独立折叠，折叠后仍显示未读数量', () => {
     localStorage.setItem(sessionListPreferenceStorageKey(preferenceScope), JSON.stringify({
@@ -558,7 +558,7 @@ describe('Sidebar：任务分组方式', () => {
     expect(screen.queryByText('项目新任务')).toBeNull()
     expect(within(project).getByText('1')).toBeTruthy()
     expect(screen.getByText('桌面任务')).toBeTruthy()
-  });
+  })
 
   it('进入目录模式时自动展开当前会话所在目录，但之后允许用户手动折叠', () => {
     localStorage.setItem(sessionListPreferenceStorageKey(preferenceScope), JSON.stringify({
@@ -576,7 +576,7 @@ describe('Sidebar：任务分组方式', () => {
     expect(project.getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(project)
     expect(project.getAttribute('aria-expanded')).toBe('false')
-  });
+  })
 })
 
 describe('Sidebar 会话项：溢出菜单', () => {
@@ -587,13 +587,13 @@ describe('Sidebar 会话项：溢出菜单', () => {
     const menu = screen.getByRole('menu')
     expect(within(menu).getByText('重命名')).toBeTruthy()
     expect(within(menu).getByText('删除')).toBeTruthy()
-  });
+  })
 
   it('点 ⋯ 不触发选中会话（stopPropagation）', () => {
     const { onSelect } = renderSidebar()
     fireEvent.click(screen.getByLabelText('更多操作'))
     expect(onSelect).not.toHaveBeenCalled()
-  });
+  })
 
   it('菜单挂到 body 并在视口底部自动向上避让，不受侧栏滚动容器裁剪', () => {
     const originalInnerHeight = window.innerHeight
@@ -635,7 +635,7 @@ describe('Sidebar 会话项：溢出菜单', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('menu', { name: '“旧标题”操作' })).toBeNull()
     expect(document.activeElement).toBe(trigger)
-  });
+  })
 })
 
 describe('Sidebar 会话项：inline 重命名', () => {
@@ -646,14 +646,14 @@ describe('Sidebar 会话项：inline 重命名', () => {
     fireEvent.change(input, { target: { value: '新标题' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(onRename).toHaveBeenCalledWith('s1', '新标题')
-  });
+  })
 
   it('菜单「重命名」也能进入输入框', () => {
     renderSidebar()
     fireEvent.click(screen.getByLabelText('更多操作'))
     fireEvent.click(screen.getByText('重命名'))
     expect(screen.getByLabelText('重命名会话')).toBeTruthy()
-  });
+  })
 
   it('Esc 取消：不提交、退回标题', () => {
     const { onRename } = renderSidebar()
@@ -663,7 +663,7 @@ describe('Sidebar 会话项：inline 重命名', () => {
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(onRename).not.toHaveBeenCalled()
     expect(screen.getByText('旧标题')).toBeTruthy()
-  });
+  })
 
   it('标题未变化 / 为空 → 提交时不发 onRename', () => {
     const { onRename } = renderSidebar()
@@ -676,7 +676,7 @@ describe('Sidebar 会话项：inline 重命名', () => {
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(onRename).not.toHaveBeenCalled()
-  });
+  })
 })
 
 describe('Sidebar 会话项：删除二次确认（弹窗）', () => {
@@ -697,7 +697,7 @@ describe('Sidebar 会话项：删除二次确认（弹窗）', () => {
     })
     fireEvent.click(confirmDel)
     expect(onDelete).toHaveBeenCalledWith('s1')
-  });
+  })
 
   it('弹窗「取消」→ 不删、关闭弹窗', () => {
     const { onDelete } = renderSidebar()
@@ -706,7 +706,7 @@ describe('Sidebar 会话项：删除二次确认（弹窗）', () => {
     fireEvent.click(screen.getByText('取消'))
     expect(onDelete).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog')).toBeNull()
-  });
+  })
 
   it('标题为空 → 弹窗回退「未命名对话」', () => {
     renderSidebar({
@@ -717,5 +717,5 @@ describe('Sidebar 会话项：删除二次确认（弹窗）', () => {
     expect(
       screen.getByText('确定删除「未命名对话」吗？此操作不可撤销。'),
     ).toBeTruthy()
-  });
+  })
 })

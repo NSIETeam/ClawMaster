@@ -66,7 +66,7 @@ describe('encrypted backup archive', () => {
     expect(
       fs.readFileSync(path.join(extracted, 'data', 'data.db'), 'utf8'),
     ).toBe('private database rows')
-  });
+  })
 
   it('rejects the wrong key, tampering and unsafe archive paths', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-backup-archive-'))
@@ -104,5 +104,5 @@ describe('encrypted backup archive', () => {
         key: Buffer.alloc(32, 1),
       }),
     ).rejects.toThrow()
-  });
+  })
 })

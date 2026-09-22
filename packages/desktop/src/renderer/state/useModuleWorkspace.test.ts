@@ -49,7 +49,7 @@ interface HookProps {
 beforeEach(() => {
   window.localStorage.clear()
   vi.restoreAllMocks()
-});
+})
 
 describe('useModuleWorkspace', () => {
   it('does not create or persist a layout before capabilities are ready', () => {
@@ -79,7 +79,7 @@ describe('useModuleWorkspace', () => {
     expect(view.result.current.ready).toBe(true)
     expect(view.result.current.layout).toEqual(createDefaultModuleWorkspace(enterpriseCapabilities))
     expect(write).not.toHaveBeenCalled()
-  });
+  })
 
   it('returns capability defaults when storage is missing without writing them', () => {
     const write = vi.spyOn(Storage.prototype, 'setItem')
@@ -92,7 +92,7 @@ describe('useModuleWorkspace', () => {
       createDefaultModuleWorkspace(enterpriseCapabilities),
     )
     expect(write).not.toHaveBeenCalled()
-  });
+  })
 
   it('falls back from corrupt storage without overwriting until the user commits a change', () => {
     const key = getModuleWorkspaceStorageKey(accountA)
@@ -116,7 +116,7 @@ describe('useModuleWorkspace', () => {
 
     expect(write).toHaveBeenCalledTimes(1)
     expect(window.localStorage.getItem(key)).toBe(JSON.stringify(next))
-  });
+  })
 
   it('separates server, account, organization, and edition scopes', async () => {
     const scopeB: ModuleWorkspaceStorageScope = {
@@ -139,9 +139,9 @@ describe('useModuleWorkspace', () => {
     view.rerender({ scope: scopeB, capabilities: personalCapabilities })
     await waitFor(() => {
       expect(view.result.current.layout).toEqual(createDefaultModuleWorkspace(personalCapabilities))
-    });
+    })
     expect(view.result.current.layout.groups[0].name).not.toBe('A 的园区')
-  });
+  })
 
   it('treats equivalent normalized server URLs as the same scope', () => {
     const stored = createDefaultModuleWorkspace(enterpriseCapabilities)
@@ -159,7 +159,7 @@ describe('useModuleWorkspace', () => {
     )
 
     expect(view.result.current.layout.groups[0].name).toBe('共享布局')
-  });
+  })
 
   it('discards transient layout state when identity scope changes', async () => {
     const scopeB = { ...accountA, accountId: 'account-b' }
@@ -174,9 +174,9 @@ describe('useModuleWorkspace', () => {
     view.rerender({ scope: scopeB, capabilities: enterpriseCapabilities })
     await waitFor(() => {
       expect(view.result.current.layout.groups[0].name).toBe('园区服务')
-    });
+    })
     expect(window.localStorage.getItem(getModuleWorkspaceStorageKey(scopeB))).toBeNull()
-  });
+  })
 
   it('keeps hidden modules in stored layout while filtering the visible view model', () => {
     const stored = createDefaultModuleWorkspace(enterpriseCapabilities)
@@ -201,7 +201,7 @@ describe('useModuleWorkspace', () => {
     expect(view.result.current.layout.groups[1].moduleIds).toContain('future-hidden-module')
     expect(view.result.current.visibleLayout.groups[1].moduleIds).not.toContain('enterprise-memory')
     expect(view.result.current.visibleLayout.groups[1].moduleIds).not.toContain('future-hidden-module')
-  });
+  })
 
   it('merges visible layout edits without deleting temporarily hidden module ids', () => {
     const stored = createDefaultModuleWorkspace(enterpriseCapabilities)
@@ -233,7 +233,7 @@ describe('useModuleWorkspace', () => {
       'agent-enterprise-work',
       'agent-meeting',
     ])
-  });
+  })
 
   it('restores and persists defaults for the current capability snapshot once', () => {
     const write = vi.spyOn(Storage.prototype, 'setItem')
@@ -250,5 +250,5 @@ describe('useModuleWorkspace', () => {
 
     expect(view.result.current.layout).toEqual(createDefaultModuleWorkspace(enterpriseCapabilities))
     expect(write).toHaveBeenCalledTimes(1)
-  });
+  })
 })

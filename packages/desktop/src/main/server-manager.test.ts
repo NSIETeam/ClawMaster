@@ -102,7 +102,7 @@ describe('desktop SQLCipher runtime custody', () => {
       await fs.rm(root, { recursive: true, force: true })
     }
   })
-});
+})
 
 function discoveredMainModule() {
   return {
@@ -124,11 +124,11 @@ function fakeHttpServer(
   const close = vi.fn((callback?: () => void) => {
     callback?.()
     return emitter
-  });
+  })
   const listen = vi.fn(() => {
     start(emitter)
     return emitter
-  });
+  })
   Object.assign(emitter, {
     listen,
     close,
@@ -215,7 +215,7 @@ describe('ServerManager desktop runtime diagnostics', () => {
       nativeCore: { mode: 'auto', status: 'not_probed' },
     })
     expect(JSON.stringify(manager.getDesktopRuntimeDiagnostic())).not.toContain('discovered-client-token')
-  });
+  })
 })
 
 describe('ServerManager trusted enterprise identity bridge', () => {
@@ -244,7 +244,7 @@ describe('ServerManager trusted enterprise identity bridge', () => {
       'embedded-control-token',
     )
     await manager.shutdown()
-  });
+  })
 
   it('复用 server 时只把中心认证账号发往受令牌保护的 loopback 控制路由', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({
@@ -296,7 +296,7 @@ describe('ServerManager trusted enterprise identity bridge', () => {
         body: JSON.stringify({ account: ENTERPRISE_ACCOUNT }),
       }),
     )
-  });
+  })
 
   it('旧 server 端点没有 control token 时 fail closed，并明确要求重启', async () => {
     const fetchImpl = vi.fn()
@@ -308,7 +308,7 @@ describe('ServerManager trusted enterprise identity bridge', () => {
     await expect(manager.setAuthenticatedEnterpriseAccount(ENTERPRISE_ACCOUNT))
       .rejects.toThrow('旧版本本机 ClawMaster 引擎')
     expect(fetchImpl).not.toHaveBeenCalled()
-  });
+  })
 
   it('并发 ensure 共享同一次主服务发现与探活，不重复拉起', async () => {
     const mod = discoveredMainModule()
@@ -325,7 +325,7 @@ describe('ServerManager trusted enterprise identity bridge', () => {
     expect(first).toEqual(second)
     expect(mod.readEndpoint).toHaveBeenCalledOnce()
     expect(probeHealth).toHaveBeenCalledOnce()
-  });
+  })
 })
 
 describe('ServerManager enterprise lifecycle', () => {
@@ -359,7 +359,7 @@ describe('ServerManager enterprise lifecycle', () => {
 
     await manager.shutdown()
     expect(local.close).toHaveBeenCalled()
-  });
+  })
 
   it('7777 已有健康企业服务时复用它，不重复监听端口', async () => {
     const loadEnterpriseServer = vi.fn()
@@ -377,7 +377,7 @@ describe('ServerManager enterprise lifecycle', () => {
 
     expect(loadEnterpriseServer).not.toHaveBeenCalled()
     expect(manager.currentEnterpriseOwnership).toBe('discovered')
-  });
+  })
 
   it('监听超时会关闭未就绪的 server，且不把它误报为已启动', async () => {
     const local = fakeHttpServer(() => undefined)
@@ -403,7 +403,7 @@ describe('ServerManager enterprise lifecycle', () => {
     expect(local.close).toHaveBeenCalled()
     expect(manager.currentEnterpriseOwnership).toBe('unavailable')
     warn.mockRestore()
-  });
+  })
 
   it('探活与监听之间发生端口竞争时，若对方已健康则复用', async () => {
     const local = fakeHttpServer(server => queueMicrotask(() => {
@@ -434,7 +434,7 @@ describe('ServerManager enterprise lifecycle', () => {
     await manager.ensure()
 
     expect(manager.currentEnterpriseOwnership).toBe('discovered')
-  });
+  })
 
   it('公网中心模式不在每台客户端创建一套脱节的本机企业库', async () => {
     const loadEnterpriseServer = vi.fn()
@@ -447,13 +447,13 @@ describe('ServerManager enterprise lifecycle', () => {
 
     expect(loadEnterpriseServer).not.toHaveBeenCalled()
     expect(manager.currentEnterpriseOwnership).toBe('external')
-  });
+  })
 
   it('并发 ensure 只启动一个本机企业服务', async () => {
     const control: { releaseListen?: () => void } = {}
     const local = fakeHttpServer((server) => {
       control.releaseListen = () => server.emit('listening')
-    });
+    })
     const createEnterpriseServer = vi.fn(() => ({
       server: local.server,
       host: '127.0.0.1',
@@ -479,7 +479,7 @@ describe('ServerManager enterprise lifecycle', () => {
 
     expect(createEnterpriseServer).toHaveBeenCalledOnce()
     await manager.shutdown()
-  });
+  })
 
   it('enterprise listen 尚未完成就退出时会立即取消并关闭 pending server', async () => {
     const local = fakeHttpServer(() => undefined)
@@ -508,7 +508,7 @@ describe('ServerManager enterprise lifecycle', () => {
 
     expect(manager.currentEnterpriseOwnership).toBe('unavailable')
     warn.mockRestore()
-  });
+  })
 })
 
 describe('ServerManager kernel overlay loading', () => {
@@ -585,7 +585,7 @@ export class ClawMasterServer {
     expect(ensured.ownership).toBe('embedded')
     expect(ensured.endpoint.clientToken).toBe('embedded-client-token')
     await manager.shutdown()
-  });
+  })
 
   it('uses the active kernel bin path for detached server startup', async () => {
     const overlay = await installOverlayKernel()
@@ -623,5 +623,5 @@ export class ClawMasterServer {
     expect(ensured.ownership).toBe('detached')
     expect(capturedArgs[0]).toBe(overlay.binPath)
     await manager.shutdown(true)
-  });
+  })
 })

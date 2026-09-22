@@ -95,7 +95,7 @@ describe('deployment update policy client', () => {
         release: { version: '1.9.11' },
       },
     })
-  });
+  })
 
   it('fails closed for tampered, expired, or cross-distribution policies', async () => {
     const keys = keyPair()
@@ -134,7 +134,7 @@ describe('deployment update policy client', () => {
       status: 'unavailable',
       error: expect.stringContaining('signature'),
     })
-  });
+  })
 
   it('reports a compatible unconfigured state when no online lease exists', async () => {
     await expect(resolveDeploymentUpdatePolicy({
@@ -146,5 +146,5 @@ describe('deployment update policy client', () => {
       status: 'not_configured',
       reason: 'online_license_required',
     })
-  });
+  })
 })

@@ -22,5 +22,5 @@ describe('ClawMaster commercial enforcement protocol', () => {
     expect(createHash('sha256').update(contract).digest('hex')).toBe(
       CLAWMASTER_ENFORCEMENT_V1_SHA256,
     )
-  });
+  })
 })

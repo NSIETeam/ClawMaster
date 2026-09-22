@@ -51,7 +51,7 @@ export function parsePostgresAttachmentImportArguments(
       }
       runId = value
       index += 1
-      continue;
+      continue
     }
     if (argument === '--dry-run' || argument === '--execute') {
       const mode = argument === '--execute' ? 'execute' : 'dry-run'
@@ -60,7 +60,7 @@ export function parsePostgresAttachmentImportArguments(
       }
       selectedMode = mode
       dryRun = mode === 'dry-run'
-      continue;
+      continue
     }
     throw new Error(`unknown argument: ${argument}`)
   }

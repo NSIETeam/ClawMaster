@@ -47,7 +47,7 @@ async function freshDb(
 beforeEach(() => {
   for (const k of ENV_KEYS) prevEnv[k] = process.env[k]
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-ent-db-'))
-});
+})
 
 afterEach(() => {
   // 还原所有被动过的 env，并清掉临时库，绝不留痕。
@@ -107,7 +107,7 @@ describe('知识库旧库迁移', () => {
     expect(db.addKnowledge(entry)).toBe(true)
     expect(db.addKnowledge(entry)).toBe(false)
   }, 30_000)
-});
+})
 
 describe('旧账号会话迁移', () => {
   it('把 v1.9.1 单组织账号和明文 token 会话迁移到 schema 8，保留登录建联能力', async () => {
@@ -201,7 +201,7 @@ describe('旧账号会话迁移', () => {
       id: 'legacy_account_1',
       username: 'legacy-user',
     })
-  });
+  })
 })
 
 describe('数据库 readiness', () => {
@@ -211,7 +211,7 @@ describe('数据库 readiness', () => {
       ready: true,
       schemaVersion: 23,
     })
-  });
+  })
 
   it('从 v10 升级时保留工单历史并允许记录物业报修转交', async () => {
     const first = await freshDb()
@@ -274,7 +274,7 @@ describe('数据库 readiness', () => {
           .get() as { count: number }
       ).count,
     ).toBe(1)
-  });
+  })
 
   it('从 v11 补齐既有园区申请单号并推进当日园区级序列', async () => {
     const first = await freshDb()
@@ -577,7 +577,7 @@ describe('数据库 readiness', () => {
       reopened.close()
     }
   })
-});
+})
 
 describe('园区服务表单价格归一化', () => {
   it('停车和网络电话按受理单计算本次金额与月度持续费用', async () => {
@@ -614,7 +614,7 @@ describe('园区服务表单价格归一化', () => {
       recurringMonthlyCny: '70',
       expectedDate: '2026-08-01',
     })
-  });
+  })
 
   it('物业客服一次完成回复并转交工程部，工程完成说明回到原客服记录', async () => {
     const db = await freshDb()
@@ -741,7 +741,7 @@ describe('园区服务表单价格归一化', () => {
       responseText: '已更换故障空气开关并完成通电测试。',
     })
     reopened.closeEnterpriseDatabase()
-  });
+  })
 })
 
 describe('账号数据恢复快照', () => {
@@ -820,7 +820,7 @@ describe('账号数据恢复快照', () => {
       expect.objectContaining({ version: 1, payload }),
     ])
     reopened.closeEnterpriseDatabase()
-  });
+  })
 
   it('rejects damaged encrypted snapshots without exposing partial content', async () => {
     const db = await freshDb()
@@ -856,7 +856,7 @@ describe('账号数据恢复快照', () => {
     expect(() => db.listAccountSyncSnapshots(account.id)).toThrow(
       'account sync snapshot integrity check failed',
     )
-  });
+  })
 
   it('requires active tenant identity and never reuses another tenant snapshot', async () => {
     const db = await freshDb()
@@ -920,7 +920,7 @@ describe('账号数据恢复快照', () => {
         payload,
       }),
     ).toThrow('account sync snapshot organization mismatch')
-  });
+  })
 })
 describe('企业组织结构与功能配置', () => {
   it('支持自定义部门、岗位映射与重命名，并同步既有成员', async () => {
@@ -974,7 +974,7 @@ describe('企业组织结构与功能配置', () => {
         departmentId: department.id,
       }),
     ).toThrow(/仍有成员|仍有岗位/)
-  });
+  })
 
   it('功能开关按企业持久化且不会影响其他租户', async () => {
     const db = await freshDb()
@@ -1001,7 +1001,7 @@ describe('企业组织结构与功能配置', () => {
       feishu_auto_reply: true,
       enterprise_tree: true,
     })
-  });
+  })
 
   it('飞书自动回复要求所有绑定账号、企业和有效功能均可用', async () => {
     const db = await freshDb()
@@ -1034,7 +1034,7 @@ describe('企业组织结构与功能配置', () => {
     expect(db.isFeishuAutoReplyEnabledForOpenId('ou_legacy_allowlist')).toBe(
       true,
     )
-  });
+  })
 
   it('功能开关与审计日志原子提交，审计失败时回滚全部配置', async () => {
     const db = await freshDb()
@@ -1065,7 +1065,7 @@ describe('企业组织结构与功能配置', () => {
         )
         .get(db.DEFAULT_ORGANIZATION_ID),
     ).toEqual({ count: 0 })
-  });
+  })
 
   it('职位权限映射可双向升降权，单纯重命名不会改变映射', async () => {
     const db = await freshDb()
@@ -1118,7 +1118,7 @@ describe('企业组织结构与功能配置', () => {
       isAdmin: false,
       role: '部门管理员',
     })
-  });
+  })
 
   it('按真实部门和职位 ID 任命时强制双向权限映射并撤销旧会话', async () => {
     const db = await freshDb()
@@ -1197,7 +1197,7 @@ describe('企业组织结构与功能配置', () => {
       isAdmin: true,
       role: '企业管理员',
     })
-  });
+  })
 })
 
 describe('园区数据统计任务', () => {
@@ -1291,7 +1291,7 @@ describe('园区数据统计任务', () => {
       db.listParkDataStatisticsTasks(parkAdmin.id)[0]?.assignments[0]?.status,
     ).toBe('submitted')
     db.remindParkDataStatistics(created.task.id, parkAdmin.id)
-  });
+  })
 })
 describe('企业 Token 用量时间窗口', () => {
   it('按 UTC datetime 比较完整 30 天边界，并把 SQLite 时间返回为带 Z 的 ISO', async () => {
@@ -1373,7 +1373,7 @@ describe('企业 Token 用量时间窗口', () => {
     expect(() => record('message-3')).toThrow(
       '账号今日 Token 用量记录已达上限',
     )
-  });
+  })
 
   it('停用账号和停用企业都不能继续写入或读取计量数据', async () => {
     const db = await freshDb()
@@ -1412,7 +1412,7 @@ describe('企业 Token 用量时间窗口', () => {
     expect(() =>
       db.getOrganizationUsageSummary(db.DEFAULT_ORGANIZATION_ID),
     ).toThrow('Organization is disabled')
-  });
+  })
 
   it('拒绝超长标识、模型名和异常 Token 数字，避免静默截断或低估', async () => {
     const db = await freshDb()
@@ -1443,7 +1443,7 @@ describe('企业 Token 用量时间窗口', () => {
     expect(() =>
       db.recordTokenUsage({ ...usage, inputTokens: 1_000_000_001 }),
     ).toThrow('单项 Token 用量不能超过 1000000000')
-  });
+  })
 })
 
 describe('企业成员直聊', () => {
@@ -1497,7 +1497,7 @@ describe('企业成员直聊', () => {
         .prepare('SELECT read_at FROM direct_messages WHERE id = ?')
         .get(message.id),
     ).toEqual({ read_at: null })
-  });
+  })
 
   it('只在同一企业的双方之间持久化、按时间读取并标记已读', async () => {
     const db = await freshDb()
@@ -1537,7 +1537,7 @@ describe('企业成员直聊', () => {
         peerAccountId: bob.id,
       })[0].readAt,
     ).not.toBeNull()
-  });
+  })
 
   it('持久化企业私聊附件，并且只允许会话双方读取原文件', async () => {
     const db = await freshDb()
@@ -1616,7 +1616,7 @@ describe('企业成员直聊', () => {
         attachmentId,
       }),
     ).toThrow('附件不存在或无权访问')
-  });
+  })
 
   it('拒绝给自己、跨企业或停用成员发送消息', async () => {
     const db = await freshDb()
@@ -1648,7 +1648,7 @@ describe('企业成员直聊', () => {
         content: 'cross tenant',
       }),
     ).toThrow('不存在或已停用')
-  });
+  })
 
   it('真实私聊数据库接受经过最终序列化裁剪的 A2A 请求和回复', async () => {
     const db = await freshDb()
@@ -1713,7 +1713,7 @@ describe('企业成员直聊', () => {
         content: responseContent,
       }),
     ).not.toThrow()
-  });
+  })
 
   it('A2A 收件箱只返回尚未由当前 ClawMaster 回复的请求', async () => {
     const db = await freshDb()
@@ -1766,7 +1766,7 @@ describe('企业成员直聊', () => {
         responsePrefix: 'CLAWMASTER_ATOA_RESPONSE ',
       }),
     ).toEqual([])
-  });
+  })
 
   it('A2A pending 只由反向同伴发出的合法精确 response 消除', async () => {
     const db = await freshDb()
@@ -1851,7 +1851,7 @@ describe('企业成员直聊', () => {
       }),
     })
     expect(pending()).toEqual([])
-  });
+  })
 
   it('A2A 成功响应只精确标记对应原请求已读，不误标其它请求或普通消息', async () => {
     const db = await freshDb()
@@ -1937,7 +1937,7 @@ describe('企业成员直聊', () => {
     expect(readAt.get(pendingRequest.id)).toBeNull()
     expect(readAt.get(ordinaryMessage.id)).toBeNull()
     expect(readAt.get(otherPeerRequest.id)).toBeNull()
-  });
+  })
 })
 
 describe('企业邀请码原子更新', () => {
@@ -2017,7 +2017,7 @@ describe('企业邀请码原子更新', () => {
     )
     expect(second.departmentId).toBe(first.departmentId)
     expect(second.positionId).toBe(first.positionId)
-  });
+  })
 
   it('管理员直接创建和调岗账号时同步稳定部门职位 ID 与员工档案', async () => {
     const db = await freshDb()
@@ -2062,7 +2062,7 @@ describe('企业邀请码原子更新', () => {
       position_title: '开发工程师',
       position_id: updated.positionId,
     })
-  });
+  })
 
   it('个人账号加入企业时以职位当前权限映射为账号与员工权限真值', async () => {
     const db = await freshDb()
@@ -2115,7 +2115,7 @@ describe('企业邀请码原子更新', () => {
       position_id: position.id,
       role: '企业管理员',
     })
-  });
+  })
 
   it('个人账号加入企业时拒绝邀请码引用已删除职位并原子保留个人身份', async () => {
     const db = await freshDb()
@@ -2162,7 +2162,7 @@ describe('企业邀请码原子更新', () => {
     })
     expect(db.getOrganizationInvite(organization.id)?.usedCount).toBe(0)
     expect(db.listEmployees(undefined, organization.id)).toEqual([])
-  });
+  })
 
   it('个人账号加入企业时拒绝职位与邀请码部门不一致并原子回滚', async () => {
     const db = await freshDb()
@@ -2216,7 +2216,7 @@ describe('企业邀请码原子更新', () => {
     })
     expect(db.getOrganizationInvite(organization.id)?.usedCount).toBe(0)
     expect(db.listEmployees(undefined, organization.id)).toEqual([])
-  });
+  })
 
   it('审计写入失败时回滚新邀请码，并保持旧邀请码继续有效', async () => {
     const db = await freshDb()
@@ -2256,7 +2256,7 @@ describe('企业邀请码原子更新', () => {
     expect(db.inspectOrganizationInvite(oldInvite.code, 2_000).status).toBe(
       'active',
     )
-  });
+  })
 
   it('两个已签发短信挑战竞争单人邀请码时只允许一个账号落库', async () => {
     const db = await freshDb()
@@ -2324,7 +2324,7 @@ describe('企业邀请码原子更新', () => {
     expect(
       db.getOrganizationInvite(db.DEFAULT_ORGANIZATION_ID, now + 1_000),
     ).toMatchObject({ id: invite.id, maxUses: 1, usedCount: 1 })
-  });
+  })
 
   it('短信挑战签发后邀请码被撤销时拒绝创建账号且不核销名额', async () => {
     const db = await freshDb()
@@ -2376,7 +2376,7 @@ describe('企业邀请码原子更新', () => {
         )
         .get(invite.id),
     ).toMatchObject({ usedCount: 0 })
-  });
+  })
 
   it('短信挑战签发后邀请码过期时拒绝创建账号且不核销名额', async () => {
     const db = await freshDb()
@@ -2430,7 +2430,7 @@ describe('企业邀请码原子更新', () => {
         )
         .get(invite.id),
     ).toMatchObject({ usedCount: 0 })
-  });
+  })
 
   it('账号创建失败时回滚账号和已占用的邀请码名额', async () => {
     const db = await freshDb()
@@ -2464,7 +2464,7 @@ describe('企业邀请码原子更新', () => {
     expect(
       db.getOrganizationInvite(db.DEFAULT_ORGANIZATION_ID, now + 1_000),
     ).toMatchObject({ id: invite.id, maxUses: 1, usedCount: 0 })
-  });
+  })
 })
 
 describe('report 边界：0 任务不崩/不 NaN/不除零', () => {
@@ -2500,7 +2500,7 @@ describe('report 边界：0 任务不崩/不 NaN/不除零', () => {
       slowestAvg: null,
     })
     expect(r.byType).toEqual([])
-  });
+  })
 })
 
 describe('timeSaved 口径：clawmasterMinutes × (mult − 1)，不双算', () => {
@@ -2522,7 +2522,7 @@ describe('timeSaved 口径：clawmasterMinutes × (mult − 1)，不双算', () 
     expect(r.totalMinutes).toBe(60)
     // savedMin = 60 × (2-1) = 60min = 1.0h
     expect(r.timeSavedHours).toBe(1)
-  });
+  })
 
   it('mult 可配：改 CLAWMASTER_ESTIMATE_MANUAL_MULT=3 生效，省时 = clawmasterMin × 2', async () => {
     const db = await freshDb({ CLAWMASTER_ESTIMATE_MANUAL_MULT: '3' })
@@ -2531,7 +2531,7 @@ describe('timeSaved 口径：clawmasterMinutes × (mult − 1)，不双算', () 
     expect(r.assumptions.manualTimeMultiplier).toBe(3)
     // savedMin = 60 × (3-1) = 120min = 2.0h（若双算成 clawmasterMin×mult=180min=3h 就错了）
     expect(r.timeSavedHours).toBe(2)
-  });
+  })
 
   it('mult=1 时省时为 0（人工与 ClawMaster 同速，无净节省）', async () => {
     const db = await freshDb({ CLAWMASTER_ESTIMATE_MANUAL_MULT: '1' })
@@ -2539,7 +2539,7 @@ describe('timeSaved 口径：clawmasterMinutes × (mult − 1)，不双算', () 
     const r = db.getReport(30)
     expect(r.timeSavedHours).toBe(0)
     expect(r.laborSavedCNY).toBe(0)
-  });
+  })
 })
 
 describe('trend 累积正确', () => {
@@ -2559,7 +2559,7 @@ describe('trend 累积正确', () => {
     expect(r.trend[1].cumSavedHours).toBeGreaterThanOrEqual(
       r.trend[0].cumSavedHours,
     )
-  });
+  })
 })
 
 describe('bottlenecks 选取正确（最耗时/最频繁/单次最慢）', () => {
@@ -2586,7 +2586,7 @@ describe('bottlenecks 选取正确（最耗时/最频繁/单次最慢）', () =>
     expect(b.mostFrequent?.count).toBe(3)
     expect(b.slowestAvg?.taskType).toBe('slowSingle') // 单次 100 最慢
     expect(b.slowestAvg?.avgMinutes).toBe(100)
-  });
+  })
 })
 
 describe('P1 修复：laborPerToken 在 cost=0 场景不再爆表', () => {
@@ -2618,7 +2618,7 @@ describe('P1 修复：laborPerToken 在 cost=0 场景不再爆表', () => {
     // 关键断言：绝不再出现 ¥1000+/token 的天文数字。
     expect(r.laborPerTokenCNY).toBeLessThanOrEqual(50)
     expect(Number.isFinite(r.laborPerTokenCNY)).toBe(true)
-  });
+  })
 
   it('正常成本区间不封顶，返回真实可解释倍率', async () => {
     // cnyPerHour 调低让 laborSaved 变小，落在封顶线以内。
@@ -2637,7 +2637,7 @@ describe('P1 修复：laborPerToken 在 cost=0 场景不再爆表', () => {
     const r = db.getReport(30)
     expect(r.laborPerTokenCapped).toBe(false)
     expect(r.laborPerTokenCNY).toBe(10)
-  });
+  })
 
   it('cap 可配：CLAWMASTER_ESTIMATE_LABOR_PER_TOKEN_CAP 生效', async () => {
     const db = await freshDb({ CLAWMASTER_ESTIMATE_LABOR_PER_TOKEN_CAP: '20' })
@@ -2653,7 +2653,7 @@ describe('P1 修复：laborPerToken 在 cost=0 场景不再爆表', () => {
     expect(r.assumptions.laborPerTokenCap).toBe(20)
     expect(r.laborPerTokenCapped).toBe(true)
     expect(r.laborPerTokenCNY).toBe(20)
-  });
+  })
 })
 
 describe('成本/token 归一化（normalizeCostCNY / normalizeTokens）', () => {
@@ -2674,7 +2674,7 @@ describe('成本/token 归一化（normalizeCostCNY / normalizeTokens）', () =>
       db.ESTIMATE.defaultTokensPerTask,
     )
     expect(db.normalizeTokens(1234)).toBe(1234)
-  });
+  })
 
   it('logTask 落库时 cost=0 被兜底为默认成本（totalCost 不再塌 0）', async () => {
     const db = await freshDb()
@@ -2690,7 +2690,7 @@ describe('成本/token 归一化（normalizeCostCNY / normalizeTokens）', () =>
     // 单任务 cost 兜底 0.028、tokens 兜底 2000。tokenCostCNY 经 round 到 2 位 → 0.03（关键：非 0）。
     expect(r.tokenCostCNY).toBe(0.03)
     expect(r.totalTokens).toBe(2000)
-  });
+  })
 })
 
 describe('report 期窗与部门过滤', () => {
@@ -2708,7 +2708,7 @@ describe('report 期窗与部门过滤', () => {
     expect(r.totalTasks).toBe(0)
     // 放宽到 60 天窗则能看到。
     expect(db.getReport(60).totalTasks).toBe(1)
-  });
+  })
 
   it('department 过滤只统计该部门任务', async () => {
     const db = await freshDb()
@@ -2718,7 +2718,7 @@ describe('report 期窗与部门过滤', () => {
     db.logTask({ employee_id: 'e2', task_type: 'b', duration_min: 10 })
     expect(db.getReport(30, 'legal').totalTasks).toBe(1)
     expect(db.getReport(30).totalTasks).toBe(2)
-  });
+  })
 })
 
 describe('企业工作日志持久化边界', () => {
@@ -2764,7 +2764,7 @@ describe('企业工作日志持久化边界', () => {
     expect(() => db.getReport(30, undefined, organization.id)).toThrow(
       'Organization is disabled',
     )
-  });
+  })
 
   it('离职员工不能新增日志，但历史仍进入企业和原部门报表', async () => {
     const db = await freshDb()
@@ -2792,7 +2792,7 @@ describe('企业工作日志持久化边界', () => {
       totalTasks: 1,
       activeEmployees: 0,
     })
-  });
+  })
 
   it('审计写入失败会回滚任务日志，不留下无法解释的孤儿记录', async () => {
     const db = await freshDb()
@@ -2812,7 +2812,7 @@ describe('企业工作日志持久化边界', () => {
     expect(
       db.getDB().prepare('SELECT COUNT(*) AS count FROM task_logs').get(),
     ).toMatchObject({ count: 0 })
-  });
+  })
 
   it('严格校验文本和数值边界，并限制历史条数与报表周期', async () => {
     const db = await freshDb()
@@ -2848,7 +2848,7 @@ describe('企业工作日志持久化边界', () => {
     expect(db.getTaskHistory('bounded-worker', 1_000)).toHaveLength(2)
     expect(db.getReport(-30).period).toBe('1d')
     expect(db.getReport(1_000).period).toBe('365d')
-  });
+  })
 
   it('使用 SQLite datetime 比较完整时间，正确处理 30 天同日边界', async () => {
     vi.useFakeTimers()
@@ -2873,7 +2873,7 @@ describe('企业工作日志持久化边界', () => {
       vi.useRealTimers()
     }
   })
-});
+})
 
 describe('企业备份聚合', () => {
   it('保留离职员工、限制任务历史并严格隔离企业数据', async () => {
@@ -2947,5 +2947,5 @@ describe('企业备份聚合', () => {
     expect(otherSnapshot.taskLogs).toEqual([
       expect.objectContaining({ task_type: 'other-tenant-task' }),
     ])
-  });
+  })
 })

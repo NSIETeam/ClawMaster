@@ -24,7 +24,7 @@ async function freshPark(): Promise<ParkModule> {
 beforeEach(() => {
   prevEnv.CLAWMASTER_ENTERPRISE_DIR = process.env.CLAWMASTER_ENTERPRISE_DIR
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-park-'))
-});
+})
 
 afterEach(() => {
   if (prevEnv.CLAWMASTER_ENTERPRISE_DIR === undefined) delete process.env.CLAWMASTER_ENTERPRISE_DIR
@@ -48,7 +48,7 @@ describe('Park CRUD', () => {
 
     const fetched = park.getPark(created.id)
     expect(fetched).toEqual(created)
-  });
+  })
 
   it('creates park with admin user IDs', async () => {
     const park = await freshPark()
@@ -57,7 +57,7 @@ describe('Park CRUD', () => {
       adminUserIds: ['admin-1', 'admin-2'],
     })
     expect(created.adminUserIds).toEqual(['admin-1', 'admin-2'])
-  });
+  })
 
   it('lists all parks', async () => {
     const park = await freshPark()
@@ -66,18 +66,18 @@ describe('Park CRUD', () => {
     const list = park.listParks()
     expect(list).toHaveLength(2)
     expect(list.map(p => p.name).sort()).toEqual(['园区A', '园区B'])
-  });
+  })
 
   it('returns null for non-existent park', async () => {
     const park = await freshPark()
     expect(park.getPark('nonexistent')).toBeNull()
-  });
+  })
 
   it('rejects empty park name', async () => {
     const park = await freshPark()
     expect(() => park.createPark({ name: '' })).toThrow()
     expect(() => park.createPark({ name: '   ' })).toThrow()
-  });
+  })
 })
 
 describe('Park Invite Codes', () => {
@@ -107,7 +107,7 @@ describe('Park Invite Codes', () => {
     const doubleJoin = park.useInviteCode(invite.code, 'enterprise-42')
     expect(doubleJoin.success).toBe(false)
     expect(doubleJoin.error).toContain('已是')
-  });
+  })
 
   it('invite code with limited uses is exhausted', async () => {
     const park = await freshPark()
@@ -124,7 +124,7 @@ describe('Park Invite Codes', () => {
     const exhausted = park.useInviteCode(invite.code, 'ent-3')
     expect(exhausted.success).toBe(false)
     expect(exhausted.error).toContain('上限')
-  });
+  })
 
   it('expired invite code is rejected', async () => {
     const park = await freshPark()
@@ -143,14 +143,14 @@ describe('Park Invite Codes', () => {
 
     const result = park.useInviteCode(invite.code, 'ent-1')
     expect(result.success).toBe(false)
-  });
+  })
 
   it('non-existent invite code is invalid', async () => {
     const park = await freshPark()
     const validation = park.validateInviteCode('XXXXXXXX')
     expect(validation.valid).toBe(false)
     expect(validation.error).toContain('不存在')
-  });
+  })
 })
 
 describe('Service Specialists', () => {
@@ -182,7 +182,7 @@ describe('Service Specialists', () => {
 
     // Removing non-existent returns false
     expect(park.removeSpecialist(p.id, 'nonexistent')).toBe(false)
-  });
+  })
 
   it('re-assign updates existing specialist service types', async () => {
     const park = await freshPark()
@@ -194,7 +194,7 @@ describe('Service Specialists', () => {
     const list = park.getSpecialists(p.id)
     expect(list).toHaveLength(1)
     expect(list[0]!.serviceTypes.sort()).toEqual(['保洁', '绿化'])
-  });
+  })
 
   it('rejects empty service types', async () => {
     const park = await freshPark()
@@ -202,7 +202,7 @@ describe('Service Specialists', () => {
     expect(() =>
       park.assignSpecialist({ parkId: p.id, userId: 'user-1', serviceTypes: [] }),
     ).toThrow()
-  });
+  })
 })
 
 describe('Service Request Routing', () => {
@@ -230,7 +230,7 @@ describe('Service Request Routing', () => {
     expect(routed).not.toBeNull()
     expect(routed!.status).toBe('assigned')
     expect(routed!.assignedTo).toBe('repair-guy')
-  });
+  })
 
   it('falls back to park admin when no specialist matches', async () => {
     const park = await freshPark()
@@ -250,7 +250,7 @@ describe('Service Request Routing', () => {
     expect(routed).not.toBeNull()
     expect(routed!.status).toBe('assigned')
     expect(routed!.assignedTo).toBe('admin-fallback')
-  });
+  })
 
   it('falls back to null when no admin and no specialist', async () => {
     const park = await freshPark()
@@ -267,7 +267,7 @@ describe('Service Request Routing', () => {
     expect(routed).not.toBeNull()
     expect(routed!.status).toBe('assigned')
     expect(routed!.assignedTo).toBeNull()
-  });
+  })
 
   it('resolveServiceRequest marks as resolved', async () => {
     const park = await freshPark()
@@ -287,7 +287,7 @@ describe('Service Request Routing', () => {
     // Already resolved requests are idempotent
     const doubleResolved = park.resolveServiceRequest(req.id)
     expect(doubleResolved!.status).toBe('resolved')
-  });
+  })
 
   it('getParkServiceRequests filters by status', async () => {
     const park = await freshPark()
@@ -313,5 +313,5 @@ describe('Service Request Routing', () => {
     const resolved = park.getParkServiceRequests(p.id, 'resolved')
     expect(resolved).toHaveLength(1)
     expect(resolved[0]!.enterpriseId).toBe('ent-1')
-  });
+  })
 })

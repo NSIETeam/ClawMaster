@@ -248,7 +248,7 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`
         body = `
   await page.goto('${escape(p.url!)}', { waitUntil: 'networkidle', timeout: ${timeout} });
   result = { summary: 'Navigated to ${escape(p.url!.substring(0, 80))}', data: { url: page.url(), title: await page.title() } };`
-        break;
+        break
 
       case 'fill':
         body = `
@@ -256,14 +256,14 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`
   ${p.clear_first !== false ? 'await el.fill("");' : ''}
   await el.fill('${escape(p.value!)}');
   result = { summary: 'Filled "${escape(p.selector!)}" with value', data: { selector: '${escape(p.selector!)}' } };`
-        break;
+        break
 
       case 'click':
         body = `
   const el = await page.waitForSelector('${escape(p.selector!)}', { timeout: ${timeout} });
   ${p.wait_for_navigation ? 'await Promise.all([page.waitForNavigation({ timeout: ' + timeout + ' }), el.click()]);' : 'await el.click();'}
   result = { summary: 'Clicked "${escape(p.selector!)}"', data: { url: page.url() } };`
-        break;
+        break
 
       case 'scrape':
         if (p.extract === 'all') {
@@ -298,14 +298,14 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`
     return rows.map(row => Array.from(row.querySelectorAll('td,th')).map(cell => cell.textContent?.trim() || ''));
   }, '${escape(p.selector!)}');
   result = { summary: 'Extracted table from "${escape(p.selector!)}"', data: tableData };`
-        break;
+        break
 
       case 'screenshot':
         body = `
   const outPath = '${escape(p.output_path || path.join(os.homedir(), 'Desktop', 'web_screenshot_' + Date.now() + '.png'))}';
   await page.screenshot({ path: outPath, fullPage: ${p.full_page || false} });
   result = { summary: 'Screenshot saved to ' + outPath, data: { path: outPath } };`
-        break;
+        break
 
       case 'run_script':
         body = `
@@ -313,20 +313,20 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`
     ${escape(p.script!)}
   });
   result = { summary: 'Script executed', data };`
-        break;
+        break
 
       case 'wait':
         body = `
   await page.waitForSelector('${escape(p.selector!)}', { timeout: ${timeout} });
   result = { summary: 'Element "${escape(p.selector!)}" appeared' };`
-        break;
+        break
 
       case 'list_tabs':
         body = `
   const pages = await browser.contexts()[0].pages();
   const tabs = await Promise.all(pages.map(async (p, i) => ({ index: i, url: p.url(), title: await p.title() })));
   result = { summary: tabs.length + ' tabs open', data: tabs };`
-        break;
+        break
 
       default:
         body = `result = { error: 'Unknown action: ${escape(p.action)}' };`

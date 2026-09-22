@@ -88,7 +88,7 @@ describe('MLS private-message attachment files', () => {
       expectedBinding: binding,
     })
     expect(fs.readFileSync(outputPath)).toEqual(plaintext)
-  });
+  })
 
   it('fails closed on object tampering or a cross-generation binding', async () => {
     const directory = temporaryDirectory()
@@ -127,7 +127,7 @@ describe('MLS private-message attachment files', () => {
       }),
     ).rejects.toThrow('checksum')
     expect(fs.existsSync(outputPath)).toBe(false)
-  });
+  })
 
   it('represents a zero-byte file as one authenticated empty chunk', async () => {
     const directory = temporaryDirectory()
@@ -157,7 +157,7 @@ describe('MLS private-message attachment files', () => {
       expectedBinding: binding,
     })
     expect(fs.statSync(outputPath).size).toBe(0)
-  });
+  })
 
   it('rejects oversized files before creating ciphertext', async () => {
     const directory = temporaryDirectory()
@@ -178,5 +178,5 @@ describe('MLS private-message attachment files', () => {
       }),
     ).rejects.toThrow('size')
     expect(fs.existsSync(ciphertextPath)).toBe(false)
-  });
+  })
 })

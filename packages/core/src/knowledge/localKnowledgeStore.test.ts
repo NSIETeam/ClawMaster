@@ -23,7 +23,7 @@ describe('LocalKnowledgeStore', () => {
     savedClawMasterUserDir = process.env.CLAWMASTER_USER_DIR
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-kb-store-test-'))
     process.env.CLAWMASTER_USER_DIR = tmpDir
-  });
+  })
 
   afterEach(async () => {
     if (savedClawMasterUserDir === undefined) {
@@ -32,11 +32,11 @@ describe('LocalKnowledgeStore', () => {
       process.env.CLAWMASTER_USER_DIR = savedClawMasterUserDir
     }
     await fs.rm(tmpDir, { recursive: true, force: true })
-  });
+  })
 
   it('getKnowledgeDir 尊重 CLAWMASTER_USER_DIR，落在临时目录内', () => {
     expect(getKnowledgeDir()).toBe(path.join(tmpDir, 'knowledge'))
-  });
+  })
 
   describe('add', () => {
     it('新增条目并持久化到 entries.jsonl（新实例可读回）', async () => {
@@ -60,14 +60,14 @@ describe('LocalKnowledgeStore', () => {
       const reloaded = await new LocalKnowledgeStore().loadAll()
       expect(reloaded).toHaveLength(1)
       expect(reloaded[0].content).toBe('React hooks 不能放在条件语句里')
-    });
+    })
 
     it('空内容拒绝；空分类归为 general', async () => {
       const store = new LocalKnowledgeStore()
       await expect(store.add('dev', '   ')).rejects.toThrow('empty')
       const entry = await store.add('', 'some content')
       expect(entry.category).toBe('general')
-    });
+    })
   })
 
   describe('search', () => {
@@ -84,14 +84,14 @@ describe('LocalKnowledgeStore', () => {
       expect(results[0].score).toBeGreaterThan(0)
       // 不相关条目不出现
       expect(results.some(r => r.content.includes('买菜'))).toBe(false)
-    });
+    })
 
     it('中文整句子串匹配可命中（无空格分词场景）', async () => {
       const store = new LocalKnowledgeStore()
       await store.add('dev', '飞书机器人需要开通 im:message 权限')
       const results = await store.search('飞书机器人')
       expect(results).toHaveLength(1)
-    });
+    })
 
     it('category 参数过滤分类', async () => {
       const store = new LocalKnowledgeStore()
@@ -100,7 +100,7 @@ describe('LocalKnowledgeStore', () => {
       const results = await store.search('alpha', 'dev')
       expect(results).toHaveLength(1)
       expect(results[0].category).toBe('dev')
-    });
+    })
 
     it('空 query 返回空；最多返回 20 条', async () => {
       const store = new LocalKnowledgeStore()
@@ -110,7 +110,7 @@ describe('LocalKnowledgeStore', () => {
       expect(await store.search('   ')).toEqual([])
       const results = await store.search('common keyword')
       expect(results).toHaveLength(20)
-    });
+    })
 
     it('同等关键词相关度下优先返回被重复验证和实际使用的知识', async () => {
       const store = new LocalKnowledgeStore()
@@ -129,7 +129,7 @@ describe('LocalKnowledgeStore', () => {
       const results = await store.search('部署检查')
       expect(results[0].id).toBe(strong.id)
       expect(results.find(entry => entry.id === weak.id)).toBeDefined()
-    });
+    })
   })
 
   describe('reinforcement lifecycle', () => {
@@ -158,7 +158,7 @@ describe('LocalKnowledgeStore', () => {
       })
       expect(reinforced?.sourceSessionIds).toEqual(['session-a', 'session-b'])
       expect(reinforced?.tags).toEqual(['release', 'database'])
-    });
+    })
 
     it('时效性知识过期后进入待复核状态', () => {
       expect(personalKnowledgeFreshness({
@@ -169,7 +169,7 @@ describe('LocalKnowledgeStore', () => {
         createdAt: '2025-01-01T00:00:00.000Z',
         updatedAt: '2025-01-01T00:00:00.000Z',
       })).toBe('needs_review')
-    });
+    })
 
     it('不会把文本相似但结论相反的知识误合并', async () => {
       const store = new LocalKnowledgeStore()
@@ -178,7 +178,7 @@ describe('LocalKnowledgeStore', () => {
 
       expect(await store.mergeSimilar(0.55)).toBe(0)
       expect(await store.loadAll()).toHaveLength(2)
-    });
+    })
   })
 
   describe('list', () => {
@@ -195,7 +195,7 @@ describe('LocalKnowledgeStore', () => {
       const limited = await store.list(1)
       expect(limited).toHaveLength(1)
       expect(limited[0].id).toBe(second.id)
-    });
+    })
   })
 
   describe('remove', () => {
@@ -210,7 +210,7 @@ describe('LocalKnowledgeStore', () => {
       const remaining = await new LocalKnowledgeStore().loadAll()
       expect(remaining).toHaveLength(1)
       expect(remaining[0].id).toBe(b.id)
-    });
+    })
   })
 
   describe('loadAll 容错', () => {
@@ -235,6 +235,6 @@ describe('LocalKnowledgeStore', () => {
       const entries = await store.loadAll()
       expect(entries).toHaveLength(1)
       expect(entries[0].id).toBe('kb_ok')
-    });
+    })
   })
-});
+})

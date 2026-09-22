@@ -92,7 +92,7 @@ describe('incremental update manifest', () => {
     })
 
     expect(parsed).toEqual({ ok: false, error: 'patch artifact missing signature' })
-  });
+  })
 
   it('rejects non-https artifacts', () => {
     const parsed = parseIncrementalUpdateManifest({
@@ -120,7 +120,7 @@ describe('incremental update manifest', () => {
     })
 
     expect(parsed).toEqual({ ok: false, error: 'patch artifact url must use https' })
-  });
+  })
   it('requires kind-specific compatibility metadata', () => {
     const parsed = parseIncrementalUpdateManifest({
       schemaVersion: 1,
@@ -147,6 +147,6 @@ describe('incremental update manifest', () => {
     })
 
     expect(parsed).toEqual({ ok: false, error: 'component artifact must declare compat.componentApi' })
-  });
+  })
 
 })

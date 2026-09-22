@@ -23,8 +23,14 @@ export interface DataGovernanceRouteServices {
   getPrivateDeploymentStatus(): {
     deploymentId: string
     license: {
-      status: string; plan: string; expiresAt: string; seatLimit: number
-      activeSeatCount: number; modules: string[]; offline: boolean; enforce: boolean
+      status: string
+      plan: string
+      expiresAt: string
+      seatLimit: number
+      activeSeatCount: number
+      modules: string[]
+      offline: boolean
+      enforce: boolean
     }
     telemetry: { enabled: boolean; contentMode: string }
     dataBoundary: Record<string, unknown>

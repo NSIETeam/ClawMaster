@@ -17,13 +17,13 @@
  * 走 clawmaster-core 的 ProjectSettingsManager（与 CLI /config agent-style 同源）。
  */
 
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
-import type { MCPServerConfig, WebSearchProvider } from 'clawmaster-core';
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import type { MCPServerConfig, WebSearchProvider } from 'clawmaster-core'
 
-const SETTINGS_DIR_NAME = '.clawmaster-user';
-const SETTINGS_FILE = 'settings.json';
+const SETTINGS_DIR_NAME = '.clawmaster-user'
+const SETTINGS_FILE = 'settings.json'
 
 export function userSettingsFilePath(homeDir = os.homedir()): string {
   return path.join(homeDir, SETTINGS_DIR_NAME, SETTINGS_FILE)
@@ -37,7 +37,7 @@ export interface UserSettingsSubset {
   preferredLanguage?: string
   mcpServers?: Record<string, MCPServerConfig>
   /** 桌面端全局自动授权；仅放行非高危操作。 */
-  authorizationMode?: 'manual' | 'auto';
+  authorizationMode?: 'manual' | 'auto'
   searchProvider?: WebSearchProvider
   searchApiUrl?: string
   searchModel?: string
@@ -53,11 +53,11 @@ export interface UserSettingsSubset {
 
 /** 极简 JSON 注释剥离（与 customModels.ts 同一套宽容策略）。 */
 function stripJsonCommentsLoose(input: string): string {
-  let out = input.replace(/\/\*[\s\S]*?\*\//g, '');
+  let out = input.replace(/\/\*[\s\S]*?\*\//g, '')
   out = out
     .split('\n')
     .map(line => (line.trimStart().startsWith('//') ? '' : line))
-    .join('\n');
+    .join('\n')
   return out
 }
 
@@ -65,7 +65,7 @@ function readRaw(homeDir = os.homedir()): Record<string, unknown> {
   const filePath = userSettingsFilePath(homeDir)
   try {
     if (!fs.existsSync(filePath)) return {}
-    const text = fs.readFileSync(filePath, 'utf-8');
+    const text = fs.readFileSync(filePath, 'utf-8')
     try {
       return JSON.parse(text) as Record<string, unknown>
     } catch {
@@ -159,8 +159,8 @@ export function patchUserSettings(
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
   const raw = readRaw(homeDir)
   const next = { ...raw, ...patch }
-  const tmp = filePath + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf-8');
+  const tmp = filePath + '.tmp'
+  fs.writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf-8')
   fs.renameSync(tmp, filePath)
 }
 

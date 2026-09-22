@@ -19,11 +19,11 @@ describe('customer module authoring', () => {
     expect(result.manifest).toMatchObject({ id: 'com.acme.report', entrypoint: 'module.wasm' })
     expect(result.manifest).not.toHaveProperty('signature')
     expect((result.manifest.files as Record<string, string>)['module.wasm']).toMatch(/^[a-f0-9]{64}$/)
-  });
+  })
 
   it('performs local WASM validation before upload', async () => {
     await expect(locallyValidateCustomerModuleWasm(WASM)).resolves.toEqual([])
     await expect(locallyValidateCustomerModuleWasm(Uint8Array.from([0,97,115,109,1,0,0,0])))
       .rejects.toThrow(/clawmaster_run/)
-  });
+  })
 })

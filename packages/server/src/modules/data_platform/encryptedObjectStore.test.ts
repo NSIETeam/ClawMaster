@@ -43,7 +43,7 @@ describe('encrypted object store', () => {
 
     store.delete(object.key)
     expect(store.listKeys()).toEqual([])
-  });
+  })
 
   it('rejects traversal and authenticated-ciphertext tampering', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-objects-'))
@@ -67,7 +67,7 @@ describe('encrypted object store', () => {
     raw[raw.length - 1] ^= 1
     fs.writeFileSync(objectPath, raw)
     expect(() => store.read(object.key)).toThrow()
-  });
+  })
 
   it.skipIf(process.platform === 'win32')(
     'fails closed when an object shard is replaced by a symbolic link',
@@ -102,4 +102,4 @@ describe('encrypted object store', () => {
       expect(() => store.listKeys()).toThrow('contains a symbolic link')
     },
   )
-});
+})

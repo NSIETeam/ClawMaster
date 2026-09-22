@@ -140,7 +140,7 @@ function showParkNotification(
   if (notify) {
     void notify.catch(() => {
       void window.clawmaster.parkNativeNotify?.(fallbackTitle, fallbackBody)
-    });
+    })
   } else {
     void window.clawmaster.parkNativeNotify?.(fallbackTitle, fallbackBody)
   }
@@ -465,7 +465,7 @@ export function useParkBrand(): string {
       }
       if (!cancelled) setBrand(DEFAULT_BRAND)
     })()
-    return () => { cancelled = true };
+    return () => { cancelled = true }
   }, [])
   return brand
 }
@@ -695,7 +695,7 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
   const refreshResources = useCallback(async (): Promise<void> => {
     if (service.id !== 'meeting-room' || !window.clawmaster?.enterpriseParkResources) {
       setResources(null)
-      return;
+      return
     }
     try {
       setResources(await window.clawmaster.enterpriseParkResources())
@@ -745,7 +745,7 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
   const replaceTicket = (next: EnterpriseRepairTicket): void => {
     setTickets(current => [next, ...current.filter(ticket => ticket.id !== next.id)])
     setSelectedId(next.id)
-  };
+  }
 
   const chooseRoom = (roomId: string): void => {
     const room = resources?.meetingRooms.find(item => item.id === roomId)
@@ -761,7 +761,7 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
       time: '',
       attendees: room && Number(current.attendees) > room.capacity ? '' : current.attendees,
     }))
-  };
+  }
 
   const chooseSlot = (slot: EnterpriseParkResources['meetingSlots'][number]): void => {
     if (slot.status !== 'available') return
@@ -808,7 +808,7 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
         endTime,
         time: `${startTime}–${endTime}`,
       }
-    });
+    })
   }
 
   const submitTicket = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -1268,7 +1268,7 @@ function ParkServiceWindow({
     }
     onActivate(entry.id)
     event.currentTarget.setPointerCapture?.(event.pointerId)
-  };
+  }
   const move = (event: React.PointerEvent<HTMLDivElement>): void => {
     const active = drag.current
     if (!active || active.pointerId !== event.pointerId) return
@@ -1276,12 +1276,12 @@ function ParkServiceWindow({
       x: Math.max(active.minX, Math.min(active.startX + event.clientX - active.originX, active.maxX)),
       y: Math.max(active.minY, Math.min(active.startY + event.clientY - active.originY, active.maxY)),
     })
-  };
+  }
   const stopDrag = (event: React.PointerEvent<HTMLDivElement>): void => {
     if (drag.current?.pointerId !== event.pointerId) return
     drag.current = null
     event.currentTarget.releasePointerCapture?.(event.pointerId)
-  };
+  }
 
   if (mode === 'minimized') {
     return <button
@@ -1434,7 +1434,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
         focusTicket: ticket,
         initialPosition: { x: offset, y: offset },
       }]
-    });
+    })
     setOpen(false)
   }, [])
 
@@ -1483,7 +1483,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
         setParkAdminOrganization(true)
         setBrand(DEFAULT_BRAND)
         setServices(defaultServices(DEFAULT_PARK))
-        return;
+        return
       }
       const enterpriseParkView = window.clawmaster?.enterpriseParkView
       if (typeof enterpriseParkView === 'function') {
@@ -1537,7 +1537,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
         setServices(defaultServices(DEFAULT_PARK))
       }
     })()
-    return () => { cancelled = true };
+    return () => { cancelled = true }
   }, [internalAdminPreview])
 
   useEffect(() => {
@@ -1592,7 +1592,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     return () => {
       cancelled = true
       stopPolling()
-    };
+    }
   }, [internalAdminPreview, open, parkAdminOrganization])
 
   useEffect(() => {
@@ -1622,7 +1622,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       }
     }
     const stopPolling = startNonOverlappingPoll(poll, 5_000)
-    return () => { cancelled = true; stopPolling() };
+    return () => { cancelled = true; stopPolling() }
   }, [internalAdminPreview, parkEnabled])
 
   useEffect(() => {
@@ -1650,7 +1650,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       if (!id) return
       notifiedPublicationKeys.current.add(id)
       setBackgroundPublication(current => current?.id === id ? null : current)
-    };
+    }
     window.addEventListener('clawmaster:park-publication-handled', onPublicationHandled)
     return () => window.removeEventListener('clawmaster:park-publication-handled', onPublicationHandled)
   }, [])
@@ -1668,7 +1668,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       setPendingLandingTarget(landingTarget ?? null)
       setWindowMode('normal')
       setOpen(true)
-    };
+    }
     const onOpen = (event: Event): void => {
       const target = event instanceof CustomEvent && typeof event.detail?.target === 'string'
         ? event.detail.target as ParkModuleTarget
@@ -1686,7 +1686,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
           setPendingLandingTarget(null)
           setWindowMode('normal')
           openServiceWindow(service)
-          return;
+          return
         }
       }
       showParkSession(
@@ -1695,7 +1695,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
           ? target
           : undefined,
       )
-    };
+    }
     const onClose = (): void => {
       setSelected(null)
       setFocusTicket(null)
@@ -1708,11 +1708,11 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       setOpen(false)
       setServiceWindows([])
       setParkSurfacesVisible(false)
-    };
+    }
     const onHide = (): void => {
       setOpen(false)
       setParkSurfacesVisible(false)
-    };
+    }
     const unsubscribeNotification = window.clawmaster.onNotificationSessionOpen?.((sessionId) => {
       if (sessionId.startsWith('park:')) showParkSession(sessionId)
     }) ?? (() => {})
@@ -1724,7 +1724,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       window.removeEventListener(PARK_OPEN_EVENT, onOpen)
       window.removeEventListener(PARK_CLOSE_EVENT, onClose)
       window.removeEventListener(PARK_HIDE_EVENT, onHide)
-    };
+    }
   }, [openServiceWindow, parkEnabled, services])
 
   useEffect(() => {
@@ -1748,7 +1748,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
           notifiedTicketKeys.current.clear()
           ticketPollIdentity.current = null
           ticketPollInitialized.current = false
-          return;
+          return
         }
         const identity = `${session.account.organizationId}:${session.account.id}`
         if (ticketPollIdentity.current !== identity) {
@@ -1812,7 +1812,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
               preview: body,
               persistent: true,
             }, title, body)
-            return;
+            return
           }
         }
 
@@ -1878,7 +1878,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       }
     }
     const stopPolling = startNonOverlappingPoll(poll, 5_000)
-    return () => { cancelled = true; stopPolling() };
+    return () => { cancelled = true; stopPolling() }
   }, [internalAdminPreview, parkEnabled])
 
   const close = (): void => {
@@ -1890,7 +1890,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     setWindowMode('normal')
     setWindowPosition({ x: 0, y: 0 })
     windowDrag.current = null
-  };
+  }
   const completeService = (ticket?: EnterpriseRepairTicket): void => {
     if (ticket?.isCreator) {
       setOwnHistory(current => [
@@ -1899,7 +1899,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       ])
     }
     close()
-  };
+  }
   const closeServiceWindow = useCallback((id: string): void => {
     setServiceWindows(current => current.filter(entry => entry.id !== id))
   }, [])
@@ -1908,7 +1908,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       const active = current.find(entry => entry.id === id)
       if (!active || current[current.length - 1]?.id === id) return current
       return [...current.filter(entry => entry.id !== id), active]
-    });
+    })
   }, [])
   const returnFromServiceWindow = useCallback((id: string): void => {
     closeServiceWindow(id)
@@ -1943,7 +1943,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       maxY: windowPosition.y + window.innerHeight - 48 - (bounds?.top ?? 0),
     }
     event.currentTarget.setPointerCapture?.(event.pointerId)
-  };
+  }
   const moveWindow = (event: React.PointerEvent<HTMLDivElement>): void => {
     const drag = windowDrag.current
     if (!drag || drag.pointerId !== event.pointerId) return
@@ -1953,15 +1953,15 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       x: Math.max(drag.minX, Math.min(nextX, drag.maxX)),
       y: Math.max(drag.minY, Math.min(nextY, drag.maxY)),
     })
-  };
+  }
   const stopWindowDrag = (event: React.PointerEvent<HTMLDivElement>): void => {
     if (windowDrag.current?.pointerId !== event.pointerId) return
     windowDrag.current = null
     event.currentTarget.releasePointerCapture?.(event.pointerId)
-  };
+  }
   const pick = (service: ParkService): void => {
     openServiceWindow(service)
-  };
+  }
 
   const openTicket = useCallback((ticket: EnterpriseRepairTicket): void => {
     const service = services.find(item => item.id === (ticket.serviceId || 'repair'))
@@ -2013,7 +2013,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
         const updated = entry.focusTicket ? updates.get(entry.focusTicket.id) : undefined
         return updated ? { ...entry, focusTicket: updated } : entry
       }))
-    });
+    })
   }, [])
 
   const openAssignedTicket = useCallback((ticket: EnterpriseRepairTicket): void => {
@@ -2026,7 +2026,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     if (ticket.isCreator) openOwnHistoryTicket(ticket)
     else openAssignedTicket(ticket)
     setBackgroundTickets(current => current.filter(item => item.id !== ticket.id))
-  };
+  }
 
   const openBackgroundTicketSummary = (): void => {
     markAssignedTicketsViewed(assignedTasks)
@@ -2035,7 +2035,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     setOpen(true)
     setBackgroundTicketSummaryCount(0)
     void window.clawmaster.notificationMarkRead?.('park:service').catch(() => undefined)
-  };
+  }
 
   useEffect(() => {
     const sessionId = pendingNotificationSessionId
@@ -2046,11 +2046,11 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       setPendingNotificationSessionId(null)
       setBackgroundTicketSummaryCount(0)
       void window.clawmaster.notificationMarkRead?.(sessionId).catch(() => undefined)
-      return;
+      return
     }
     if (!sessionId.startsWith('park:ticket:')) {
       setPendingNotificationSessionId(null)
-      return;
+      return
     }
     const ticketId = sessionId.slice('park:ticket:'.length)
     const ticket = assignedTasks.find(item => item.id === ticketId)
@@ -2071,7 +2071,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       openServiceWindow(service)
     }
     setBackgroundPublication(null)
-  };
+  }
 
   if (parkEnabled !== true) return <></>
 
@@ -2131,8 +2131,8 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                 type="button"
                 onClick={() => {
                   setWindowMode(current => current === 'maximized' ? 'normal' : 'maximized')
-                windowDrag.current = null
-              }}
+                  windowDrag.current = null
+                }}
                 aria-label={windowMode === 'maximized' ? '还原园区服务窗口' : '最大化园区服务窗口'}
               >{windowMode === 'maximized' ? '❐' : '□'}</button>
               <button type="button" className="claw-park-dialog__close" onClick={close} aria-label="关闭"><IconClose size={14} /></button>
@@ -2175,9 +2175,9 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                     </div>
                     {parkStatistics.organizations.length ? parkStatistics.organizations.map((organization, index) => {
                       const expanded = expandedOrganizationId === organization.organizationId
-                    const detailId = uid + '-park-statistics-' + index
-                    const location = [organization.address, organization.roomNumber].filter(Boolean).join(' · ')
-                    return <div className="claw-park-statistics__organization" key={organization.organizationId}>
+                      const detailId = uid + '-park-statistics-' + index
+                      const location = [organization.address, organization.roomNumber].filter(Boolean).join(' · ')
+                      return <div className="claw-park-statistics__organization" key={organization.organizationId}>
                         <button
                           type="button"
                           aria-expanded={expanded}
@@ -2200,7 +2200,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                           </div>)}
                         </div> : null}
                       </div>
-                  }) : <div className="claw-park-statistics__empty">当前还没有企业加入这个产业园。</div>}
+                    }) : <div className="claw-park-statistics__empty">当前还没有企业加入这个产业园。</div>}
                   </div>
                 </> : <div className="claw-park-statistics__loading">正在汇总园区服务数据...</div>}
               </section> : null}
@@ -2213,13 +2213,13 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                   <div className="claw-park-dialog__grid">
                     {services.map((service, index) => {
                       const Icon = service.icon
-                    return (
+                      return (
                         <button key={service.id} ref={index === 0 ? firstItemRef : undefined} type="button" className="claw-park-service" onClick={() => pick(service)}>
                           <span className="claw-park-service__icon" aria-hidden><Icon size={17} /></span>
                           <span className="claw-park-service__name">{service.name}</span>
                           <span className="claw-park-service__desc">{service.desc}</span>
                         </button>
-                      );
+                      )
                     })}
                   </div>
                 </section>
@@ -2258,14 +2258,14 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                       <div className="claw-park-staff-history__items">
                         {visibleAssignedHistory.length ? visibleAssignedHistory.map((ticket) => {
                           const serviceName = historyCategoryOptions.find(service => service.id === ticket.serviceId)?.name || ticket.serviceId
-                        const latestTime = (ticket.history ?? []).at(-1)?.createdAt || ticket.responseAt || ticket.updatedAt
-                        return <button key={ticket.id} type="button" onClick={() => openAssignedTicket(ticket)} aria-label={`打开园区历史：${ticket.title}`}>
+                          const latestTime = (ticket.history ?? []).at(-1)?.createdAt || ticket.responseAt || ticket.updatedAt
+                          return <button key={ticket.id} type="button" onClick={() => openAssignedTicket(ticket)} aria-label={`打开园区历史：${ticket.title}`}>
                             <span><b>{serviceName}</b><em>{ticket.status}</em></span>
                             <strong>{ticket.title}</strong>
                             <small>{ticket.creator.name} · {formatParkTimestamp(latestTime)}</small>
                             <p>{ticket.responseType || '办理完成'}{ticket.responseText ? `：${ticket.responseText}` : ''}</p>
                           </button>
-                      }) : <div className="claw-park-staff-history__empty">没有符合当前搜索和分类条件的历史记录。</div>}
+                        }) : <div className="claw-park-staff-history__empty">没有符合当前搜索和分类条件的历史记录。</div>}
                       </div>
                     </section> : null}
                   </div> : null}
@@ -2279,13 +2279,13 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                     <div className="claw-park-staff-history__items">
                       {ownHistory.length ? ownHistory.map((ticket) => {
                         const serviceName = historyCategoryOptions.find(service => service.id === ticket.serviceId)?.name || ticket.serviceId
-                      return <button key={ticket.id} type="button" onClick={() => openOwnHistoryTicket(ticket)} aria-label={`打开我的申请历史：${ticket.title}`}>
+                        return <button key={ticket.id} type="button" onClick={() => openOwnHistoryTicket(ticket)} aria-label={`打开我的申请历史：${ticket.title}`}>
                           <span><b>{serviceName}</b><em>{ticket.status}</em></span>
                           <strong>{ticketApplicationNumber(ticket)} · {ticket.title}</strong>
                           <small>{formatParkTimestamp(ticket.updatedAt || ticket.createdAt)}</small>
                           <p>{ticket.responseType || '等待受理'}{ticket.responseText ? `：${ticket.responseText}` : ''}</p>
                         </button>
-                    }) : <div className="claw-park-staff-history__empty">暂无申请历史；提交服务后可在这里查看。</div>}
+                      }) : <div className="claw-park-staff-history__empty">暂无申请历史；提交服务后可在这里查看。</div>}
                     </div>
                   </section>
                 </aside>

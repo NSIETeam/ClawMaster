@@ -78,7 +78,7 @@ function ignoreBrokenPipe(stream: NodeJS.WriteStream): void {
   stream.on('error', (error: NodeJS.ErrnoException) => {
     if (error.code === 'EPIPE') return
     throw error
-  });
+  })
 }
 
 ignoreBrokenPipe(process.stdout)
@@ -289,7 +289,7 @@ function normalizeEnterpriseMessageAttachments(
     return sourcePath
       ? { fileName, mimeType, size, sourcePath }
       : { fileName, mimeType, size, data }
-  });
+  })
 }
 
 function normalizeEnterpriseAtoaSources(value: unknown): Array<
@@ -771,7 +771,7 @@ async function flushEnterpriseAccountDataSync(
   const timeout = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, timeoutMs)
     timer.unref?.()
-  });
+  })
   await Promise.race([
     accountDataSyncService
       .sync(enterpriseClient, identity)
@@ -792,7 +792,7 @@ async function synchronizeAuthenticatedEnterpriseAccount(
     await enterpriseMlsOutboxRetry.stop()
     await enterpriseMlsInboundPoll.stop()
     await enterpriseMls.close()
-    return;
+    return
   }
   let e2eeDevice: Awaited<
     ReturnType<EnterpriseClient['ensureE2eeDeviceReady']>
@@ -848,7 +848,7 @@ async function synchronizeAuthenticatedEnterpriseAccount(
     await accountDataSyncService.activate(identity)
   } catch (error) {
     logAccountDataSyncFailure(error)
-    return;
+    return
   }
   try {
     const summary = await accountDataSyncService.sync(
@@ -939,7 +939,7 @@ const enterpriseClient = new EnterpriseClient(
         )
         .catch((error) => {
           console.warn('[clawmaster-desktop] 清理失效企业会话或本机身份失败:', error)
-        });
+        })
     }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC.enterpriseSessionInvalidated)
@@ -1116,7 +1116,7 @@ function loadEnterpriseSession(): void {
   )
   if (internalTestSession) {
     enterpriseClient.restore(internalTestSession)
-    return;
+    return
   }
   let restored = {
     serverUrl: DEFAULT_ENTERPRISE_SERVER_URL,
@@ -1384,7 +1384,7 @@ function postServerEndpoint(
         res.setEncoding('utf8')
         res.on('data', (chunk: string) => {
           body += chunk
-        });
+        })
         res.on('end', () => {
           try {
             resolve(
@@ -1404,10 +1404,10 @@ function postServerEndpoint(
     req.on('timeout', () => {
       req.destroy()
       resolve(null)
-    });
+    })
     req.on('error', () => resolve(null))
     req.end()
-  });
+  })
 }
 
 /**
@@ -1448,7 +1448,7 @@ function requestFeishuConfig(
         res.setEncoding('utf8')
         res.on('data', (chunk: string) => {
           text += chunk
-        });
+        })
         res.on('end', () => {
           try {
             resolve(
@@ -1468,10 +1468,10 @@ function requestFeishuConfig(
     req.on('timeout', () => {
       req.destroy()
       resolve(null)
-    });
+    })
     req.on('error', () => resolve(null))
     req.end(payload)
-  });
+  })
 }
 
 function requestChannelPairing(
@@ -1503,7 +1503,7 @@ function requestChannelPairing(
       (res) => {
         let text = ''
         res.setEncoding('utf8')
-        res.on('data', (chunk: string) => { text += chunk });
+        res.on('data', (chunk: string) => { text += chunk })
         res.on('end', () => {
           try {
             resolve(JSON.parse(text) as { ok: boolean; data: unknown; error: string | null })
@@ -1517,10 +1517,10 @@ function requestChannelPairing(
     req.on('timeout', () => {
       req.destroy()
       resolve(null)
-    });
+    })
     req.on('error', () => resolve(null))
     req.end(payload)
-  });
+  })
 }
 
 /** 查询当前 server 的 /health（信封 {ok,data,error}），失败/未就绪返回 null。 */
@@ -1540,7 +1540,7 @@ function fetchServerHealth(): Promise<HealthInfo | null> {
         res.setEncoding('utf8')
         res.on('data', (chunk: string) => {
           body += chunk
-        });
+        })
         res.on('end', () => {
           try {
             const parsed = JSON.parse(body) as {
@@ -1558,9 +1558,9 @@ function fetchServerHealth(): Promise<HealthInfo | null> {
     req.on('timeout', () => {
       req.destroy()
       resolve(null)
-    });
+    })
     req.on('error', () => resolve(null))
-  });
+  })
 }
 
 /** 把 /health 的飞书守护状态渲染成给用户看的一句人话（状态必须诚实）。 */
@@ -1677,7 +1677,7 @@ async function refreshEnterpriseTrayContacts(): Promise<void> {
     enterpriseTrayContacts = []
     updateUnreadIndicators(notificationService.getUnreadSessions())
     syncEnterpriseTrayPopover()
-    return;
+    return
   }
   try {
     enterpriseTrayContacts = summarizeEnterpriseTrayContacts(
@@ -1685,7 +1685,7 @@ async function refreshEnterpriseTrayContacts(): Promise<void> {
     )
   } catch {
     updateUnreadIndicators(notificationService.getUnreadSessions())
-    return;
+    return
   }
   updateUnreadIndicators(notificationService.getUnreadSessions())
   syncEnterpriseTrayPopover()
@@ -1704,7 +1704,7 @@ async function listEnterpriseUnreadMessageNotifications(
     ]).then(([messages, organization]) => {
       const names = new Map(
         organization.members.map(member => [member.id, member.name]),
-      );
+      )
       return messages.map(message => ({
         id: message.id,
         source: 'enterprise' as const,
@@ -1714,7 +1714,7 @@ async function listEnterpriseUnreadMessageNotifications(
         preview: message.content.slice(0, 160),
         createdAt: message.createdAt,
       }))
-      });
+    })
   if (!options.includeFederation) return localMessages
   const federationContacts = await enterpriseClient
     .listFederationContacts()
@@ -1788,7 +1788,7 @@ function requestBackgroundAttention(): void {
   if (process.platform === 'darwin' && app.dock) {
     if (dockBounceId !== undefined) app.dock.cancelBounce(dockBounceId)
     dockBounceId = app.dock.bounce('informational')
-    return;
+    return
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
@@ -1861,11 +1861,11 @@ function handleEnterpriseTrayNavigation(targetUrl: string): void {
     if (target.protocol !== 'clawmaster-tray:') return
     if (target.hostname === 'open') {
       showMainWindow()
-      return;
+      return
     }
     if (target.hostname === 'park') {
       openNotificationSession('park:service')
-      return;
+      return
     }
     if (target.hostname !== 'message') return
     const accountId = decodeURIComponent(target.pathname.replace(/^\/+/, ''))
@@ -1873,7 +1873,7 @@ function handleEnterpriseTrayNavigation(targetUrl: string): void {
     if (accountId.startsWith('federation:')) {
       const contactId = accountId.slice('federation:'.length)
       if (contactId) openNotificationSession(`enterprise:federation:${contactId}`)
-      return;
+      return
     }
     openNotificationSession(`enterprise:message:${accountId}`)
   } catch (error) {
@@ -1919,17 +1919,17 @@ function ensureEnterpriseTrayPopoverWindow(): BrowserWindow {
   window.on('closed', () => {
     if (enterpriseTrayPopoverWindow === window)
       enterpriseTrayPopoverWindow = undefined
-  });
+  })
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event, targetUrl) => {
     event.preventDefault()
     handleEnterpriseTrayNavigation(targetUrl)
-  });
+  })
   window.webContents.on('before-input-event', (event, input) => {
     if (input.key !== 'Escape') return
     event.preventDefault()
     window.hide()
-  });
+  })
   return window
 }
 
@@ -1952,7 +1952,7 @@ function positionEnterpriseTrayPopoverWindow(window: BrowserWindow): void {
         y: workArea.y + workArea.height,
         width: 24,
         height: 0,
-      };
+      }
   const position = positionEnterpriseTrayPopover(
     effectiveTrayBounds,
     workArea,
@@ -1975,7 +1975,7 @@ async function renderEnterpriseTrayPopover(show: boolean): Promise<void> {
     )
   } catch (error) {
     void error
-    return;
+    return
   }
   if (window.isDestroyed()) return
   positionEnterpriseTrayPopoverWindow(window)
@@ -1991,7 +1991,7 @@ function syncEnterpriseTrayPopover(): void {
   if (!enterpriseTrayPopoverWindow.isVisible()) return
   if (enterpriseTrayContacts.length === 0) {
     enterpriseTrayPopoverWindow.hide()
-    return;
+    return
   }
   void renderEnterpriseTrayPopover(false)
 }
@@ -2001,7 +2001,7 @@ async function showEnterpriseTrayPopover(): Promise<void> {
     await refreshEnterpriseTrayContacts()
   if (enterpriseTrayContacts.length === 0) {
     showMainWindow()
-    return;
+    return
   }
   await renderEnterpriseTrayPopover(true)
 }
@@ -2009,7 +2009,7 @@ async function showEnterpriseTrayPopover(): Promise<void> {
 async function toggleEnterpriseTrayPopover(): Promise<void> {
   if (enterpriseTrayPopoverWindow?.isVisible()) {
     enterpriseTrayPopoverWindow.hide()
-    return;
+    return
   }
   await showEnterpriseTrayPopover()
 }
@@ -2018,7 +2018,7 @@ function showMainWindow(): void {
   clearBackgroundAttention()
   if (!app.isReady() || !mainWindowCreationReady) {
     pendingMainWindowFocusRequest = true
-    return;
+    return
   }
   if (!mainWindow || mainWindow.isDestroyed()) {
     mainWindow = createWindow()
@@ -2059,7 +2059,7 @@ function createTray(): void {
             label: `查看 ${enterpriseUnreadTotal} 条未读企业消息`,
             click: () => {
               void showEnterpriseTrayPopover()
-              },
+            },
           },
         ]
         : []
@@ -2107,7 +2107,7 @@ function createTray(): void {
       },
     ]
     tray!.setContextMenu(Menu.buildFromTemplate(template))
-  };
+  }
 
   updateMenu()
   desktopRecurringTasks.register({
@@ -2138,7 +2138,7 @@ function createTray(): void {
 
   tray.on('click', () => {
     void toggleEnterpriseTrayPopover()
-  });
+  })
   tray.on('double-click', showMainWindow)
   tray.on('balloon-click', showMainWindow)
 }
@@ -2204,7 +2204,7 @@ function createWindow(): BrowserWindow {
     if (initialIndicatorsUpdated) return
     initialIndicatorsUpdated = true
     updateUnreadIndicators(notificationService.getUnreadSessions())
-  };
+  }
 
   win.once('ready-to-show', markWindowReady)
   win.on('focus', clearBackgroundAttention)
@@ -2226,7 +2226,7 @@ function createWindow(): BrowserWindow {
       console.error('[clawmaster-desktop] close choice dialog failed:', error)
     }).finally(() => {
       closePromptPending = false
-    });
+    })
   })
 
   hardenWebContents(win)
@@ -2238,7 +2238,7 @@ function createWindow(): BrowserWindow {
       .applyActiveRendererPatches()
       .catch((error) => {
         console.warn('[clawmaster-desktop] apply renderer css patch failed:', error)
-      });
+      })
   })
 
   void win.loadFile(path.join(RENDERER_DIR, 'index.html'))
@@ -2290,13 +2290,13 @@ function createVideoEditorWindow(): { ok: boolean; error?: string } {
 
   win.on('closed', () => {
     videoEditorWindow = undefined
-  });
+  })
 
   // External links open in system browser
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (isExternalUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
-  });
+  })
   return { ok: true }
 }
 
@@ -2306,7 +2306,7 @@ function hardenWebContents(win: BrowserWindow): void {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (isExternalUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
-  });
+  })
 
   // 阻止 renderer 导航离开本地 app（防被劫持加载远程页）。
   win.webContents.on('will-navigate', (event, url) => {
@@ -2338,7 +2338,7 @@ function hardenWebContents(win: BrowserWindow): void {
   })
   win.webContents.on('unresponsive', () => {
     console.warn('[clawmaster-desktop] renderer 无响应')
-  });
+  })
 }
 
 /**
@@ -2406,7 +2406,7 @@ function applyCsp(): void {
         'Content-Security-Policy': [csp],
       },
     })
-  });
+  })
 
   // 仅放行本地 renderer 的音频录制；摄像头/地理位置等继续拒绝。
   session.defaultSession.setPermissionRequestHandler(
@@ -2511,7 +2511,7 @@ function parseLegalDocumentReferences(
       version: record.version as string,
       hash: record.hash as string,
     }
-  });
+  })
   return references
 }
 
@@ -2542,7 +2542,7 @@ function registerIpc(): void {
       throw new Error('社区插件导入参数不完整')
     }
     return installCommunitySkill({ id: value.id, source: value.source, slug: value.slug })
-  });
+  })
   ipcMain.handle(IPC.communitySkillList, async () => {
     const root = path.join(os.homedir(), '.clawmaster-user', 'skills')
     let entries: fs.Dirent[]
@@ -2562,13 +2562,13 @@ function registerIpc(): void {
       }))
     return installed.filter((item): item is { name: string; installPath: string } => item !== null)
       .sort((left, right) => left.name.localeCompare(right.name))
-  });
+  })
 
   ipcMain.handle(IPC.writeClipboard, (_e, text: unknown) => {
     if (typeof text !== 'string') return false
     clipboard.writeText(text)
     return true
-  });
+  })
   ipcMain.handle(IPC.readClipboardText, () => clipboard.readText())
   ipcMain.handle(IPC.autoGeneratedAgentProfiles, async () => {
     try {
@@ -2582,7 +2582,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseRegistrationIntent, () => {
     enterpriseIntentRendererReady = true
     return enterpriseRegistrationIntents.take()
-  });
+  })
   ipcMain.handle(IPC.enterpriseSession, () =>
     enterpriseAuthOperations.run(async () => {
       loadEnterpriseSession()
@@ -2628,7 +2628,7 @@ function registerIpc(): void {
         saveEnterpriseSession,
       )
       return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
-    });
+    })
   })
   ipcMain.handle(IPC.enterpriseSmsLoginRequest, async (_e, input: unknown) => {
     loadEnterpriseSession()
@@ -2645,7 +2645,7 @@ function registerIpc(): void {
       )
       saveEnterpriseSession()
       return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
-    });
+    })
   })
   ipcMain.handle(IPC.enterpriseSmsLoginVerify, async (_e, input: unknown) => {
     loadEnterpriseSession()
@@ -2667,7 +2667,7 @@ function registerIpc(): void {
         saveEnterpriseSession,
       )
       return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
-    });
+    })
   })
   ipcMain.handle(
     IPC.enterpriseRegistrationRequest,
@@ -2691,7 +2691,7 @@ function registerIpc(): void {
         )
         saveEnterpriseSession()
         return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
-      });
+      })
     },
   )
   ipcMain.handle(IPC.enterpriseRegister, async (_e, input: unknown) => {
@@ -2725,7 +2725,7 @@ function registerIpc(): void {
         saveEnterpriseSession,
       )
       return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
-    });
+    })
   })
   ipcMain.handle(IPC.enterpriseJoinOrganization, async (_e, input: unknown) => {
     loadEnterpriseSession()
@@ -2759,7 +2759,7 @@ function registerIpc(): void {
       )
       saveEnterpriseSession()
       return { ...result, serverUrl: enterpriseClient.snapshot().serverUrl }
-    });
+    })
   })
   ipcMain.handle(IPC.enterpriseLogout, async () => {
     await enterpriseAuthOperations.run(async () => {
@@ -2773,7 +2773,7 @@ function registerIpc(): void {
       fileAccessGrants.clear()
       notificationService.clearAll()
       resetEnterpriseModuleUpdateState()
-    });
+    })
   })
   ipcMain.handle(IPC.enterprisePair, async (_e, token: unknown) => {
     if (typeof token !== 'string' || token.trim().length === 0) {
@@ -2820,7 +2820,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseAccounts, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listAccounts()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseAccountCreate,
     async (_e, input: AccountCreateInput) => {
@@ -2855,17 +2855,17 @@ function registerIpc(): void {
     loadEnterpriseSession()
     if (typeof id !== 'string' || !id) throw new Error('账号 ID 不正确')
     return enterpriseClient.deleteAccount(id)
-  });
+  })
   ipcMain.handle(IPC.enterpriseDataGovernanceGet, async () => {
     loadEnterpriseSession()
     return enterpriseClient.getDataGovernanceProfile()
-  });
+  })
   ipcMain.handle(IPC.enterpriseLegalAccept, async (_event, input: unknown) => {
     loadEnterpriseSession()
     return enterpriseClient.acceptCurrentLegalDocuments(
       parseLegalDocumentReferences(input),
     )
-  });
+  })
   ipcMain.handle(IPC.enterprisePrivacyExport, async () => {
     loadEnterpriseSession()
     const payload = await enterpriseClient.exportMyAccountData()
@@ -2890,7 +2890,7 @@ function registerIpc(): void {
       { encoding: 'utf8', mode: 0o600 },
     )
     return { ok: true as const, path: result.filePath }
-  });
+  })
   ipcMain.handle(
     IPC.enterprisePrivacyDelete,
     async (_event, input: unknown) => {
@@ -2946,7 +2946,7 @@ function registerIpc(): void {
       outputTokens: body.outputTokens,
       totalTokens: body.totalTokens,
     })
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseUsageProfile,
     async (_event, periodDays: unknown): Promise<PersonalTokenUsageProfile> => {
@@ -3027,7 +3027,7 @@ function registerIpc(): void {
         typeof body.observedAt === 'string' ? body.observedAt : undefined,
     }
     return enterpriseClient.recordKnowledge(record)
-  });
+  })
   ipcMain.handle(IPC.enterpriseKnowledgeList, async (_e, input: unknown) => {
     loadEnterpriseSession()
     const body =
@@ -3046,7 +3046,7 @@ function registerIpc(): void {
           ? body.status
           : undefined,
     })
-  });
+  })
   ipcMain.handle(IPC.enterpriseKnowledgeReview, async (_e, input: unknown) => {
     loadEnterpriseSession()
     if (!input || typeof input !== 'object')
@@ -3064,7 +3064,7 @@ function registerIpc(): void {
       body.action,
       typeof body.note === 'string' ? body.note : undefined,
     )
-  });
+  })
   ipcMain.handle(IPC.enterpriseKnowledgeRevise, async (_e, input: unknown) => {
     loadEnterpriseSession()
     if (!input || typeof input !== 'object')
@@ -3099,7 +3099,7 @@ function registerIpc(): void {
           ? revision.changeNote
           : undefined,
     })
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseKnowledgeRevisions,
     async (_e, input: unknown) => {
@@ -3126,11 +3126,11 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterprisePresenceHeartbeat, async () => {
     loadEnterpriseSession()
     await enterpriseClient.heartbeatPresence('desktop')
-  });
+  })
   ipcMain.handle(IPC.enterpriseOrganizationFeaturesGet, async () => {
     loadEnterpriseSession()
     return enterpriseClient.getOrganizationFeatures()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseOrganizationFeaturesUpdate,
     async (_event, input: unknown) => {
@@ -3159,7 +3159,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseOrganizationDepartments, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listOrganizationDepartments()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseOrganizationDepartmentCreate,
     async (_event, name: unknown) => {
@@ -3266,7 +3266,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseMessagesUnread, async () => {
     loadEnterpriseSession()
     return listEnterpriseUnreadMessageNotifications()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseMessageSend,
     async (
@@ -3322,7 +3322,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseFederationContactCode, async () => {
     loadEnterpriseSession()
     return enterpriseClient.exportFederationContactCode()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseFederationContactImport,
     async (_event, code: unknown) => {
@@ -3337,7 +3337,7 @@ function registerIpc(): void {
     loadEnterpriseSession()
     if (!enterpriseClient.supportsFederationGateway()) return []
     return enterpriseClient.listFederationContacts()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseFederationContactRemove,
     async (_event, contactId: unknown) => {
@@ -3430,7 +3430,7 @@ function registerIpc(): void {
     loadEnterpriseSession()
     if (!enterpriseClient.supportsFederationGateway()) return []
     return enterpriseClient.listFederationAtoaTasks()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseFederationAtoaApprove,
     async (_event, input: unknown) => {
@@ -3557,11 +3557,11 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseE2eeDevicesList, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listOwnE2eeDevices(true)
-  });
+  })
   ipcMain.handle(IPC.enterpriseE2eeKeyTransparency, async () => {
     loadEnterpriseSession()
     return enterpriseClient.getOwnE2eeKeyTransparency()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseE2eeDeviceApprove,
     async (_event, deviceId: unknown) => {
@@ -3637,7 +3637,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseAtoaInbox, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listAtoaInbox()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseParkServicePush,
     async (_event, input: unknown) => {
@@ -3662,7 +3662,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseParkView, async () => {
     loadEnterpriseSession()
     return enterpriseClient.getParkView()
-  });
+  })
   ipcMain.handle(IPC.enterpriseParkRegister, async (_event, input: unknown) => {
     loadEnterpriseSession()
     const body =
@@ -3677,7 +3677,7 @@ function registerIpc(): void {
       brandName:
         typeof body.brandName === 'string' ? body.brandName : undefined,
     })
-  });
+  })
   ipcMain.handle(IPC.enterpriseParkJoin, async (_event, input: unknown) => {
     loadEnterpriseSession()
     const body =
@@ -3695,7 +3695,7 @@ function registerIpc(): void {
       address: body.address,
       roomNumber: body.roomNumber,
     })
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseParkProfileUpdate,
     async (_event, input: unknown) => {
@@ -3733,15 +3733,15 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseParkTenants, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listParkTenantOrganizations()
-  });
+  })
   ipcMain.handle(IPC.enterpriseParkStatistics, async () => {
     loadEnterpriseSession()
     return enterpriseClient.getParkStatistics()
-  });
+  })
   ipcMain.handle(IPC.enterpriseParkSpecialists, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listParkSpecialists()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseParkSpecialistSet,
     async (_event, serviceId: unknown, accountId: unknown) => {
@@ -3776,7 +3776,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseParkServices, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listParkServices()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseParkServiceUpdate,
     async (_event, input: unknown) => {
@@ -3809,15 +3809,15 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseParkPublications, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listParkPublications()
-  });
+  })
   ipcMain.handle(IPC.enterpriseParkAnnouncementResults, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listParkAnnouncementResults()
-  });
+  })
   ipcMain.handle(IPC.enterpriseParkSurveyResults, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listParkSurveyResults()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseParkPublicationRead,
     async (_event, id: unknown) => {
@@ -3850,11 +3850,11 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseParkResources, async () => {
     loadEnterpriseSession()
     return enterpriseClient.getParkResources()
-  });
+  })
   ipcMain.handle(IPC.enterpriseOrganizationInviteGet, async () => {
     loadEnterpriseSession()
     return enterpriseClient.getOrganizationInvite()
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseOrganizationInviteIssue,
     async (_event, input: unknown) => {
@@ -3883,11 +3883,11 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseTicketInbox, async () => {
     loadEnterpriseSession()
     return enterpriseClient.ticketInbox()
-  });
+  })
   ipcMain.handle(IPC.enterpriseTicketList, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listTickets()
-  });
+  })
   ipcMain.handle(IPC.enterpriseTicketSubmit, async (_e, input: unknown) => {
     loadEnterpriseSession()
     if (!input || typeof input !== 'object')
@@ -3927,12 +3927,12 @@ function registerIpc(): void {
       contactPhone:
         typeof body.contactPhone === 'string' ? body.contactPhone : undefined,
     })
-  });
+  })
   ipcMain.handle(IPC.enterpriseTicketRead, async (_e, id: unknown) => {
     loadEnterpriseSession()
     if (typeof id !== 'string' || !id) throw new Error('工单编号不正确')
     return enterpriseClient.readTicket(id)
-  });
+  })
   ipcMain.handle(
     IPC.enterpriseTicketAction,
     async (_e, id: unknown, input: unknown) => {
@@ -3988,18 +3988,18 @@ function registerIpc(): void {
       preview: body.slice(0, 240),
     })
     return notificationService.checkPermission()
-  });
+  })
   // ── 通知系统 IPC 代理 ──
   ipcMain.handle(IPC.notificationShow, (_e, payload: unknown) => {
     const p = payload as NotificationPayload
     if (!p || typeof p.sessionId !== 'string' || typeof p.preview !== 'string')
       return
     notificationService.show(p)
-  });
+  })
   ipcMain.handle(IPC.notificationMarkRead, (_e, sessionId: unknown) => {
     if (typeof sessionId !== 'string') return
     notificationService.markRead(sessionId)
-  });
+  })
   ipcMain.handle(IPC.notificationGetUnread, () =>
     notificationService.getUnreadSessions(),
   )
@@ -4046,7 +4046,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.getEndpoint, () => {
     if (!endpoint) void ensureEndpoint()
     return endpoint ?? null
-  });
+  })
   ipcMain.handle(IPC.runtimeDiagnostic, () =>
     serverManager.getDesktopRuntimeDiagnostic(),
   )
@@ -4057,7 +4057,7 @@ function registerIpc(): void {
       return shell.openExternal(url)
     }
     return Promise.resolve()
-  });
+  })
   // 飞书状态：真查当前 server 的 /health 并透传守护详情（见文件上方说明）。
   // 状态诚实：server 未就绪 / 查询失败一律如实报告，绝不假报「已连接/运行中」。
   ipcMain.handle(IPC.feishuStatus, async () => {
@@ -4075,7 +4075,7 @@ function registerIpc(): void {
         health.feishu.enabled && (health.feishu.status?.running ?? false),
       feishu: health.feishu,
     }
-  });
+  })
   // 启停：真调 server 运行期端点 POST /feishu/start | /feishu/stop，
   // 透传真实结果（失败原样报错，不谎报动作已执行），并附最新守护状态。
   ipcMain.handle(IPC.feishuStart, async () => {
@@ -4093,7 +4093,7 @@ function registerIpc(): void {
         '飞书守护已启动（断线自动重连，连上一次后绝不永久断开）。\n' +
         (health ? renderFeishuStatusText(health.feishu) : ''),
     }
-  });
+  })
   ipcMain.handle(IPC.feishuStop, async () => {
     const r = await postServerEndpoint('/feishu/stop')
     if (!r) {
@@ -4107,14 +4107,14 @@ function registerIpc(): void {
         '飞书守护已停止（有意停止：不会自动重连，再次启动即恢复守护）。\n' +
         '注：若另有旧版 CLI 守护进程在跑，请在终端单独停止。',
     }
-  });
+  })
   // 飞书凭证配置（「飞书接入」面板）：转发 server /feishu/config。
   // GET 返回的本来就是脱敏视图（appSecret 只进不出，见 server 端约定）。
   ipcMain.handle(IPC.feishuGetConfig, async () => {
     const r = await requestFeishuConfig('GET')
     if (!r) return { ok: false, config: null, error: '本地 server 未就绪。' }
     return { ok: r.ok, config: r.data, error: r.error }
-  });
+  })
   ipcMain.handle(IPC.feishuSaveConfig, async (_e, body: unknown) => {
     // 形状粗校验后转发；细校验（appId/domain/secret 规则）由 server 端负责。
     if (typeof body !== 'object' || body === null) {
@@ -4131,12 +4131,12 @@ function registerIpc(): void {
         error: '本地 server 未就绪，凭证未保存。',
       }
     return { ok: r.ok, config: r.data, error: r.error }
-  });
+  })
   ipcMain.handle(IPC.feishuClearConfig, async () => {
     const r = await requestFeishuConfig('DELETE')
     if (!r) return { ok: false, config: null, error: '本地 server 未就绪。' }
     return { ok: r.ok, config: r.data, error: r.error }
-  });
+  })
   const channelScopes: Record<ChannelProvider, readonly string[]> = {
     feishu: ['im:message', 'contact:user.base:readonly'],
     lark: ['im:message', 'contact:user.base:readonly'],
@@ -4161,7 +4161,7 @@ function registerIpc(): void {
       pairing,
       error: response?.error ?? (response ? null : '本地 server 未就绪。'),
     }
-  });
+  })
   const pairingAction = async (
     pairingId: unknown,
     method: 'GET' | 'POST' | 'DELETE',
@@ -4186,7 +4186,7 @@ function registerIpc(): void {
       channelPairingPrivateKeys.delete(pairingId)
     }
     return response ?? { ok: false, data: null, error: '本地 server 未就绪。' }
-  };
+  }
   ipcMain.handle(IPC.channelPairingStatus, (_event, pairingId: unknown) =>
     pairingAction(pairingId, 'GET'))
   ipcMain.handle(IPC.channelPairingInstall, (_event, pairingId: unknown) =>
@@ -4196,7 +4196,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.channelInstallations, async () => {
     const response = await requestChannelPairing('GET', '/channels/installations')
     return response ?? { ok: false, data: null, error: '本地引擎未就绪。' }
-  });
+  })
   ipcMain.handle(
     IPC.channelInstallationAction,
     async (_event, installationId: unknown, action: unknown) => {
@@ -4236,7 +4236,7 @@ function registerIpc(): void {
       /* 写盘失败只影响下次启动的记忆，本次已生效 */
     }
     return nativeTheme.themeSource
-  });
+  })
   ipcMain.handle(IPC.taskRuntimeSetActive, (_event, active: unknown) => {
     if (active === true && taskRuntimeBlockerId === undefined) {
       taskRuntimeBlockerId = powerSaveBlocker.start('prevent-app-suspension')
@@ -4247,7 +4247,7 @@ function registerIpc(): void {
       taskRuntimeBlockerId = undefined
     }
     return taskRuntimeBlockerId !== undefined
-  });
+  })
 
   ipcMain.handle(
     IPC.skillLeaderboard,
@@ -4278,7 +4278,7 @@ function registerIpc(): void {
       }
     }
     return result
-  });
+  })
 
   ipcMain.handle(
     IPC.skillShareList,
@@ -4324,7 +4324,7 @@ function registerIpc(): void {
     return result.sort((left, right) =>
       left.name.localeCompare(right.name, 'zh-CN'),
     )
-  });
+  })
 
   ipcMain.handle(IPC.enterpriseSkillList, async (_event, input: unknown) => {
     loadEnterpriseSession()
@@ -4357,7 +4357,7 @@ function registerIpc(): void {
       ...skill,
       installedVersion: localVersions.get(skill.id) ?? null,
     }))
-  });
+  })
 
   ipcMain.handle(IPC.enterpriseSkillSubmit, async (_event, input: unknown) => {
     loadEnterpriseSession()
@@ -4376,12 +4376,12 @@ function registerIpc(): void {
       content,
       visibility: body.visibility === 'company' ? 'company' : 'department',
     })
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleList, async () => {
     loadEnterpriseSession()
     return enterpriseClient.listCustomerModules()
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleSubmit, async (_event, input: unknown) => {
     loadEnterpriseSession()
@@ -4403,7 +4403,7 @@ function registerIpc(): void {
       manifest: body.manifest as Record<string, unknown>,
       files: normalizedFiles,
     })
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleTest, async (_event, input: unknown) => {
     if (!input || typeof input !== 'object') throw new Error('客户模块测试参数不正确')
@@ -4430,7 +4430,7 @@ function registerIpc(): void {
       limits: { timeoutMs: 2_000, maxOutputBytes: 256 * 1024 },
     })
     return { result, audit, hostAudit }
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleInstalledList, async () => {
     loadEnterpriseSession()
@@ -4462,7 +4462,7 @@ function registerIpc(): void {
     })
     const { artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...record } = installed
     return { ...record, inputSchema: manifest.inputSchema }
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleSetEnabled, async (_event, input: unknown) => {
     if (!input || typeof input !== 'object') throw new Error('客户模块启停参数不正确')
@@ -4472,7 +4472,7 @@ function registerIpc(): void {
     const record = await setCustomerModuleEnabled(root, body.moduleId, body.enabled)
     const { artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...safe } = record
     return { ...safe, inputSchema: manifest.inputSchema }
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleSetBackgroundEnabled, async (_event, input: unknown) => {
     if (!input || typeof input !== 'object') throw new Error('客户模块后台授权参数不正确')
@@ -4482,17 +4482,17 @@ function registerIpc(): void {
     const record = await setCustomerModuleBackgroundEnabled(root, body.moduleId, body.enabled)
     const { artifactPath: _artifactPath, receiptId: _receiptId, receiptStatus: _receiptStatus, manifest, ...safe } = record
     return { ...safe, inputSchema: manifest.inputSchema }
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleUninstall, async (_event, moduleId: unknown) => {
     if (typeof moduleId !== 'string') throw new Error('客户模块卸载参数不正确')
     await uninstallCustomerModule(path.join(app.getPath('userData'), 'customer-modules'), moduleId)
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleClearData, async (_event, moduleId: unknown) => {
     if (typeof moduleId !== 'string') throw new Error('客户模块数据清理参数不正确')
     await clearCustomerModuleData(path.join(app.getPath('userData'), 'customer-modules'), moduleId)
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleExportData, async (_event, moduleId: unknown) => {
     if (typeof moduleId !== 'string') throw new Error('客户模块数据导出参数不正确')
@@ -4502,7 +4502,7 @@ function registerIpc(): void {
     if (selected.canceled || !selected.filePath) return null
     await fs.promises.writeFile(selected.filePath, `${JSON.stringify(exported, null, 2)}\n`, { mode: 0o600 })
     return selected.filePath
-  });
+  })
 
   ipcMain.handle(IPC.customerModuleRun, async (_event, input: unknown) => {
     loadEnterpriseSession()
@@ -4556,7 +4556,7 @@ function registerIpc(): void {
     if (!controller) return false
     controller.abort()
     return true
-  });
+  })
 
   ipcMain.handle(IPC.enterpriseSkillReview, async (_event, input: unknown) => {
     loadEnterpriseSession()
@@ -4577,7 +4577,7 @@ function registerIpc(): void {
         ? body.visibility
         : undefined,
     )
-  });
+  })
 
   ipcMain.handle(IPC.enterpriseSkillInstall, async (_event, input: unknown) => {
     loadEnterpriseSession()
@@ -4637,7 +4637,7 @@ function registerIpc(): void {
     }
     const { content: _content, ...view } = skill
     return { skill: view, installedPath: targetPath }
-  });
+  })
 
   ipcMain.handle(IPC.enterpriseSkillRate, async (_event, input: unknown) => {
     loadEnterpriseSession()
@@ -4655,12 +4655,12 @@ function registerIpc(): void {
       throw new Error('Skill 评分参数不正确')
     }
     return enterpriseClient.rateEnterpriseSkill(body.id, Number(body.score))
-  });
+  })
 
   ipcMain.handle(IPC.enterpriseSkillLeaderboard, async () => {
     loadEnterpriseSession()
     return enterpriseClient.getEnterpriseSkillLeaderboard()
-  });
+  })
 
   // 本地测试模式：应用/清除 customProxyServerUrl。
   // renderer 通过 preload.setLocalTestUrl() 调用。
@@ -4683,7 +4683,7 @@ function registerIpc(): void {
       )
     }
     return Promise.resolve()
-  });
+  })
 
   // ── 软件更新：检查 / 下载 / 取消 / 安装 + 版本查询（逻辑在 update-service.ts）──
   // 结果全部结构化透传，不在这里加工：「检查失败」与「已是最新」是 UpdateService
@@ -4693,7 +4693,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.updateDownload, () => updateService.downloadUpdate())
   ipcMain.handle(IPC.updateCancel, () => {
     updateService.cancelDownload()
-  });
+  })
   ipcMain.handle(IPC.updateInstall, () => updateService.installUpdate())
   ipcMain.handle(IPC.incrementalUpdateCheck, (_event, payload?: unknown) => {
     const manifestUrl =
@@ -4703,7 +4703,7 @@ function registerIpc(): void {
         ? (payload as { manifestUrl: string }).manifestUrl
         : undefined
     return incrementalUpdateService.checkForUpdates(manifestUrl)
-  });
+  })
   ipcMain.handle(IPC.incrementalUpdateApply, (_event, payload: unknown) => {
     if (!payload || typeof payload !== 'object') {
       return Promise.resolve({ ok: false, error: '增量更新参数必须是对象' })
@@ -4720,7 +4720,7 @@ function registerIpc(): void {
       return Promise.resolve({ ok: false, error: '增量更新 id 不能为空' })
     }
     return incrementalUpdateService.applyUpdate(input.kind, input.id)
-  });
+  })
 
   const resolveUserLocalPath = (candidate: unknown): string | null => {
     // 仅允许当前用户 home 内已存在的绝对路径。realpath 同时阻止符号链接越界。
@@ -4800,11 +4800,11 @@ function registerIpc(): void {
   ipcMain.handle(IPC.openPath, (_e, p: unknown) => {
     const resolved = resolveUserLocalPath(p)
     return resolved ? shell.openPath(resolved) : Promise.resolve('')
-  });
+  })
   ipcMain.handle(IPC.inspectLocalPath, (_e, p: unknown) => {
     const { exists, kind, canOpen } = inspectUserLocalPath(p)
     return { exists, kind, canOpen }
-  });
+  })
   ipcMain.handle(
     IPC.activateLocalPath,
     async (_e, p: unknown, action: unknown) => {
@@ -4866,7 +4866,7 @@ function registerIpc(): void {
         : [
           { name: 'Markdown', extensions: ['md'] },
           { name: '所有文件', extensions: ['*'] },
-        ];
+        ]
       const result = win
         ? await dialog.showSaveDialog(win, {
           defaultPath: path.join(app.getPath('documents'), suggestedFileName),
@@ -4948,7 +4948,7 @@ function registerIpc(): void {
       }))
     if (result.canceled || result.filePaths.length === 0) return []
     return fileAccessGrants.grant(result.filePaths)
-  });
+  })
 
   // Windows 不支持在同一个对话框中可靠混用 openFile/openDirectory；目录单独显式选择，
   // renderer 不能提交裸路径扩大授权范围。
@@ -4963,7 +4963,7 @@ function registerIpc(): void {
       }))
     if (result.canceled || result.filePaths.length === 0) return []
     return fileAccessGrants.grantDirectories(result.filePaths)
-  });
+  })
 
   ipcMain.handle(IPC.getWorkspaceDirectories, () => ({
     defaultPath: workspaceDirectories.defaultPath(),
@@ -4983,12 +4983,12 @@ function registerIpc(): void {
       }))
     if (result.canceled || !result.filePaths[0]) return null
     return workspaceDirectories.grant(result.filePaths[0])
-  });
+  })
 
   ipcMain.handle(IPC.authorizeWorkspaceDirectory, (_event, directory: unknown) => {
     if (typeof directory !== 'string') throw new Error('工作目录格式无效')
     return workspaceDirectories.authorize(directory)
-  });
+  })
 
   // 拖拽/隐藏 input 的 File 路径由可信 preload 通过 webUtils 提取后送到这里。
   // renderer 只能传 File 对象给 contextBridge，没有任意字符串 grant API。
@@ -4999,7 +4999,7 @@ function registerIpc(): void {
     const [granted] = fileAccessGrants.grant([filePath])
     if (!granted) throw new Error('文件未获得授权')
     return granted
-  });
+  })
 
   // preload 在 send_user_message 真正写入 WS 前调用。renderer 无 ipcRenderer，
   // 也拿不到 server endpoint/clientToken，因此不能绕过此复核直发裸路径。
@@ -5025,7 +5025,7 @@ function registerIpc(): void {
       references as Array<{ path: string; kind: 'file' | 'directory' }>,
       50 * 1024 * 1024,
     )
-  });
+  })
 
   // 读取用户本进程中通过原生选择器明确授权的文件，返回 Base64 + 元数据。
   // 授权不再限定 home：外部卷、其它盘符与网络盘都可选；未选择路径仍 fail closed。
@@ -5039,7 +5039,7 @@ function registerIpc(): void {
       extractEditableDocument(filePath: string): Promise<unknown>
     }
     return core.extractEditableDocument(granted.filePath)
-  });
+  })
 
   ipcMain.handle(
     IPC.exportEditedDocument,
@@ -5104,7 +5104,7 @@ function registerIpc(): void {
       mimeType: getMimeType(granted.filePath),
       data: base64,
     }
-  });
+  })
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -5121,7 +5121,7 @@ enterpriseRegistrationIntents.acceptArgv(process.argv)
 app.on('open-url', (event, url) => {
   event.preventDefault()
   acceptEnterpriseRegistrationUrl(url)
-});
+})
 
 // 在窗口、托盘和 Notification 创建前注册稳定 AUMID。部分 Windows 机器若注册过晚，
 // 通知中心无法把 toast 与安装器创建的 ClawMaster 开始菜单快捷方式关联。
@@ -5150,7 +5150,7 @@ if (!gotLock) {
         )
     }
     showMainWindow()
-  });
+  })
 
   app.whenReady().then(async () => {
     if (process.defaultApp && process.argv[1]) {
@@ -5187,7 +5187,7 @@ if (!gotLock) {
     powerMonitor.on('resume', () => {
       if (!isQuitting) enterpriseMlsOutboxRetry.wake()
       if (!isQuitting) enterpriseMlsInboundPoll.wake()
-    });
+    })
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -5198,14 +5198,14 @@ if (!gotLock) {
         showMainWindow()
       }
     })
-  });
+  })
 
   app.on('window-all-closed', () => {
     // Windows/Linux 关闭主窗口后常驻系统托盘，避免 ClawMaster 服务随窗口关闭而退出。
     // 真正退出走应用菜单或托盘「退出 ClawMaster」。
     // detached server 故意留活：飞书守护不受窗口关闭影响。
     if (process.platform === 'darwin') return
-  });
+  })
 
   app.on('before-quit', (event) => {
     isQuitting = true
@@ -5245,6 +5245,6 @@ if (!gotLock) {
       .finally(() => {
         quitCleanupFinished = true
         app.quit()
-      });
+      })
   })
 }

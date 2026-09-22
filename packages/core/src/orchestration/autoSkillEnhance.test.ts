@@ -19,14 +19,14 @@ beforeEach(async () => {
   previousUserDir = process.env['CLAWMASTER_USER_DIR']
   userDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-skill-usage-'))
   process.env['CLAWMASTER_USER_DIR'] = userDir
-});
+})
 
 afterEach(async () => {
   await flushSkillUsageWrites()
   if (previousUserDir === undefined) delete process.env['CLAWMASTER_USER_DIR']
   else process.env['CLAWMASTER_USER_DIR'] = previousUserDir
   await fs.rm(userDir, { recursive: true, force: true })
-});
+})
 
 describe('AutoSkill usage feedback', () => {
   it('persists real activations without leaking full paths or credentials', async () => {
@@ -59,7 +59,7 @@ describe('AutoSkill usage feedback', () => {
     expect(persisted).toContain('"projectDir":"customer-a"')
     expect(persisted).not.toContain(userDir)
     expect(persisted).not.toContain('secretsecret')
-  });
+  })
 
   it('reloads persisted history when the account data root changes', async () => {
     const firstDir = userDir
@@ -81,7 +81,7 @@ describe('AutoSkill usage feedback', () => {
     expect(getSkillStats('auto-first').totalUses).toBe(1)
     userDir = firstDir
     await fs.rm(secondDir, { recursive: true, force: true })
-  });
+  })
 
   it('compacts persisted history to the most recent 500 activations', async () => {
     for (let index = 0; index < 501; index += 1) {
@@ -100,5 +100,5 @@ describe('AutoSkill usage feedback', () => {
     const lines = (await fs.readFile(usagePath, 'utf8')).trim().split(/\r?\n/u)
     expect(lines).toHaveLength(500)
     expect(lines[0]).toContain('"durationMs":1')
-  });
+  })
 })

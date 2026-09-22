@@ -215,7 +215,7 @@ function attachmentPlans(input: {
       inlineCiphertext: backend === 'sqlite' ? inlineCiphertext : null,
       createdAt: timestamp(row.created_at, 'attachment created_at'),
     }
-  });
+  })
 }
 
 function sha256(ciphertext: Buffer): string {
@@ -401,7 +401,7 @@ export async function prepareSqliteAttachmentImport(input: {
             ciphertextSha256: previous.ciphertext_sha256,
           })
           alreadyPrepared += 1
-          continue;
+          continue
         } catch {
           try {
             await input.objectStore.deleteObject(previous.s3_storage_key)

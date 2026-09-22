@@ -57,14 +57,14 @@ describe('ProactiveService 调度与日程提醒', () => {
     )
     vi.stubEnv('CLAWMASTER_WORKLOG_DIR', path.join(tempDir, 'worklog'))
     services = []
-  });
+  })
 
   afterEach(() => {
     for (const service of services) service.stopScheduler()
     vi.useRealTimers()
     vi.unstubAllEnvs()
     fs.rmSync(tempDir, { recursive: true, force: true })
-  });
+  })
 
   function service(): ProactiveService {
     const instance = new ProactiveService()
@@ -90,7 +90,7 @@ describe('ProactiveService 调度与日程提醒', () => {
     expect(
       notify.mock.calls.filter(call => call[2] === 'arbitrary_start_cron'),
     ).toHaveLength(1)
-  });
+  })
 
   it('支持一个 cron 小时字段中的多个小时，并允许同一天分别触发', async () => {
     const instance = service()
@@ -108,7 +108,7 @@ describe('ProactiveService 调度与日程提醒', () => {
     expect(
       (await instance.checkAndTrigger(context)).map(rule => rule.id),
     ).toContain('multi_hour_cron')
-  });
+  })
 
   it('跨过本地自然日后会自动重置去重状态', async () => {
     const instance = service()
@@ -123,7 +123,7 @@ describe('ProactiveService 调度与日程提醒', () => {
     expect(
       (await instance.checkAndTrigger(context)).map(rule => rule.id),
     ).toContain('daily_cron')
-  });
+  })
 
   it('动态消息本次返回 null 时不会复用并发送上一次的旧消息', async () => {
     const instance = service()
@@ -146,7 +146,7 @@ describe('ProactiveService 调度与日程提醒', () => {
       (await instance.checkAndTrigger(context)).map(rule => rule.id),
     ).not.toContain('dynamic_cron')
     expect(generateMessage).toHaveBeenCalledTimes(2)
-  });
+  })
 
   it('日程只有时间字段时不会把正常结束的会议误报为未完成待办', async () => {
     vi.setSystemTime(new Date('2026-07-20T10:00:00.000Z')) // 北京时间 18:00
@@ -168,7 +168,7 @@ describe('ProactiveService 调度与日程提醒', () => {
     const message = insight?.action.message ?? ''
     expect(message).not.toContain('没有跟进记录')
     expect(message).not.toContain('已结束的评审会')
-  });
+  })
 
   it('只在会议进入 10 分钟窗口后提醒，并按本地时区显示时间', async () => {
     vi.setSystemTime(new Date('2026-07-20T00:46:00.000Z')) // 北京时间 08:46
@@ -197,5 +197,5 @@ describe('ProactiveService 调度与日程提醒', () => {
     expect(meetingCalls[0][0]).toContain('北京时间会议')
     expect(meetingCalls[0][0]).toContain('10分钟后')
     expect(meetingCalls[0][0]).toContain('（09:00）')
-  });
+  })
 })

@@ -116,7 +116,7 @@ describe('module workspace defaults', () => {
         },
       ],
     })
-  });
+  })
 
   it('seeds personal office work and authenticated business-platform control groups', () => {
     const layout = createDefaultModuleWorkspace(personalCapabilities)
@@ -142,13 +142,13 @@ describe('module workspace defaults', () => {
     expect(moduleIds.some(id => id.startsWith('park-'))).toBe(false)
     expect(moduleIds).not.toContain('enterprise-memory')
     expect(moduleIds).not.toContain('agent-enterprise-work')
-  });
+  })
 
   it('recomputes restored defaults from the current capability snapshot', () => {
     const restored = restoreDefaultModuleWorkspace(sampleLayout(), personalCapabilities)
 
     expect(restored).toEqual(createDefaultModuleWorkspace(personalCapabilities))
-  });
+  })
 })
 
 describe('module workspace parsing and normalization', () => {
@@ -157,7 +157,7 @@ describe('module workspace parsing and normalization', () => {
 
     expect(parseModuleWorkspace('{bad json', enterpriseCapabilities)).toEqual(defaults)
     expect(parseModuleWorkspace(JSON.stringify({ version: 99 }), enterpriseCapabilities)).toEqual(defaults)
-  });
+  })
 
   it('deduplicates module IDs globally, repairs group IDs, clamps rows, and keeps unknown modules', () => {
     const normalized = normalizeModuleWorkspace({
@@ -189,7 +189,7 @@ describe('module workspace parsing and normalization', () => {
       rows: 3,
       moduleIds: ['agent-ppt'],
     })
-  });
+  })
 
   it('truncates long names and supplies a safe name for blank groups', () => {
     const normalized = normalizeModuleWorkspace({
@@ -202,7 +202,7 @@ describe('module workspace parsing and normalization', () => {
 
     expect(normalized.groups[0].name).toBe('未命名功能组')
     expect(normalized.groups[1].name).toHaveLength(40)
-  });
+  })
 })
 
 describe('module workspace layout operations', () => {
@@ -212,7 +212,7 @@ describe('module workspace layout operations', () => {
     expect(resolveModuleGridColumns('panel', 251)).toBe(2)
     expect(resolveModuleGridColumns('panel', 0)).toBe(2)
     expect(resolveModuleGridColumns('page', 220)).toBe(3)
-  });
+  })
 
   it('creates groups with stable unique default names and IDs', () => {
     const first = createModuleGroup(sampleLayout())
@@ -224,13 +224,13 @@ describe('module workspace layout operations', () => {
     expect(second.groups.at(-1)).toEqual({
       id: 'custom-group-2', name: '新功能组 2', rows: 2, moduleIds: [],
     })
-  });
+  })
 
   it('rejects blank and duplicate group names without mutating layout', () => {
     expect(validateModuleGroupName(sampleLayout(), 'park-services', '   ')).toBe('功能组名称不能为空')
     expect(validateModuleGroupName(sampleLayout(), 'park-services', '日常办公')).toBe('功能组名称不能重复')
     expect(validateModuleGroupName(sampleLayout(), 'park-services', '园区协作')).toBeNull()
-  });
+  })
 
   it('moves modules between groups without duplicates', () => {
     const next = addOrMoveModules(sampleLayout(), 'park-services', ['agent-ppt', 'agent-excel'])
@@ -242,13 +242,13 @@ describe('module workspace layout operations', () => {
       'agent-excel',
     ])
     expect(next.groups[1].moduleIds).toEqual(['agent-word'])
-  });
+  })
 
   it('removes only the requested module from layout', () => {
     const next = removeModuleFromGroup(sampleLayout(), 'daily-office', 'agent-ppt')
 
     expect(next.groups[1].moduleIds).toEqual(['agent-word'])
-  });
+  })
 
   it('protects the last group and migrates deleted group modules to the nearest group', () => {
     const oneGroup = { version: 2 as const, groups: [sampleLayout().groups[0]] }
@@ -262,7 +262,7 @@ describe('module workspace layout operations', () => {
       'park-announcement',
       'park-satisfaction',
     ])
-  });
+  })
 
   it('renames, updates row count, and reorders groups and modules', () => {
     const renamed = renameModuleGroup(sampleLayout(), 'daily-office', '  我的办公  ')
@@ -280,7 +280,7 @@ describe('module workspace layout operations', () => {
       rows: 3,
       moduleIds: ['agent-word', 'agent-ppt'],
     })
-  });
+  })
 })
 
 describe('module workspace storage scope', () => {
@@ -306,5 +306,5 @@ describe('module workspace storage scope', () => {
     expect(first).toBe(same)
     expect(first).not.toBe(personal)
     expect(first).toContain('https%3A%2F%2Fexample.com')
-  });
+  })
 })

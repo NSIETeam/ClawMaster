@@ -238,14 +238,14 @@ function readBody(
       if (bodyLength > maxLength) {
         tooLarge = true
         chunks.length = 0
-        return;
+        return
       }
       chunks.push(bytes)
-    });
+    })
     req.on('end', () => {
       if (tooLarge) {
         resolve({ [BODY_TOO_LARGE]: true })
-        return;
+        return
       }
       try {
         const body = Buffer.concat(chunks, bodyLength).toString('utf8')
@@ -254,7 +254,7 @@ function readBody(
         resolve({})
       }
     })
-  });
+  })
 }
 
 function makeHandler(
@@ -304,13 +304,13 @@ function makeHandler(
         path === '/enterprise/local-agent/pair/verify')
     ) {
       sendJSON(res, 404, { error: 'not found' })
-      return;
+      return
     }
 
     if (method === 'OPTIONS') {
       res.writeHead(204)
       res.end()
-      return;
+      return
     }
 
     if (path === '/' && method === 'GET') {
@@ -319,14 +319,14 @@ function makeHandler(
         'Cache-Control': 'no-store',
       })
       res.end()
-      return;
+      return
     }
 
     // 浏览器会自动请求站点图标；显式无内容响应，避免管理后台验收出现无关 404。
     if (path === '/favicon.ico' && method === 'GET') {
       res.writeHead(204, { 'Cache-Control': 'public, max-age=86400' })
       res.end()
-      return;
+      return
     }
 
     // 旧版曾允许 /dashboard?token=... 并把令牌注入 HTML。明确拒绝这一入口，
@@ -337,7 +337,7 @@ function makeHandler(
       sendJSON(res, 400, {
         error: '请勿在 URL 中传递管理令牌，请在安全看板页面中登录或粘贴令牌',
       })
-      return;
+      return
     }
 
     try {
@@ -352,7 +352,7 @@ function makeHandler(
         sendJSON(res, 403, {
           error: 'forbidden: loopback admin host required',
         })
-        return;
+        return
       }
 
       // 本机兼容模式允许无静态 token 管理，但仍必须阻止第三方网页借浏览器
@@ -364,7 +364,7 @@ function makeHandler(
         isCrossOriginBrowserRequest(req)
       ) {
         sendJSON(res, 403, { error: 'forbidden: cross-origin admin request' })
-        return;
+        return
       }
 
       // 管理端鉴权：兼容平台静态 admin token，同时允许企业管理员账号的登录会话。
@@ -381,11 +381,11 @@ function makeHandler(
           const account = db.getAccountBySession(token)
           if (!account) {
             sendJSON(res, 401, { error: 'unauthorized: admin login required' })
-            return;
+            return
           }
           if (!account.isAdmin) {
             sendJSON(res, 403, { error: 'forbidden: admin account required' })
-            return;
+            return
           }
           adminPrincipal = {
             kind: 'account',
@@ -397,11 +397,11 @@ function makeHandler(
           const account = db.getAccountBySession(token)
           if (!account) {
             sendJSON(res, 401, { error: 'unauthorized: admin login required' })
-            return;
+            return
           }
           if (!account.isAdmin) {
             sendJSON(res, 403, { error: 'forbidden: admin account required' })
-            return;
+            return
           }
           adminPrincipal = {
             kind: 'account',
@@ -415,7 +415,7 @@ function makeHandler(
         memberAccount = db.getAccountBySession(extractToken(req))
         if (!memberAccount) {
           sendJSON(res, 401, { error: '登录已失效，请重新登录' })
-          return;
+          return
         }
       }
       const commercialOrganizationId =
@@ -450,14 +450,14 @@ function makeHandler(
           code: 'deployment_license_inactive',
         })
         sendJSON(res, 402, licenseBlockedPayload())
-        return;
+        return
       }
       if (isPublicSimplePark && db.isLicenseRestricted()) {
         auditCommercialDecision('commercial_license_denied', {
           code: 'deployment_license_inactive',
         })
         sendJSON(res, 402, licenseBlockedPayload())
-        return;
+        return
       }
       const commercialFeature = commercialFeatureForEnterpriseRoute(path)
       if (
@@ -473,7 +473,7 @@ function makeHandler(
           code: 'commercial_module_not_entitled',
           feature: commercialFeature,
         })
-        return;
+        return
       }
       if (
         commercialFeature &&
@@ -495,7 +495,7 @@ function makeHandler(
           code: 'organization_feature_disabled',
           feature: commercialFeature,
         })
-        return;
+        return
       }
 
       const billingOperation = commercialBillingOperationForRoute(path, method)
@@ -505,7 +505,7 @@ function makeHandler(
             error: 'authenticated organization is required for billing',
             code: 'billing_organization_required',
           })
-          return;
+          return
         }
         const rawIdempotencyKey = req.headers['x-clawmaster-idempotency-key']
         const idempotencyKey = Array.isArray(rawIdempotencyKey)
@@ -549,7 +549,7 @@ function makeHandler(
                   code: outcome,
                   message: error instanceof Error ? error.message : String(error),
                 })
-              });
+              })
             })
           }
         } catch (error) {
@@ -563,7 +563,7 @@ function makeHandler(
               code: error.code,
               module: billingOperation.module,
             })
-            return;
+            return
           }
           throw error
         }
@@ -604,7 +604,7 @@ function makeHandler(
       console.error('[ClawMaster Enterprise] 请求处理失败', err)
       if (res.headersSent) {
         res.destroy()
-        return;
+        return
       }
       sendJSON(res, 500, { error: '企业服务暂时不可用，请稍后重试' })
     }
@@ -874,7 +874,7 @@ export function startEnterpriseServer(
         '/enterprise/admin/credits',
     )
     console.log('[ClawMaster Enterprise] Ctrl+C 停止')
-  });
+  })
   const stopPrivateDeploymentRuntime = startPrivateDeploymentRuntime(db, {
     onError: error =>
       console.error(
@@ -939,6 +939,6 @@ export function startEnterpriseServer(
     stopFederationRuntime()
     stopDataProtectionRuntime()
     stopTicketNotificationRuntime()
-  });
+  })
   return server
 }

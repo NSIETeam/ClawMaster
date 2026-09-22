@@ -53,13 +53,13 @@ describe('channel pairing REST routes', () => {
     vi.stubEnv('HOME', userDir)
     vi.stubEnv('USERPROFILE', userDir)
     vi.stubEnv('CLAWMASTER_USER_DIR', userDir)
-  });
+  })
 
   afterEach(async () => {
     await server?.stop()
     vi.unstubAllEnvs()
     rmSync(userDir, { recursive: true, force: true })
-  });
+  })
 
   async function start(connectors = {}): Promise<{ baseUrl: string; token: string }> {
     server = new ClawMasterServer({
@@ -95,7 +95,7 @@ describe('channel pairing REST routes', () => {
       ok: false,
       error: 'channel_connector_unavailable:feishu',
     })
-  });
+  })
 
   it('delegates begin, status, install and cancellation to one provider connector', async () => {
     const connector = fakeConnector()
@@ -152,7 +152,7 @@ describe('channel pairing REST routes', () => {
     expect(connector.start).toHaveBeenCalledWith(installationId)
     expect(connector.stop).toHaveBeenCalledWith(installationId)
     expect(connector.revoke).toHaveBeenCalledWith(installationId)
-  });
+  })
 
   it('restores installed connector routing after the local server restarts', async () => {
     const connector = fakeConnector()
@@ -200,5 +200,5 @@ describe('channel pairing REST routes', () => {
     expect(connector.health).toHaveBeenCalledWith(
       'channel_feishu_0123456789abcdef01234567',
     )
-  });
+  })
 })

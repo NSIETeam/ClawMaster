@@ -63,7 +63,7 @@ async function withConnectTimeout<T>(
     timeoutId = setTimeout(() => {
       reject(new Error(`Connection to '${serverName}' timed out after ${timeoutMs}ms`))
     }, timeoutMs)
-  });
+  })
 
   try {
     const result = await Promise.race([connectPromise, timeoutPromise])
@@ -135,7 +135,7 @@ class LenientJsonSchemaValidator implements jsonSchemaValidator {
           }
         }
         return result
-      };
+      }
     } catch (error) {
       console.warn(
         `Failed to compile MCP tool output schema (${
@@ -273,7 +273,7 @@ export function syncMcpToolsToRegistry(toolRegistry: ToolRegistry): number {
       // Clone the tool to avoid sharing state between registries
       const clonedTool = tool.clone()
       toolRegistry.registerTool(clonedTool)
-      syncedCount++;
+      syncedCount++
     }
   }
 
@@ -688,7 +688,7 @@ export async function connectAndDiscover(
       mcpClient.onerror = (error) => {
         console.error(`MCP ERROR (${mcpServerName}):`, error.toString())
         updateMCPServerStatus(mcpServerName, MCPServerStatus.DISCONNECTED)
-      };
+      }
 
       // Discover prompts, tools and resources
       await discoverPrompts(mcpServerName, mcpClient, promptRegistry)
@@ -854,7 +854,7 @@ export async function discoverTools(
     const tool = await mcpCallableTool.tool()
 
     if (!Array.isArray(tool.functionDeclarations)) {
-      throw new Error('Server did not return valid function declarations.');
+      throw new Error('Server did not return valid function declarations.')
     }
 
     const discoveredTools: DiscoveredMCPTool[] = []
@@ -1011,7 +1011,7 @@ export async function connectToMcpServer(
     _connectToMcpServerInternal(mcpServerName, mcpServerConfig, debugMode),
     connectTimeoutMs,
     mcpServerName,
-  );
+  )
 }
 
 /**
@@ -1042,7 +1042,7 @@ async function _connectToMcpServerInternal(
         ...options,
         timeout: mcpServerConfig.timeout ?? MCP_DEFAULT_TIMEOUT_MSEC,
       })
-    };
+    }
   }
 
   try {
@@ -1398,7 +1398,7 @@ async function _connectToMcpServerInternal(
       }
 
       if (process.env.SANDBOX) {
-        conciseError += ' (check sandbox availability)';
+        conciseError += ' (check sandbox availability)'
       }
 
       throw new Error(conciseError)
@@ -1516,7 +1516,7 @@ export async function createTransport(
       transport.stderr!.on('data', (data) => {
         const stderrStr = data.toString().trim()
         console.debug(`[DEBUG] [MCP STDERR (${mcpServerName})]: `, stderrStr)
-      });
+      })
     }
     return transport
   }

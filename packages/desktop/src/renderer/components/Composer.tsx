@@ -80,7 +80,7 @@ async function blobToWav(blob: Blob): Promise<Uint8Array> {
     }
     const out = new ArrayBuffer(44 + frames * 2)
     const view = new DataView(out)
-    const text = (offset: number, value: string) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)) };
+    const text = (offset: number, value: string) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)) }
     text(0, 'RIFF'); view.setUint32(4, 36 + frames * 2, true); text(8, 'WAVE'); text(12, 'fmt ')
     view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true)
     view.setUint32(24, decoded.sampleRate, true); view.setUint32(28, decoded.sampleRate * 2, true)
@@ -100,7 +100,7 @@ function readBlobText(blob: Blob): Promise<string> {
     reader.onload = () => resolve(String(reader.result ?? ''))
     reader.onerror = () => reject(reader.error ?? new Error('读取剪贴板文字失败'))
     reader.readAsText(blob)
-  });
+  })
 }
 
 /**
@@ -388,16 +388,16 @@ export function Composer({
       const target = event.target
       if (target instanceof Element && target.closest('.claw-popover-anchor')) return
       setOpenPopover(null)
-    };
+    }
     const closeOnEscape = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') setOpenPopover(null)
-    };
+    }
     document.addEventListener('pointerdown', closeOutside)
     document.addEventListener('keydown', closeOnEscape)
     return () => {
       document.removeEventListener('pointerdown', closeOutside)
       document.removeEventListener('keydown', closeOnEscape)
-    };
+    }
   }, [openPopover])
 
   const stopVoiceMeter = (): void => {
@@ -407,7 +407,7 @@ export function Composer({
     voiceMeterFrameRef.current = null
     if (voiceMeterContextRef.current) void voiceMeterContextRef.current.close()
     voiceMeterContextRef.current = null
-  };
+  }
 
   React.useEffect(() => () => stopVoiceMeter(), [])
 
@@ -416,7 +416,7 @@ export function Composer({
     const tickVoiceSeconds = (): void => {
       setVoiceSeconds(value => value + 1)
       voiceTimerRef.current = window.setTimeout(tickVoiceSeconds, 1_000)
-    };
+    }
     voiceTimerRef.current = window.setTimeout(tickVoiceSeconds, 1_000)
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
     if (!AudioCtx) return
@@ -433,10 +433,10 @@ export function Composer({
         const next = Array.from({ length: 34 }, (_, i) => {
           const index = Math.floor((i / 34) * samples.length)
           return Math.max(4, Math.min(36, Math.abs(samples[index] - 128) * 1.8 + 4))
-        });
+        })
         setVoiceWave(next)
         voiceMeterFrameRef.current = requestAnimationFrame(draw)
-      };
+      }
       draw()
     } catch {
       // 计时仍可用；极少数系统不支持 WebAudio 时只展示轻微动画波形。
@@ -455,7 +455,7 @@ export function Composer({
       const pos = start + spacer.length + value.length
       el.focus(); el.setSelectionRange(pos, pos)
       el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`
-    });
+    })
   }
 
   const startVoice = async (): Promise<void> => {
@@ -465,7 +465,7 @@ export function Composer({
       const recorder = new MediaRecorder(stream)
       recorderRef.current = recorder
       voiceChunksRef.current = []
-      recorder.ondataavailable = (event) => { if (event.data.size > 0) voiceChunksRef.current.push(event.data) };
+      recorder.ondataavailable = (event) => { if (event.data.size > 0) voiceChunksRef.current.push(event.data) }
       recorder.onstop = () => {
         stopVoiceMeter(); setRecording(false); setVoiceProcessing(true)
         const blob = new Blob(voiceChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
@@ -475,7 +475,7 @@ export function Composer({
           .then(result => insertVoiceText(result.text))
           .catch(e => setVoiceError(e instanceof Error ? e.message : String(e)))
           .finally(() => setVoiceProcessing(false))
-      };
+      }
       recorder.start(120); startVoiceMeter(stream); setRecording(true)
     } catch (e) { setVoiceError(e instanceof Error ? e.message : '无法使用麦克风') }
   }
@@ -483,7 +483,7 @@ export function Composer({
   const toggleVoice = (): void => {
     if (recording) recorderRef.current?.stop()
     else void startVoice()
-  };
+  }
 
   const formattedVoiceTime = `${Math.floor(voiceSeconds / 60)}:${String(voiceSeconds % 60).padStart(2, '0')}`
 
@@ -561,7 +561,7 @@ export function Composer({
       })
     }
     setOpenPopover(null)
-  };
+  }
 
   // 由当前文本解析斜杠命令 query，再过滤出候选。无会话（disabled）时不弹面板。
   // parseSlashQuery=null → 非命令输入态；候选为空 → 无匹配（如 `/xyz`），也不显示面板。
@@ -628,7 +628,7 @@ export function Composer({
     const room = MAX_ATTACHMENTS - attachments.length
     if (room <= 0) {
       setAttachError(`最多只能添加 ${MAX_ATTACHMENTS} 个附件`)
-      return;
+      return
     }
     setAttaching(true)
     let firstError: string | null = null
@@ -676,7 +676,7 @@ export function Composer({
           const room = MAX_ATTACHMENTS - attachments.length
           if (room <= 0) {
             setAttachError(`最多只能添加 ${MAX_ATTACHMENTS} 个附件`)
-            return;
+            return
           }
           setAttaching(true)
           const added: Attachment[] = []
@@ -737,12 +737,12 @@ export function Composer({
         const room = MAX_ATTACHMENTS - attachments.length
         if (room <= 0) {
           setAttachError(`最多只能添加 ${MAX_ATTACHMENTS} 个附件`)
-          return;
+          return
         }
         const added = paths.slice(0, room).map((folderPath) => {
           const segments = folderPath.split(/[\\/]/u).filter(Boolean)
           return { folderName: segments.at(-1) ?? folderPath, folderPath }
-        });
+        })
         setAttachments(prev => [...prev, ...added])
         setAttachError(paths.length > room ? `一次最多添加 ${MAX_ATTACHMENTS} 个附件` : null)
       } catch (error) {
@@ -784,7 +784,7 @@ export function Composer({
     e.target.value = '' // 允许连选同一文件
     if (files.length === 0) return
     await addBrowserFiles(files)
-  };
+  }
 
   const removeAttachment = (key: string): void => {
     setAttachments(prev => prev.filter(attachment => (
@@ -794,9 +794,9 @@ export function Composer({
       const next = { ...prev }
       delete next[key]
       return next
-    });
+    })
     setAttachError(null)
-  };
+  }
 
   // 空态示例胶囊注入草稿：填入并聚焦、自适应高度。draftNonce 递增触发再注入。
   React.useEffect(() => {
@@ -860,13 +860,13 @@ export function Composer({
     const submittedSlashCommand =
       slashInput != null && !slashDismissed && attachments.length === 0
         ? commands.find(
-          (command) =>
+          command =>
             command.id.toLowerCase() === slashInput.head.toLowerCase(),
         )
         : undefined
     if (submittedSlashCommand) {
       runSlashCommand(submittedSlashCommand)
-      return;
+      return
     }
 
     setSubmitting(true)
@@ -887,7 +887,7 @@ export function Composer({
         if (taRef.current) taRef.current.style.height = 'auto'
       })
       .finally(() => setSubmitting(false))
-  };
+  }
 
   // 清空 textarea（命令执行后消费掉触发命令的文本）。
   const clearInput = () => {
@@ -895,7 +895,7 @@ export function Composer({
     setSlashIndex(0)
     setSlashDismissed(false)
     if (taRef.current) taRef.current.style.height = 'auto'
-  };
+  }
 
   // 执行一条斜杠命令 → 按 action 分派（prompt=发模型 / server=发帧 / local=回调），
   // 随后清空输入。未接对应回调的命令静默忽略（面板本不该列出它，双保险）。
@@ -907,7 +907,7 @@ export function Composer({
       onLaunchAgentProfile?.(cmd.agentProfileId, cmd.description)
       clearInput()
       taRef.current?.focus()
-      return;
+      return
     }
 
     if (cmd.action === 'prompt' && cmd.prompt) {
@@ -918,7 +918,7 @@ export function Composer({
           : { mode: 'manual', scope: 'session' })
       clearInput()
       taRef.current?.focus()
-      return;
+      return
     }
 
     // server 命令：发 run_slash_command 帧；bareLocal 且无参数时退回本地分派
@@ -927,72 +927,72 @@ export function Composer({
       onRunServerCommand?.(cmd.id, args)
       clearInput()
       taRef.current?.focus()
-      return;
+      return
     }
 
     switch (cmd.id) {
       case 'new':
         onNewChat?.()
-        break;
+        break
       case 'model':
         setOpenPopover('model')
-        break;
+        break
       case 'clear':
         onClearContext?.()
-        break;
+        break
       case 'settings':
         onOpenSettings?.()
-        break;
+        break
       case 'help':
         onShowHelp?.()
-        break;
+        break
       case 'doctor':
         onOpenDoctor?.()
-        break;
+        break
       // 飞书：启停真调 REST（preload 通路），随后打开「飞书接入」面板看真实状态；
       // 裸 /feishu 与 /feishu-status 直接开面板（面板即配置 + 状态）。
       case 'feishu':
       case 'feishu-status':
         onOpenFeishu?.()
-        break;
+        break
       case 'feishu-start':
         void window.clawmaster?.feishuStart()
         onOpenFeishu?.()
-        break;
+        break
       case 'feishu-stop':
         void window.clawmaster?.feishuStop()
         onOpenFeishu?.()
-        break;
+        break
       case 'memory':
         onOpenMemory?.()
-        break;
+        break
       case 'skills':
         onOpenSkills?.()
-        break;
+        break
       case 'export':
         onExport?.()
-        break;
+        break
       case 'copy':
         onCopyLast?.()
-        break;
+        break
       case 'session':
         onOpenSessions?.()
-        break;
+        break
       case 'theme':
       case 'config':
         onOpenPrefs?.()
-        break;
+        break
       case 'hooks':
         // 对齐 CLI /hooks：用系统浏览器打开 hooks 文档（preload openExternal）。
         void transport.openExternal('https://github.com/NSIETeam/ClawMaster')
-        break;
+        break
       default:
         break
     }
     clearInput()
     // 命令执行后把焦点还给 textarea，方便继续输入。
     taRef.current?.focus()
-  };
+  }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // —— 斜杠命令面板打开时，键盘事件优先给面板，Enter 不再是「发送」——
@@ -1000,14 +1000,14 @@ export function Composer({
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         setSlashIndex(i => (i + 1) % slashCommands.length)
-        return;
+        return
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
         setSlashIndex(
           i => (i - 1 + slashCommands.length) % slashCommands.length,
         )
-        return;
+        return
       }
       // Enter / Tab = 执行当前高亮命令（isComposing 时不拦，交给输入法）。
       if (
@@ -1016,13 +1016,13 @@ export function Composer({
       ) {
         e.preventDefault()
         runSlashCommand(slashCommands[activeSlash])
-        return;
+        return
       }
       if (e.key === 'Escape') {
         e.preventDefault()
         // 收起面板但保留已输入文本（用户可能想把 `/foo` 当普通消息发）。
         setSlashDismissed(true)
-        return;
+        return
       }
     }
 
@@ -1041,7 +1041,7 @@ export function Composer({
     const el = e.target
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`
-  };
+  }
 
   const insertTextAtCursor = useCallback((value: string): void => {
     if (!value) return
@@ -1058,7 +1058,7 @@ export function Composer({
       el.setSelectionRange(caret, caret)
       el.style.height = 'auto'
       el.style.height = `${Math.min(el.scrollHeight, 180)}px`
-    });
+    })
   }, [text])
 
   /** 右键“粘贴”同时支持文字与剪贴板图片；系统不开放 read() 时退回 readText()。 */
@@ -1087,7 +1087,7 @@ export function Composer({
         }
         if (files.length > 0) await addBrowserFiles(files)
         if (textParts.length > 0) insertTextAtCursor(textParts.join(''))
-        return;
+        return
       }
       insertTextAtCursor(await clipboard.readText())
     } catch (error) {
@@ -1113,7 +1113,7 @@ export function Composer({
           const caret = start === end ? 0 : start
           el.focus()
           el.setSelectionRange(caret, caret)
-        });
+        })
       }
     } catch {
       setAttachError('无法访问系统剪贴板，请检查 ClawMaster 的剪贴板权限')
@@ -1145,7 +1145,7 @@ export function Composer({
   const workspaceName = (value: string): string => {
     if (value === nativeWorkspaceState.defaultPath) return '个人目录'
     return value.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || value
-  };
+  }
   const chooseNewWorkspace = async (): Promise<void> => {
     try {
       const selected = await window.clawmaster?.selectWorkspaceDirectory?.()
@@ -1419,10 +1419,10 @@ export function Composer({
             onKeyDown={onKeyDown}
             onPaste={(event) => {
               const files = Array.from(event.clipboardData.files ?? [])
-            if (files.length === 0) return
-            event.preventDefault()
-            void addBrowserFiles(files)
-          }}
+              if (files.length === 0) return
+              event.preventDefault()
+              void addBrowserFiles(files)
+            }}
             aria-expanded={slashVisible}
             aria-controls={slashVisible ? 'claw-slashmenu' : undefined}
             // 生成中仍可输入下一条；仅无会话（disabled）时锁死。
@@ -1475,12 +1475,12 @@ export function Composer({
                   current={currentModel}
                   onPick={(id) => {
                     onSetModel(id)
-                  setOpenPopover(null)
-                }}
+                    setOpenPopover(null)
+                  }}
                   onManage={onManageModels ? () => {
                     setOpenPopover(null)
-                  onManageModels()
-                } : undefined}
+                    onManageModels()
+                  } : undefined}
                 />
               ) : null}
             </div>
@@ -1625,7 +1625,7 @@ function ModelMenuPopover({
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)
       observer?.disconnect()
-    };
+    }
   }, [updatePosition])
 
   return createPortal(
@@ -1697,7 +1697,7 @@ function ModelMenu({
         ? items[(idx + 1 + items.length) % items.length]
         : items[(idx - 1 + items.length) % items.length]
     next?.focus()
-  };
+  }
 
   // 单个模型选项按钮（平铺与分组共用，保留勾选 + 当前高亮逻辑）。
   const renderItem = (m: ModelInfo): React.JSX.Element => {
@@ -1728,7 +1728,7 @@ function ModelMenu({
         </span>
       </button>
     )
-  };
+  }
 
   return (
     <div

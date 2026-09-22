@@ -52,11 +52,11 @@ describe('MemorySubsystem', () => {
     const knowledgeStore = new LocalKnowledgeStore(knowledgeRoot)
     subsystem = createMemorySubsystem({ autoMerge, knowledgeStore })
     await tick()
-  });
+  })
 
   afterEach(async () => {
     await fs.rm(testRoot, { recursive: true, force: true })
-  });
+  })
 
   // ── capture and search ──────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ describe('MemorySubsystem', () => {
     expect(match).toBeDefined()
     expect(match!.provenance).toBe('autoMerge')
     expect(match!.score).toBeGreaterThan(0)
-  });
+  })
 
   it('returns empty array when no events match the query', async () => {
     const event = makeEvent({
@@ -87,7 +87,7 @@ describe('MemorySubsystem', () => {
 
     const results = await subsystem.search('nonexistent')
     expect(results).toHaveLength(0)
-  });
+  })
 
   it('ignores empty content events', async () => {
     const event = makeEvent({ content: '   ', confidence: 0.9 })
@@ -96,7 +96,7 @@ describe('MemorySubsystem', () => {
 
     const stats = await subsystem.getStats()
     expect(stats.autoMergeEntries).toBe(0)
-  });
+  })
 
   it('ignores zero-confidence events', async () => {
     const event = makeEvent({ confidence: 0 })
@@ -105,7 +105,7 @@ describe('MemorySubsystem', () => {
 
     const stats = await subsystem.getStats()
     expect(stats.autoMergeEntries).toBe(0)
-  });
+  })
 
   // ── tags filter ──────────────────────────────────────────────────────
 
@@ -145,7 +145,7 @@ describe('MemorySubsystem', () => {
 
     const results = await subsystem.search('CI', { tags: ['docker'] })
     expect(results).toEqual([])
-  });
+  })
 
   // ── getStats ────────────────────────────────────────────────────────
 
@@ -165,14 +165,14 @@ describe('MemorySubsystem', () => {
     expect(stats.autoMergeEntries).toBe(3)
     expect(stats.totalEntries).toBeGreaterThanOrEqual(3)
     expect(stats.lastUpdated).toBeTruthy()
-  });
+  })
 
   it('returns zero stats when empty', async () => {
     const stats = await subsystem.getStats()
     expect(stats.autoMergeEntries).toBe(0)
     expect(stats.knowledgeEntries).toBe(0)
     expect(stats.lastUpdated).toBeNull()
-  });
+  })
 
   // ── rebuild from events ─────────────────────────────────────────────
 
@@ -182,7 +182,7 @@ describe('MemorySubsystem', () => {
 
     // rebuild 应该不抛异常
     await expect(subsystem.rebuild()).resolves.toBeUndefined()
-  });
+  })
 
   // ── disabled memory (no-op) ─────────────────────────────────────────
 
@@ -212,7 +212,7 @@ describe('MemorySubsystem', () => {
     // rebuild / clear 不抛异常
     await expect(disabled.rebuild()).resolves.toBeUndefined()
     await expect(disabled.clear()).resolves.toBeUndefined()
-  });
+  })
 
   it('disabled subsystem is independent of active ones', async () => {
     // 创建活跃的 subsystem
@@ -224,7 +224,7 @@ describe('MemorySubsystem', () => {
     const disabled = createMemorySubsystem({ disabled: true })
     const stats = await disabled.getStats()
     expect(stats.totalEntries).toBe(0)
-  });
+  })
 
   // ── provenance tracking ─────────────────────────────────────────────
 
@@ -253,7 +253,7 @@ describe('MemorySubsystem', () => {
     const results = await subsystem.search('confidence', { minConfidence: 0.8 })
     // autoMerge 条目的置信度固定为 0.7，低于 0.8，会被过滤
     expect(results).toHaveLength(0)
-  });
+  })
 
   // ── limit option ─────────────────────────────────────────────────────
 
@@ -269,5 +269,5 @@ describe('MemorySubsystem', () => {
     const limited = await subsystem.search('common term', { limit: 2 })
     expect(limited.length).toBeLessThanOrEqual(2)
     expect(unlimited.length).toBeGreaterThanOrEqual(limited.length)
-  });
+  })
 })

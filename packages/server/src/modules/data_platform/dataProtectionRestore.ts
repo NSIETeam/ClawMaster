@@ -318,7 +318,7 @@ function restoreEncryptionKey(input: {
   if (!fs.existsSync(input.sourcePath)) return
   if (input.configuredPath === input.defaultPath) {
     moveIfPresent(input.sourcePath, input.configuredPath)
-    return;
+    return
   }
   if (!fs.existsSync(input.configuredPath)) {
     throw new Error(

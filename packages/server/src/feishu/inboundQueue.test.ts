@@ -19,7 +19,7 @@ function pathForTest(): string {
 
 afterEach(() => {
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
-});
+})
 
 function enqueue(queue: FeishuInboundQueue, eventId = 'om_event_1'): void {
   queue.enqueue({
@@ -59,7 +59,7 @@ describe('Feishu durable inbound queue', () => {
       eventId: 'om_event_1',
       status: 'queued',
     })
-  });
+  })
 
   it('recovers an interrupted running task after restart', () => {
     const filePath = pathForTest()
@@ -73,7 +73,7 @@ describe('Feishu durable inbound queue', () => {
       status: 'queued',
       lastError: expect.stringContaining('restarted'),
     })
-  });
+  })
 
   it('deduplicates completed events and retries failures with backoff', () => {
     const filePath = pathForTest()
@@ -92,7 +92,7 @@ describe('Feishu durable inbound queue', () => {
       sessionMessageId: 'msg_duplicate',
       replyToMessageId: 'om_event_1',
     }, 5_000)).toMatchObject({ inserted: false })
-  });
+  })
 
   it('turns repeatedly failing work into a visible dead-letter record', () => {
     const filePath = pathForTest()
@@ -105,7 +105,7 @@ describe('Feishu durable inbound queue', () => {
       dead: 1,
       lastError: 'permanent failure',
     })
-  });
+  })
 
   it('keeps strict ordering per session without blocking other sessions', () => {
     const queue = new FeishuInboundQueue(null)
@@ -126,11 +126,11 @@ describe('Feishu durable inbound queue', () => {
     queue.markRunning('om_a1', failed.nextAttemptAtMs!)
     queue.markCompleted('om_a1', failed.nextAttemptAtMs!)
     expect(queue.nextDue(failed.nextAttemptAtMs!)?.eventId).toBe('om_a2')
-  });
+  })
 
   it('ignores malformed queue files instead of blocking server startup', () => {
     const filePath = pathForTest()
     writeFileSync(filePath, '{not-json', 'utf8')
     expect(() => new FeishuInboundQueue(filePath)).not.toThrow()
-  });
+  })
 })

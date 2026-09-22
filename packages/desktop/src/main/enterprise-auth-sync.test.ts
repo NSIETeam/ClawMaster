@@ -114,7 +114,7 @@ describe('enterprise auth identity synchronization', () => {
     expect(authSessionSource).toContain(
       'AUTH_SESSION_DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000',
     )
-  });
+  })
 
   it('主进程退出处理只清企业身份，不删除本机对话、模型、知识库或 Skill', () => {
     const source = readFileSync(resolve(__dirname, 'index.ts'), 'utf8')
@@ -128,7 +128,7 @@ describe('enterprise auth identity synchronization', () => {
     expect(logoutHandler).toContain('fileAccessGrants.clear()')
     expect(logoutHandler).toContain('notificationService.clearAll()')
     expect(logoutHandler).not.toMatch(/\brmSync\b|promises\.rm|\bunlink\b|\.clawmaster-user/)
-  });
+  })
 
   it('取消更新只取消下载，不清附件授权或未读通知', () => {
     const source = readFileSync(resolve(__dirname, 'index.ts'), 'utf8')
@@ -141,7 +141,7 @@ describe('enterprise auth identity synchronization', () => {
     expect(cancelHandler).toContain('updateService.cancelDownload()')
     expect(cancelHandler).not.toContain('fileAccessGrants.clear()')
     expect(cancelHandler).not.toContain('notificationService.clearAll()')
-  });
+  })
 
   it('mac 打包版不会无条件恢复 Keychain token 以免系统密码框卡死登录页', () => {
     const source = readFileSync(resolve(__dirname, 'index.ts'), 'utf8')
@@ -149,7 +149,7 @@ describe('enterprise auth identity synchronization', () => {
     expect(source).toContain("process.env.CLAWMASTER_ENTERPRISE_RESTORE_KEYCHAIN_SESSION === '1'")
     expect(source).toContain("process.platform === 'darwin' && app.isPackaged")
     expect(source).toContain('if (!canRestoreEncryptedEnterpriseSession()) return')
-  });
+  })
 
   it('协议与工作区服务不暴露可由退出流程触发的整库销毁入口', () => {
     const protocolSource = readFileSync(
@@ -168,7 +168,7 @@ describe('enterprise auth identity synchronization', () => {
     expect(protocolSource).not.toContain('destroy_product_workspace')
     expect(workspaceSource).not.toContain('destroyAllUserData')
     expect(serverSource).not.toContain('destroyAllUserData')
-  });
+  })
 
   it('从远端请求开始就串行化认证事务，旧退出不能在新登录后补写本机清理', async () => {
     const queue = new EnterpriseAuthOperationQueue()
@@ -176,21 +176,21 @@ describe('enterprise auth identity synchronization', () => {
     let releaseLogout!: () => void
     const logoutPending = new Promise<void>((resolve) => {
       releaseLogout = resolve
-    });
+    })
 
     const logout = queue.run(async () => {
       order.push('logout:start')
       await logoutPending
       order.push('logout:clear-local')
-    });
+    })
     const login = queue.run(async () => {
       order.push('login:start')
       order.push('login:set-local')
-    });
+    })
 
     await vi.waitFor(() => {
       expect(order).toEqual(['logout:start'])
-    });
+    })
     releaseLogout()
     await Promise.all([logout, login])
     expect(order).toEqual([
@@ -199,32 +199,32 @@ describe('enterprise auth identity synchronization', () => {
       'login:start',
       'login:set-local',
     ])
-  });
+  })
 
   it('前一个认证事务失败后仍会执行队列中的下一次登录', async () => {
     const queue = new EnterpriseAuthOperationQueue()
     const first = queue.run(async () => {
       throw new Error('logout failed')
-    });
+    })
     const second = queue.run(async () => 'login ok')
 
     await expect(first).rejects.toThrow('logout failed')
     await expect(second).resolves.toBe('login ok')
-  });
+  })
 
   it('密码登录只有在本机 server 应用服务端认证账号后才持久化并返回', async () => {
     const order: string[] = []
     const authenticate = vi.fn(async () => {
       order.push('authenticate')
       return { account: ACCOUNT, expiresAt: '2099-01-01' }
-    });
+    })
     const synchronize = vi.fn(async (account) => {
       order.push('synchronize')
       expect(account).toEqual({
         ...LOCAL_ACCOUNT,
         leaseExpiresAt: expect.any(String),
       })
-    });
+    })
     const persist = vi.fn(() => order.push('persist'))
     const client = { logout: vi.fn(async () => undefined) }
 
@@ -237,7 +237,7 @@ describe('enterprise auth identity synchronization', () => {
 
     expect(order).toEqual(['authenticate', 'synchronize', 'persist'])
     expect(client.logout).not.toHaveBeenCalled()
-  });
+  })
 
   it('登录时从中心组织树同步最多 200 个 active 成员并规整有界字段', async () => {
     const members = [
@@ -289,7 +289,7 @@ describe('enterprise auth identity synchronization', () => {
         member => member.id === 'acc_disabled',
       ),
     ).toBe(false)
-  });
+  })
 
   it('中心组织树读取失败时仍同步真实当前账号，但不伪造同事目录', async () => {
     const synchronize = vi.fn(
@@ -312,7 +312,7 @@ describe('enterprise auth identity synchronization', () => {
       ...LOCAL_ACCOUNT,
       leaseExpiresAt: expect.any(String),
     })
-  });
+  })
 
   it('恢复会话和租约刷新都会重新读取中心组织树，不沿用旧目录', async () => {
     const getOrganizationView = vi.fn(async () => ORGANIZATION_VIEW)
@@ -335,7 +335,7 @@ describe('enterprise auth identity synchronization', () => {
     expect(synchronize.mock.calls[0]?.[0]?.organizationMembers).toEqual(
       synchronize.mock.calls[1]?.[0]?.organizationMembers,
     )
-  });
+  })
 
   it('登录后的本机身份同步失败会清中心 token、持久化退出态并保持登录页', async () => {
     const synchronize = vi.fn()
@@ -358,7 +358,7 @@ describe('enterprise auth identity synchronization', () => {
       leaseExpiresAt: expect.any(String),
     })
     expect(synchronize).toHaveBeenNthCalledWith(2, null)
-  });
+  })
 
   it('加入企业已在中心提交后若本机同步失败，返回可识别的重新登录错误并完成回滚', async () => {
     const synchronize = vi.fn()
@@ -381,13 +381,13 @@ describe('enterprise auth identity synchronization', () => {
       leaseExpiresAt: expect.any(String),
     })
     expect(synchronize).toHaveBeenNthCalledWith(2, null)
-  });
+  })
 
   it('加入企业结果无法对账时，即使远端登出失败也清空本机身份并要求重新登录', async () => {
     const synchronize = vi.fn(async () => undefined)
     const logout = vi.fn(async () => {
       throw new Error('中心服务仍不可达')
-    });
+    })
     const persist = vi.fn()
 
     await expect(failClosedUncertainEnterpriseJoin(
@@ -402,7 +402,7 @@ describe('enterprise auth identity synchronization', () => {
     expect(logout).toHaveBeenCalledOnce()
     expect(persist).toHaveBeenCalledOnce()
     expect(synchronize).toHaveBeenCalledWith(null)
-  });
+  })
 
   it('恢复会话必须先同步本机身份；同步失败返回未登录和明确错误', async () => {
     const session: EnterpriseSessionResult = {
@@ -434,7 +434,7 @@ describe('enterprise auth identity synchronization', () => {
       leaseExpiresAt: expect.any(String),
     })
     expect(synchronize).toHaveBeenNthCalledWith(2, null)
-  });
+  })
 
   it('恢复到未登录态时也会清除本机 server 残留身份', async () => {
     const synchronize = vi.fn(async () => undefined)
@@ -451,13 +451,13 @@ describe('enterprise auth identity synchronization', () => {
     )).resolves.toEqual(session)
 
     expect(synchronize).toHaveBeenCalledWith(null)
-  });
+  })
 
   it('退出不等待中心响应，立即持久化退出态并清本机身份', async () => {
     let finishRemoteLogout!: () => void
     const remoteLogout = new Promise<void>((resolve) => {
       finishRemoteLogout = resolve
-    });
+    })
     const logout = vi.fn(() => remoteLogout)
     const persist = vi.fn()
     const synchronize = vi.fn(async () => undefined)
@@ -472,11 +472,11 @@ describe('enterprise auth identity synchronization', () => {
     expect(synchronize).toHaveBeenCalledWith(null)
     finishRemoteLogout()
     await remoteLogout
-  });
+  })
 
   it('中心 logout 后台失败也不会把客户端卡在已登录状态', async () => {
     const logoutError = new Error('中心服务暂不可达')
-    const logout = vi.fn(async () => { throw logoutError });
+    const logout = vi.fn(async () => { throw logoutError })
     const persist = vi.fn()
     const synchronize = vi.fn(async () => undefined)
 
@@ -488,18 +488,18 @@ describe('enterprise auth identity synchronization', () => {
 
     expect(persist).toHaveBeenCalledOnce()
     expect(synchronize).toHaveBeenCalledWith(null)
-  });
+  })
 
   it('401 失效回调会先持久化已清 token，再清本机身份', async () => {
     const order: string[] = []
     const persist = vi.fn(() => order.push('persist'))
-    const synchronize = vi.fn(async () => { order.push('clear-local') });
+    const synchronize = vi.fn(async () => { order.push('clear-local') })
 
     await clearInvalidatedEnterpriseIdentity(synchronize, persist)
 
     expect(order).toEqual(['persist', 'clear-local'])
     expect(synchronize).toHaveBeenCalledWith(null)
-  });
+  })
 
   it('自降权导致中心会话撤销时只清本机身份，不沿用更新响应继续授权', async () => {
     const synchronize = vi.fn(async () => undefined)
@@ -514,7 +514,7 @@ describe('enterprise auth identity synchronization', () => {
 
     expect(synchronize).toHaveBeenCalledWith(null)
     expect(logout).not.toHaveBeenCalled()
-  });
+  })
 
   it('后台 /auth/me 成功时刷新本机身份短租约', async () => {
     const synchronize = vi.fn(
@@ -535,7 +535,7 @@ describe('enterprise auth identity synchronization', () => {
       leaseExpiresAt: expect.any(String),
     })
     expect(Date.parse(synced?.leaseExpiresAt ?? '')).toBeGreaterThan(before)
-  });
+  })
 
   it('后台刷新遇到临时网络错误时不延长也不主动清除租约', async () => {
     const synchronize = vi.fn(async () => undefined)
@@ -556,7 +556,7 @@ describe('enterprise auth identity synchronization', () => {
     expect(synchronize).not.toHaveBeenCalled()
     expect(persist).not.toHaveBeenCalled()
     expect(logout).not.toHaveBeenCalled()
-  });
+  })
 
   it('后台刷新确认中心会话失效时立即清本机身份并持久化退出态', async () => {
     const synchronize = vi.fn(async () => undefined)
@@ -571,5 +571,5 @@ describe('enterprise auth identity synchronization', () => {
 
     expect(synchronize).toHaveBeenCalledWith(null)
     expect(persist).toHaveBeenCalledOnce()
-  });
+  })
 })

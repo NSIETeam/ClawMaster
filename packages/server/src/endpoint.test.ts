@@ -32,12 +32,12 @@ beforeEach(() => {
   vi.stubEnv('HOME', tmpHome)
   vi.stubEnv('USERPROFILE', tmpHome)
   vi.stubEnv('CLAWMASTER_USER_DIR', '')
-});
+})
 
 afterEach(() => {
   vi.unstubAllEnvs()
   fs.rmSync(tmpHome, { recursive: true, force: true })
-});
+})
 
 describe('endpoint write/read round-trip', () => {
   it('write 后 read 一致', async () => {
@@ -76,19 +76,19 @@ describe('endpoint write/read round-trip', () => {
     expect(ep.endpointFilePath()).toBe(
       path.join(tmpHome, '.clawmaster-user', 'server-endpoint.json'),
     )
-  });
+  })
 
   it('显式用户目录隔离产品 endpoint', async () => {
     const isolatedRoot = path.join(tmpHome, '.clawmaster-user')
     vi.stubEnv('CLAWMASTER_USER_DIR', isolatedRoot)
     const ep = await loadEndpoint()
     expect(ep.endpointFilePath()).toBe(path.join(isolatedRoot, 'server-endpoint.json'))
-  });
+  })
 
   it('read 不存在文件 → undefined（不抛）', async () => {
     const ep = await loadEndpoint()
     expect(ep.readEndpoint()).toBeUndefined()
-  });
+  })
 
   it('旧端点文件缺 clientToken 时 fail closed，不生成或回填假 token', async () => {
     const ep = await loadEndpoint()
@@ -110,7 +110,7 @@ describe('endpoint write/read round-trip', () => {
     expect(fs.readFileSync(ep.endpointFilePath(), 'utf8')).not.toContain(
       'clientToken',
     )
-  });
+  })
 
   it('clear 后 read → undefined', async () => {
     const ep = await loadEndpoint()
@@ -118,10 +118,10 @@ describe('endpoint write/read round-trip', () => {
     expect(ep.readEndpoint()).toBeDefined()
     ep.clearEndpoint()
     expect(ep.readEndpoint()).toBeUndefined()
-  });
+  })
 
   it('clear 不存在文件不抛', async () => {
     const ep = await loadEndpoint()
     expect(() => ep.clearEndpoint()).not.toThrow()
-  });
+  })
 })

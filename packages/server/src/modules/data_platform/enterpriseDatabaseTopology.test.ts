@@ -23,7 +23,7 @@ describe('enterprise database topology', () => {
       databasePath: 'D:\\clawmaster-data\\data.db',
       replicas: 1,
     })
-  });
+  })
 
   it('refuses multiple writers against SQLite', () => {
     expect(() =>
@@ -32,7 +32,7 @@ describe('enterprise database topology', () => {
         sqliteDatabasePath: '/var/lib/clawmaster/data.db',
       }),
     ).toThrow(/SQLite.*exactly one.*PostgreSQL/i)
-  });
+  })
 
   it.each([
     String.raw`\\server\share\clawmaster\data.db`,
@@ -43,7 +43,7 @@ describe('enterprise database topology', () => {
     expect(() => assertLocalSqliteDatabasePath(databasePath)).toThrow(
       /SQLite.*NFS|SMB|network/i,
     )
-  });
+  })
 
   it.each([0x6969, 0x517b, 0xff534d42])(
     'refuses a mounted NFS/SMB filesystem type: %s',
@@ -74,7 +74,7 @@ describe('enterprise database topology', () => {
         sqliteDatabasePath: '/unused/data.db',
       }),
     ).toThrow(/SQLCipher.*local SQLite/i)
-  });
+  })
 
   it('allows multiple PostgreSQL application replicas without exposing credentials', () => {
     const topology = resolveEnterpriseDatabaseTopology({
@@ -100,7 +100,7 @@ describe('enterprise database topology', () => {
     })
     expect(JSON.stringify(description)).not.toContain('super-secret')
     expect(JSON.stringify(description)).not.toContain('clawmaster@')
-  });
+  })
 
   it('does not silently fall back to SQLite when PostgreSQL is configured', () => {
     const topology = resolveEnterpriseDatabaseTopology({
@@ -114,5 +114,5 @@ describe('enterprise database topology', () => {
     expect(() => requireLocalSqliteTopology(topology)).toThrow(
       /PostgreSQL.*repositories.*not.*migrated.*refusing.*SQLite fallback/i,
     )
-  });
+  })
 })

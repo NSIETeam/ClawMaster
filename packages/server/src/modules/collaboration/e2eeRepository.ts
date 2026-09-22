@@ -537,7 +537,7 @@ export function registerE2eeDeviceInRepository(
         )
         .get(organizationId, accountId, deviceId) as DeviceRow,
     )
-  });
+  })
 }
 
 export function listE2eeDevicesInRepository(
@@ -640,7 +640,7 @@ export function revokeE2eeDeviceInRepository(
       createdAt: revokedAt,
     })
     return true
-  });
+  })
 }
 
 export function approveE2eeDeviceInRepository(
@@ -762,7 +762,7 @@ export function approveE2eeDeviceInRepository(
           unsigned.targetDeviceId,
         ) as DeviceRow,
     )
-  });
+  })
 }
 
 export function listE2eeKeyTransparencyInRepository(
@@ -828,7 +828,7 @@ export function listE2eeKeyTransparencyInRepository(
     }
     previousHash = entry.entryHash
     return entry
-  });
+  })
   return {
     accountId,
     headSequence: entries.length,
@@ -1181,7 +1181,7 @@ export function sendE2eeDirectMessageInRepository(
         stored?.key ?? null,
         attachment.nonce,
       )
-    });
+    })
     if (inReplyToMessageId) {
       database
         .prepare(

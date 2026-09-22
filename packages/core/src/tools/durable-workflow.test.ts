@@ -17,21 +17,21 @@ describe('DurableWorkflowTool', () => {
 
   it('accepts a bounded declarative definition', () => {
     expect(tool.validateToolParams({ action: 'start', definition })).toBeNull()
-  });
+  })
 
   it('rejects arbitrary or external tool steps', () => {
     expect(tool.validateToolParams({ action: 'start', definition: { ...definition, steps: [{ id: 'bad', kind: 'tool', input: { tool: 'send_message' }, sideEffect: 'external' }] } })).toContain('external')
-  });
+  })
 
   it('makes state changes confirmable but leaves status read-only', async () => {
     expect(await tool.shouldConfirmExecute({ action: 'start', definition }, new AbortController().signal)).not.toBe(false)
     expect(await tool.shouldConfirmExecute({ action: 'status', run_id: 'wf-00000000-0000-0000-0000-000000000000' }, new AbortController().signal)).toBe(false)
-  });
+  })
 
   it('loads persistence for a read-only status lookup', async () => {
     const result = await tool.execute({ action: 'status', run_id: 'wf-00000000-0000-0000-0000-000000000000' }, new AbortController().signal)
     expect(String(result.llmContent)).toContain('"found":false')
-  });
+  })
 
   it('persists and executes a deterministic condition step through the Core adapter', async () => {
     const temporary = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-durable-workflow-tool-'))
@@ -51,4 +51,4 @@ describe('DurableWorkflowTool', () => {
       await rm(temporary, { recursive: true, force: true })
     }
   })
-});
+})

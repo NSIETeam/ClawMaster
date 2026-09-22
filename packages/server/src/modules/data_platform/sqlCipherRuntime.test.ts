@@ -38,7 +38,7 @@ describe('SQLCipher runtime configuration', () => {
     expect(() =>
       parseSqlCipherRuntimeMode({ CLAWMASTER_DATABASE_ENCRYPTION: 'maybe' }),
     ).toThrow(/must be required or disabled/i)
-  });
+  })
 
   it('fails closed before database creation when custody material is absent', () => {
     const dataDirectory = fs.mkdtempSync(
@@ -50,7 +50,7 @@ describe('SQLCipher runtime configuration', () => {
       createSqlCipherFileRuntime({ dataDirectory, environment: {} }),
     ).toThrow(/CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE is required/i)
     expect(fs.readdirSync(dataDirectory)).toEqual([])
-  });
+  })
 
   it('rejects a missing platform-native SQLCipher asset', () => {
     const dataDirectory = fs.mkdtempSync(
@@ -73,5 +73,5 @@ describe('SQLCipher runtime configuration', () => {
       }),
     ).toThrow(/native asset is missing/i)
     expect(fs.readFileSync(keyPath)).toEqual(Buffer.alloc(32, 5))
-  });
+  })
 })

@@ -15,11 +15,11 @@ describe('MemoryManagerTool project actions', () => {
   beforeEach(async () => {
     root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-memory-manager-'))
     tool = new MemoryManagerTool({ getProjectRoot: () => root, getMcpServers: () => undefined } as unknown as Config)
-  });
+  })
 
   afterEach(async () => {
     await fs.rm(root, { recursive: true, force: true })
-  });
+  })
 
   it('creates, lists, adds to, and archives project memory', async () => {
     const created = await tool.execute({
@@ -52,7 +52,7 @@ describe('MemoryManagerTool project actions', () => {
     const data = await new OrgMemoryStore(root).load()
     expect(data.projects[0].status).toBe('archived')
     expect(data.memories.some(memory => memory.type === 'summary')).toBe(true)
-  });
+  })
 
   it('creates a candidate skill during archive when project usage qualifies', async () => {
     await tool.execute({ action: 'project_create', project_id: 'project-skill', project_name: 'Skill Project' }, new AbortController().signal)
@@ -81,7 +81,7 @@ describe('MemoryManagerTool project actions', () => {
     const archived = await tool.execute({ action: 'project_archive', project_id: 'project-skill', user_id: 'user-1' }, new AbortController().signal)
     expect(archived.llmContent).toContain('candidate skill: skill_project-skill')
     expect((await store.load()).skills).toHaveLength(1)
-  });
+  })
 
 
   it('configures codebase memory for a project and reports status', async () => {
@@ -101,7 +101,7 @@ describe('MemoryManagerTool project actions', () => {
 
     const data = await new OrgMemoryStore(root).load()
     expect(data.projects[0].codebase?.mcpServerName).toBe('codebase-memory')
-  });
+  })
 })
 
 describe('MemoryManagerTool recall — department/company knowledge unification', () => {
@@ -113,7 +113,7 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
   beforeEach(async () => {
     root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-memory-recall-'))
     tool = new MemoryManagerTool({ getProjectRoot: () => root, getMcpServers: () => undefined } as unknown as Config)
-  });
+  })
 
   afterEach(async () => {
     await fs.rm(root, { recursive: true, force: true })
@@ -127,7 +127,7 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
       await new Promise<void>((resolve) => {
         server!.close(() => resolve())
         server!.closeAllConnections()
-      });
+      })
       server = undefined
     }
   })
@@ -144,7 +144,7 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
           { department: 'sales', category: 'contract_review', content: '合同审查先查违约条款', confidence: 0.9 },
         ],
       }))
-    });
+    })
     await new Promise<void>(resolve => server!.listen(0, '127.0.0.1', () => resolve()))
     const addr = server.address()
     const port = typeof addr === 'object' && addr ? addr.port : 0
@@ -161,7 +161,7 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
     expect(result.llmContent).toContain('合同审查先查违约条款')
     expect(receivedPath).toContain('/enterprise/knowledge')
     expect(receivedPath).toContain('department=sales')
-  });
+  })
 
   it('sends the admin token header when CLAWMASTER_ENTERPRISE_ADMIN_TOKEN is set', async () => {
     let receivedAuth: string | undefined
@@ -169,7 +169,7 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
       receivedAuth = req.headers['x-clawmaster-admin-token'] as string | undefined
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ knowledge: [{ content: 'secured knowledge item' }] }))
-    });
+    })
     await new Promise<void>(resolve => server!.listen(0, '127.0.0.1', () => resolve()))
     const addr = server.address()
     const port = typeof addr === 'object' && addr ? addr.port : 0
@@ -183,7 +183,7 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
 
     expect(receivedAuth).toBe('secret-token-123')
     expect(result.llmContent).toContain('secured knowledge item')
-  });
+  })
 
   it('gracefully degrades (no crash, no error content) when the enterprise server is unreachable', async () => {
     // 指向一个必然连不上的端口（服务端未启动 —— 绝大多数个人用户的常态）。
@@ -198,7 +198,7 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
     // 不应报错、不应包含企业知识库的标题（因为没有可合并的数据）。
     expect(result.llmContent).not.toContain('memory FAIL')
     expect(result.llmContent).not.toContain('enterprise server')
-  });
+  })
 })
 
 describe('MemoryManagerTool project_create — topic identification & merge', () => {
@@ -208,11 +208,11 @@ describe('MemoryManagerTool project_create — topic identification & merge', ()
   beforeEach(async () => {
     root = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-memory-topic-'))
     tool = new MemoryManagerTool({ getProjectRoot: () => root, getMcpServers: () => undefined } as unknown as Config)
-  });
+  })
 
   afterEach(async () => {
     await fs.rm(root, { recursive: true, force: true })
-  });
+  })
 
   it('creates a new project for a genuinely new topic (no false merge)', async () => {
     const first = await tool.execute({
@@ -227,7 +227,7 @@ describe('MemoryManagerTool project_create — topic identification & merge', ()
 
     const data = await new OrgMemoryStore(root).load()
     expect(data.projects).toHaveLength(2)
-  });
+  })
 
   it('merges a reworded duplicate topic into the existing project instead of creating a new one', async () => {
     const first = await tool.execute({
@@ -246,7 +246,7 @@ describe('MemoryManagerTool project_create — topic identification & merge', ()
     const data = await new OrgMemoryStore(root).load()
     expect(data.projects).toHaveLength(1)
     expect(data.memories.some(m => m.tags.includes('topic-merge'))).toBe(true)
-  });
+  })
 
   it('does NOT merge across different companies even if the topic text is identical', async () => {
     await tool.execute({
@@ -261,7 +261,7 @@ describe('MemoryManagerTool project_create — topic identification & merge', ()
     expect(second.llmContent).toContain('project created:')
     const data = await new OrgMemoryStore(root).load()
     expect(data.projects).toHaveLength(2)
-  });
+  })
 
   it('does NOT merge into an archived project (a re-raised topic after completion starts fresh)', async () => {
     const first = await tool.execute({
@@ -279,7 +279,7 @@ describe('MemoryManagerTool project_create — topic identification & merge', ()
     const data = await new OrgMemoryStore(root).load()
     // proj-1 (archived) + 新建的第二个 = 2 个项目记录。
     expect(data.projects).toHaveLength(2)
-  });
+  })
 
   it('skips topic-merge detection when an explicit project_id is provided (explicit intent wins)', async () => {
     await tool.execute({
@@ -295,5 +295,5 @@ describe('MemoryManagerTool project_create — topic identification & merge', ()
 
     const data = await new OrgMemoryStore(root).load()
     expect(data.projects).toHaveLength(2)
-  });
+  })
 })

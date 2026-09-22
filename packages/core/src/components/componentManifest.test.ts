@@ -32,7 +32,7 @@ describe('componentManifest', () => {
       errors: [],
       warnings: [],
     })
-  });
+  })
 
   it('rejects organization components that claim kernel-owned paths', () => {
     const result = validateComponentManifest({
@@ -49,7 +49,7 @@ describe('componentManifest', () => {
 
     expect(result.ok).toBe(false)
     expect(result.errors.join('\n')).toContain('must not own kernel paths')
-  });
+  })
 
   it('allows kernel-owned manifests to describe kernel update entrypoints', () => {
     const result = validateComponentManifest({
@@ -66,13 +66,13 @@ describe('componentManifest', () => {
     })
 
     expect(result.ok).toBe(true)
-  });
+  })
 
   it('identifies kernel-owned paths with normalized separators', () => {
     expect(isKernelOwnedPath('packages/core/src/core/subAgent.ts')).toBe(true)
     expect(isKernelOwnedPath('packages\\core\\src\\policy\\centralPolicy.ts')).toBe(true)
     expect(isKernelOwnedPath('components/custom/tool.ts')).toBe(false)
-  });
+  })
 
   it('rejects entrypoints that escape the component or use absolute paths', () => {
     const result = validateComponentManifest({
@@ -89,7 +89,7 @@ describe('componentManifest', () => {
 
     expect(result.ok).toBe(false)
     expect(result.errors.join('\n')).toContain('project-relative paths')
-  });
+  })
 
   it('rejects duplicate entrypoints and permissions', () => {
     const result = validateComponentManifest({
@@ -108,5 +108,5 @@ describe('componentManifest', () => {
     expect(result.ok).toBe(false)
     expect(result.errors).toContain('entrypoints must not contain duplicate paths')
     expect(result.errors).toContain('permissions must not contain duplicates')
-  });
+  })
 })

@@ -204,7 +204,7 @@ export class BackgroundTaskManager extends EventEmitter {
       if (a === b) return true
       const sep = path.sep
       return a.startsWith(b + sep) || b.startsWith(a + sep)
-    };
+    }
 
     for (const task of this.tasks.values()) {
       if (task.status !== 'running') continue
@@ -379,7 +379,7 @@ export class BackgroundTaskManager extends EventEmitter {
     // 返回取消监听函数：只移除本次注册的 handler
     return () => {
       for (const name of eventNames) this.off(name, handler)
-    };
+    }
   }
 
   // ── Persistence ──────────────────────────────────────────────────────

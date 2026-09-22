@@ -30,7 +30,7 @@ describe('CustomerModuleMarketplace', () => {
     })
     expect(approved.status).toBe('approved')
     expect(market.listPublic()).toHaveLength(1)
-  });
+  })
 
   it('fails closed for failed scans, non-owner submissions and suspended installs', () => {
     const market = new CustomerModuleMarketplace()
@@ -39,7 +39,7 @@ describe('CustomerModuleMarketplace', () => {
     market.beginScan('publisher-1', 'com.acme.report', '1.0.0')
     market.recordScan('com.acme.report', '1.0.0', { passed: false, findings: ['unknown import'] })
     expect(() => market.submitForReview('publisher-1', 'com.acme.report', '1.0.0')).toThrow(/scan/)
-  });
+  })
 
   it('deduplicates install receipts and blocks withdrawn versions', () => {
     const market = new CustomerModuleMarketplace()
@@ -53,5 +53,5 @@ describe('CustomerModuleMarketplace', () => {
     expect(market.get('com.acme.report', '1.0.0')?.installCount).toBe(1)
     market.withdraw('publisher-1', 'com.acme.report', '1.0.0')
     expect(() => market.recordInstall('com.acme.report', '1.0.0', 'install-2')).toThrow(/approved/)
-  });
+  })
 })

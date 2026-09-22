@@ -70,4 +70,4 @@ describe('listExternalSessions', () => {
     expect(result.sessions).toEqual([])
     expect(result.error).toBeTruthy()
   }, 30_000)
-});
+})

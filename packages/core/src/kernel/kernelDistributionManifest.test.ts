@@ -44,7 +44,7 @@ describe('kernelDistributionManifest', () => {
       errors: [],
       warnings: [],
     })
-  });
+  })
 
   it('rejects locked enterprise kernels that include source', () => {
     const result = validateKernelDistributionManifest({
@@ -57,7 +57,7 @@ describe('kernelDistributionManifest', () => {
 
     expect(result.ok).toBe(false)
     expect(result.errors).toContain('locked enterprise kernels must set artifact.sourceIncluded=false')
-  });
+  })
 
   it('rejects unsigned or weakly identified artifacts', () => {
     const result = validateKernelDistributionManifest({
@@ -74,7 +74,7 @@ describe('kernelDistributionManifest', () => {
     expect(result.errors.join('\n')).toContain('artifact.sha256')
     expect(result.errors.join('\n')).toContain('artifact.signature')
     expect(result.errors.join('\n')).toContain('artifact.publicKeyId')
-  });
+  })
 
   it('rejects native binary manifests pointing to source-like scripts', () => {
     const result = validateKernelDistributionManifest({
@@ -87,7 +87,7 @@ describe('kernelDistributionManifest', () => {
 
     expect(result.ok).toBe(false)
     expect(result.errors.join('\n')).toContain('native-binary artifacts must not point to source-like script files')
-  });
+  })
 
   it('warns when performance budgets miss the enterprise floor', () => {
     const result = validateKernelDistributionManifest({
@@ -105,5 +105,5 @@ describe('kernelDistributionManifest', () => {
     expect(result.ok).toBe(true)
     expect(result.warnings).toHaveLength(6)
     expect(result.warnings.join('\n')).toContain('maxDistributionMb')
-  });
+  })
 })

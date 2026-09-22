@@ -69,7 +69,7 @@ function escapeHtml(value: string): string {
       "'": '&#39;',
     }
     return entities[character] ?? character
-  });
+  })
 }
 
 function avatarTone(accountId: string): number {
@@ -110,7 +110,7 @@ export function summarizeEnterpriseTrayContacts(
         count: Math.max(1, Math.floor(item.count ?? 1)),
         createdAt: item.createdAt,
       })
-      continue;
+      continue
     }
     current.count += Math.max(1, Math.floor(item.count ?? 1))
     if (

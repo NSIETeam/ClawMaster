@@ -23,7 +23,7 @@ it('anchors packaged native dependencies to the signed Tauri runtime', () => {
   expect(sqlCipherModuleRequireBase('file:///workspace/server.js', '')).toBe(
     'file:///workspace/server.js',
   )
-});
+})
 
 interface Command {
   kind: 'exec' | 'pragma' | 'prepare'
@@ -136,7 +136,7 @@ describe('better SQLCipher driver', () => {
       { kind: 'pragma', value: 'integrity_check' },
     ])
     expect(fake.instances[0]!.closed).toBe(true)
-  });
+  })
 
   it('rejects an ordinary SQLite native asset', () => {
     const paths = createPaths()
@@ -153,7 +153,7 @@ describe('better SQLCipher driver', () => {
 
     expect(() => driver.verify(database)).toThrow(/not SQLCipher/i)
     database.close()
-  });
+  })
 
   it('uses sqlcipher_export for lossless plaintext migration', () => {
     const paths = createPaths()
@@ -188,5 +188,5 @@ describe('better SQLCipher driver', () => {
       kind: 'pragma',
       value: 'encrypted.user_version = 18',
     })
-  });
+  })
 })

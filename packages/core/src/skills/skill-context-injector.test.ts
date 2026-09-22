@@ -59,13 +59,13 @@ describe('SkillContextInjector', () => {
     // Pass testRoot as projectRoot to isolate tests from actual project directory
     loader = new SkillLoader(settingsManager, { projectRoot: testRoot })
     injector = new SkillContextInjector(loader)
-  });
+  })
 
   afterEach(async () => {
     // 清理测试目录
     await fs.remove(testRoot)
     vi.restoreAllMocks()
-  });
+  })
 
   /**
    * 创建测试用的 Marketplace
@@ -147,7 +147,7 @@ description: Test Skill 2
       expect(result.context).toContain('Test Skill 1')
       expect(result.skillCount).toBe(2)
       expect(result.levelStats.metadata).toBe(2)
-    });
+    })
 
     it('should estimate tokens', async () => {
       await createTestMarketplace()
@@ -156,14 +156,14 @@ description: Test Skill 2
 
       expect(result.estimatedTokens).toBeGreaterThan(0)
       expect(result.estimatedTokens).toBeLessThan(1000)
-    });
+    })
 
     it('should return empty context info if no skills', async () => {
       const result = await injector.injectStartupContext()
 
       expect(result.context).toContain('No skills installed')
       expect(result.skillCount).toBe(0)
-    });
+    })
   })
 
   describe('loadSkillLevel2', () => {
@@ -177,7 +177,7 @@ description: Test Skill 2
       expect(content).toContain('**Allowed Tools**: read_file, write_file')
       expect(content).toContain('## Instructions')
       expect(content).toContain('file operations')
-    });
+    })
 
     it('should throw error if skill not found', async () => {
       await createTestMarketplace()
@@ -185,7 +185,7 @@ description: Test Skill 2
       await expect(
         injector.loadSkillLevel2('test-mp:test-plugin:non-existent'),
       ).rejects.toThrow('not found')
-    });
+    })
 
     it('should include metadata in full content', async () => {
       await createTestMarketplace()
@@ -194,7 +194,7 @@ description: Test Skill 2
 
       expect(content).toContain('**Description**')
       expect(content).toContain('**Allowed Tools**')
-    });
+    })
   })
 
   describe('loadSkillLevel3', () => {
@@ -207,7 +207,7 @@ description: Test Skill 2
       expect(content).toContain('Available Scripts')
       expect(content).toContain('test.py')
       expect(content).toContain('python')
-    });
+    })
 
     it('should not include script code', async () => {
       await createTestMarketplace()
@@ -216,7 +216,7 @@ description: Test Skill 2
 
       expect(content).not.toContain('print("Hello")')
       expect(content).toContain('Script code is not included to save tokens')
-    });
+    })
   })
 
   describe('injectSkillsContext', () => {
@@ -227,7 +227,7 @@ description: Test Skill 2
 
       expect(result.context).toContain('<available_skills>')
       expect(result.levelStats.metadata).toBe(2)
-    });
+    })
 
     it('should inject full content when requested', async () => {
       await createTestMarketplace()
@@ -238,7 +238,7 @@ description: Test Skill 2
 
       expect(result.context).toContain('## Instructions')
       expect(result.levelStats.full).toBe(2)
-    });
+    })
 
     it('should inject resources when requested', async () => {
       await createTestMarketplace()
@@ -249,7 +249,7 @@ description: Test Skill 2
 
       expect(result.context).toContain('## Available Scripts')
       expect(result.levelStats.resources).toBe(2)
-    });
+    })
 
     it('should include stats when requested', async () => {
       await createTestMarketplace()
@@ -260,7 +260,7 @@ description: Test Skill 2
 
       expect(result.context).toContain('Skills Statistics')
       expect(result.context).toContain('Total Skills: 2')
-    });
+    })
 
     it('should warn if exceeds max tokens', async () => {
       await createTestMarketplace()
@@ -277,7 +277,7 @@ description: Test Skill 2
       )
 
       warnSpy.mockRestore()
-    });
+    })
   })
 
   describe('token estimation', () => {
@@ -290,7 +290,7 @@ description: Test Skill 2
       })
 
       expect(fullResult.estimatedTokens).toBeGreaterThan(metadataResult.estimatedTokens)
-    });
+    })
 
     it('should estimate even more tokens for resources', async () => {
       await createTestMarketplace()
@@ -305,7 +305,7 @@ description: Test Skill 2
       expect(resourcesResult.estimatedTokens).toBeGreaterThan(
         fullResult.estimatedTokens,
       )
-    });
+    })
   })
 
   describe('context formatting', () => {
@@ -318,7 +318,7 @@ description: Test Skill 2
       expect(result.context).toContain('<name>')
       expect(result.context).toContain('test-mp:test-plugin:skill1')
       expect(result.context).toContain('test-mp:test-plugin:skill2')
-    });
+    })
 
     it('should include script information in description if scripts available', async () => {
       await createTestMarketplace()
@@ -329,6 +329,6 @@ description: Test Skill 2
       expect(result.context).toContain('<has_scripts>')
       expect(result.context).toContain('true')
       expect(result.context).toContain('<script>test.py</script>')
-    });
+    })
   })
-});
+})

@@ -969,7 +969,7 @@ export type EnterpriseFederationAtoaTask =
     request: EnterpriseFederationAtoaRequestPayload
     grantedSources: EnterpriseAtoaContextSource[]
     needsCurrentChatSelection: boolean
-  };
+  }
 
 export interface EnterpriseE2eeDevice {
   accountId: string
@@ -2043,7 +2043,7 @@ function dispatchFrame(frame: ServerToClient): void {
       .catch(() => undefined)
     // 不经 renderer React 生命周期：窗口隐藏、切在其它会话或 UI 重载时，
     // preload 仍会把全局入站帧直接交给 main NotificationService。
-    return;
+    return
   }
   if ((frame as { type: string }).type === 'incremental_update_available') {
     const updateFrame = frame as { payload?: { manifestUrl?: unknown } }
@@ -2115,7 +2115,7 @@ function openSocket(): Promise<boolean> {
         // 没端点，安排重试（端点变更会即时触发，不必密集轮询）。
         scheduleReconnect()
         resolve(false)
-        return;
+        return
       }
       try {
         const socket = new WebSocket(serverWebSocketUrl(ep))
@@ -2136,7 +2136,7 @@ function openSocket(): Promise<boolean> {
           flushQueue()
           notifyConnection(true)
           resolve(true)
-        });
+        })
 
         socket.addEventListener('message', (e: MessageEvent) => {
           let frame: ServerToClient
@@ -2146,24 +2146,24 @@ function openSocket(): Promise<boolean> {
             return
           }
           dispatchFrame(frame)
-        });
+        })
 
         socket.addEventListener('close', () => {
           if (ws === socket) ws = undefined
           notifyConnection(false)
           scheduleReconnect()
-        });
+        })
 
         socket.addEventListener('error', () => {
           // error 后通常紧跟 close；resolve(false) 表示本次未连上。
           resolve(false)
-        });
+        })
       } catch {
         scheduleReconnect()
         resolve(false)
       }
     })()
-  });
+  })
 }
 
 const bridge: ClawMasterBridge = {
@@ -2217,15 +2217,15 @@ const bridge: ClawMasterBridge = {
           },
         }),
       )
-      return;
+      return
     }
     if (frame.type !== 'send_user_message') {
       sendOrQueue(frame)
-      return;
+      return
     }
     if (!hasOutboundPathReference(frame)) {
       sendOrQueue(frame)
-      return;
+      return
     }
     void authorizeOutboundFileReferences(
       frame,
@@ -2253,7 +2253,7 @@ const bridge: ClawMasterBridge = {
                 : '附件未获得授权，消息未发送',
           },
         })
-      });
+      })
   },
 
   onFrame(handler: FrameHandler): () => void {
@@ -2283,7 +2283,7 @@ const bridge: ClawMasterBridge = {
     ipcRenderer.on(IPC.menu, listener)
     return () => {
       ipcRenderer.removeListener(IPC.menu, listener)
-    };
+    }
   },
 
   openExternal(url: string): Promise<void> {
@@ -2592,7 +2592,10 @@ const bridge: ClawMasterBridge = {
   },
   communitySkillInstall(input) {
     return ipcRenderer.invoke(IPC.communitySkillInstall, input) as Promise<{
-      id: string; name: string; source: string; installPath: string
+      id: string
+      name: string
+      source: string
+      installPath: string
     }>
   },
   communitySkillList() {
@@ -2711,6 +2714,8 @@ const bridge: ClawMasterBridge = {
     return ipcRenderer.invoke(
       IPC.incrementalUpdateApply,
       input,
+
+
     ) as Promise<IncrementalUpdateApplyResult>
   },
   onUpdateProgress(
@@ -2724,7 +2729,7 @@ const bridge: ClawMasterBridge = {
     ipcRenderer.on(IPC.updateProgress, listener)
     return () => {
       ipcRenderer.removeListener(IPC.updateProgress, listener)
-    };
+    }
   },
   notificationShow(payload: {
     sessionId: string
@@ -2872,7 +2877,7 @@ const bridge: ClawMasterBridge = {
       account: EnterpriseAccount,
     ): void => {
       handler(account)
-    };
+    }
     ipcRenderer.on(IPC.enterpriseAccountUpdated, listener)
     return () =>
       ipcRenderer.removeListener(IPC.enterpriseAccountUpdated, listener)

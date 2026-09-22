@@ -84,7 +84,7 @@ describe('incremental kernel store', () => {
       installedModulePath: result.record.modulePath,
       installedBinPath: result.record.binPath,
     })
-  });
+  })
 
   it('keeps previous active kernel metadata in rollback receipt', async () => {
     const root = await tempRoot()
@@ -109,7 +109,7 @@ describe('incremental kernel store', () => {
     expect(secondInstall.receipt.fromVersion).toBe('2026.07.25')
     expect(secondInstall.receipt.previousModulePath).toBe(firstInstall.record.modulePath)
     expect(secondInstall.receipt.previousBinPath).toBe(firstInstall.record.binPath)
-  });
+  })
 
   it('rejects unsafe ids, unsafe paths, missing entries and unsupported targets', async () => {
     const root = await tempRoot()
@@ -150,5 +150,5 @@ describe('incremental kernel store', () => {
       downloadedFilePath: source,
       rootDir: root,
     })).resolves.toEqual({ ok: false, error: 'unsupported kernel target: native/runtime' })
-  });
+  })
 })

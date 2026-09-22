@@ -31,7 +31,7 @@ describe('incremental artifact signature verification', () => {
     const publicKey = keys.publicKey.export({ format: 'pem', type: 'spki' }).toString()
 
     await expect(verifyIncrementalArtifactSignature({ filePath, signature, publicKey })).resolves.toEqual({ ok: true })
-  });
+  })
 
   it('loads public key from environment and rejects tampered artifacts', async () => {
     const keys = generateKeyPairSync('ed25519')
@@ -44,7 +44,7 @@ describe('incremental artifact signature verification', () => {
       ok: false,
       error: 'artifact Ed25519 signature verification failed',
     })
-  });
+  })
 
   it('fails closed when no public key is configured', async () => {
     const keys = generateKeyPairSync('ed25519')
@@ -56,7 +56,7 @@ describe('incremental artifact signature verification', () => {
       ok: false,
       error: 'missing CLAWMASTER_INCREMENTAL_UPDATE_PUBLIC_KEY or CLAWMASTER_INCREMENTAL_UPDATE_PUBLIC_KEY_FILE',
     })
-  });
+  })
 
   it('rejects non-canonical signature formats', async () => {
     const filePath = await writeArtifact('body')
@@ -68,5 +68,5 @@ describe('incremental artifact signature verification', () => {
       ok: false,
       error: 'artifact signature must be a 64-byte Ed25519 base64url value',
     })
-  });
+  })
 })

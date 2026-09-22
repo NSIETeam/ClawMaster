@@ -177,7 +177,7 @@ function ticketView<TAccount extends ParkTicketAccount>(
     ? null
     : (store.db()
       .prepare(
-        `SELECT id FROM accounts WHERE id = ? AND organization_id = ? AND deleted_at IS NOT NULL`,
+        'SELECT id FROM accounts WHERE id = ? AND organization_id = ? AND deleted_at IS NOT NULL',
       )
       .get(row.created_by_account_id, row.organization_id) as
         { id: string } | undefined)
@@ -295,7 +295,7 @@ function ticketView<TAccount extends ParkTicketAccount>(
         actor,
       },
     })
-  };
+  }
   addLegacyEvent('created', row.created_at, null, '待接单', 0, null, null, {
     id: creator.id,
     name: creator.name,
@@ -531,7 +531,7 @@ export function createTicket<TAccount extends ParkTicketAccount>(
   }
   const parkSpecialists = park
     ? store.listParkServiceSpecialists(park.id).filter(
-      (item) => item.serviceId === serviceId,
+      item => item.serviceId === serviceId,
     )
     : []
   const specialistRecipients = park
@@ -731,7 +731,7 @@ export function listTicketsForAccount<TAccount extends ParkTicketAccount>(
           .all(account.organizationId, managedPark.id)
         : store.db()
           .prepare(
-            `SELECT id FROM it_tickets WHERE organization_id = ? ORDER BY updated_at DESC, created_at DESC`,
+            'SELECT id FROM it_tickets WHERE organization_id = ? ORDER BY updated_at DESC, created_at DESC',
           )
           .all(account.organizationId)
       : store.db()
@@ -1172,7 +1172,7 @@ function upsertNotificationState<TAccount extends ParkTicketAccount>(
     database.prepare(
       'UPDATE ticket_notifications SET status = ?, detail = ? WHERE id = ?',
     ).run(input.status, input.detail ?? null, existing.id)
-    return;
+    return
   }
   recordTicketNotification(store, input)
 }
@@ -1215,7 +1215,7 @@ export function scheduleTicketNotificationTask<
       status: 'pending',
       detail: '已排入通知队列（去重）',
     })
-    return;
+    return
   }
   const now = store.now?.() ?? new Date()
   const dueAt =
@@ -1355,7 +1355,7 @@ export async function processTicketNotificationTasks<
       status,
       detail,
     })
-  };
+  }
 
   // 2. 逐个处理已领取任务。
   for (const task of claimed) {
@@ -1365,7 +1365,7 @@ export async function processTicketNotificationTasks<
         if (recipientHasReadTicket(store, task.ticket_id, task.recipient_account_id)) {
           finish(task, 'cancelled', '接收人已读，取消短信升级')
           result.cancelled += 1
-          continue;
+          continue
         }
       }
       const channelInfo = options.resolveRecipientChannel(task.recipient_account_id)
@@ -1380,7 +1380,7 @@ export async function processTicketNotificationTasks<
           sender ? '接收人未配置该通道账号' : '服务器未配置该通知通道',
         )
         result.skipped += 1
-        continue;
+        continue
       }
       let sent = false
       try {

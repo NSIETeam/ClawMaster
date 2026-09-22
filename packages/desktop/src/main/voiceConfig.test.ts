@@ -9,11 +9,11 @@ beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-voice-'))
   vi.stubEnv('HOME', home)
   vi.stubEnv('USERPROFILE', home)
-});
+})
 afterEach(() => {
   vi.unstubAllEnvs()
   fs.rmSync(home, { recursive: true, force: true })
-});
+})
 
 describe('voiceConfig', () => {
   it('保存非敏感配置并把凭证拆到 0600 secret 文件', () => {
@@ -45,4 +45,4 @@ describe('voiceConfig', () => {
       expect(fs.statSync(secret).mode & 0o777).toBe(0o600)
     }
   })
-});
+})

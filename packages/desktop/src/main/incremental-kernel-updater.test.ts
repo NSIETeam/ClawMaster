@@ -87,7 +87,7 @@ describe('incremental kernel updater', () => {
     const registry = await readIncrementalKernelRegistry(resolveKernelUpdateRoot(userDataPath))
     expect(registry.active.serverRuntimeKernelId).toBe('kernel-server-runtime-2026-07')
     await expect(fs.access(path.join(resolveKernelUpdateRoot(userDataPath), 'downloads', 'kernel-server-runtime-2026-07', '2026.07.25', 'artifact.bin'))).rejects.toThrow()
-  });
+  })
 
   it('rejects unapproved artifact origins before writing registry state', async () => {
     const userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-kernel-apply-'))
@@ -103,7 +103,7 @@ describe('incremental kernel updater', () => {
     expect(result.ok).toBe(false)
     const registry = await readIncrementalKernelRegistry(resolveKernelUpdateRoot(userDataPath))
     expect(Object.keys(registry.kernels)).toEqual([])
-  });
+  })
 
   it('rejects invalid Ed25519 signatures before registry install', async () => {
     const userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-kernel-apply-'))
@@ -120,5 +120,5 @@ describe('incremental kernel updater', () => {
     expect(result).toEqual({ ok: false, error: 'artifact Ed25519 signature verification failed' })
     const registry = await readIncrementalKernelRegistry(resolveKernelUpdateRoot(userDataPath))
     expect(Object.keys(registry.kernels)).toEqual([])
-  });
+  })
 })

@@ -218,7 +218,7 @@ export class SessionCheckpointService {
     for (const cp of all) {
       if (new Date(cp.timestamp).getTime() < cutoff) {
         await this.delete(cp.sessionId)
-        cleaned++;
+        cleaned++
       }
     }
 

@@ -261,7 +261,7 @@ export function ModuleWorkspace({
     const closePopoverAndRestoreFocus = (): void => {
       setOpenPopover(null)
       popoverTriggerRef.current?.focus()
-    };
+    }
     const onPointerDown = (event: MouseEvent): void => {
       if (openPopover && !menuRef.current?.contains(event.target as Node)) {
         closePopoverAndRestoreFocus()
@@ -278,7 +278,7 @@ export function ModuleWorkspace({
     return () => {
       document.removeEventListener('mousedown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
-    };
+    }
   }, [openPopover])
 
   useEffect(() => () => {
@@ -346,7 +346,7 @@ export function ModuleWorkspace({
     }
     setUndoState(null)
     onLayoutChange(next)
-  };
+  }
 
   const applyWithUndo = (
     next: ModuleWorkspaceLayout,
@@ -363,7 +363,7 @@ export function ModuleWorkspace({
       setUndoState(null)
       undoTimerRef.current = null
     }, 5_000)
-  };
+  }
 
   const moveGroup = (groupId: string, targetIndex: number): void => {
     const ids = layout.groups.map(group => group.id)
@@ -373,7 +373,7 @@ export function ModuleWorkspace({
     ids.splice(targetIndex, 0, groupId)
     commitLayout(reorderModuleGroups(layout, ids))
     setOpenPopover(null)
-  };
+  }
 
   const moveModule = (groupId: string, moduleId: string, targetIndex: number): void => {
     const group = layout.groups.find(candidate => candidate.id === groupId)
@@ -385,18 +385,18 @@ export function ModuleWorkspace({
     ids.splice(targetIndex, 0, moduleId)
     commitLayout(reorderModulesInGroup(layout, groupId, ids))
     setOpenPopover(null)
-  };
+  }
 
   const updateTransientLayout = (next: ModuleWorkspaceLayout): void => {
     transientLayoutRef.current = next
     setTransientLayout(next)
-  };
+  }
 
   const persistTransientLayout = (): void => {
     const next = transientLayoutRef.current
     if (JSON.stringify(next) === JSON.stringify(layout)) return
     commitLayout(next)
-  };
+  }
 
   return (
     <section
@@ -428,22 +428,22 @@ export function ModuleWorkspace({
           data-reorder-group="groups"
           onPointerMove={(event: React.PointerEvent<HTMLDivElement>) => {
             const viewport = scrollViewportRef.current
-          if (viewport) autoScrollAtPointer(viewport, event.clientY)
-        }}
+            if (viewport) autoScrollAtPointer(viewport, event.clientY)
+          }}
         >
           {transientLayout.groups.map((group, groupIndex) => {
             const groupModules = group.moduleIds
               .map(moduleId => modulesById.get(moduleId))
               .filter((module): module is ModuleDefinition => Boolean(module))
-        const displayRows = Math.min(
+            const displayRows = Math.min(
               presentation === 'panel' ? 4 : 3,
               Math.max(group.rows, Math.ceil((groupModules.length + 1) / gridColumns)),
-            );
+            )
             const capacity = displayRows * gridColumns
-        const overflowing = groupModules.length + 1 > capacity
-        const condensed = presentation === 'panel' && density === 'condensed'
-        const collapsed = condensed && activeCondensedGroupId !== group.id
-        return (
+            const overflowing = groupModules.length + 1 > capacity
+            const condensed = presentation === 'panel' && density === 'condensed'
+            const collapsed = condensed && activeCondensedGroupId !== group.id
+            return (
               <DraggableItem
                 key={group.id}
                 value={group.id}
@@ -475,15 +475,15 @@ export function ModuleWorkspace({
                             aria-label="保存名称"
                             onClick={() => {
                               const error = validateModuleGroupName(layout, group.id, renameDraft.value)
-                      if (error) {
+                              if (error) {
                                 setRenameDraft({ ...renameDraft, error })
-                        return;
+                                return
                               }
                               commitLayout(renameModuleGroup(layout, group.id, renameDraft.value))
-                      setRenameDraft(null)
-                    }}
+                              setRenameDraft(null)
+                            }}
                           >
-                    保存
+                            保存
                           </button>
                           {renameDraft.error ? <span role="alert">{renameDraft.error}</span> : null}
                         </div>
@@ -508,14 +508,14 @@ export function ModuleWorkspace({
                             aria-expanded={openPopover?.kind === 'group' && openPopover.id === group.id}
                             onClick={(event) => {
                               popoverTriggerRef.current = event.currentTarget
-                    setOpenPopover(current => (
+                              setOpenPopover(current => (
                                 current?.kind === 'group' && current.id === group.id
                                   ? null
                                   : { kind: 'group', id: group.id }
                               ))
-                  }}
+                            }}
                           >
-                  ···
+                            ···
                           </button>
                           {openPopover?.kind === 'group' && openPopover.id === group.id ? (
                             <div className="claw-module-group__menu" role="menu" aria-label={`${group.name}设置`}>
@@ -524,8 +524,8 @@ export function ModuleWorkspace({
                                 role="menuitem"
                                 onClick={() => {
                                   setEditingGroupId(current => current === group.id ? null : group.id)
-                        setOpenPopover(null)
-                      }}
+                                  setOpenPopover(null)
+                                }}
                               >
                                 {editingGroupId === group.id ? '完成编辑' : '编辑模块'}
                               </button>
@@ -534,8 +534,8 @@ export function ModuleWorkspace({
                                 role="menuitem"
                                 onClick={() => {
                                   setRenameDraft({ groupId: group.id, value: group.name, error: null })
-                        setOpenPopover(null)
-                      }}
+                                  setOpenPopover(null)
+                                }}
                               >重命名</button>
                               <button
                                 type="button"
@@ -568,8 +568,8 @@ export function ModuleWorkspace({
                                 disabled={layout.groups.length <= 1}
                                 onClick={() => {
                                   setConfirmState({ kind: 'delete-group', groupId: group.id })
-                        setOpenPopover(null)
-                      }}
+                                  setOpenPopover(null)
+                                }}
                               >删除功能组</button>
                             </div>
                           ) : null}
@@ -582,14 +582,14 @@ export function ModuleWorkspace({
                       values={groupModules.map(module => module.id)}
                       onReorder={(orderedVisibleIds) => {
                         const current = transientLayoutRef.current
-                const currentGroup = current.groups.find(candidate => candidate.id === group.id)
-                if (!currentGroup) return
-                const mergedOrder = mergeVisibleModuleOrder(
+                        const currentGroup = current.groups.find(candidate => candidate.id === group.id)
+                        if (!currentGroup) return
+                        const mergedOrder = mergeVisibleModuleOrder(
                           currentGroup.moduleIds,
                           orderedVisibleIds,
-                        );
+                        )
                         updateTransientLayout(reorderModulesInGroup(current, group.id, mergedOrder))
-              }}
+                      }}
                       className={`claw-module-group__grid claw-module-group__grid--rows-${displayRows}${
                         overflowing ? ' is-overflowing' : ''
                       }`}
@@ -604,8 +604,8 @@ export function ModuleWorkspace({
                     >
                       {groupModules.map((module, moduleIndex) => {
                         const disabled = module.availability !== 'available'
-                const editing = editingGroupId === group.id
-                return (
+                        const editing = editingGroupId === group.id
+                        return (
                           <DraggableItem
                             key={module.id}
                             value={module.id}
@@ -630,10 +630,10 @@ export function ModuleWorkspace({
                                   title={disabled ? module.disabledReason : editing ? '拖动调整模块顺序' : module.description}
                                   onClick={() => {
                                     if (!editing) onActivate(module)
-                      }}
+                                  }}
                                   onKeyDown={(event) => {
                                     if (!editing) return
-                        const targetIndex = event.key === 'ArrowLeft'
+                                    const targetIndex = event.key === 'ArrowLeft'
                                       ? moduleIndex - 1
                                       : event.key === 'ArrowRight'
                                         ? moduleIndex + 1
@@ -642,10 +642,10 @@ export function ModuleWorkspace({
                                           : event.key === 'ArrowDown'
                                             ? moduleIndex + gridColumns
                                             : moduleIndex
-                        if (targetIndex === moduleIndex) return
-                        event.preventDefault()
-                        moveModule(group.id, module.id, targetIndex)
-                      }}
+                                    if (targetIndex === moduleIndex) return
+                                    event.preventDefault()
+                                    moveModule(group.id, module.id, targetIndex)
+                                  }}
                                 >
                                   <ModuleIcon
                                     icon={module.icon}
@@ -670,7 +670,7 @@ export function ModuleWorkspace({
                               </div>
                             )}
                           </DraggableItem>
-                        );
+                        )
                       })}
                       <button
                         type="button"
@@ -685,7 +685,7 @@ export function ModuleWorkspace({
                   </article>
                 )}
               </DraggableItem>
-            );
+            )
           })}
         </Reorder.Group>
         <div className="claw-module-workspace__footer">
@@ -695,17 +695,17 @@ export function ModuleWorkspace({
             aria-label="添加功能组"
             onClick={() => {
               const next = createModuleGroup(layout)
-            const created = next.groups.at(-1)
-            if (created) {
+              const created = next.groups.at(-1)
+              if (created) {
                 pendingGroupRevealRef.current = created.id
-              setActiveCondensedGroupId(created.id)
-              setRenameDraft({ groupId: created.id, value: created.name, error: null })
-            }
+                setActiveCondensedGroupId(created.id)
+                setRenameDraft({ groupId: created.id, value: created.name, error: null })
+              }
               commitLayout(next)
-          }}
+            }}
           >
             <span aria-hidden>＋</span>
-          添加功能组
+            添加功能组
           </button>
         </div>
         {undoState ? (
@@ -717,11 +717,11 @@ export function ModuleWorkspace({
               onClick={() => {
                 if (undoTimerRef.current) {
                   clearTimeout(undoTimerRef.current)
-                undoTimerRef.current = null
-              }
+                  undoTimerRef.current = null
+                }
                 onLayoutChange(undoState.previousLayout)
-              setUndoState(null)
-            }}
+                setUndoState(null)
+              }}
             >撤销</button>
           </div>
         ) : null}

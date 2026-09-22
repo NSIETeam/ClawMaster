@@ -100,7 +100,7 @@ describe('federation enterprise routes', () => {
     expect(allowed.responses).toEqual([
       expect.objectContaining({ status: 200 }),
     ])
-  });
+  })
 
   it('forces the authenticated account to be the sender principal', async () => {
     const queue = vi.fn(async (_input: FederationQueueInput) => ({ messageId: 'fmsg_one' }))
@@ -121,7 +121,7 @@ describe('federation enterprise routes', () => {
     expect(queue).toHaveBeenCalledWith(expect.objectContaining({
       routing: expect.objectContaining({ senderPrincipalId: 'account_member' }),
     }))
-  });
+  })
 
   it('fails closed when the A2A feature is disabled', async () => {
     const queue = vi.fn()
@@ -145,7 +145,7 @@ describe('federation enterprise routes', () => {
     await call.execute()
     expect(call.responses[0]).toMatchObject({ status: 403 })
     expect(queue).not.toHaveBeenCalled()
-  });
+  })
 
   it('always scopes inbox reads to the authenticated recipient', async () => {
     const list = vi.fn(() => [])
@@ -158,7 +158,7 @@ describe('federation enterprise routes', () => {
     expect(list).toHaveBeenCalledWith(expect.objectContaining({
       recipientPrincipalId: 'account_member',
     }))
-  });
+  })
 
   it('binds contacts and conversations to the authenticated account', async () => {
     const saveContact = vi.fn(async () => ({ id: 'fcontact_one' }))
@@ -190,7 +190,7 @@ describe('federation enterprise routes', () => {
       contactId: 'fcontact_one',
       afterSequence: 0,
     }))
-  });
+  })
 
   it('queues a contact-bound one-time A2A request without trusting caller identity fields', async () => {
     const queue = vi.fn(async () => ({ messageId: 'fa2a_request_one' }))
@@ -224,7 +224,7 @@ describe('federation enterprise routes', () => {
       attachmentIds: [],
       expiresInMs: undefined,
     })
-  });
+  })
 
   it('creates A2A grants from the authenticated owner and selected contact', async () => {
     const create = vi.fn(async () => ({
@@ -251,7 +251,7 @@ describe('federation enterprise routes', () => {
       scopes: ['clawmaster.a2a.0123456789abcdef'],
       expiresInMs: 600_000,
     })
-  });
+  })
 
   it('rejects ungranted A2A requests and A2A attachments before queueing', async () => {
     const queue = vi.fn()
@@ -278,7 +278,7 @@ describe('federation enterprise routes', () => {
       expect(call.responses[0]?.status).toBe(400)
     }
     expect(queue).not.toHaveBeenCalled()
-  });
+  })
 
   it('does not expose another account contact through delete or read state', async () => {
     const remove = vi.fn(() => false)
@@ -305,7 +305,7 @@ describe('federation enterprise routes', () => {
     expect(markRead).toHaveBeenCalledWith(expect.objectContaining({
       ownerAccountId: 'account_member',
     }))
-  });
+  })
 
   it('binds attachment upload, completion and download to the authenticated conversation', async () => {
     const create = vi.fn(async () => ({ upload: { url: 'https://objects.test/upload' } }))
@@ -366,5 +366,5 @@ describe('federation enterprise routes', () => {
     await call.execute()
     expect(call.responses[0]?.status).toBe(400)
     expect(queue).not.toHaveBeenCalled()
-  });
+  })
 })

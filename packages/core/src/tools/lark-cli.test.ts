@@ -39,7 +39,7 @@ class FakeChildProcess extends EventEmitter {
   kill = vi.fn((_signal?: string) => {
     this.killed = true
     return true
-  });
+  })
 
   emitStdout(chunk: string) {
     this.stdout.emit('data', Buffer.from(chunk))
@@ -95,13 +95,13 @@ describe('LarkCliTool', () => {
       spawnSync: ReturnType<typeof vi.fn>
     }
     spawnSync.mockReturnValue({ status: 1, error: new Error('not found') })
-  });
+  })
 
   afterEach(() => {
     vi.useRealTimers()
     vi.restoreAllMocks()
     rmSync(tempHome, { recursive: true, force: true })
-  });
+  })
 
   describe('Initialization', () => {
     it('should initialize with correct name and schema', () => {
@@ -109,15 +109,15 @@ describe('LarkCliTool', () => {
       expect(tool.displayName).toBe('LarkCli')
       expect(tool.schema.name).toBe('lark_cli')
       expect(tool.schema.parameters?.properties?.command).toBeDefined()
-    });
+    })
 
     it('should declare canUpdateOutput=true so the engine streams live output', () => {
       expect(tool.canUpdateOutput).toBe(true)
-    });
+    })
 
     it('should declare forceMarkdown=true so the auth QR code is not height-folded', () => {
       expect(tool.forceMarkdown).toBe(true)
-    });
+    })
   })
 
   describe('validateToolParams', () => {
@@ -128,13 +128,13 @@ describe('LarkCliTool', () => {
         as: 'user',
       }
       expect(tool.validateToolParams(validParams)).toBeNull()
-    });
+    })
 
     it('should fail on empty command', () => {
       const invalidParams = { command: '   ' } as LarkCliParams
       const error = tool.validateToolParams(invalidParams)
       expect(error).toContain('non-empty string')
-    });
+    })
 
     it('should fail on invalid args type', () => {
       const invalidParams = {
@@ -143,7 +143,7 @@ describe('LarkCliTool', () => {
       } as unknown as LarkCliParams
       const error = tool.validateToolParams(invalidParams)
       expect(error).toContain('array')
-    });
+    })
 
     it('should fail on invalid as type', () => {
       const invalidParams = {
@@ -152,7 +152,7 @@ describe('LarkCliTool', () => {
       } as unknown as LarkCliParams
       const error = tool.validateToolParams(invalidParams)
       expect(error).toContain('as')
-    });
+    })
   })
 
   describe('execute - command construction', () => {
@@ -177,7 +177,7 @@ describe('LarkCliTool', () => {
       expect(cmdStr).toContain('lark-cli')
       expect(cmdStr).toContain('calendar +agenda')
       expect(cmdStr).toContain('oc_123')
-    });
+    })
 
     it('should fall back to npx when global binary is missing', async () => {
       const child = nextChild()
@@ -193,7 +193,7 @@ describe('LarkCliTool', () => {
       const cmdStr = mockSpawn.mock.calls[0][0] as string
       expect(cmdStr).toContain('@larksuite/cli')
       expect(cmdStr).toContain('task list')
-    });
+    })
 
     it('should normalize legacy top-level +search to drive +search', async () => {
       const child = nextChild()
@@ -210,7 +210,7 @@ describe('LarkCliTool', () => {
       expect(cmdStr).toContain('drive +search')
       expect(cmdStr).toContain('--query')
       expect(cmdStr).toContain('宣传')
-    });
+    })
 
     it('should normalize broken drive files list route to drive +search', async () => {
       const child = nextChild()
@@ -228,7 +228,7 @@ describe('LarkCliTool', () => {
       expect(cmdStr).not.toContain('drive files list')
       expect(cmdStr).toContain('--query')
       expect(cmdStr).toContain('宣传')
-    });
+    })
 
     it('should reuse the exact pinned native binary from the npx cache', async () => {
       const packageDir = path.join(
@@ -289,7 +289,7 @@ describe('LarkCliTool', () => {
         spawnSync: ReturnType<typeof vi.fn>
       }
       expect(spawnSync).not.toHaveBeenCalled()
-    });
+    })
 
     it('should NOT append --format json by default (flag is command-specific)', async () => {
       const child = nextChild()
@@ -301,7 +301,7 @@ describe('LarkCliTool', () => {
       await promise
       const cmdStr = mockSpawn.mock.calls[0][0] as string
       expect(cmdStr).not.toContain('--format json')
-    });
+    })
 
     it('should append identity flag when "as" is provided', async () => {
       const child = nextChild()
@@ -313,7 +313,7 @@ describe('LarkCliTool', () => {
       await promise
       const cmdStr = mockSpawn.mock.calls[0][0] as string
       expect(cmdStr).toContain('--as bot')
-    });
+    })
   })
 
   describe('execute - live streaming output', () => {
@@ -336,7 +336,7 @@ describe('LarkCliTool', () => {
 
       expect(updates.length).toBeGreaterThan(0)
       expect(updates.join('')).toContain('waiting for authorization')
-    });
+    })
   })
 
   describe('execute - authorization URL capture', () => {
@@ -361,7 +361,7 @@ describe('LarkCliTool', () => {
       expect(result.authUrl).toBe(url)
       // The captured URL should also surface to the user via live output.
       expect(updates.join('')).toContain(url)
-    });
+    })
 
     it('should capture larksuite brand verification URL', async () => {
       const child = nextChild()
@@ -375,7 +375,7 @@ describe('LarkCliTool', () => {
       child.close(0)
       const result = await promise
       expect(result.authUrl).toBe(url)
-    });
+    })
 
     it('should still capture legacy open-apis/authen URL', async () => {
       const child = nextChild()
@@ -389,7 +389,7 @@ describe('LarkCliTool', () => {
       child.close(0)
       const result = await promise
       expect(result.authUrl).toBe(url)
-    });
+    })
 
     it('should capture the accounts.feishu.cn device verification URL used by current lark-cli', async () => {
       const updates: string[] = []
@@ -409,7 +409,7 @@ describe('LarkCliTool', () => {
 
       expect(result.authUrl).toBe(url)
       expect(updates.join('')).toContain(url)
-    });
+    })
 
     it.each([
       'https://evil.example/oauth/v1/device/verify?user_code=STEAL-ME',
@@ -430,7 +430,7 @@ describe('LarkCliTool', () => {
 
       expect(result.authUrl).toBeUndefined()
       expect(result.status).not.toBe('auth_required')
-    });
+    })
 
     it('should output localized guide and format when getFeishuMode() is true', async () => {
       // Mock feishuMode to true
@@ -468,7 +468,7 @@ describe('LarkCliTool', () => {
       expect(result.returnDisplay).toContain(
         '选择 “已有应用”，选择本机器人即可',
       )
-    });
+    })
   })
 
   describe('execute - exit code semantics', () => {
@@ -483,7 +483,7 @@ describe('LarkCliTool', () => {
       const result = await promise
       expect(result.status).toBe('success')
       expect(result.data).toEqual({ code: 0, data: {} })
-    });
+    })
 
     it('should mark failed on non-zero exit code', async () => {
       const child = nextChild()
@@ -496,7 +496,7 @@ describe('LarkCliTool', () => {
       const result = await promise
       expect(result.status).toBe('failed')
       expect(result.returnDisplay).toContain('Access denied')
-    });
+    })
   })
 
   describe('execute - timeout fallback', () => {
@@ -518,7 +518,7 @@ describe('LarkCliTool', () => {
       const result = await promise
       expect(result.status).toBe('failed')
       expect(result.error?.toLowerCase()).toContain('timed out')
-    });
+    })
   })
 
   describe('execute - abort signal', () => {
@@ -537,7 +537,7 @@ describe('LarkCliTool', () => {
       child.close(null, 'SIGTERM')
       const result = await promise
       expect(result.status).toBe('failed')
-    });
+    })
   })
 
   describe('execute - automatic device-flow takeover', () => {
@@ -593,7 +593,7 @@ describe('LarkCliTool', () => {
       authChild.close(0)
       const result = await promise
       expect(result.authUrl).toBe(url)
-    });
+    })
 
     it('should NOT recurse when an auth command itself reports not configured', async () => {
       const child = nextChild()
@@ -609,7 +609,7 @@ describe('LarkCliTool', () => {
       // Only the single spawn — no auto-takeover loop for auth commands.
       expect(mockSpawn.mock.calls.length).toBe(1)
       await promise
-    });
+    })
 
     it('should NOT auto-start device flow for ordinary (non-config) failures', async () => {
       const child = nextChild()
@@ -626,7 +626,7 @@ describe('LarkCliTool', () => {
       expect(mockSpawn.mock.calls.length).toBe(1)
       const result = await promise
       expect(result.status).toBe('failed')
-    });
+    })
 
     it('should surface auth_required if the takeover device flow does not complete', async () => {
       const bizChild = nextChild()
@@ -650,7 +650,7 @@ describe('LarkCliTool', () => {
       const result = await promise
       expect(result.status).toBe('auth_required')
       expect(result.authUrl).toBe(url)
-    });
+    })
   })
 
   describe('execute - --format json NOT appended by default', () => {
@@ -664,7 +664,7 @@ describe('LarkCliTool', () => {
       await promise
       const cmdStr = mockSpawn.mock.calls[0][0] as string
       expect(cmdStr).not.toContain('--format json')
-    });
+    })
 
     it('should still allow explicit --format in user-provided args', async () => {
       const child = nextChild()
@@ -677,7 +677,7 @@ describe('LarkCliTool', () => {
       const cmdStr = mockSpawn.mock.calls[0][0] as string
       // User explicitly passed --format, it should be preserved.
       expect(cmdStr).toContain('--format')
-    });
+    })
   })
 
   describe('execute - user login required auto-takeover', () => {
@@ -729,7 +729,7 @@ describe('LarkCliTool', () => {
       authChild.close(0)
       const result = await promise
       expect(result.authUrl).toBe(url)
-    });
+    })
 
     it('should auto-start auth login --scope when need_user_authorization with scope hint', async () => {
       // Simulates the enriched error from enrichMissingScopeError:
@@ -759,7 +759,7 @@ describe('LarkCliTool', () => {
 
       authChild.close(0)
       await promise
-    });
+    })
 
     it('should fallback to domain inference from command when hint has no auth login command', async () => {
       // Simulates need_user_authorization without a usable hint line.
@@ -786,7 +786,7 @@ describe('LarkCliTool', () => {
 
       authChild.close(0)
       await promise
-    });
+    })
 
     it('should NOT auto-trigger auth login for "not configured" (that still uses config init)', async () => {
       // The existing "not configured" path must continue to use config init --new,
@@ -821,7 +821,7 @@ describe('LarkCliTool', () => {
 
       authChild.close(0)
       await promise
-    });
+    })
   })
 
   describe('execute - error hint enrichment', () => {
@@ -874,7 +874,7 @@ describe('LarkCliTool', () => {
           : JSON.stringify(result.llmContent),
       )
       expect(parsed.error).toContain('available subcommands')
-    });
+    })
 
     it('should enrich unknown flag error with hint', async () => {
       const child = nextChild()
@@ -900,7 +900,7 @@ describe('LarkCliTool', () => {
       expect(result.error).toContain('unknown flag: --date')
       expect(result.error).toContain('Hint:')
       expect(result.error).toContain('--help')
-    });
+    })
 
     it('should handle non-JSON errors gracefully (no enrichment)', async () => {
       const child = nextChild()
@@ -916,7 +916,7 @@ describe('LarkCliTool', () => {
       expect(result.status).toBe('failed')
       expect(result.error).toContain('permission denied')
       expect(result.error).not.toContain('Hint:')
-    });
+    })
 
     it('should block automatic takeover and return a clear admin approval hint when pending approval appears', async () => {
       const child = nextChild()
@@ -939,7 +939,7 @@ describe('LarkCliTool', () => {
       expect(result.error).toContain('pending approval')
       expect(result.error).toContain('CRITICAL INFO FOR USER & AI')
       expect(result.error).toContain('IT/Feishu administrator')
-    });
+    })
 
     it('should auto-trigger auth login when missing_scope error appears', async () => {
       const MISSING_SCOPE = JSON.stringify({
@@ -974,7 +974,7 @@ describe('LarkCliTool', () => {
 
       authChild.close(0)
       await promise
-    });
+    })
 
     it('should extract --scope with quoted multi-scope value from hint and map to --domain', async () => {
       // The hint contains: lark-cli auth login --scope "scope1 scope2 scope3"
@@ -1005,7 +1005,7 @@ describe('LarkCliTool', () => {
 
       authChild.close(0)
       await promise
-    });
+    })
 
     it('should append --recommend and --exclude when configured in project settings', async () => {
       const MISSING_SCOPE = JSON.stringify({
@@ -1054,6 +1054,6 @@ describe('LarkCliTool', () => {
 
       authChild.close(0)
       await promise
-    });
+    })
   })
-});
+})

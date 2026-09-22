@@ -100,7 +100,7 @@ export class ProjectSettingsManager {
         ? Object.fromEntries(
           Object.entries(parsed.featureFlags as Record<string, unknown>)
             .filter(([, v]) => typeof v === 'boolean'),
-          ) as Record<string, boolean>
+        ) as Record<string, boolean>
         : undefined
 
       this.settings = {

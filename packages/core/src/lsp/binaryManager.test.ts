@@ -27,7 +27,7 @@ vi.mock('node:child_process', async (importOriginal) => {
     ...actual,
     spawn: vi.fn(),
   }
-});
+})
 
 import { request } from 'undici'
 const requestMock = request as unknown as ReturnType<typeof vi.fn>
@@ -40,7 +40,7 @@ describe('BinaryManager.githubInstaller (zip extraction)', () => {
     tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'clawmaster-lsp-bin-'))
     requestMock.mockReset()
     spawnMock.mockReset()
-  });
+  })
 
   afterEach(async () => {
     if (fs.existsSync(tempDir)) {
@@ -89,7 +89,7 @@ describe('BinaryManager.githubInstaller (zip extraction)', () => {
       }, 10)
 
       return cp
-    });
+    })
 
     const installer = await BinaryManager.githubInstaller(
       'rust-lang',
@@ -101,7 +101,7 @@ describe('BinaryManager.githubInstaller (zip extraction)', () => {
     expect(path.basename(binPath).toLowerCase()).toBe(binName.toLowerCase())
     expect(fs.existsSync(binPath)).toBe(true)
     expect(fs.readFileSync(binPath, 'utf8')).toBe('fake-binary')
-  });
+  })
 
   it('should extract an executable from a nested path inside zip (clangd-like)', async () => {
     const zip = new JSZip()
@@ -138,7 +138,7 @@ describe('BinaryManager.githubInstaller (zip extraction)', () => {
       }, 10)
 
       return cp
-    });
+    })
 
     const installer = await BinaryManager.githubInstaller(
       'clangd',
@@ -150,5 +150,5 @@ describe('BinaryManager.githubInstaller (zip extraction)', () => {
     expect(path.basename(binPath).toLowerCase()).toBe(binName.toLowerCase())
     expect(fs.existsSync(binPath)).toBe(true)
     expect(fs.readFileSync(binPath, 'utf8')).toBe('clangd-bin')
-  });
+  })
 })

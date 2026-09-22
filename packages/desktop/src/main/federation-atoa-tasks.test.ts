@@ -75,7 +75,7 @@ describe('deriveFederationAtoaTasks', () => {
       contact: { ...contact, trustState: 'unverified' },
       messages: [proposal],
     })).toEqual([])
-  });
+  })
 
   it('dispatches an exact approved grant once and rejects a changed binding', () => {
     const proposal = message({
@@ -142,7 +142,7 @@ describe('deriveFederationAtoaTasks', () => {
       messages: [proposal, tampered],
       now,
     })).toEqual([])
-  });
+  })
 
   it('executes only a request matching the locally issued grant and stops after reply', () => {
     const proposal = message({
@@ -197,5 +197,5 @@ describe('deriveFederationAtoaTasks', () => {
       contact,
       messages: [proposal, decision, request, response],
     })).toEqual([])
-  });
+  })
 })

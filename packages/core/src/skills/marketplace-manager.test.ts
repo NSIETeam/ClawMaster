@@ -41,13 +41,13 @@ describe('MarketplaceManager', () => {
     await settingsManager.initialize()
 
     manager = new MarketplaceManager(settingsManager)
-  });
+  })
 
   afterEach(async () => {
     // 清理测试目录
     await fs.remove(testRoot)
     vi.restoreAllMocks()
-  });
+  })
 
   /**
    * 创建测试用的 Marketplace 结构
@@ -109,7 +109,7 @@ describe('MarketplaceManager', () => {
       expect(marketplace.plugins).toHaveLength(1)
       expect(marketplace.plugins[0].name).toBe('test-plugin')
       expect(marketplace.plugins[0].skillPaths).toHaveLength(2)
-    });
+    })
 
     it('should save marketplace config', async () => {
       await createTestMarketplace(testMarketplacePath)
@@ -120,13 +120,13 @@ describe('MarketplaceManager', () => {
       expect(marketplaces).toHaveLength(1)
       expect(marketplaces[0].id).toBe('my-marketplace')
       expect(marketplaces[0].source).toBe(MarketplaceSource.LOCAL)
-    });
+    })
 
     it('should throw error if path does not exist', async () => {
       await expect(
         manager.addLocalMarketplace('/non/existent/path'),
       ).rejects.toThrow()
-    });
+    })
   })
 
   describe('getMarketplace', () => {
@@ -138,11 +138,11 @@ describe('MarketplaceManager', () => {
 
       expect(marketplace.id).toBe('test-mp')
       expect(marketplace.name).toBe('test-marketplace')
-    });
+    })
 
     it('should throw error if marketplace not found', async () => {
       await expect(manager.getMarketplace('non-existent')).rejects.toThrow()
-    });
+    })
   })
 
   describe('listMarketplaces', () => {
@@ -159,12 +159,12 @@ describe('MarketplaceManager', () => {
       expect(marketplaces).toHaveLength(2)
       expect(marketplaces.map(m => m.id)).toContain('test-mp1')
       expect(marketplaces.map(m => m.id)).toContain('test-mp2')
-    });
+    })
 
     it('should return empty array if no marketplaces', async () => {
       const marketplaces = await manager.listMarketplaces()
       expect(marketplaces).toHaveLength(0)
-    });
+    })
   })
 
   describe('getPlugins', () => {
@@ -178,7 +178,7 @@ describe('MarketplaceManager', () => {
       expect(plugins[0].name).toBe('test-plugin')
       expect(plugins[0].id).toBe('test-mp:test-plugin')
       expect(plugins[0].skillPaths).toHaveLength(2)
-    });
+    })
   })
 
   describe('removeMarketplace', () => {
@@ -190,7 +190,7 @@ describe('MarketplaceManager', () => {
 
       const marketplaces = await settingsManager.getMarketplaces()
       expect(marketplaces).toHaveLength(0)
-    });
+    })
 
     it('should not delete local files', async () => {
       await createTestMarketplace(testMarketplacePath)
@@ -199,7 +199,7 @@ describe('MarketplaceManager', () => {
       await manager.removeMarketplace('test-mp', false)
 
       expect(await fs.pathExists(testMarketplacePath)).toBe(true)
-    });
+    })
   })
 
   describe('browseMarketplace', () => {
@@ -210,7 +210,7 @@ describe('MarketplaceManager', () => {
       const plugins = await manager.browseMarketplace('test-mp')
 
       expect(plugins).toHaveLength(1)
-    });
+    })
 
     it('should filter plugins by query', async () => {
       await createTestMarketplace(testMarketplacePath)
@@ -220,7 +220,7 @@ describe('MarketplaceManager', () => {
 
       expect(plugins).toHaveLength(1)
       expect(plugins[0].name).toBe('test-plugin')
-    });
+    })
 
     it('should return empty array for non-matching query', async () => {
       await createTestMarketplace(testMarketplacePath)
@@ -229,7 +229,7 @@ describe('MarketplaceManager', () => {
       const plugins = await manager.browseMarketplace('test-mp', 'non-existent')
 
       expect(plugins).toHaveLength(0)
-    });
+    })
   })
 
   describe('scanMarketplaceDetailed', () => {
@@ -244,7 +244,7 @@ describe('MarketplaceManager', () => {
       expect(result.skillCount).toBe(2)
       expect(result.scanDuration).toBeGreaterThanOrEqual(0)
       expect(result.hasErrors).toBe(false)
-    });
+    })
   })
 
   describe('fallback logic', () => {
@@ -273,7 +273,7 @@ describe('MarketplaceManager', () => {
       await fs.writeFile(
         path.join(testMarketplacePath, 'skills', 'my-plugin', 'commands', 'cmd1.md'),
         '# Command 1',
-      );
+      )
 
       const marketplace = await manager.addLocalMarketplace(testMarketplacePath)
       const plugin = marketplace.plugins[0]
@@ -282,6 +282,6 @@ describe('MarketplaceManager', () => {
       // Should have resolved to skills directory
       expect(plugin.skillPaths).toHaveLength(1)
       expect(plugin.skillPaths[0].replace(/\\/g, '/')).toContain('skills/my-plugin/commands/cmd1.md')
-    });
+    })
   })
-});
+})

@@ -240,7 +240,7 @@ export class WorkLogger {
 
     await fs.appendFile(filePath, line, { encoding: 'utf-8', mode: 0o600 }).catch((err) => {
       console.warn(`[WorkLog] Failed to write log: ${err instanceof Error ? err.message : String(err)}`)
-    });
+    })
     if (process.platform !== 'win32') {
       await fs.chmod(filePath, 0o600).catch(() => undefined)
     }
@@ -517,7 +517,7 @@ export class WorkLogger {
     const lines: string[] = []
     lines.push(`# 工作日志 — ${summary.date}`)
     lines.push('')
-    lines.push('## 概览');
+    lines.push('## 概览')
     lines.push(`- 总操作数：${summary.totalActions}`)
     lines.push(`- 工作时长：约 ${(summary.totalDurationMs / 60000).toFixed(1)} 分钟`)
     lines.push(`- 首次操作：${summary.firstAction || '—'}`)
@@ -557,7 +557,7 @@ export class WorkLogger {
    */
   formatDailySummaryForFeishu(summary: DailySummary): string {
     if (summary.totalActions === 0) {
-      return '今天还没有操作记录。';
+      return '今天还没有操作记录。'
     }
 
     const duration = (summary.totalDurationMs / 60000).toFixed(1)
