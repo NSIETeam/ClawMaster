@@ -55,6 +55,52 @@
       "platforms": ["macos-arm64"],
       "status": "unevidenced",
       "reason": "The Office suite stubs /sidebar/upload; no test asserts the save policy, the workspace fence or the HTTP 412 conflict response."
+    },
+    {
+      "id": "release-source-binding",
+      "promise": "A release build refuses a changed checkout and records the commit, lockfile digests and a dirty marker for development output.",
+      "source": ["apps/desktop-tauri/scripts/build-provenance.mjs"],
+      "code": ["apps/desktop-tauri/scripts/build-provenance.mjs", "apps/desktop-tauri/scripts/build-inventory.mjs"],
+      "evidence": ["apps/desktop-tauri/scripts/build-provenance.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "release-acceptance-signature",
+      "promise": "A platform installer is accepted only with operating-system publisher verification, and a substitute signature is refused.",
+      "source": ["apps/desktop-tauri/acceptance/README.md"],
+      "code": ["apps/desktop-tauri/scripts/release-acceptance.mjs"],
+      "evidence": ["apps/desktop-tauri/scripts/release-acceptance.test.mjs"],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "verified"
+    },
+    {
+      "id": "updater-component-manifest",
+      "promise": "The updater manifest pins the component and patch digests a candidate ships.",
+      "source": ["apps/desktop-tauri/scripts/generate-updater-manifest.mjs"],
+      "code": ["apps/desktop-tauri/scripts/generate-updater-manifest.mjs"],
+      "evidence": ["apps/desktop-tauri/scripts/generate-updater-manifest.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "runtime-identity-cannot-be-remembered",
+      "promise": "The runtime reports shell, Host, hot-updated component and patch identities with an observation time, and a remembered value cannot override a live read.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["frontends/dsh/src/runtime-governance.ts"],
+      "evidence": ["frontends/dsh/tests/runtime-governance.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "release-evidence-copy",
+      "promise": "Reviewed acceptance evidence joins a release without replacing an original build asset.",
+      "source": ["apps/desktop-tauri/scripts/copy-release-evidence.mjs"],
+      "code": ["apps/desktop-tauri/scripts/copy-release-evidence.mjs"],
+      "evidence": [],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "unevidenced",
+      "reason": "Only .github/workflows/desktop-release.yml calls the copy step; no test covers its refusals."
     }
   ]
 }

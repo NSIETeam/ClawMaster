@@ -1,7 +1,7 @@
 /** Check the capability ledger: every product promise resolves to its source, code, evidence and platforms. */
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { pathToFileURL, fileURLToPath } from 'node:url'
 
 /** Ledger revision understood by this checker. */
 export const LEDGER_SCHEMA_VERSION = 1
@@ -138,8 +138,17 @@ export function ledgerPath(root) {
   return join(root, 'apps', 'desktop-tauri', 'capability-ledger.json')
 }
 
+/**
+ * Resolve the checkout this module ships in, independent of the working directory.
+ * @returns {string} Repository root.
+ */
+export function repositoryRoot() {
+  return resolve(fileURLToPath(new URL('../../..', import.meta.url)))
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const root = process.cwd()
+  const rootIndex = process.argv.indexOf('--root')
+  const root = rootIndex === -1 ? repositoryRoot() : resolve(process.argv[rootIndex + 1])
   const result = checkCapabilityLedger(readLedger(ledgerPath(root)), root)
   for (const finding of result.findings) process.stderr.write(`${finding.id} [${finding.entry ?? '-'}] ${finding.problem} (${finding.evidence})\n`)
   process.stdout.write(`capabilities: verified=${result.counts.verified} unevidenced=${result.counts.unevidenced} findings=${result.findings.length}\n`)
