@@ -39,7 +39,11 @@ describe('web app browser startup', () => {
     const dist = join(root, 'dist')
     mkdirSync(dist)
     const index = join(dist, 'index.html')
-    writeFileSync(index, '<!doctype html><title>ready</title>')
+    // The production renderer injects its CSP nonce into an existing head.
+    // Keep this fixture structurally equivalent to the shipped document so
+    // browser handoff verifies the real success path rather than a 400 from
+    // the renderer's malformed-document guard.
+    writeFileSync(index, '<!doctype html><html><head><title>ready</title></head><body></body></html>')
     internals.resolveDistIndex = () => index
 
     const webserverModule = join(root, 'webserver.mjs')
