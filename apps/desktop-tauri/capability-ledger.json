@@ -97,10 +97,9 @@
       "promise": "Reviewed acceptance evidence joins a release without replacing an original build asset.",
       "source": ["apps/desktop-tauri/scripts/copy-release-evidence.mjs"],
       "code": ["apps/desktop-tauri/scripts/copy-release-evidence.mjs"],
-      "evidence": [],
+      "evidence": ["apps/desktop-tauri/scripts/copy-release-evidence.test.mjs"],
       "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
-      "status": "unevidenced",
-      "reason": "Only .github/workflows/desktop-release.yml calls the copy step; no test covers its refusals."
+      "status": "verified"
     }
   ]
 }
