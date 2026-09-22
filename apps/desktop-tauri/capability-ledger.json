@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "shell-permission-posture",
+      "promise": "The desktop shell loads only its own bundled content and grants native window commands to the main WebView alone.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["apps/desktop-tauri/src-tauri/tauri.conf.json", "apps/desktop-tauri/src-tauri/capabilities/default.json"],
+      "evidence": ["apps/desktop-tauri/scripts/shell-permission-posture.test.mjs"],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "verified"
+    },
+    {
+      "id": "file-write-containment",
+      "promise": "A file mutation from a tool is refused when its target falls outside the writable roots the standing mode grants.",
+      "source": ["packages/fs/fs-sandbox/src/index.ts", "packages/sandbox/sandbox/src/roots.ts"],
+      "code": ["packages/fs/fs-sandbox/src/index.ts"],
+      "evidence": ["packages/fs/fs-sandbox/tests/fs-sandbox.spec.ts"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "task-acceptance-separation",
+      "promise": "A submitting member cannot accept their own task result, and a stale revision is refused instead of committed.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["frontends/dsh/src/watchdog-tasks.ts"],
+      "evidence": ["frontends/dsh/tests/watchdog-tasks.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "responsibility-history",
+      "promise": "A backup, a later mutation and a restore still trace the mutation to the actor and the approved revision.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["frontends/dsh/src/governance-audit.ts"],
+      "evidence": ["frontends/dsh/tests/governance-audit.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "enterprise-identity-fails-closed",
+      "promise": "A foreign or missing identity is refused on the registered enterprise routes without falling back to the local operator.",
+      "source": ["frontends/dsh/README.md"],
+      "code": ["frontends/dsh/src/governance-access.ts"],
+      "evidence": ["frontends/dsh/tests/governance-access.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "verified"
+    },
+    {
+      "id": "office-save-stays-local",
+      "promise": "Office editing requires no model call, external document server or cloud upload, and a concurrent change is reported as a conflict.",
+      "source": ["frontends/office/README.md"],
+      "code": ["frontends/office/src/services.ts"],
+      "evidence": ["frontends/office/tests/browser.test.mjs"],
+      "platforms": ["macos-arm64"],
+      "status": "unevidenced",
+      "reason": "The Office suite stubs /sidebar/upload; no test asserts the save policy, the workspace fence or the HTTP 412 conflict response."
+    }
+  ]
+}
