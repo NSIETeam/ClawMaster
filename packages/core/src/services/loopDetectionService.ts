@@ -96,7 +96,7 @@ async function callGeminiLoopDetectionAPI(
     throw new Error('ClawMasterServerAdapter not available')
   }
 
-  console.log('[LoopDetection] Calling unified interface for loop detection');
+  console.log('[LoopDetection] Calling unified interface for loop detection')
 
   const response = await clawmasterAdapter.generateContent({
     contents,
@@ -108,11 +108,11 @@ async function callGeminiLoopDetectionAPI(
           'X-Scene-Type': 'json_generation',
           'X-Request-ID': `loop-detection-${Date.now()}`,
         },
-      }
+      },
     },
   }, 'json_generation')
 
-  console.log('[LoopDetection] Loop detection completed successfully');
+  console.log('[LoopDetection] Loop detection completed successfully')
 
   return response
 }
@@ -172,10 +172,10 @@ export class LoopDetectionService {
         // is a tool call in between
         this.resetContentTracking()
         this.loopDetected = this.checkToolCallLoop(event.value)
-        break;
+        break
       case ClawMasterEventType.Content:
         this.loopDetected = this.checkContentLoop(event.value)
-        break;
+        break
       default:
         break
     }
@@ -266,7 +266,7 @@ export class LoopDetectionService {
     if (this.consecutiveToolNameCount >= PREVIEW_TOOL_LOOP_THRESHOLD) {
       console.warn(
         `[LoopDetection] Preview model loop detected: tool '${toolName}' called consecutively ${this.consecutiveToolNameCount} times (threshold: ${PREVIEW_TOOL_LOOP_THRESHOLD})`,
-      );
+      )
       this.detectedLoopType = LoopType.CONSECUTIVE_IDENTICAL_TOOL_CALLS
       logLoopDetected(
         this.config,

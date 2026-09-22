@@ -275,39 +275,39 @@ export function generateLegacySkillContent(
 
   let content = `---\nname: ${skillName}\ndescription: ${description}\n---\n\n`
   content += `# ${formatTitle(steps)}\n\n`
-  content += '> 此 Skill 由 ClawMaster 从你的工作日志中自动发现并生成。\n';
+  content += '> 此 Skill 由 ClawMaster 从你的工作日志中自动发现并生成。\n'
   content += `> 检测到你在过去 ${count} 天中重复执行以下操作序列，已整理为标准流程。\n\n`
 
-  content += '## 触发场景\n';
+  content += '## 触发场景\n'
   content += `当用户需要${steps[0]}时，按以下步骤完成完整工作流。\n\n`
 
-  content += '## 操作步骤\n';
+  content += '## 操作步骤\n'
   for (let i = 0; i < steps.length; i++) {
     content += `${i + 1}. ${steps[i]}\n`
   }
   content += '\n'
 
   // 添加从日志中提取的注意事项
-  content += '## 注意事项\n';
+  content += '## 注意事项\n'
   const categories = new Set(entries.map(e => e.category))
   if (categories.has('calendar')) {
-    content += '- 涉及日历操作时，先确认参会人日程空闲\n';
+    content += '- 涉及日历操作时，先确认参会人日程空闲\n'
   }
   if (categories.has('document') || categories.has('spreadsheet')) {
-    content += '- 涉及文档/表格操作时，确认目标文件夹和权限\n';
+    content += '- 涉及文档/表格操作时，确认目标文件夹和权限\n'
   }
   if (categories.has('message')) {
-    content += '- 涉及消息发送时，先拟稿等用户确认\n';
+    content += '- 涉及消息发送时，先拟稿等用户确认\n'
   }
   const hasFailures = entries.some(e => !e.success)
   if (hasFailures) {
-    content += '- 历史日志中有失败记录，注意检查前置条件\n';
+    content += '- 历史日志中有失败记录，注意检查前置条件\n'
   }
-  content += '- 每步完成后向用户报告进度\n';
-  content += '- 全部完成后输出汇总\n\n';
+  content += '- 每步完成后向用户报告进度\n'
+  content += '- 全部完成后输出汇总\n\n'
 
-  content += '## 输出\n';
-  content += '完成所有步骤后，提供一份简要汇总：做了什么、结果如何、耗时多久。\n';
+  content += '## 输出\n'
+  content += '完成所有步骤后，提供一份简要汇总：做了什么、结果如何、耗时多久。\n'
 
   return content
 }
@@ -500,7 +500,7 @@ async function generateWorkResultSkillCandidates(
     entry.entryType === 'work_result'
     && entry.success
     && (entry.taskTitle || entry.userInput || entry.action),
-  );
+  )
   const groups = new Map<string, Array<{ date: string; entry: WorkLogEntry }>>()
   for (const item of workResults) {
     const signature = workResultSignature(item.entry)
@@ -590,7 +590,7 @@ function generateWorkResultSkillContent(
   const sampleLines = samples.slice(-5).map(({ date, entry }) => {
     const input = (entry.userInput || entry.action || '').replace(/\s+/g, ' ').slice(0, 180)
     return `- ${date}: ${input}`
-  });
+  })
   const failureLines = failures.slice(-3).map(({ date, entry }) =>
     `- ${date}: ${(entry.details || entry.action).replace(/\s+/g, ' ').slice(0, 180)}`,
   )
@@ -669,7 +669,7 @@ function analyzePattern(
   const ops = allEntries.filter(({ entry }) => {
     const actions = ngram.pattern.split(' → ')
     return actions.some(a => entry.action.includes(a.trim().split(':')[0]?.slice(0, 20) ?? a.trim().slice(0, 20)))
-  });
+  })
 
   const dates = new Set(ops.map(o => o.date))
   const totalOps = ops.length
@@ -1110,7 +1110,7 @@ export async function confirmAndSaveSkill(candidate: SkillCandidate): Promise<st
 
   // 🆕 自动孵化专家：Skill写盘后生成 AgentProfile
   try {
-    const { generateProfilePipeline } = await import('./autoSkillProfile.js');
+    const { generateProfilePipeline } = await import('./autoSkillProfile.js')
     await generateProfilePipeline([
       { skillName: installedName, skillDir, skillContent: contentWithEvidence },
     ])
