@@ -1,8 +1,32 @@
-/** Keep desktop package, Cargo and Tauri versions generated from version.json. */
+/** Keep desktop package, Cargo manifest and lockfile, and Tauri versions generated from version.json. */
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateVersion } from './generate-updater-manifest.mjs'
+
+/** The crate whose version Cargo records in the lockfile. */
+const CARGO_LOCK_PACKAGE = 'dsh-desktop'
+
+/** @param {string} content @returns {string | undefined} The `[[package]]` block naming the desktop crate. */
+function cargoLockPackage(content) {
+  return new RegExp(`^\\[\\[package\\]\\]\\nname = "${CARGO_LOCK_PACKAGE}"\\n[\\s\\S]*?(?=\\n\\[\\[package\\]\\]|$)`, 'mu').exec(content)?.[0]
+}
+
+/** @param {string} content @returns {string} The version the desktop Cargo.lock package records. */
+function readCargoLockVersion(content) {
+  const version = cargoLockPackage(content)?.match(/^version = "([^"]+)"/mu)?.[1]
+  if (version === undefined) throw new Error(`Desktop Cargo.lock has no ${CARGO_LOCK_PACKAGE} package version`)
+  return version
+}
+
+/** @param {string} content @param {string} version @returns {string} */
+function writeCargoLockVersion(content, version) {
+  const block = cargoLockPackage(content)
+  if (block === undefined || !/^version = "[^"]+"/mu.test(block)) {
+    throw new Error(`Desktop Cargo.lock has no ${CARGO_LOCK_PACKAGE} package version`)
+  }
+  return content.replace(block, block.replace(/^version = "[^"]+"/mu, `version = "${version}"`))
+}
 
 const DESKTOP_FILES = Object.freeze([
   {
@@ -23,6 +47,7 @@ const DESKTOP_FILES = Object.freeze([
       return output
     },
   },
+  { path: 'src-tauri/Cargo.lock', read: readCargoLockVersion, write: writeCargoLockVersion },
   {
     path: 'src-tauri/tauri.conf.json',
     read: content => JSON.parse(content).version,

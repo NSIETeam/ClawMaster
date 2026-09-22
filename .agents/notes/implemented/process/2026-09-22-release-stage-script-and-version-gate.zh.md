@@ -18,7 +18,9 @@ Status: implemented
 
 `Stage release assets` 只保留一份 macOS 收尾代码：磁盘镜像重压缩、磁盘镜像复制，以及带签名的更新包归档。
 
-`Validate release version` 在两个平台构建之前依次运行三项检查：`desktop-version.mjs --check` 要求 `version.json`、`package.json`、`Cargo.toml` 与 `tauri.conf.json` 一致；`release-channel.mjs` 要求 tag 指向该版本与对应通道；`release-version-guard.mjs --check <tag>` 要求该版本领先于所有已发布的 `desktop-v*` tag。该守卫从检出的仓库读取 tag 列表，因此依赖构建任务本就请求的 `fetch-depth: 0`，并排除正在构建的那个 tag，使候选分支可以先打 tag 再构建。
+`Validate release version` 在两个平台构建之前依次运行三项检查：`desktop-version.mjs --check` 要求 `version.json`、`package.json`、`Cargo.toml`、`Cargo.lock` 中的 `dsh-desktop` 条目与 `tauri.conf.json` 一致；`release-channel.mjs` 要求 tag 指向该版本与对应通道；`release-version-guard.mjs --check <tag>` 要求该版本领先于所有已发布的 `desktop-v*` tag。该守卫从检出的仓库读取 tag 列表，因此依赖构建任务本就请求的 `fetch-depth: 0`，并排除正在构建的那个 tag，使候选分支可以先打 tag 再构建。
+
+`desktop-version.mjs` 新增了锁文件，使其自身的 `sync` 命令能产出一棵可发布的源码树。一次版本提升会写入四个文件，否则工作流中的 `cargo test --locked` 会拒绝这次提升留下的锁文件。该命令只改写 `dsh-desktop` 条目，缺少该条目的锁文件会直接失败（fail closed）。
 
 `release-version-guard.mjs` 把每个 tag 解析为它所发布的程序版本，把 `-release` 展示后缀视为同一个版本，将预发布版本排在对应正式版之前，并对无法解析的 tag 直接失败（fail closed）。`release-workflow.test.mjs` 拒绝任何花括号不配对的 PowerShell 步骤，并以修复前 `Stage release assets` 的文本作为反例；在 runner 具备 `pwsh` 时，它还会用 `pwsh` 解析每一个 PowerShell 步骤。
 
