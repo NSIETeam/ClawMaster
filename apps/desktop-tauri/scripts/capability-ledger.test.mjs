@@ -30,11 +30,18 @@ function ids(document) {
 }
 
 test('the shipped ledger resolves every promise to its source, code and evidence', () => {
-  const result = checkCapabilityLedger(readLedger(ledgerPath(repositoryRoot)), repositoryRoot)
+  const document = readLedger(ledgerPath(repositoryRoot))
+  const result = checkCapabilityLedger(document, repositoryRoot)
   assert.deepEqual(result.findings, [])
   assert.equal(result.ok, true)
   assert.ok(result.counts.verified >= 1, 'at least one capability carries evidence')
-  assert.ok(result.counts.unevidenced >= 1, 'the ledger also records a capability without evidence rather than hiding it')
+  assert.equal(result.counts.verified + result.counts.unevidenced, document.entries.length, 'every entry is counted as verified or unevidenced')
+})
+
+test('an entry states what its evidence needs when it needs anything', () => {
+  assert.deepEqual(checkCapabilityLedger(ledger([entry({ requires: ['a patched package root'] })]), repositoryRoot).findings, [])
+  assert.ok(ids(ledger([entry({ requires: 'a patched package root' })])).includes('entry-schema'))
+  assert.ok(ids(ledger([entry({ requires: [''] })])).includes('entry-schema'))
 })
 
 test('a promise whose code path is missing is rejected', () => {

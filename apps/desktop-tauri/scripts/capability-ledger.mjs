@@ -118,6 +118,9 @@ export function checkCapabilityLedger(ledger, root) {
     if (status === 'verified' && evidenceList.length === 0) {
       fail('entry-verified-without-evidence', label, 'A capability cannot be advertised as verified without an evidence path.', `evidence = ${JSON.stringify(entry.evidence ?? null)}`)
     }
+    if (entry.requires !== undefined && !isStringArray(entry.requires)) {
+      fail('entry-schema', label, 'requires must be a list of non-empty strings describing what the evidence needs.', `requires = ${JSON.stringify(entry.requires)}`)
+    }
     if (status === 'unevidenced' && (typeof entry.reason !== 'string' || entry.reason.length === 0)) {
       fail('entry-unevidenced-without-reason', label, 'An unevidenced capability must state what is missing, not stay silent.', `reason = ${JSON.stringify(entry.reason ?? null)}`)
     }

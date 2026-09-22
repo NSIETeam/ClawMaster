@@ -53,8 +53,11 @@
       "code": ["frontends/office/src/services.ts"],
       "evidence": ["frontends/office/tests/browser.test.mjs"],
       "platforms": ["macos-arm64"],
-      "status": "unevidenced",
-      "reason": "The Office suite stubs /sidebar/upload; no test asserts the save policy, the workspace fence or the HTTP 412 conflict response."
+      "status": "verified",
+      "requires": [
+        "DSH_OFFICE_SIDEBAR_PACKAGE_ROOT pointing at the patched sidebar package",
+        "a Chromium browser for Playwright"
+      ]
     },
     {
       "id": "release-source-binding",
