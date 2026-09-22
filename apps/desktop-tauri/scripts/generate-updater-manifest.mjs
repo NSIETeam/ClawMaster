@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs'
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -196,7 +197,7 @@ export async function writeUpdaterManifest(options) {
 }
 
 const isMain = process.argv[1]
-  && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)
 
 if (isMain) {
   try {

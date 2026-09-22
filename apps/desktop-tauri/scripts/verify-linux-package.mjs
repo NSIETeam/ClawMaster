@@ -1,6 +1,7 @@
 /** Verify the immutable runtime inside an extracted Linux installation artifact before provisioning. */
 import assert from 'node:assert/strict'
 import { lstatSync, readFileSync, statSync } from 'node:fs'
+import { realpathSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
@@ -36,7 +37,7 @@ export function verifyLinuxPackage(packageRoot, preparedRoot, arch) {
   return payload
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const { values } = parseArgs({ options: {
     'package-root': { type: 'string' },
     'prepared-root': { type: 'string' },

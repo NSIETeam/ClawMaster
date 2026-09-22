@@ -1,6 +1,6 @@
 /** Build and verify the ClawMaster browser artifacts embedded by Tauri. */
 import { spawnSync } from 'node:child_process'
-import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
@@ -87,4 +87,4 @@ function main(): void {
   console.log('ClawMaster client branding and artifact digest verified')
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) main()
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) main()

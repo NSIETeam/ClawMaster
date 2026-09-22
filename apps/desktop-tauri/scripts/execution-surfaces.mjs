@@ -1,5 +1,5 @@
 /** Check the execution-surface inventory: every way this product can change the machine names its enforcer and its authorization source, or states why it has neither. */
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 
@@ -206,7 +206,7 @@ export function repositoryRoot() {
   return resolve(fileURLToPath(new URL('../../..', import.meta.url)))
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const rootIndex = process.argv.indexOf('--root')
   const root = rootIndex === -1 ? repositoryRoot() : resolve(process.argv[rootIndex + 1])
   const result = checkExecutionSurfaces(readInventory(inventoryPath(root)), root)

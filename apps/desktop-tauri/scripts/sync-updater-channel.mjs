@@ -2,6 +2,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { createReadStream, createWriteStream } from 'node:fs'
+import { realpathSync } from 'node:fs'
 import { chmod, copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { Readable, Transform } from 'node:stream'
@@ -327,7 +328,7 @@ export function parseArguments(args) {
   return validateOptions(options)
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   try {
     console.log(JSON.stringify(await syncUpdaterChannel(parseArguments(process.argv.slice(2)))))
   }

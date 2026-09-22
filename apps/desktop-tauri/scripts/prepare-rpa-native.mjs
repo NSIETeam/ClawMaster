@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { chmodSync, copyFileSync, existsSync, globSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { realpathSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -104,7 +105,7 @@ export function prepareRpaNative(root, target) {
   return verifyRpaNative(root, target)
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const args = process.argv.slice(2)
   const options = new Map()
   let check = false
