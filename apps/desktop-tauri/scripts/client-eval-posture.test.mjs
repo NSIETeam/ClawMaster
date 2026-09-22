@@ -1,22 +1,29 @@
 /**
- * The host page denies `eval` while the client must not need it.
+ * The packaged pages deny `eval` while their scripts must not need it.
  *
- * `packages/host/frontend-static` emits `script-src` without `'unsafe-eval'` and
- * `style-src` with a nonce, and hands the nonces to the page as `dsh-script-nonce`
- * and `dsh-style-nonce` meta tags. The client side of that bargain is that no
- * browser bundle evaluates source at runtime and every injected style carries the
- * nonce. Either half breaking produces the same user-visible symptom: the module
- * loader never leaves its queue, the root element stays empty and the window is
- * blank with no console error to explain it. This gate fails when a browser bundle
- * gains a runtime evaluator or the host page grants one.
+ * Two policies withhold runtime evaluation from the shipped pages. The host page
+ * (`packages/host/frontend-static`) emits `script-src` without `'unsafe-eval'` and
+ * `style-src` with a nonce, and hands those nonces to the page as `dsh-script-nonce`
+ * and `dsh-style-nonce` meta tags; the client side of that bargain is that no browser
+ * bundle evaluates source at runtime and every injected style carries the nonce. The
+ * Tauri window policy in `src-tauri/tauri.conf.json` grants only `'self'` for scripts
+ * and styles to the packaged chrome (`shell.html`, `splash.html`), so those scripts
+ * may not need an evaluator either.
+ *
+ * Either half breaking produces the same user-visible symptom: the module loader never
+ * leaves its queue, the root element stays empty and the window is blank with no
+ * console error to explain it. This gate fails when a shipped page gains a runtime
+ * evaluator or a policy grants one.
  */
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { globSync } from 'node:fs'
+import { globSync, readFileSync } from 'node:fs'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 const HOST_CSP = new URL('../../../packages/host/frontend-static/src/index.ts', import.meta.url).pathname
+const TAURI_CONF = new URL('../src-tauri/tauri.conf.json', import.meta.url).pathname
 const CLIENT_GLOBS = ['packages/client/**/src/**/*.{ts,tsx}', 'frontends/dsh/src/**/*.{ts,tsx}']
+const CHROME_PAGES = ['../shell.js', '../splash.js']
 
 /** @param {string} path @returns {string} The source with whole-line comments removed. */
 function codeOf(path) {
@@ -43,11 +50,13 @@ function isBrowserBundleSource(path) {
   return !/(?:^|\/)tests?\//u.test(path) && !/\.(?:spec|test)\./u.test(path)
 }
 
-test('no browser bundle evaluates source at runtime', () => {
-  const inspected = globSync(CLIENT_GLOBS).filter(isBrowserBundleSource)
-  assert.ok(inspected.length > 0, 'expected browser bundle sources to inspect')
-  const found = inspected.flatMap(path => runtimeEvaluators(codeOf(path)).map(hit => `${path}: ${hit.trim()}`))
-  assert.deepEqual(found, [], `the host page denies 'unsafe-eval'; these would blank the window:\n${found.join('\n')}`)
+test('no browser bundle or packaged chrome script evaluates source at runtime', () => {
+  const bundles = globSync(CLIENT_GLOBS).filter(isBrowserBundleSource)
+  assert.ok(bundles.length > 0, 'expected browser bundle sources to inspect')
+  const chrome = CHROME_PAGES.map(relative => fileURLToPath(new URL(relative, import.meta.url)))
+  for (const path of chrome) assert.doesNotThrow(() => readFileSync(path), path)
+  const found = [...bundles, ...chrome].flatMap(path => runtimeEvaluators(codeOf(path)).map(hit => `${path}: ${hit.trim()}`))
+  assert.deepEqual(found, [], `the packaged policies deny 'unsafe-eval'; these would blank the window:\n${found.join('\n')}`)
 })
 
 test('the host page denies eval and hands the client its nonces', () => {
@@ -63,10 +72,21 @@ test('the host page denies eval and hands the client its nonces', () => {
   assert.match(source, /meta name="dsh-style-nonce"/u)
 })
 
+test('the packaged window policy withholds eval and inline execution', () => {
+  const csp = JSON.parse(readFileSync(TAURI_CONF, 'utf8')).app.security.csp
+  for (const directive of ['script-src', 'style-src']) {
+    assert.equal(csp[directive], "'self'", directive)
+  }
+  for (const [directive, value] of Object.entries(csp)) {
+    assert.doesNotMatch(value, /unsafe-(?:eval|inline)/u, `${directive} must not grant runtime evaluation`)
+  }
+})
+
 test('a runtime evaluator or a granted eval is rejected, so the gate can fail', () => {
   assert.deepEqual(runtimeEvaluators('const f = new Function("return 1")'), ['new Function('])
   assert.deepEqual(runtimeEvaluators('const v = eval("1 + 1")'), ['eval('])
   assert.deepEqual(runtimeEvaluators('const no = evaluate(input)'), [])
-  const granted = "script-src 'self' 'unsafe-eval' 'nonce-${scriptNonce}'"
-  assert.match(granted, /'unsafe-eval'/u)
+  for (const granted of ["script-src 'self' 'unsafe-eval' 'nonce-${scriptNonce}'", "style-src 'self' 'unsafe-inline'"]) {
+    assert.match(granted, /unsafe-(?:eval|inline)/u)
+  }
 })
