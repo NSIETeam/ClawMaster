@@ -1,11 +1,16 @@
 /**
- * Refuse a desktop release whose version trails a version users already have.
+ * Refuse a desktop release whose version trails a published version in its own line.
  *
  * `version.json` is one editable file, and the release tags are the only record of
  * what shipped. On 2026-09-18 commit `1faa6a869c` moved the version sources from
  * `0.2.8` back to `0.2.3` while `desktop-v0.2.7` was already published; nothing in
  * the workflow compared the two, so the next release would have been built as an
  * older program than the one users were already running.
+ *
+ * The comparison is scoped to the candidate's `major.minor` line, because moving to
+ * another line is a deliberate product decision — this repository records one as
+ * "version reset 2026-09-21" in `docs/DEFECTS-DAWN.md` — while a version that trails
+ * a published version of its own line is the accident above.
  */
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
@@ -76,17 +81,19 @@ export function compareVersions(left, right) {
  * @returns {string} The accepted version.
  */
 export function guardReleaseVersion({ version, tags, releasing }) {
-  parseVersion(version)
+  const numbers = parseVersion(version).numbers
+  const line = `${numbers[0]}.${numbers[1]}`
   const shipped = []
   for (const tag of tags) {
     if (tag === releasing) continue
     const program = programVersionOf(tag)
     if (program === null) throw new Error(`Desktop tag ${tag} does not name a program version`)
-    shipped.push(program)
+    const published = parseVersion(program).numbers
+    if (`${published[0]}.${published[1]}` === line) shipped.push(program)
   }
   const newest = shipped.sort(compareVersions).at(-1)
   if (newest !== undefined && compareVersions(newest, version) > 0) {
-    throw new Error(`Desktop version ${version} is behind the published ${newest}; move version.json forward before building`)
+    throw new Error(`Desktop version ${version} is behind the published ${newest} in the ${line} line; move version.json forward before building`)
   }
   return version
 }

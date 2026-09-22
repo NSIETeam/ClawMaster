@@ -18,7 +18,7 @@ This extends [Desktop release version source](2026-09-18-desktop-version-single-
 
 `Stage release assets` carries one macOS tail: the disk image recompression, the disk image copy, and the updater archive with its signature.
 
-`Validate release version` runs three checks before either platform build, in this order: `desktop-version.mjs --check` requires `version.json`, `package.json`, `Cargo.toml`, the `dsh-desktop` entry in `Cargo.lock`, and `tauri.conf.json` to agree; `release-channel.mjs` requires the tag to name that version and channel; `release-version-guard.mjs --check <tag>` requires the version to be ahead of every published `desktop-v*` tag. The guard reads the tag list from the checkout, so it needs the `fetch-depth: 0` the build job already requests, and it excludes the tag under construction so a candidate branch can be tagged before its build runs.
+`Validate release version` runs three checks before either platform build, in this order: `desktop-version.mjs --check` requires `version.json`, `package.json`, `Cargo.toml`, the `dsh-desktop` entry in `Cargo.lock`, and `tauri.conf.json` to agree; `release-channel.mjs` requires the tag to name that version and channel; `release-version-guard.mjs --check <tag>` requires the version to be ahead of every published `desktop-v*` tag in its own `major.minor` line. The guard reads the tag list from the checkout, so it needs the `fetch-depth: 0` the build job already requests, and it excludes the tag under construction so a candidate branch can be tagged before its build runs.
 
 `desktop-version.mjs` gained the lockfile so its own `sync` command can produce a releasable tree. A version bump writes four files, and the workflow's `cargo test --locked` would otherwise reject the lockfile the bump left behind. Only the `dsh-desktop` entry is rewritten, and a lockfile without that entry fails closed.
 
@@ -32,6 +32,8 @@ This extends [Desktop release version source](2026-09-18-desktop-version-single-
 
 **Reject a version that equals a published one.** `desktop-v0.2.0` and `desktop-v0.2.0-release` both name program version `0.2.0`, and the repository published both, so equality is a supported re-publication pattern. The guard rejects only a version that trails the published set.
 
+**Compare across lines as well.** The desktop line is reset in this repository: `docs/DEFECTS-DAWN.md` records "desktop 0.0.1beta (version reset 2026-09-21)" as the tracked baseline, and after that reset every version of the new line trails `desktop-v0.2.7`. A comparison that spans lines would refuse the entire new line, so the guard scopes itself to the candidate's `major.minor` line. An accidental backwards edit inside a line — the `1faa6a869c` state — is still refused.
+
 ## Consequences
 
 A release candidate whose version trails the newest published tag now fails in the first step of each platform build instead of producing installers that downgrade the users who install them. Bumping the desktop version is a release prerequisite the workflow states, not a convention it assumes.
@@ -40,4 +42,4 @@ The brace check covers PowerShell text only, and the `pwsh` parse runs on CI, no
 
 ## Verification
 
-`node --test apps/desktop-tauri/scripts/release-version-guard.test.mjs apps/desktop-tauri/scripts/release-workflow.test.mjs` passes, and `npm run test:update-manifest` in `apps/desktop-tauri` includes both. On `main` at `d8eb54e47f`, `node apps/desktop-tauri/scripts/release-version-guard.mjs --check desktop-v0.2.3` exits non-zero with `Desktop version 0.2.3 is behind the published 0.2.7`, which is the state the guard is meant to refuse; the check passes only after `version.json` moves forward.
+`node --test apps/desktop-tauri/scripts/release-version-guard.test.mjs apps/desktop-tauri/scripts/release-workflow.test.mjs` passes, and `npm run test:update-manifest` in `apps/desktop-tauri` includes both. Against the 18 published `desktop-v*` tags in this checkout, the guard refuses the `1faa6a869c` state with `Desktop version 0.2.3 is behind the published 0.2.7 in the 0.2 line` while accepting `0.2.8` as the next version of that line and `0.0.1` as a release on another line; the workflow reports the same three results before either platform build.

@@ -24,10 +24,19 @@ test('program versions order numeric fields first and prereleases below their re
   assert.equal(compareVersions('0.2.3', '0.2.3'), 0)
 })
 
-test('a version behind the published set is refused with the published version named', () => {
+test('a version behind a published version of its own line is refused, and names it', () => {
   assert.throws(
     () => guardReleaseVersion({ version: '0.2.3', tags: PUBLISHED }),
-    /Desktop version 0\.2\.3 is behind the published 0\.2\.7/u,
+    /Desktop version 0\.2\.3 is behind the published 0\.2\.7 in the 0\.2 line/u,
+  )
+})
+
+test('a release on another line is a reset, not a regression', () => {
+  assert.equal(guardReleaseVersion({ version: '0.0.1', tags: PUBLISHED }), '0.0.1')
+  assert.equal(guardReleaseVersion({ version: '0.1.0', tags: PUBLISHED }), '0.1.0')
+  assert.throws(
+    () => guardReleaseVersion({ version: '0.0.1-beta.1', tags: ['desktop-v0.0.1-beta.2'] }),
+    /behind the published 0\.0\.1-beta\.2 in the 0\.0 line/u,
   )
 })
 
