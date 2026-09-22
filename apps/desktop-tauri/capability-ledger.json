@@ -103,6 +103,24 @@
       "evidence": ["apps/desktop-tauri/scripts/copy-release-evidence.test.mjs"],
       "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
       "status": "verified"
+    },
+    {
+      "id": "release-build-signing-identity",
+      "promise": "A release build is signed with an operating-system publisher identity rather than an ad-hoc signature.",
+      "source": ["apps/desktop-tauri/acceptance/README.md"],
+      "code": [".github/workflows/desktop-release.yml"],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "unevidenced",
+      "reason": "The release workflow signs macOS with an ad-hoc identity and then verifies it in a way that an ad-hoc signature also passes: `.github/workflows/desktop-release.yml` sets `APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && '-' || '' }}` and runs `codesign --verify --deep --strict`, and no notarization step exists anywhere (`grep -ri notarytool .github/ apps/desktop-tauri/src-tauri/tauri.conf.json` returns nothing). The acceptance policy these lanes are graded against requires a Developer ID notarized signature, so the pipeline and its own policy disagree. Whether the release environment supplies a real identity is not visible from this checkout; the acceptance README records the certificates as external prerequisites."
+    },
+    {
+      "id": "acceptance-run-records",
+      "promise": "Each platform lane's acceptance result is recorded and can be cited for a candidate.",
+      "source": ["apps/desktop-tauri/acceptance/README.md"],
+      "code": ["apps/desktop-tauri/scripts/release-acceptance.mjs"],
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "status": "unevidenced",
+      "reason": "The checkout holds the acceptance contract and its checker but no result: `apps/desktop-tauri/acceptance/` contains only the bilingual README triplet, with no per-platform record of the OS version, package digest, log or outcome. The checker takes its manifest from outside the repository (`.github/workflows/desktop-release.yml` fetches `${{ inputs.acceptance_ref }}` and validates `release-assets/acceptance-manifest.json`), so evidence can exist without being citable from the source tree."
     }
   ]
 }

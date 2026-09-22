@@ -82,10 +82,13 @@ export function checkCapabilityLedger(ledger, root) {
     if (status === 'verified') verified += 1
     else unevidenced += 1
 
-    for (const field of ['source', 'code', 'evidence']) {
+    for (const field of ['source', 'code']) {
       if (!isStringArray(entry[field])) {
         fail('entry-schema', label, `${field} must be a list of non-empty paths.`, `${field} = ${JSON.stringify(entry[field] ?? null)}`)
       }
+    }
+    if (entry.evidence !== undefined && !isStringArray(entry.evidence)) {
+      fail('entry-schema', label, 'evidence must be a list of non-empty paths when an entry carries one.', `evidence = ${JSON.stringify(entry.evidence)}`)
     }
     if (Array.isArray(entry.platforms)) {
       for (const platform of entry.platforms) {

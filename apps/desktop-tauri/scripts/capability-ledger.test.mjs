@@ -44,6 +44,14 @@ test('an entry states what its evidence needs when it needs anything', () => {
   assert.ok(ids(ledger([entry({ requires: [''] })])).includes('entry-schema'))
 })
 
+test('an unevidenced entry may state its gap without carrying an evidence path', () => {
+  const gap = { ...entry({ status: 'unevidenced', reason: 'No run record exists yet.' }) }
+  delete gap.evidence
+  assert.deepEqual(checkCapabilityLedger(ledger([gap]), repositoryRoot).findings, [])
+  assert.ok(ids(ledger([{ ...gap, evidence: 'a path, not a list' }])).includes('entry-schema'))
+  assert.ok(ids(ledger([{ ...gap, evidence: [''] }])).includes('entry-schema'))
+})
+
 test('a promise whose code path is missing is rejected', () => {
   assert.ok(ids(ledger([entry({ code: ['frontends/dsh/src/does-not-exist.ts'] })])).includes('entry-code-missing'))
 })
