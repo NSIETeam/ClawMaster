@@ -46,18 +46,21 @@ test('the search candidate query reads the index instead of scanning the record 
   assert.doesNotMatch(plan, /SCAN contacts\b/, 'the plan does not scan the record table');
 });
 
-test('the exact-match predicate is applied to rows and cannot use an index', async t => {
+test('the exact-match predicate cannot choose the rows it inspects', async t => {
   const db = await plannedStore(t);
   const plan = planOf(db, "SELECT r.id FROM contacts r WHERE clawmaster_contains(COALESCE(r.name, ''), 'acme') = 1");
-  assert.match(plan, /SCAN/, 'a JavaScript predicate forces a scan of the rows it inspects');
+  // A JavaScript predicate has no index statistics, so the records are enumerated row by row.
+  // The enumerating scan may still ride a covering index; what it cannot do is evaluate the predicate.
+  assert.match(plan, /SCAN/, 'the rows are enumerated rather than sought by the predicate');
 });
 
-test('the shipped search shape combines the index with the predicate', async t => {
+test('the shipped search shape looks each candidate up by primary key', async t => {
   const db = await plannedStore(t);
   const plan = planOf(db, `SELECT r.id FROM contacts r
     WHERE (r.rowid IN (SELECT rowid FROM contacts_search WHERE contacts_search MATCH 'acme'))
       AND (clawmaster_contains(COALESCE(r.name, ''), 'acme') = 1
         OR clawmaster_contains(COALESCE(r.company, ''), 'acme') = 1)`);
-  assert.match(plan, /contacts_search/, 'the index still supplies the candidate set');
-  assert.match(plan, /SCAN/, 'the predicate is still evaluated per candidate row');
+  assert.match(plan, /contacts_search/, 'the index supplies the candidate set');
+  assert.match(plan, /SEARCH r USING INTEGER PRIMARY KEY/, 'each candidate is fetched by rowid, not scanned out of the record table');
+  assert.doesNotMatch(plan, /SCAN contacts\b/, 'the predicate does not force the record table to be scanned');
 });
