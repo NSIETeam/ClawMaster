@@ -13,6 +13,7 @@ import styles from './styles.css';
 import taskStyles from './task-board.css';
 import { TaskBoard } from './TaskBoard.tsx';
 import { WatchdogTaskClient } from './watchdog-task-client.ts';
+import { RuntimeHealthClient } from './runtime-health-client.ts';
 import { WatchdogScheduleClient } from './watchdog-schedule-client.ts';
 import { ScheduleBoard } from './ScheduleBoard.tsx';
 import { taskAttentionSummary, type TaskRecord } from './watchdog-task-format.ts';
@@ -45,6 +46,8 @@ export function apply(ctx: FrontendServices): void {
   }, 'clawmaster: pending task submissions');
   const scheduleClient = new WatchdogScheduleClient();
   ctx.effect(() => () => scheduleClient.dispose(), 'clawmaster: schedule client');
+  const runtimeClient = new RuntimeHealthClient();
+  ctx.effect(() => () => runtimeClient.dispose(), 'clawmaster: component health client');
   ctx.effect(() => () => taskClient.dispose(), 'clawmaster: business task client');
   const initialEntry = createInitialEntry(ctx, lifetime.signal);
   const onboarding = ctx.settingsScope.bind({ namespace: ONBOARDING_NAMESPACE, decode: decodeOnboarding });
@@ -105,6 +108,8 @@ export function apply(ctx: FrontendServices): void {
     const connection = useSnapshot(ctx.connection.state);
     const taskState = useSyncExternalStore(taskClient.subscribe, taskClient.getSnapshot, taskClient.getSnapshot);
     const scheduleState = useSyncExternalStore(scheduleClient.subscribe, scheduleClient.getSnapshot, scheduleClient.getSnapshot);
+    const runtimeState = useSyncExternalStore(runtimeClient.subscribe, runtimeClient.getSnapshot, runtimeClient.getSnapshot);
+    useEffect(() => { void runtimeClient.refresh(); }, []);
     const taskSummary = taskAttentionSummary(taskState.tasks);
     const [model, setModel] = useState<'unverified' | 'verified'>('unverified');
     useEffect(() => {
@@ -119,7 +124,9 @@ export function apply(ctx: FrontendServices): void {
         schedule: { error: scheduleState.error !== null, observedAt: scheduleState.observedAt, total: scheduleState.workerSummary?.total ?? null,
           online: scheduleState.workerSummary?.online ?? 0, offline: scheduleState.workerSummary?.offline ?? 0, degraded: scheduleState.workerSummary?.degraded ?? 0,
           failed: scheduleState.attentionSummary?.failed ?? 0, uncertain: scheduleState.attentionSummary?.uncertain ?? 0 },
-        business: { total: taskSummary.total, review: taskSummary.awaitingReview, failed: taskSummary.failed, overdue: taskSummary.overdue, error: taskState.error !== null } }}
+        business: { total: taskSummary.total, review: taskSummary.awaitingReview, failed: taskSummary.failed, overdue: taskSummary.overdue, error: taskState.error !== null },
+        components: { observed: runtimeState.observed, available: runtimeState.available, components: runtimeState.components,
+          disabled: runtimeState.disabled.length, refused: runtimeState.refused, observedAt: runtimeState.observedAt } }}
       locale={locale}
       sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}
       sessionsLoading={snapshot.phase === 'pending' || workspaces.phase === 'pending'}
@@ -131,7 +138,7 @@ export function apply(ctx: FrontendServices): void {
       onStart={(goal, cadence) => actions.start(goal, cadence, locale)}
       onModule={module => actions.open(module, locale)}
       onOpenSession={id => ctx.uiWorkspace.openSession(id)}
-      onRefresh={() => ctx.sessions.refresh()}
+      onRefresh={async () => { await ctx.sessions.refresh(); await runtimeClient.refresh(); }}
       businessTasks={<><TaskBoard client={taskClient} locale={locale}
         sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}
         onOpenSession={id => ctx.uiWorkspace.openSession(id)}

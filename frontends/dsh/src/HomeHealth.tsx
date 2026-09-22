@@ -6,6 +6,7 @@ export interface HomeHealthState {
   model: 'unverified' | 'verified';
   schedule: { error: boolean; observedAt: number | null; total: number | null; online: number; offline: number; degraded: number; failed: number; uncertain: number };
   business: { total: number; review: number; failed: number; overdue: number; error: boolean };
+  components: { observed: boolean; available: boolean; components: number | null; disabled: number; refused: boolean; observedAt: string | null };
 }
 
 /** Render health facts without inferring model readiness from the app connection. */
@@ -18,10 +19,16 @@ export function HomeHealth({ locale, state }: { locale: ProductLocale; state: Ho
   const scheduleHealth = state.schedule.error || state.schedule.offline + state.schedule.degraded + state.schedule.failed + state.schedule.uncertain > 0
     || (state.schedule.total !== null && state.schedule.online === 0) ? 'attention'
     : state.schedule.total === null ? 'unobserved' : 'observed';
+  const componentsHealth = state.components.refused ? 'unobserved' : !state.components.observed || !state.components.available ? 'unobserved'
+    : state.components.disabled > 0 ? 'attention' : 'observed';
+  const componentsStatus = componentsHealth === 'unobserved' ? copy.componentsUnobserved
+    : componentsHealth === 'attention' ? copy.componentsDisabled.replace('{count}', String(state.components.disabled))
+      : copy.componentsLoaded.replace('{count}', String(state.components.components ?? 0));
   const attentionLayers = [
     state.app === 'connected' ? undefined : copy.healthApp,
     scheduleHealth === 'attention' ? copy.healthSchedule : undefined,
     state.business.error || state.business.review + state.business.failed + state.business.overdue > 0 ? copy.healthBusiness : undefined,
+    componentsHealth === 'attention' ? copy.healthComponents : undefined,
   ].filter((layer): layer is string => layer !== undefined);
   return <section className="cm-home-health" aria-label={copy.healthHeading}>
     <div className="cm-home-outcomes">
@@ -46,6 +53,11 @@ export function HomeHealth({ locale, state }: { locale: ProductLocale; state: Ho
         {state.schedule.total !== null && <small>{copy.scheduleWorkers}: {state.schedule.online}/{state.schedule.total} · {copy.scheduleNeedsAttention}: {state.schedule.offline + state.schedule.degraded}</small>}
         {(state.schedule.failed > 0 || state.schedule.uncertain > 0) && <small role="alert">{copy.scheduleOccurrencesAttention.replace('{failed}', String(state.schedule.failed)).replace('{uncertain}', String(state.schedule.uncertain))}</small>}
         {state.schedule.observedAt !== null && <small>{copy.observedAt}: <time dateTime={new Date(state.schedule.observedAt).toISOString()}>{new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(state.schedule.observedAt)}</time></small>}
+      </div>
+      <div><dt>{copy.healthComponents}</dt><dd data-health={componentsHealth}>
+        {state.components.refused ? copy.componentsRefused : componentsStatus}</dd>
+        <small>{state.components.refused ? copy.componentsNextStep : state.components.observed && state.components.available ? copy.componentsEvidenceLimit : copy.componentsNextStep}</small>
+        {state.components.disabled > 0 && <small role="alert">{copy.componentsDisabled.replace('{count}', String(state.components.disabled))}</small>}
       </div>
       </dl>
     </details>

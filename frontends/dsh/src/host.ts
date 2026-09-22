@@ -10,7 +10,8 @@ import { applyDataTools, type DataToolsConfig } from './data-tools.ts';
 import { applyManagedWorkspaces, type WorkspaceHostContext } from './workspace-host.ts';
 import { OnboardingSettingsSchema, type OnboardingHostServices } from './onboarding-host.ts';
 import { ONBOARDING_NAMESPACE } from './onboarding.ts';
-import { applyRuntimeGovernance, type RuntimeGovernanceConfig } from './runtime-governance.ts';
+import { applyRuntimeGovernance, observeRuntime, type RuntimeGovernanceConfig } from './runtime-governance.ts';
+import { mountRuntimeHealth } from './runtime-health-host.ts';
 import { applyPermissionGovernance } from './permission-governance.ts';
 import { GovernanceAccess, type GovernanceConfiguration } from './governance-access.ts';
 import { mountWatchdogTasks } from './watchdog-task-host.ts';
@@ -61,6 +62,7 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
   applyRuntimeGovernance(ctx, config.runtimeGovernance);
   applyPermissionGovernance(ctx);
   ctx.effect(() => applyManagedWorkspaces(ctx, managedRoot, access), 'clawmaster: managed Workspace allocation');
+  ctx.effect(() => mountRuntimeHealth(ctx, access, () => observeRuntime(process.env.CLAWMASTER_RUNTIME_STATE)), 'clawmaster: local component health');
   await ctx.effect(async () => {
     const store = await openEnterpriseStore(databasePath, config.busyTimeoutMs, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local', config.watchdogTasks, config.enterpriseRead);
     const consumers: Array<() => Promise<void>> = [];
