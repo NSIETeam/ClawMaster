@@ -65,13 +65,22 @@ Optional configuration, where every field overrides one of those defaults:
 - name: '@clawmaster/dsh-guard'
   config:
     mode: observe
-    shellTools: [bash, shell, run_command, exec]
+    shellTools:
+      - bash
+      - shell
+      - run_command
+      - exec
+      - {name: terminal_send, argument: text}
     denyPaths: ['/Users/me/Documents']
     allowPaths: ['/tmp/scratch']
     resultReview: archive
     resultProject: ClawMaster
     planReview: enforce
 ```
+
+A `shellTools` entry is either a bare tool name, whose `command` argument is reviewed, or
+`{name, argument}` for a tool that carries the same command text under another argument — the
+`terminal_send` default above is the shipped example of that. The defaults are exactly this list.
 
 `mode: observe` is the way to measure the rule set against real work before trusting it: the guard
 logs its verdict and delegates.
@@ -129,10 +138,14 @@ profile uses a different one.
   wave a command through because a path looked small or absent.
 - Non-shell tools are not reviewed. A tool that deletes through its own API (for example the notes
   vault's own delete) keeps its own approval gate.
+- `shellTools` is a name list, so a shell-capable tool absent from it is not reviewed at all, and
+  that omission is silent. The default covers `bash`, `shell`, `run_command`, `exec` and
+  `terminal_send`; the PowerShell provider (`pwsh`) is deliberately outside it, because the
+  classifier reads POSIX command lines and no case here measures it against PowerShell text.
 
 ## Verification
 
-`npm --prefix frontends/guard test` builds and then runs the suite: 100 cases covering the risk
+`npm --prefix frontends/guard test` builds and then runs the suite: 106 cases covering the risk
 table above, target expansion, `sudo`/`env` prefixes, subshells and chains, the quoted-prose
 false-positive case, decision mapping, `observe` mode, `allowPaths`/`denyPaths`, workdir
 resolution, and the mount itself — including that a denial never reaches the pipeline and that a

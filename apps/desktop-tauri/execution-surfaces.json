@@ -38,9 +38,11 @@
     {
       "id": "terminal-input",
       "surface": "A tool writes input to a persistent terminal session, and the shell there runs it.",
-      "status": "unenforced",
-      "reason": "No name list can cover it, because the guard reads the reviewed text from one argument name and this tool uses another. `frontends/guard/src/policy.ts` \u2014 \u201cconst command = args['command']\u201d \u2014 while `packages/terminal/tool-terminal/src/index.ts` declares \u201cname: 'terminal_send'\u201d with \u201ctext: { type: 'string', required: true, description: 'UTF-8 text to write to the terminal.' }\u201d and submits Enter by default. Adding `terminal_send` to `shellTools` would therefore still produce an unreviewed call. Covering this surface additionally needs the guard to map a tool name to the argument carrying its command text, which widens the configuration surface, and it needs the classifier measured against interactive input rather than whole command lines.",
-      "evidence": ["packages/terminal/tool-terminal/src/index.ts", "packages/terminal/tool-terminal/tests/tools.spec.ts"]
+      "enforcer": "packages/terminal/terminal-bash/src/index.ts",
+      "authorization": "packages/sandbox/sandbox-policy/src/session-mode.ts",
+      "mechanism": "path-allow-list",
+      "evidence": ["packages/terminal/terminal-bash/tests/index.spec.ts", "frontends/guard/tests/policy.test.mjs"],
+      "status": "enforced"
     },
     {
       "id": "automated-code-execution",

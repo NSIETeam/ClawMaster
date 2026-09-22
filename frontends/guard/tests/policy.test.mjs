@@ -74,6 +74,43 @@ describe('configuration', () => {
     assert.deepEqual(parseOptions({ allowPaths: ['/tmp'] }).allowPaths, ['/tmp']);
     assert.deepEqual(parseOptions({ allowPaths: 'not-a-list' }).allowPaths, []);
   });
+
+  it('keeps a configured reviewed-tool list, including a named argument', () => {
+    const configured = parseOptions({ shellTools: ['bash', { name: 'terminal_send', argument: 'text' }] }).shellTools;
+    assert.deepEqual(configured, ['bash', { name: 'terminal_send', argument: 'text' }]);
+  });
+
+  it('falls back to the default list when any reviewed-tool entry is unusable', () => {
+    for (const unusable of ['', { name: 'terminal_send' }, { argument: 'text' }, { name: '', argument: 'text' }, 7, null, []]) {
+      assert.deepEqual(parseOptions({ shellTools: ['bash', unusable] }).shellTools, DEFAULT_OPTIONS.shellTools, JSON.stringify(unusable));
+    }
+    assert.deepEqual(parseOptions({ shellTools: 'bash' }).shellTools, DEFAULT_OPTIONS.shellTools);
+  });
+});
+
+describe('reviewed tools', () => {
+  it('reviews command text that arrives under a named argument', () => {
+    const options = parseOptions({ shellTools: [{ name: 'terminal_send', argument: 'text' }] });
+    const call = { name: 'terminal_send', arguments: { sessionId: 't1', text: 'rm -rf /' } };
+    assert.equal(shellCommandOf(call, options), 'rm -rf /');
+    assert.equal(reviewCall(call, options, context).decision?.kind, 'deny');
+  });
+
+  it('does not read the argument a bare name would use', () => {
+    const options = parseOptions({ shellTools: [{ name: 'terminal_send', argument: 'text' }] });
+    assert.equal(shellCommandOf({ name: 'terminal_send', arguments: { command: 'rm -rf /' } }, options), undefined);
+  });
+
+  it('still reads command for a bare name', () => {
+    const options = parseOptions({ shellTools: ['pwsh'] });
+    assert.equal(shellCommandOf({ name: 'pwsh', arguments: { command: 'Remove-Item -Recurse /' } }, options), 'Remove-Item -Recurse /');
+  });
+
+  it('covers the shipped default list, terminal input included', () => {
+    assert.deepEqual(DEFAULT_OPTIONS.shellTools, ['bash', 'shell', 'run_command', 'exec', { name: 'terminal_send', argument: 'text' }]);
+    assert.equal(shellCommandOf({ name: 'terminal_send', arguments: { text: 'rm -rf /' } }, DEFAULT_OPTIONS), 'rm -rf /');
+    assert.equal(reviewCall({ name: 'terminal_send', arguments: { text: 'rm -rf /' } }, DEFAULT_OPTIONS, context).decision?.kind, 'deny');
+  });
 });
 
 describe('mounting', () => {

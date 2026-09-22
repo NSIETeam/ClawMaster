@@ -16,6 +16,14 @@ import { inspectShellCommand, type Finding, type InspectContext } from './classi
 import { inspectPlan, planReviewReason } from './plan.ts';
 import { describeProbe, probeTargets, resolvedUnder, type TargetProbe, type TargetProbeFn } from './probe.ts';
 
+/** A reviewed shell tool whose command text arrives in a named argument. */
+export interface ShellTool {
+  /** Tool name as the model calls it. */
+  name: string;
+  /** Argument holding the command text this call would run. */
+  argument: string;
+}
+
 /** Guard configuration; every field has a working default. */
 export interface GuardOptions {
   /**
@@ -23,8 +31,12 @@ export interface GuardOptions {
    * Use `observe` to measure the rule set against a real workload before trusting it.
    */
   mode: 'enforce' | 'observe';
-  /** Shell tool names whose `command` argument is reviewed. */
-  shellTools: readonly string[];
+  /**
+   * Reviewed tools. A bare name is a tool whose command text is in its `command` argument; an entry
+   * object names the argument instead, for a tool that carries the same text under another name.
+   * A tool absent here is not reviewed, so the list is the whole of what this plugin covers.
+   */
+  shellTools: readonly (string | ShellTool)[];
   /** Path prefixes that are always denied, whatever the rules say. */
   denyPaths: readonly string[];
   /** Path prefixes where a high-risk action runs without approval (a scratch or build directory). */
@@ -51,7 +63,7 @@ export interface GuardOptions {
 /** Defaults: enforce, review the shell tools, archive each finished turn, and hold a plan to its acceptance. */
 export const DEFAULT_OPTIONS: GuardOptions = {
   mode: 'enforce',
-  shellTools: ['bash', 'shell', 'run_command', 'exec'],
+  shellTools: ['bash', 'shell', 'run_command', 'exec', { name: 'terminal_send', argument: 'text' }],
   denyPaths: [],
   allowPaths: [],
   resultReview: 'archive',
@@ -88,7 +100,7 @@ export function parseOptions(config: unknown): GuardOptions {
     : undefined;
   return {
     mode,
-    shellTools: stringList(source['shellTools']) ?? DEFAULT_OPTIONS.shellTools,
+    shellTools: shellToolList(source['shellTools']) ?? DEFAULT_OPTIONS.shellTools,
     denyPaths: stringList(source['denyPaths']) ?? DEFAULT_OPTIONS.denyPaths,
     allowPaths: stringList(source['allowPaths']) ?? DEFAULT_OPTIONS.allowPaths,
     resultReview: source['resultReview'] === 'off' || source['resultReview'] === 'archive'
@@ -139,11 +151,39 @@ function stringList(value: unknown): readonly string[] | undefined {
   return items.length === value.length ? items : undefined;
 }
 
+/** One configured reviewed tool, or undefined when the entry is not one. */
+function shellTool(value: unknown): string | ShellTool | undefined {
+  if (typeof value === 'string') return value === '' ? undefined : value;
+  if (typeof value !== 'object' || value === null) return undefined;
+  const entry = value as Record<string, unknown>;
+  const name = entry['name'];
+  const argument = entry['argument'];
+  if (typeof name !== 'string' || name === '' || typeof argument !== 'string' || argument === '') return undefined;
+  return { name, argument };
+}
+
+/** A configured list of reviewed tools, or undefined when any entry is not one. */
+function shellToolList(value: unknown): readonly (string | ShellTool)[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.map(shellTool);
+  return items.every((entry): entry is string | ShellTool => entry !== undefined) ? items : undefined;
+}
+
+/** The argument carrying a reviewed call's command text, or undefined when the tool is not reviewed. */
+function reviewedArgument(options: GuardOptions, name: string): string | undefined {
+  for (const entry of options.shellTools) {
+    if (typeof entry === 'string') { if (entry === name) return 'command'; continue; }
+    if (entry.name === name) return entry.argument;
+  }
+  return undefined;
+}
+
 /** The command line a shell tool call would run, when the call is one. */
 export function shellCommandOf(call: { name: string; arguments: unknown }, options: GuardOptions): string | undefined {
-  if (!options.shellTools.includes(call.name)) return undefined;
+  const argument = reviewedArgument(options, call.name);
+  if (argument === undefined) return undefined;
   const args = typeof call.arguments === 'object' && call.arguments !== null ? call.arguments as Record<string, unknown> : {};
-  const command = args['command'];
+  const command = args[argument];
   return typeof command === 'string' && command.trim() !== '' ? command : undefined;
 }
 
