@@ -16,7 +16,7 @@
     "prepare:dist": "node scripts/prepare-dist.mjs",
     "dev": "tauri dev",
     "dev:local": "cross-env DSH_DESKTOP_LAUNCH=local tauri dev",
-    "test:update-manifest": "node --test scripts/generate-updater-manifest.test.mjs scripts/release-channel.test.mjs scripts/release-version-guard.test.mjs scripts/release-workflow.test.mjs scripts/release-build-run.test.mjs scripts/release-acceptance.test.mjs scripts/verify-release-assets.test.mjs",
+    "test:update-manifest": "node --test scripts/generate-updater-manifest.test.mjs scripts/entry-guard-posture.test.mjs scripts/release-channel.test.mjs scripts/release-version-guard.test.mjs scripts/release-workflow.test.mjs scripts/release-build-run.test.mjs scripts/release-acceptance.test.mjs scripts/verify-release-assets.test.mjs",
     "test:bundle": "node --test scripts/desktop-version.test.mjs scripts/bundle-harness-source.test.mjs scripts/desktop-defaults.test.mjs scripts/build-provenance.test.mjs scripts/build-inventory.test.mjs scripts/webview-security.test.mjs scripts/generate-icons.test.mjs scripts/test-compatibility.test.mjs scripts/prepare-rpa-native.test.mjs",
     "test:overlay": "node --test overlay/desktop-notify/index.test.mjs",
     "test:startup": "node --test scripts/harness-startup.test.mjs",

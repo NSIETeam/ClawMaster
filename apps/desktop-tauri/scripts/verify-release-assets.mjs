@@ -1,7 +1,7 @@
 /** Verify immutable release files, their checksums and source provenance before publication. */
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
+import { createReadStream, realpathSync } from 'node:fs'
 import { readdir, readFile, lstat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -228,7 +228,7 @@ export async function verifyReleaseAssets(options) {
   return { files: files.sort(), version: options.version, sourceCommit: options.expectedCommit, targetSet: targetSetForVersion(options.version) }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const { values } = parseArgs({ options: { 'assets-dir': { type: 'string' }, version: { type: 'string' }, commit: { type: 'string' }, tree: { type: 'string' }, 'expected-checksums': { type: 'string' } } })
   assert.ok(values['assets-dir'] && values.version && values.commit && values.tree, 'Required: --assets-dir <dir> --version <version> --commit <full SHA> --tree <full tree SHA>')
   const result = await verifyReleaseAssets({ assetsDir: values['assets-dir'], version: values.version, expectedCommit: values.commit, expectedTree: values.tree,

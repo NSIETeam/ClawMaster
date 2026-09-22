@@ -6,8 +6,8 @@
  */
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, cpSync, existsSync, globSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, relative, sep } from 'node:path'
+import { copyFileSync, cpSync, existsSync, globSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { load as loadYaml } from 'js-yaml'
 import { DESKTOP_PLUGIN_VERSIONS } from './desktop-defaults.mjs'
@@ -450,7 +450,7 @@ console.log(`bundle-harness-source: wrote ${outRoot}`)
 console.log(`bundle-harness-source: sha256=${manifest.contentSha256}`)
 }
 
-const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href
 if (isDirectRun) {
   if (process.argv[2] === '--check') {
     assertPreparedBundle(outRoot)

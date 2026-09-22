@@ -1,5 +1,6 @@
 /** Check the published ClawMaster download page against one candidate release. */
 import assert from 'node:assert/strict'
+import { realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -33,7 +34,7 @@ export async function verifyDownloadPage({ url, version, tag, repository, fetchI
   return { url: pageUrl.href, version, assetUrls }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const { values } = parseArgs({ options: { url: { type: 'string' }, version: { type: 'string' }, tag: { type: 'string' }, repository: { type: 'string' } } })
   const url = values.url ?? process.env.CLAWMASTER_DOWNLOAD_PAGE_URL
   assert.ok(url && values.version && values.tag && values.repository, 'Required: --url <HTTPS page> --version <version> --tag <desktop-v*> --repository <owner/name> (or CLAWMASTER_DOWNLOAD_PAGE_URL)')

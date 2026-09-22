@@ -1,5 +1,6 @@
 /** Record shipped installer sizes against the non-blocking 20 MiB optimization target. */
 import assert from 'node:assert/strict'
+import { realpathSync } from 'node:fs'
 import { lstat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -36,7 +37,7 @@ export async function createPackageSizeReport({ assetsDir, version, sourceCommit
   return { schemaVersion: 1, version, sourceCommit, optimizationTargetBytes: PACKAGE_OPTIMIZATION_TARGET_BYTES, installers }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const { values } = parseArgs({ options: { 'assets-dir': { type: 'string' }, version: { type: 'string' }, commit: { type: 'string' }, output: { type: 'string' } } })
   assert.ok(values['assets-dir'] && values.version && values.commit, 'Required: --assets-dir <dir> --version <version> --commit <full SHA> [--output <file>]')
   const report = await createPackageSizeReport({ assetsDir: values['assets-dir'], version: values.version, sourceCommit: values.commit })

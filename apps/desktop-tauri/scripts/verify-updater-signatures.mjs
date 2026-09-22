@@ -1,5 +1,6 @@
 /** Verify the generated Tauri channel and every updater artifact with the Minisign CLI. */
 import { execFile } from 'node:child_process'
+import { realpathSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -59,7 +60,7 @@ export async function verifyUpdaterSignatures({ assetsDir, manifestPath, publicK
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   try {
     const [assetsDir, manifestPath, publicKeyPath, minisign, ...extra] = process.argv.slice(2)
     if (!assetsDir || !manifestPath || !publicKeyPath || extra.length) {
