@@ -51,9 +51,9 @@ const checkpointWorkflow = {
   ],
 };
 
-test('the plugin declares its identity and consumes only the registry and approval', () => {
+test('the plugin keeps read-only inspection available when approval is degraded', () => {
   assert.equal(name, 'clawmaster-rpa');
-  assert.deepEqual(inject, ['tools', 'approval']);
+  assert.deepEqual(inject, ['tools']);
 });
 
 test('apply registers every tool inside its own effect', async () => {

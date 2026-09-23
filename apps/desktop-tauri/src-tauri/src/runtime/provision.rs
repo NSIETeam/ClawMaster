@@ -1180,7 +1180,17 @@ fn configure_pnpm_install(
 ) -> Result<(), String> {
     cmd.arg("install")
         .arg("--prod")
-        .arg("--no-frozen-lockfile")
+        // The trimmed payload ships its lockfile as the install contract.
+        // Re-resolving it on every first launch was both slow and sensitive to
+        // registry outages; reuse the exact graph and any local pnpm store.
+        .arg("--frozen-lockfile")
+        .arg("--prefer-offline")
+        .arg("--network-concurrency")
+        .arg("8")
+        .arg("--fetch-retries")
+        .arg("3")
+        .arg("--fetch-timeout")
+        .arg("120000")
         .arg("--registry")
         .arg(registry)
         .current_dir(harness_root)

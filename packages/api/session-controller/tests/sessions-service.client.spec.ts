@@ -746,6 +746,22 @@ describe('current selection (migrated from ui-layout, arbitrated into the list s
     await feedList(second, [{ id: 's1' }])
     expect(second.svc.list.getSnapshot().current).toBe('s1')
   })
+
+  it('does not erase the persisted selection while the first list pull is still pending', async () => {
+    const storage = new Map<string, string>([
+      ['dsh.sessions.current', JSON.stringify({ sessionId: 's1' })],
+    ])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => { storage.set(key, value) },
+      removeItem: (key: string) => { storage.delete(key) },
+    })
+    const b = bench()
+    expect(b.svc.list.getSnapshot().phase).toBe('pending')
+    expect(storage.get('dsh.sessions.current')).toContain('s1')
+    await feedList(b, [{ id: 's1' }])
+    expect(b.svc.list.getSnapshot().current).toBe('s1')
+  })
 })
 
 describe('binding and stage lifecycle', () => {

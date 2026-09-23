@@ -21,6 +21,10 @@
 # Channel defaults must outlive the installation directory. User patches run last.
 - id: xmanrui-dsh-im
   config:
+    # Keep every enabled IM supervisor alive through transient network loss;
+    # the plugin reconciles configured bots without a manual reconnect click.
+    retryDelaysMs: [250, 1000, 3000, 5000, 10000, 30000, 60000]
+    healthyIntervalMs: 15000
     weixin:
       workspace: !!js dshHomePath('watchdog-workspaces', 'im')
     feishu:

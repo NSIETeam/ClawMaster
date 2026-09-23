@@ -85,10 +85,12 @@ export { createApprovalBroker } from './native-broker.ts';
 /**
  * Services this component consumes.
  *
- * `approval` is what lets a desktop action ever run: it is the only thing that
- * can grant one, and a session with no answerer fails closed.
+ * The registry is the only mandatory service. The approval capability is
+ * resolved when a write action is actually requested, so read-only inspection
+ * remains available during degraded startup while desktop actions still fail
+ * closed without a grant.
  */
-export const inject = ['tools', 'approval'];
+export const inject = ['tools'];
 
 /**
  * The harness approval capability.

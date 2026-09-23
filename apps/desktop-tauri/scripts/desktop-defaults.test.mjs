@@ -172,6 +172,8 @@ test('IM channel defaults resolve under the selected home and preserve user over
     return JSON.parse(child.stdout)
   }
   const defaults = evaluate()
+  assert.deepEqual(defaults.retryDelaysMs, [250, 1000, 3000, 5000, 10000, 30000, 60000])
+  assert.equal(defaults.healthyIntervalMs, 15000)
   for (const channel of ['weixin', 'feishu', 'dingtalk', 'wecom']) assert.equal(defaults[channel].workspace, workspace)
   assert.equal(defaults.workspace, undefined)
   const custom = join(f.home, 'custom-weixin')

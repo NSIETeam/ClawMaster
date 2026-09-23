@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use super::boot_log;
 use super::process::hide_console;
 use super::provision::{pnpm_js_entry, RuntimePaths};
-use super::user_home::{profile_dependencies_unresolved, profiles_needing_install};
+use super::user_home::profile_dependencies_unresolved;
 use super::ProvisionEvent;
 use crate::i18n::{self, Msg};
 
@@ -20,47 +20,42 @@ const INSTALL_TIMEOUT: Duration = Duration::from_secs(600);
 /// a boot error only for this one, other profiles defer to a later `dsh plugin`.
 pub const HOST_PROFILE: &str = "web";
 
-/// Ensure every profile under `DSH_HOME` can resolve its declared dependencies
-/// before the Host starts: profiles needing install run `node …/pnpm.cjs
-/// install` in the profile directory when that entry exists, otherwise
-/// `dsh plugin --profile <name> install` on the bridged PATH, and are
-/// re-verified afterwards. A failed repair of a non-Host profile is logged
-/// and deferred; a failed repair of {@link HOST_PROFILE} fails boot with the
-/// manual command to run.
+/// Repair only the profile that owns the desktop Host. Other profiles may be
+/// stale or unrelated to this launch; installing all of them made every
+/// startup download dependencies it did not need and let an obsolete profile
+/// block the desktop.
 pub async fn ensure_profile_installs(
     paths: &RuntimePaths,
     host_path: &str,
     progress: &Arc<dyn Fn(ProvisionEvent) + Send + Sync>,
 ) -> Result<(), String> {
-    let pending = profiles_needing_install(&paths.dsh_home);
-    if pending.is_empty() {
+    let profile = profile_dir(&paths.dsh_home, HOST_PROFILE);
+    if !profile_dependencies_unresolved(&profile) {
         return Ok(());
     }
-    boot_log::info(&format!("profile installs pending: {}", pending.join(", ")));
-    for name in pending {
-        progress(ProvisionEvent::Status(i18n::tf(
-            Msg::ProfileInstalling,
-            &name,
-        )));
-        let paths = paths.clone();
-        let host_path = host_path.to_string();
-        let name_for_task = name.clone();
-        let result = tokio::task::spawn_blocking(move || {
-            run_profile_install(&paths, &host_path, &name_for_task)
-        })
-        .await
-        .map_err(|e| format!("profile {name} 安装任务失败: {e}"))?;
-        match result {
-            Ok(()) => {
-                progress(ProvisionEvent::Status(i18n::tf(Msg::ProfileReady, &name)));
-                boot_log::info(&format!("profile {name} dependencies installed"));
-            }
-            Err(error) => {
-                boot_log::error(&format!("profile {name} install failed: {error}"));
-                if name == HOST_PROFILE {
-                    return Err(i18n::tf2(Msg::ProfileInstallFailed, &name, &error));
-                }
-            }
+    boot_log::info("Host profile dependencies pending; repairing only profiles/web");
+    progress(ProvisionEvent::Status(i18n::tf(
+        Msg::ProfileInstalling,
+        HOST_PROFILE,
+    )));
+    let paths_for_task = paths.clone();
+    let host_path_for_task = host_path.to_string();
+    let result = tokio::task::spawn_blocking(move || {
+        run_profile_install(&paths_for_task, &host_path_for_task, HOST_PROFILE)
+    })
+    .await
+    .map_err(|e| format!("profile {HOST_PROFILE} 安装任务失败: {e}"))?;
+    match result {
+        Ok(()) => {
+            progress(ProvisionEvent::Status(i18n::tf(
+                Msg::ProfileReady,
+                HOST_PROFILE,
+            )));
+            boot_log::info("Host profile dependencies installed");
+        }
+        Err(error) => {
+            boot_log::error(&format!("profile {HOST_PROFILE} install failed: {error}"));
+            return Err(i18n::tf2(Msg::ProfileInstallFailed, HOST_PROFILE, &error));
         }
     }
     Ok(())
@@ -71,7 +66,16 @@ fn run_profile_install(paths: &RuntimePaths, host_path: &str, name: &str) -> Res
     let profile_dir = profile_dir(&paths.dsh_home, name);
     let mut cmd = Command::new(&paths.node_binary);
     if let Some(entry) = pnpm_js_entry(&paths.pnpm_binary) {
-        cmd.arg(entry).arg("install").current_dir(&profile_dir);
+        cmd.arg(entry)
+            .arg("install")
+            .arg("--prefer-offline")
+            .arg("--network-concurrency")
+            .arg("8")
+            .arg("--fetch-retries")
+            .arg("3")
+            .arg("--fetch-timeout")
+            .arg("120000")
+            .current_dir(&profile_dir);
     } else {
         cmd.arg(&paths.cli_entry)
             .arg("plugin")
