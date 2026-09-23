@@ -84,6 +84,7 @@ async function fixture(t, releaseVersion = version) {
     }
   }
   for (const [target, file] of [['macos-arm64-dmg', 'macos-arm64-native-acceptance.json'], ['windows-x64-nsis', 'windows-native-acceptance.json']]) {
+    if (targets[target] === undefined) continue
     targets[target].scenarios['exit-restart'].evidence.push({ file, sha256: hash(await readFile(join(root, file))) })
   }
   const manifest = { schemaVersion: 1, version: releaseVersion, sourceCommit: commit, supportedUpgradeVersions: ['0.2.2'], targets }
@@ -176,14 +177,15 @@ test('a checksummed release still requires the candidate DMG and Android install
   }
 })
 
-test('beta release assets require only Windows NSIS and macOS ARM64 acceptance; stable still requires every lane', async t => {
+test('beta release assets require only macOS ARM64 acceptance; stable still requires every lane', async t => {
   const betaVersion = '0.2.4-beta.1'
   const beta = await fixture(t, betaVersion)
   const verified = await verifyReleaseAssets(beta.options)
   assert.equal(verified.targetSet, 'beta')
-  assert.deepEqual(Object.keys(beta.manifest.targets).sort(), ['macos-arm64-dmg', 'windows-x64-nsis'])
+  assert.deepEqual(Object.keys(beta.manifest.targets).sort(), ['macos-arm64-dmg'])
   assert.equal(beta.manifest.targets['android-universal-apk'], undefined)
   assert.equal(beta.manifest.targets['linux-x64-appimage'], undefined)
+  assert.equal(beta.manifest.targets['windows-x64-nsis'], undefined)
   const stable = await fixture(t)
   assert.deepEqual(Object.keys(stable.manifest.targets).sort(), Object.keys(acceptanceTargetsForVersion(version)).sort())
   assert.ok(stable.manifest.targets['android-universal-apk'])

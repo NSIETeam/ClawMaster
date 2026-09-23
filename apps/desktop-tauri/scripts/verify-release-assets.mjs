@@ -209,8 +209,12 @@ export async function verifyReleaseAssets(options) {
     const native = JSON.parse(await readFile(join(root, report.file), 'utf8'))
     assert.equal(native.schemaVersion, 1, `${report.file} has an unsupported schema`)
     assert.equal(native.platform, report.platform, `${report.file} belongs to another platform`)
-    assert.equal(acceptance.targets[report.target].scenarios['exit-restart'].evidence.some(entry => entry.file === report.file), true,
-      `${report.target} exit-restart evidence must cite its original candidate-run native report`)
+    // A beta matrix without this lane has no exit-restart citation to check; the report
+    // still has to bind to the exact candidate below.
+    if (acceptance.targets[report.target] !== undefined) {
+      assert.equal(acceptance.targets[report.target].scenarios['exit-restart'].evidence.some(entry => entry.file === report.file), true,
+        `${report.target} exit-restart evidence must cite its original candidate-run native report`)
+    }
     const runtime = native.runs?.[0]?.runtime
     assert.equal(runtime?.desktopVersion, options.version, `${report.file} observed another desktop version`)
     assert.equal(runtime?.buildProvenance?.source?.gitCommit, options.expectedCommit, `${report.file} observed another source commit`)
