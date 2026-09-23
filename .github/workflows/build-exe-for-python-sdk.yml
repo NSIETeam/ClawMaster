@@ -362,6 +362,7 @@ jobs:
           }
 
       - name: Preflight installed-wheel real API test (POSIX)
+        id: preflight-live-posix
         if: >-
           inputs.ci
           && runner.os != 'Windows'
@@ -373,11 +374,14 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
-            echo "::error::DEEPSEEK_API_KEY_EXTERNAL is empty; the installed-wheel real API test cannot self-skip."
-            exit 1
+            echo "::warning::DEEPSEEK_API_KEY_EXTERNAL is empty; skipping the installed-wheel real API test."
+            echo "has-key=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-key=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Preflight installed-wheel real API test (Windows)
+        id: preflight-live-windows
         if: >-
           inputs.ci
           && runner.os == 'Windows'
@@ -389,13 +393,17 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY_EXTERNAL }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:DEEPSEEK_API_KEY)) {
-            throw 'DEEPSEEK_API_KEY_EXTERNAL is empty; the installed-wheel real API test cannot self-skip.'
+            "::warning::DEEPSEEK_API_KEY_EXTERNAL is empty; skipping the installed-wheel real API test." | Out-Host
+            "has-key=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            "has-key=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           }
 
       - name: Run installed-wheel real API black-box test (POSIX)
         if: >-
           inputs.ci
           && runner.os != 'Windows'
+          && steps.preflight-live-posix.outputs.has-key == 'true'
           && (github.event_name != 'pull_request'
               || !(github.event.pull_request.head.repo.fork
                    || github.event.pull_request.user.login == 'dependabot[bot]'))
@@ -416,6 +424,7 @@ jobs:
         if: >-
           inputs.ci
           && runner.os == 'Windows'
+          && steps.preflight-live-windows.outputs.has-key == 'true'
           && (github.event_name != 'pull_request'
               || !(github.event.pull_request.head.repo.fork
                    || github.event.pull_request.user.login == 'dependabot[bot]'))
