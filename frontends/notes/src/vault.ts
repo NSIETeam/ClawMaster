@@ -3,7 +3,7 @@
  * Owns no Session, listener or index; callers supply an absolute vault root.
  */
 import { constants } from 'node:fs';
-import { link, lstat, mkdir, mkdtemp, open, opendir, realpath, rm, unlink } from 'node:fs/promises';
+import { link, lstat, mkdir, mkdtemp, open, opendir, readFile, realpath, rm, unlink } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write';
@@ -133,6 +133,26 @@ function isMissing(error: unknown): boolean {
 function storageError(error: unknown): VaultError {
   if (error instanceof VaultError) return error;
   return new VaultError('storage_unavailable', `Vault operation failed: ${error instanceof Error ? error.message : String(error)}`);
+}
+
+/** Remove a writer lock left by a process that is no longer alive before vault startup. */
+async function recoverOrphanedWriterLock(root: string): Promise<void> {
+  const lockPath = join(root, '.clawmaster-notes-write.lock');
+  let text: string;
+  try { text = await readFile(lockPath, 'utf8'); }
+  catch (error) {
+    if (isMissing(error)) return;
+    throw error;
+  }
+  const pid = Number.parseInt(text.trim(), 10);
+  if (!Number.isSafeInteger(pid) || pid <= 0) return;
+  try {
+    process.kill(pid, 0);
+    return;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') return;
+  }
+  await unlink(lockPath).catch(error => { if (!isMissing(error)) throw error; });
 }
 
 function assertWriteSize(text: string, maxBytes: number): void {
@@ -533,6 +553,7 @@ export function linkNames(id: string): Set<string> {
 /** Open a canonical vault and seed welcome content once while it is empty. */
 export async function openVault(root: string, maxBytes: number): Promise<Vault> {
   const vault = await Vault.open(root);
+  await recoverOrphanedWriterLock(vault.root);
   await vault.seedWelcome(maxBytes);
   return vault;
 }

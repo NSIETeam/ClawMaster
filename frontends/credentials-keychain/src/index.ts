@@ -71,12 +71,15 @@ export default class KeychainCredentialProvider extends CredentialProvider {
   }
 
   async resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined> {
-    const value = await this.broker.get(`ref:${ref}`)
+    let value: string | undefined
+    try { value = await this.broker.get(`ref:${ref}`) }
+    catch { /* A temporarily unavailable OS store may still have a preserved local value. */ }
+    if (value === undefined) value = await this.readLegacyReference(ref)
     return value === undefined ? undefined : { value, source: 'os-secure-store' }
   }
 
   async describe(ref: CredentialRef): Promise<CredentialInfo> {
-    return referenceInfo((await this.broker.get(`ref:${ref}`)) !== undefined)
+    return referenceInfo((await this.resolve(ref)) !== undefined)
   }
 
   async set(ref: CredentialRef, value: string): Promise<void> {
@@ -209,6 +212,27 @@ export default class KeychainCredentialProvider extends CredentialProvider {
 
   private async assertOpen(): Promise<void> {
     if (this.closed) throw new Error('OS credential provider is disposed')
+  }
+
+  /** Read a preserved legacy value when the OS broker is unavailable during recovery. */
+  private async readLegacyReference(ref: CredentialRef): Promise<string | undefined> {
+    const inherited = process.env[ref]
+    if (inherited !== undefined && inherited !== '') return inherited
+    const yamlPath = join(this.spec.dshHome, '.credentials.yaml')
+    try {
+      const metadata = await lstat(yamlPath)
+      if (!metadata.isFile() || metadata.size > MAX_LEGACY_BYTES) return undefined
+      const parsed = parseCredentialsDocument(await readFile(yamlPath, 'utf8'), yamlPath)
+      const value = parsed.refs.get(ref)
+      if (value !== undefined) return value
+    } catch { /* A malformed or inaccessible legacy source is not a credential value. */ }
+    const envPath = join(this.spec.dshHome, '.env')
+    try {
+      const metadata = await lstat(envPath)
+      if (!metadata.isFile() || metadata.size > MAX_LEGACY_BYTES) return undefined
+      const values = parseEnv(await readFile(envPath, 'utf8'))
+      return values[ref]
+    } catch { return undefined }
   }
 
   private async migrateLegacyCredentials(): Promise<void> {

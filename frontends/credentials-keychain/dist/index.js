@@ -3155,11 +3155,16 @@ var KeychainCredentialProvider = class extends CredentialProvider {
     };
   }
   async resolve(ref) {
-    const value = await this.broker.get(`ref:${ref}`);
+    let value;
+    try {
+      value = await this.broker.get(`ref:${ref}`);
+    } catch {
+    }
+    if (value === void 0) value = await this.readLegacyReference(ref);
     return value === void 0 ? void 0 : { value, source: "os-secure-store" };
   }
   async describe(ref) {
-    return referenceInfo(await this.broker.get(`ref:${ref}`) !== void 0);
+    return referenceInfo(await this.resolve(ref) !== void 0);
   }
   async set(ref, value) {
     assertValue(ref, value);
@@ -3279,6 +3284,29 @@ var KeychainCredentialProvider = class extends CredentialProvider {
   }
   async assertOpen() {
     if (this.closed) throw new Error("OS credential provider is disposed");
+  }
+  /** Read a preserved legacy value when the OS broker is unavailable during recovery. */
+  async readLegacyReference(ref) {
+    const inherited = process.env[ref];
+    if (inherited !== void 0 && inherited !== "") return inherited;
+    const yamlPath = join2(this.spec.dshHome, ".credentials.yaml");
+    try {
+      const metadata = await lstat2(yamlPath);
+      if (!metadata.isFile() || metadata.size > MAX_LEGACY_BYTES) return void 0;
+      const parsed = parseCredentialsDocument(await readFile(yamlPath, "utf8"), yamlPath);
+      const value = parsed.refs.get(ref);
+      if (value !== void 0) return value;
+    } catch {
+    }
+    const envPath = join2(this.spec.dshHome, ".env");
+    try {
+      const metadata = await lstat2(envPath);
+      if (!metadata.isFile() || metadata.size > MAX_LEGACY_BYTES) return void 0;
+      const values = parseEnv(await readFile(envPath, "utf8"));
+      return values[ref];
+    } catch {
+      return void 0;
+    }
   }
   async migrateLegacyCredentials() {
     const roots = await this.legacyRoots();

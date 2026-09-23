@@ -208,6 +208,16 @@ describe('vault io', () => {
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
+  it('recovers a writer lock left by a dead process before seeding', async () => {
+    const root = await temporary();
+    try {
+      await writeFile(join(root, '.clawmaster-notes-write.lock'), '999999\n');
+      const vault = await openVault(root, QUERY_LIMITS.maxReadBytes);
+      assert.deepEqual((await vault.list(QUERY_LIMITS)).map(entry => entry.id), [WELCOME_NOTE]);
+      await assert.rejects(readFile(join(root, '.clawmaster-notes-write.lock')), error => error.code === 'ENOENT');
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   it('refuses a non-absolute vault root', async () => {
     await assert.rejects(Vault.open('relative/vault'), rejects('invalid_request'));
   });
