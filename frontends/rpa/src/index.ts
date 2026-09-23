@@ -449,7 +449,13 @@ export function createRpaHandlers(config: RpaConfig = {}): RpaHandlers {
  * @returns The approval service.
  */
 function requireApproval(ctx: Context): RpaApprovalService {
-  const approval = (ctx as Context & { approval?: RpaApprovalService }).approval;
+  const context = ctx as Context & {
+    get?: (name: string) => unknown;
+    approval?: RpaApprovalService;
+  };
+  const approval = (typeof context.get === 'function'
+    ? context.get('approval')
+    : context.approval) as RpaApprovalService | undefined;
   if (approval === undefined || typeof approval.request !== 'function') {
     throw new Error('The approval capability is unavailable, so no desktop action can be granted.');
   }

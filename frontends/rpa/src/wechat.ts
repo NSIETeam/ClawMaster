@@ -63,7 +63,13 @@ export function registerWechatRead(ctx: Context, config: RpaConfig): void {
     async execute(input, exec) {
       const request = requestFrom(input);
       exec.signal.throwIfAborted();
-      const approval = (ctx as Context & { approval?: RpaApprovalService }).approval;
+      const context = ctx as Context & {
+        get?: (name: string) => unknown;
+        approval?: RpaApprovalService;
+      };
+      const approval = (typeof context.get === 'function'
+        ? context.get('approval')
+        : context.approval) as RpaApprovalService | undefined;
       if (!exec.agent || !approval || typeof approval.request !== 'function') {
         throw new Error('读取微信需要当前会话中的一次性用户授权；尚未读取任何聊天。');
       }
