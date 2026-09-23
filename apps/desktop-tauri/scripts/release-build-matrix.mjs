@@ -1,4 +1,5 @@
 /** Select platform builders from the explicit desktop release tag. */
+import { realpathSync } from 'node:fs'
 import { appendFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,7 +18,7 @@ export function releaseBuildMatrix(tag) {
   return beta ? BUILD_TARGETS.slice(0, 2) : [...BUILD_TARGETS]
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   const tag = process.argv[2]
   if (!tag) throw new Error('Usage: release-build-matrix.mjs <desktop-v<semver>>')
   const matrix = { include: releaseBuildMatrix(tag) }

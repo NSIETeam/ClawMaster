@@ -1,7 +1,7 @@
 /** Inventory and archive uncommitted work without altering the working tree or deleting unknown files. */
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { lstatSync, mkdirSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, readFileSync, readlinkSync, realpathSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -180,7 +180,7 @@ export function runWorktreeInventory({ root = process.cwd(), outDir }) {
   return { inventory, jsonPath, markdownPath, patchPath, archivePath }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const outIndex = process.argv.indexOf('--out')
   const outDir = outIndex === -1 ? join(process.cwd(), '.dsh-build', 'worktree-inventory') : resolve(process.argv[outIndex + 1])
   const result = runWorktreeInventory({ outDir })

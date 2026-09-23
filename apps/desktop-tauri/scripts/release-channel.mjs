@@ -1,4 +1,5 @@
 /** Resolve the desktop tag, program version and GitHub publication channel. */
+import { realpathSync } from 'node:fs'
 import { appendFile, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -21,7 +22,7 @@ export function resolveReleaseChannel({ version, tauriVersion, tag }) {
   return { version, tag, title: `ClawMaster WatchDog ${tag.slice('desktop-v'.length)}`, prerelease: !stable, latest: stable, targetSet: beta ? 'beta' : 'current' }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   const desktop = new URL('../', import.meta.url)
   const pkg = JSON.parse(await readFile(new URL('package.json', desktop), 'utf8'))
   const tauri = JSON.parse(await readFile(new URL('src-tauri/tauri.conf.json', desktop), 'utf8'))

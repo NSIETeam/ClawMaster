@@ -1,5 +1,6 @@
 /** Verify that publication consumes an immutable successful candidate build run. */
 import assert from 'node:assert/strict'
+import { realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -20,7 +21,7 @@ export function verifyReleaseBuildRun(run, expected) {
   return { runId: run.id, attempt: run.run_attempt, commit: run.head_sha }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const { values } = parseArgs({ options: { 'run-file': { type: 'string' }, 'run-id': { type: 'string' }, commit: { type: 'string' }, tag: { type: 'string' }, repository: { type: 'string' } } })
   assert.ok(values['run-file'] && values['run-id'] && values.commit && values.tag && values.repository,
     'Required: --run-file <GitHub API JSON> --run-id <id> --commit <full SHA> --tag <desktop-v*> --repository <owner/name>')

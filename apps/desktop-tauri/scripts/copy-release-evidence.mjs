@@ -1,5 +1,6 @@
 /** Copy reviewed release evidence without overwriting original build assets. */
 import assert from 'node:assert/strict'
+import { realpathSync } from 'node:fs'
 import { copyFile, lstat, readdir } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -27,7 +28,7 @@ export async function copyReleaseEvidence({ source, destination }) {
   return files.sort()
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const { values } = parseArgs({ options: { source: { type: 'string' }, destination: { type: 'string' } } })
   assert.ok(values.source && values.destination, 'Required: --source <flat evidence dir> --destination <original assets dir>')
   console.log(`Copied ${ (await copyReleaseEvidence({ source: values.source, destination: values.destination })).length } reviewed evidence files`)

@@ -13,6 +13,7 @@
  * a published version of its own line is the accident above.
  */
 import { execFileSync } from 'node:child_process'
+import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readDesktopVersion } from './desktop-version.mjs'
@@ -98,7 +99,7 @@ export function guardReleaseVersion({ version, tags, releasing }) {
   return version
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
   if (process.argv[2] !== '--check') throw new Error('Use --check <release-tag>')
   const version = await readDesktopVersion(root)

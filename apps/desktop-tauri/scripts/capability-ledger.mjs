@@ -1,5 +1,5 @@
 /** Check the capability ledger: every product promise resolves to its source, code, evidence and platforms. */
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 
@@ -152,7 +152,7 @@ export function repositoryRoot() {
   return resolve(fileURLToPath(new URL('../../..', import.meta.url)))
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const rootIndex = process.argv.indexOf('--root')
   const root = rootIndex === -1 ? repositoryRoot() : resolve(process.argv[rootIndex + 1])
   const result = checkCapabilityLedger(readLedger(ledgerPath(root)), root)
