@@ -1,12 +1,17 @@
 import { valueMap } from '@deepseek-ai/cosmokit'
 
-// eslint-disable-next-line no-new-func
 /** Evaluate a JavaScript expression against a loader context scope. */
-export const evaluate = new Function('ctx', 'expr', `
-  with (ctx) {
-    return eval(expr)
-  }
-`) as ((ctx: object, expr: string) => any)
+export function evaluate(ctx: object, expr: string): any {
+  // Compile only when a config actually contains `!!js`; constructing this at
+  // module load time prevents browser clients from starting under strict CSP.
+  // eslint-disable-next-line no-new-func
+  const run = new Function('ctx', 'expr', `
+    with (ctx) {
+      return eval(expr)
+    }
+  `) as (ctx: object, expr: string) => any
+  return run(ctx, expr)
+}
 
 /** Recursively replace YAML `!js` expression nodes with evaluated values. */
 export function interpolate(ctx: object, value: any) {

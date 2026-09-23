@@ -24,6 +24,8 @@
   "exclude": [
     "tests/dynamic-cordis-csp.e2e.ts",
     "tests/dynamic-cordis-csp.fixture.ts",
+    "tests/loader-import-csp.e2e.ts",
+    "tests/loader-import-csp.fixture.ts",
     "tests/scaffold.ts",
     "tests/scaffold-generation.spec.ts",
     "tests/scaffold-hermetic.e2e.ts",
