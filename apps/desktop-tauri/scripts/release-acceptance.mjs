@@ -31,6 +31,9 @@ export function acceptanceTargetsForVersion(version) {
   return /^\d+\.\d+\.\d+-beta\.[1-9]\d*$/u.test(version) ? BETA_ACCEPTANCE_TARGETS : ACCEPTANCE_TARGETS
 }
 
+/** Beta releases may omit live IM credentials; every other desktop integration remains required. */
+export const BETA_OPTIONAL_INTEGRATIONS = new Set(['wechat-selected-read', 'im-weixin-ui', 'im-feishu-ui', 'im-dingtalk-ui', 'im-qq-ui', 'im-wecom-ui'])
+
 const COMMON_SCENARIOS = ['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart', 'upgrade-data-preservation', 'uninstall-data-policy']
 const DESKTOP_SCENARIOS = [...COMMON_SCENARIOS, 'unicode-space-path', 'update-rollback', 'optional-component-failure-recovery', 'approval-allow', 'approval-deny', 'cancel-task', 'write-failure-no-commit']
 const ANDROID_SCENARIOS = [...COMMON_SCENARIOS, 'approval-allow', 'approval-deny', 'cancel-task', 'conversation-persistence']
@@ -158,6 +161,10 @@ export async function verifyReleaseAcceptance(manifest, options) {
       const result = object(lane.integrations[integration], `${target}/${integration}`)
       assert.ok(statuses.includes(result.status), `${target}/${integration} has an invalid status`)
       assert.ok(['available', 'experimental', 'unavailable'].includes(result.availability), `${target}/${integration} availability must be explicit`)
+      if (result.status !== 'passed' && /^\d+\.\d+\.\d+-beta\.[1-9]\d*$/u.test(manifest.version) && BETA_OPTIONAL_INTEGRATIONS.has(integration)) {
+        nonempty(result.reason, `${target}/${integration} reason`)
+        continue
+      }
       if (['real-model', 'native-rpa-browser-click'].includes(integration) && result.status !== 'passed') {
         incomplete.push(`${target}/${integration}: no successful installed integration`)
       }

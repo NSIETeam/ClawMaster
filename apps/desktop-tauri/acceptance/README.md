@@ -35,6 +35,8 @@ Publisher verification uses `developer-id-notarized` on macOS, `authenticode` on
 
 Every lane needs a successful real-model request whose credential came from that platform's OS secure credential store. Desktop lanes also need an installed browser click through Native RPA, with approved execution evidence; selected-chat WeChat reading retains its own account-consent evidence. Each desktop lane separately exercises the blocked or connected state for Weixin, Feishu, DingTalk, QQ and WeCom. An unconfigured channel passes this UI check only with evidence that the application shows `blocked`, reports why it is unavailable, and does not claim a successful connection; a connected channel records explicit test-account consent and the exact client version. This matrix neither grants access to a personal account nor creates approval for collecting real messages.
 
+Beta releases may explicitly mark `wechat-selected-read` and the five IM UI integrations `not-run` when no authorized test account is available. The manifest must state that the live connector credentials were intentionally omitted; model, Office, Native RPA, lifecycle, upgrade, network recovery, approval, rollback and write-safety checks remain mandatory.
+
 <a id="validate-publication-readiness"></a>
 ## Validate publication readiness
 

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
-import { ACCEPTANCE_TARGETS, createAcceptanceTemplate, verifyReleaseAcceptance } from './release-acceptance.mjs'
+import { ACCEPTANCE_TARGETS, BETA_OPTIONAL_INTEGRATIONS, createAcceptanceTemplate, verifyReleaseAcceptance } from './release-acceptance.mjs'
 
 const commit = 'a'.repeat(40)
 const version = '0.2.3'
@@ -152,6 +152,18 @@ test('desktop acceptance requires OS credential stores, installed RPA, and five 
 test('beta template contains only the macOS installer lane', () => {
   const template = createAcceptanceTemplate('0.2.3-beta.1', commit, ['0.2.2'])
   assert.deepEqual(Object.keys(template.targets).sort(), ['macos-arm64-dmg'])
+})
+
+test('beta acceptance may explicitly skip live IM integrations', async t => {
+  const f = await fixture(t)
+  f.manifest.version = '0.2.3-beta.1'
+  f.options.expectedVersion = f.manifest.version
+  f.manifest.targets = { 'macos-arm64-dmg': f.manifest.targets['macos-arm64-dmg'] }
+  const lane = f.manifest.targets['macos-arm64-dmg']
+  lane.installedVersion = f.manifest.version
+  lane.signature.kind = 'unsigned-ad-hoc'
+  for (const integration of BETA_OPTIONAL_INTEGRATIONS) lane.integrations[integration] = { status: 'not-run', availability: 'experimental', reason: 'Live connector credentials intentionally omitted for beta acceptance' }
+  assert.equal((await verifyReleaseAcceptance(f.manifest, f.options)).ready, true)
 })
 
 test('an evidence path cannot escape its root or replace a retained file with a symlink', async t => {
