@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "version": "0.0.1-beta.6",
+  "sourceCommit": "c14ad5ebefabf36ceecd10eceb8c833f2fdc0b02",
+  "supportedUpgradeVersions": [
+    "0.0.1-beta.5"
+  ],
+  "targets": {
+    "macos-arm64-dmg": {
+      "status": "not-run",
+      "reason": "Installed candidate acceptance has not been collected for this target"
+    },
+    "windows-x64-nsis": {
+      "status": "not-run",
+      "reason": "Installed candidate acceptance has not been collected for this target"
+    }
+  }
+}
