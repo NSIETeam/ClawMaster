@@ -126,6 +126,14 @@ test('every shipped frontend has frozen build dependencies before product verifi
   assert.ok(!mac.run.includes('--close-mode terminate'))
 })
 
+test('isolated browser render proof uploads from the runner temp directory', () => {
+  const step = workflow.jobs['isolated-install-verify'].steps.find(entry => entry.name === 'Upload render proof')
+  assert.ok(step)
+  assert.match(step.with.path, /\$\{\{ runner\.temp \}\}\/render-proof\.png/u)
+  assert.match(step.with.path, /\$\{\{ runner\.temp \}\}\/host\.log/u)
+  assert.equal(step.with['if-no-files-found'], 'error')
+})
+
 test('WeChat approval and updater target replays run on Unix after their built runtime and before packaging', () => {
   const steps = workflow.jobs.build.steps
   const replay = steps.findIndex(step => step.name === 'Replay WeChat approvals and unavailable update targets')

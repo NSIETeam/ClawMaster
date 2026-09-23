@@ -517,9 +517,9 @@ jobs:
         with:
           name: release-render-proof
           path: |
-            render-proof.png
-            host.log
-          if-no-files-found: warn
+            ${{ runner.temp }}/render-proof.png
+            ${{ runner.temp }}/host.log
+          if-no-files-found: error
           retention-days: 7
 
   release:

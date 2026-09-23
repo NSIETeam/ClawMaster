@@ -469,6 +469,14 @@ export class Session implements SessionFace {
     await this.open()
   }
 
+  /** Retry a window that failed while the Host carrier was unavailable. */
+  recoverAfterConnection(): void {
+    if (this.openState !== 'error' || this.openError?.code !== 'gateway/internal') return
+    void this.resync().catch((error) => {
+      console.error('[session-controller] reconnect recovery failed:', error)
+    })
+  }
+
   // ---- Subscription API (useSyncExternalStore direct wiring) ----
 
   /**

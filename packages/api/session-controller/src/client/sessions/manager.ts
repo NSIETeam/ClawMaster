@@ -792,6 +792,11 @@ export class SessionManager {
    */
   handleConnected(): void {
     void this.refreshList()
+    // A session selected while the Host was offline can finish its initial
+    // journal open in the terminal gateway/internal error state. Its stream
+    // has no generation to reconnect, so the new Host generation must retry
+    // that open explicitly; already-open streams recover themselves.
+    for (const session of this.sessions.values()) session.recoverAfterConnection()
     const selectedAddress = this.selected === undefined ? undefined : this.addresses.get(this.selected)
     if (selectedAddress !== undefined) void this.refreshSubagents(selectedAddress.parentSessionId)
     if (this.selected !== undefined) void this.refreshSubagents(this.selected)

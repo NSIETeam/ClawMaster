@@ -751,6 +751,29 @@ describe('remaining branches', () => {
 })
 
 describe('connected generation', () => {
+  it('reopens a session whose first history load failed while the Host was offline', async () => {
+    const api = new FakeApiClient()
+    let historyCalls = 0
+    api.onHistory = () => {
+      historyCalls++
+      return historyCalls === 1
+        ? Promise.resolve(err(new RemoteError('gateway/internal', 'carrier offline', {})))
+        : Promise.resolve(ok({
+          records: entries(plainTurn(SessionSeq(0), 0, '恢复', '成功')) as never[],
+          hasMore: false,
+        }))
+    }
+    const manager = new SessionManager(fakeRemote(api), S1)
+    const session = manager.get(S1)
+    await session.open()
+    expect(session.getSnapshot().openState).toBe('error')
+
+    manager.handleConnected()
+    await vi.waitFor(() => { expect(session.getSnapshot().openState).toBe('open') })
+    expect(historyCalls).toBe(2)
+    expect(session.getSnapshot().openError).toBeNull()
+  })
+
   it('refreshes query baselines without rebuilding independently resumed Session sources', async () => {
     const api = new FakeApiClient()
     api.onHistory = () => Promise.resolve(ok({
