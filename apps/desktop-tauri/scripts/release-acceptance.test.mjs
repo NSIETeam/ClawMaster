@@ -149,9 +149,9 @@ test('desktop acceptance requires OS credential stores, installed RPA, and five 
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /blocked state/)
 })
 
-test('beta template contains only the Windows and macOS installer lanes', () => {
+test('beta template contains only the macOS installer lane', () => {
   const template = createAcceptanceTemplate('0.2.3-beta.1', commit, ['0.2.2'])
-  assert.deepEqual(Object.keys(template.targets).sort(), ['macos-arm64-dmg', 'windows-x64-nsis'])
+  assert.deepEqual(Object.keys(template.targets).sort(), ['macos-arm64-dmg'])
 })
 
 test('an evidence path cannot escape its root or replace a retained file with a symlink', async t => {
@@ -175,4 +175,45 @@ test('the publication CLI fails for blocked certificates while report-only retai
   const report = JSON.parse(execFileSync(process.execPath, [...args, '--report-only'], { encoding: 'utf8' }))
   assert.equal(report.ready, false)
   assert.equal(report.incomplete.length, 1)
+})
+
+test('beta lanes accept ad-hoc signatures for the narrowed macOS-only matrix', async t => {
+  const betaVersion = '0.0.1-beta.6'
+  const betaRoot = await mkdtemp(join(tmpdir(), 'clawmaster-beta-acceptance-'))
+  t.after(() => rm(betaRoot, { recursive: true, force: true }))
+  await mkdir(join(betaRoot, 'logs'))
+  const log = 'Synthetic validator fixture; this file is not platform acceptance evidence.\n'
+  await writeFile(join(betaRoot, 'logs/codesign.txt'), log)
+  const betaEvidence = [{ file: 'logs/codesign.txt', sha256: hash(log) }]
+  const passed = () => ({ status: 'passed', evidence: structuredClone(betaEvidence) })
+  const beta = createAcceptanceTemplate(betaVersion, commit, ['0.0.1-beta.5'])
+  const file = 'macos-arm64-dmg.dmg'
+  await writeFile(join(betaRoot, file), 'synthetic macos')
+  beta.targets['macos-arm64-dmg'] = {
+    status: 'passed', platform: 'darwin', architecture: 'arm64', osVersion: 'fixture OS', environment: 'clean-vm',
+    installedVersion: betaVersion, sourceCommit: commit, artifact: { file, sha256: hash('synthetic macos') },
+    signature: { ...passed(), kind: 'unsigned-ad-hoc', publisher: 'Fixture Publisher' },
+    scenarios: Object.fromEntries(['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart', 'upgrade-data-preservation',
+      'uninstall-data-policy', 'unicode-space-path', 'update-rollback', 'optional-component-failure-recovery', 'approval-allow', 'approval-deny', 'cancel-task', 'write-failure-no-commit'].map(key => [key, passed()])),
+    upgrades: { '0.0.1-beta.5': { ...passed(), preserved: { settings: true, credentials: true, sessions: true, businessData: true } } },
+    integrations: { 'real-model': { ...passed(), availability: 'available', credentialStore: 'macos-keychain' },
+      'office-save': { status: 'not-run', availability: 'experimental', reason: 'Deferred with the beta scope' },
+      'wechat-selected-read': { status: 'not-run', availability: 'experimental', reason: 'No authorized test account' },
+      'native-rpa-browser-click': { ...passed(), availability: 'available', browserVersion: 'Fixture Browser 1' },
+      ...Object.fromEntries(['weixin', 'feishu', 'dingtalk', 'qq', 'wecom'].map(channel => [`im-${channel}-ui`, {
+        ...passed(), availability: 'unavailable', uiState: 'blocked', reason: 'No configured connector',
+      }])) },
+  }
+  const options = { root: betaRoot, expectedCommit: commit, expectedVersion: betaVersion }
+  assert.equal((await verifyReleaseAcceptance(beta, options)).ready, true)
+
+  // The Windows lane is not part of the beta matrix and cannot be smuggled in.
+  const withWindows = structuredClone(beta)
+  withWindows.targets['windows-x64-nsis'] = structuredClone(beta.targets['macos-arm64-dmg'])
+  await assert.rejects(verifyReleaseAcceptance(withWindows, options), /Every supported installer/)
+
+  // The stable matrix still refuses an ad-hoc signature for the same installer.
+  const stable = await fixture(t)
+  stable.manifest.targets['macos-arm64-dmg'].signature.kind = 'unsigned-ad-hoc'
+  await assert.rejects(verifyReleaseAcceptance(stable.manifest, stable.options), /publisher verification/)
 })

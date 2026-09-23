@@ -15,10 +15,15 @@ export const ACCEPTANCE_TARGETS = Object.freeze({
   'linux-x64-deb': { platform: 'linux', architecture: 'x64', signature: 'minisign', extension: '.deb' },
   'android-universal-apk': { platform: 'android', architecture: 'universal', signature: 'android-apk', extension: '.apk' },
 })
-/** The explicitly narrower beta installer matrix; stable releases retain ACCEPTANCE_TARGETS. */
+/** The explicitly narrower beta installer matrix; stable releases retain ACCEPTANCE_TARGETS.
+ * Beta ships the macOS arm64 lane only: publisher certificates are not purchased yet
+ * (GitHub #251/#247), so a beta lane verifies the codesign identity as `unsigned-ad-hoc`
+ * with the codesign output retained as evidence, and the Windows lane returns together
+ * with Authenticode and a real acceptance device. Gate relaxation explicitly confirmed
+ * by product management on 2026-09-23; rationale in the 2026-09-23 beta signature policy
+ * Agent Note. */
 export const BETA_ACCEPTANCE_TARGETS = Object.freeze({
-  'macos-arm64-dmg': ACCEPTANCE_TARGETS['macos-arm64-dmg'],
-  'windows-x64-nsis': ACCEPTANCE_TARGETS['windows-x64-nsis'],
+  'macos-arm64-dmg': { ...ACCEPTANCE_TARGETS['macos-arm64-dmg'], signature: 'unsigned-ad-hoc' },
 })
 
 /** @param {string} version @returns {typeof ACCEPTANCE_TARGETS} Installed target matrix selected by the exact program version. */
