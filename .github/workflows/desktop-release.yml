@@ -524,8 +524,11 @@ jobs:
 
   release:
     name: Publish GitHub Release
+    # No `needs`: a publish dispatch evaluates build's `if` to false, and a skipped
+    # need propagates and would skip this job too. Publication consumes the original
+    # candidate run instead, whose green conclusion already covers the isolated-install
+    # render gate (verify-release-build-run.mjs requires the run to have succeeded).
     if: github.event_name == 'workflow_dispatch' && inputs.publish == true
-    needs: [build, isolated-install-verify]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

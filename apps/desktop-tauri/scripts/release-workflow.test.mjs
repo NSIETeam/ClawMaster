@@ -27,7 +27,11 @@ test('manual validation defaults to an immutable branch build without publicatio
   assert.equal(workflow.jobs.build.strategy.matrix, '${{ fromJSON(needs.plan-build.outputs.matrix) }}')
   assert.match(workflow.jobs['plan-build'].steps.find(step => step.name === 'Select builders from the explicit tag').run, /release-build-matrix\.mjs/u)
   assert.equal(workflow.jobs.release.if, "github.event_name == 'workflow_dispatch' && inputs.publish == true")
+  // Publication consumes the original candidate run (inputs.build_run_id): needing this
+  // run's build would skip the release job on a publish dispatch, because a skipped need
+  // propagates. The blank-window render gate stays on the candidate run instead.
   assert.equal(workflow.jobs.release.needs, undefined)
+  assert.equal(workflow.jobs['isolated-install-verify'].needs, 'build')
   assert.equal(workflow.jobs.release.environment, 'desktop-release')
   assert.equal(workflow.jobs.release.permissions.actions, 'read')
   assert.equal(workflow.jobs.release.permissions.contents, 'write')
