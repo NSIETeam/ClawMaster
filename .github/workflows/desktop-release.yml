@@ -275,6 +275,14 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           pnpm --dir apps/desktop-tauri exec tauri build --target ${{ matrix.target }} --bundles '${{ matrix.bundles }}' ${{ runner.os == 'Linux' && '--verbose' || '' }}
 
+          # Cargo may rewrite the lockfile while Tauri resolves a platform
+          # target. The release provenance was recorded before packaging, so
+          # retain that committed lockfile and reject every other mutation.
+          $changed = @(git diff --name-only -- apps/desktop-tauri/src-tauri/Cargo.lock)
+          $unexpected = @(git diff --name-only | Where-Object { $_ -ne 'apps/desktop-tauri/src-tauri/Cargo.lock' })
+          if ($unexpected.Count -gt 0) { throw "Desktop packaging changed source files: $($unexpected -join ', ')" }
+          if ($changed.Count -gt 0) { git restore --worktree -- apps/desktop-tauri/src-tauri/Cargo.lock }
+
       - name: Verify prepared payload
         run: |
           $ErrorActionPreference = 'Stop'
