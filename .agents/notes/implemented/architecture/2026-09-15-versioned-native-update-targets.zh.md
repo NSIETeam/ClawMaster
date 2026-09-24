@@ -12,7 +12,7 @@ Status: implemented
 
 [manifest 生成器](../../../../apps/desktop-tauri/scripts/generate-updater-manifest.mjs)选择 `current` 或 `legacy`。当前发布要求 Windows x64、macOS arm64、Linux x64 AppImage 与 Linux x64 DEB。旧 manifest 额外包含 Intel macOS。生成时要求显式选择 CLI 参数；读取时只接受这两种完整集合。文件缺失不代表允许不完整发布，未知目标会被拒绝。
 
-v2 通道使用 `/updates/clawmaster/v2/latest.json` 和 `/updates/clawmaster/v2/versions/`，具有独立服务代码与可写状态。旧根 manifest 保持五目标的 0.2.1 响应，其不可变文件继续可用。组件目录与便携更新包保留现有根路径。两个原生通道保留同一固定发布公钥及[已验证字节的发布规则](2026-09-15-desktop-self-hosted-update-channel.zh.md)。
+v2 通道使用 `/updates/clawmaster/v2/latest.json` 和 `/updates/clawmaster/v2/versions/`，具有独立服务代码与可写状态。仅提供 v2 原生 manifest 与文件。旧 manifest 生成器仍可用于校验历史五目标 manifest，但根原生 manifest 和资源路由已退役。组件目录与便携更新包保留现有根路径。服务中的原生通道保留固定发布公钥及[已验证字节的发布规则](2026-09-15-desktop-self-hosted-update-channel.zh.md)。[撤回旧发布的决策](2026-09-24-withdraw-native-release-history.zh.md)记录公开重置与恢复边界。
 
 同步器要求选定的 GitHub 产物集合与 manifest 目标集合一致。旧 Intel 产物必须具有对应签名和 manifest 条目；当前发布同时省略二者。两种集合都执行相同的校验和、签名、版本及原子发布校验。[服务器参考](../../../../apps/desktop-tauri/server-updates/README.zh.md)负责迁移、保留状态检查与回滚。
 
@@ -26,6 +26,6 @@ v2 通道使用 `/updates/clawmaster/v2/latest.json` 和 `/updates/clawmaster/v2
 
 ## 影响
 
-旧组件在显式更新前继续使用保留通道；单独迁移服务器不会将其切换到 v2。服务器保留两个目录，并检查迁移后所有旧文件哈希未变。原生安装验收仍针对三个受支持的构建目标分别执行。
+更新组件 0.1.0 和 0.1.1 在显式升级前可能继续请求已退役的根 URL；原生更新只由 v2 提供。历史状态不属于活动服务的可写目录。原生安装验收针对四个受支持的构建目标。
 
-测试使用真实 Minisign 向量验证新旧产物，拒绝缺失或未知目标及不完整的 Intel 条目，并验证发布或拒绝 v2 候选版本都不能修改独立的旧状态。这些检查不代表已经完成服务器部署或客户端升级。
+测试使用真实 Minisign 向量验证当前与历史格式产物，拒绝缺失或未知目标及不完整的 Intel 条目，并验证 Nginx 配置不提供旧原生路由。这些检查不代表已经完成服务器部署或客户端升级。

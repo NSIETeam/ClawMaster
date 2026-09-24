@@ -6,7 +6,7 @@
 
 下载的 Node 压缩包必须匹配所选 Node 版本与平台对应的官方固定 SHA-256。配置镜像只改变下载地址，不改变预期摘要。预配仅复用经过校验的缓存，将替代下载写入私有临时文件，校验通过后才原子替换缓存；中断、取消或摘要错误都会保留现有缓存，并保持已安装 Node 不变。后续尝试会重新下载无效缓存。原生与 WSL 预配共用此检查。这些压缩包检查不能证明主机提供的 Node 二进制可信，也不能替代已安装平台验收。
 
-桌面包版本：**0.2.6**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
+桌面包版本：**0.0.1**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
 
 Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独立。Host 启动地址只在内存中传给独立 WebView，由上游认证流程签发登录 cookie。原生 capability 只匹配包内 `main` 外壳 WebView；启动页、独立 Host 内容及其文档 frame 不获得原生命令。Host 主视图导航限定到包含端口的精确回环来源。不含凭据的外部 HTTP(S) 链接使用 `target="_blank"` 时交系统默认浏览器打开；回环目标与可执行 scheme 被拒绝。同源 `/clawmaster/office/runtime/NOTICE.html` 页面在没有查询参数时通过独立的 `office-notice` WebView 打开，该标签没有原生权限。启动日志不记录认证令牌。裁剪包包含 `native/system`，并仅在裁剪树中允许开发工具补丁未使用；实际补丁应用失败仍会阻止安装。
 
@@ -139,7 +139,7 @@ pnpm install
 pnpm run build:win
 ```
 
-安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.2.6_x64-setup.exe`
+安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.0.1_x64-setup.exe`
 
 NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语言自动跟随操作系统 locale，不显示语言选择器；不支持的 locale 使用英语。原生启动页、托盘、关闭对话框和启动状态文案遵循同一规则（`zh*` 用中文，其余用英语）。嵌入的 `dsh web` 客户端仍使用自己的 Settings 语言。复制文件前，安装器会静默关闭 `dsh-desktop.exe` 及其子进程树。安装后，安装器使用独立的版本化 ICO 资源重建已有桌面快捷方式，并通知 Explorer 清除陈旧的图标缓存记录。
 
@@ -160,9 +160,7 @@ Windows 构建步骤使用原生 PowerShell。每个 PowerShell 发布步骤要�
 
 内置的[更新组件](../../frontends/updates/README.zh.md)提供 `/updates`、`clawmaster_updates` 和受审批控制的 `clawmaster_update` 工具。默认每分钟检查签名服务器元数据；下载和 profile 改动须获一次性批准。打包时仅向更新器的副本补充桌面专用的 `dsh.bundle.patch` 元数据与[桌面补丁](updates/cordis.patch.yml)，其公开模块和原始包保持不变。profile 声明 `@clawmaster/dsh-updates`，因此既有便携更新包会拒绝重复首次安装。桌面补丁与该更新包使用相同的条目 id。既有 profile、主目录补丁或其他 bundle 已插入该更新器时，启动会省略桌面 overlay 并保留用户补丁。原生桌面在 Host 启动前通过可信维护程序应用已批准的更新器切换，确认实际加载的更新器入口，并在下次启动时恢复未获确认的选择。其他要求重启的组件、旧更新器迁移和 WSL 仍受[组件文档中的限制](../../frontends/updates/README.zh.md)。
 
-GitHub 仍是构建与发布来源；更新服务器镜像已验证的更新文件，不重新构建或签名。已安装的 `0.2.1` 程序在后续原生更新前仍保留编译时的 GitHub 端点；更改服务器或 DSH profile 不会改变该端点。
-
-桌面 0.2.2 内置更新器 0.1.2，包含 Windows 缓存冲突处理、原始归档路径校验及四目标 v2 原生通道支持。旧端点保留五目标清单，供旧版严格解析器使用。用户已经挂载的更新器保留自己的版本和配置；原生桌面升级不会静默替换该组件。已有独立更新器须单独升级组件后才能使用 v2 通道。已发布的 0.1.0 组件与便携更新包保持不可变。
+GitHub 是构建与发布来源；更新服务器镜像已验证的更新文件，不重新构建或签名。原生更新使用四目标 v2 端点。已退役的旧原生端点返回 404，已撤下的原生安装包 URL 不可用。仍指向这些 URL 的已安装版本须手动安装受支持版本；更改服务器或 DSH profile 无法改变编译时端点。
 
 Release 资产归公开的 [ClawMaster-Desktop 仓库](https://github.com/NSIETeam/ClawMaster-Desktop/releases)所有，名称包含操作系统与架构。发布前，[签名校验器](scripts/verify-updater-signatures.mjs)使用已提交的发布公钥校验每份更新产物的签名，并核对 manifest 中的签名与对应产物。Tauri 更新签名通过配置的更新公钥验证下载产物。macOS 临时签名检查应用完整性，不认证开发者身份，也不包含 Apple 公证。Windows 安装包没有发布者证书。
 

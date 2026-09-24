@@ -180,15 +180,14 @@ test('missing required targets, unknown targets and Intel asset disagreement ret
   })
 })
 
-test('server configuration directs synchronization only to v2 while legacy and component paths retain their state', async () => {
+test('server configuration publishes only v2 native updates while retaining component and kit paths', async () => {
   const service = await readFile(new URL('../server-updates/clawmaster-updates.service', import.meta.url), 'utf8')
   const nginx = await readFile(new URL('../server-updates/clawmaster-updates.nginx.conf', import.meta.url), 'utf8')
   assert.match(service, /^StateDirectory=clawmaster-updates-v2$/m)
   assert.match(service, /^WorkingDirectory=\/opt\/clawmaster-updates-v2$/m)
   assert.match(service, /--state-dir \/var\/lib\/clawmaster-updates-v2 --public-key \/opt\/clawmaster-updates\/release-signing\.pub --base-url https:\/\/8\.140\.52\.117\/updates\/clawmaster\/v2 /)
   assert.match(nginx, /location = \/updates\/clawmaster\/v2\/latest\.json \{\s+alias \/var\/lib\/clawmaster-updates-v2\/public\/latest\.json;/)
-  assert.match(nginx, /location = \/updates\/clawmaster\/latest\.json \{\s+alias \/var\/lib\/clawmaster-updates\/public\/latest\.json;/)
-  assert.match(nginx, /location \^~ \/updates\/clawmaster\/versions\/ \{\s+alias \/var\/lib\/clawmaster-updates\/public\/versions\/;/)
+  assert.match(nginx, /location \^~ \/updates\/clawmaster\/ \{\s+return 404;/)
   assert.match(nginx, /location \^~ \/updates\/clawmaster\/v2\/versions\/ \{\s+alias \/var\/lib\/clawmaster-updates-v2\/public\/versions\/;/)
   assert.match(nginx, /location = \/updates\/clawmaster\/components\/catalog\.json \{\s+alias \/var\/lib\/clawmaster-updates\/components\/current\/catalog\.json;/)
   assert.match(nginx, /location \^~ \/updates\/clawmaster\/kits\/ \{\s+alias \/var\/lib\/clawmaster-updates\/kits\/;/)
