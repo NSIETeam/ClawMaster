@@ -1,6 +1,6 @@
 /** Validate observations collected from the installed Windows desktop and its owned Host. */
 import assert from 'node:assert/strict'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { win32, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -62,7 +62,7 @@ export function verifyWindowsNativeEvidence(evidence, bundle, version) {
   return evidence
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const [input, manifest, version, output] = process.argv.slice(2)
   assert.ok(input && manifest && version && output, 'Required: <observations.json> <bundle-manifest.json> <version> <output.json>')
   const verified = verifyWindowsNativeEvidence(JSON.parse(readFileSync(input, 'utf8')), JSON.parse(readFileSync(manifest, 'utf8')), version)

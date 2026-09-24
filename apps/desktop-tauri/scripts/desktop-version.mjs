@@ -1,4 +1,5 @@
 /** Keep desktop package, Cargo manifest and lockfile, and Tauri versions generated from version.json. */
+import { realpathSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -85,7 +86,7 @@ export async function syncDesktopVersion(root) {
   return version
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
   const mode = process.argv[2]
   if (mode === '--sync') {

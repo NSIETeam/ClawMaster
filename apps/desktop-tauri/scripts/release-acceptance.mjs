@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
+import { realpathSync } from 'node:fs'
 import { lstat, readFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -198,7 +199,7 @@ export async function verifyReleaseAcceptance(manifest, options) {
   return result
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   const { values } = parseArgs({ options: { manifest: { type: 'string' }, root: { type: 'string' }, commit: { type: 'string' }, version: { type: 'string' },
     template: { type: 'boolean', default: false }, 'upgrade-from': { type: 'string', multiple: true }, 'report-only': { type: 'boolean', default: false } } })
   assert.ok(values.commit && values.version && (values.manifest || values.template), 'Required: --manifest <file> --commit <full SHA> --version <version> [--root <artifact root>] or --template --upgrade-from <old version>')

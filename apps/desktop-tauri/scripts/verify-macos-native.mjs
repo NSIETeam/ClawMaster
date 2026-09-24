@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import { execFile, spawn } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
+import { realpathSync } from 'node:fs'
 import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path'
@@ -588,7 +589,7 @@ export async function verifyMacosNative(options) {
   return verified
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   try {
     const evidence = await verifyMacosNative(parseOptions(process.argv.slice(2)))
     console.log(JSON.stringify({ preflight: evidence.preflight ?? false, runtimeVerified: evidence.runtimeVerified ?? false,
