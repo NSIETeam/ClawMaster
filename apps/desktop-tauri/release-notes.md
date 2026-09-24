@@ -4,6 +4,8 @@
 
 开启 AI 时代的企业协作。WatchDog 0.0.1 集中修复企业任务治理、组件故障隔离、桌面凭据迁移和更新恢复中的可靠性问题，让单个可选能力不可用时核心应用仍能打开并继续工作。
 
+macOS 或 Windows 首次安装可能显示系统安全提示。下载前请先阅读[首次启动安全提示处理教程](https://github.com/NSIETeam/ClawMaster/blob/desktop-v0.0.1/docs/user/guide/desktop-first-launch-security-warnings.zh.md)，核对安装包后再决定是否继续。
+
 - **企业任务与权限**：加强任务状态回执、重试幂等、审计责任归属、审批绑定和恢复冲突保护；工作区分配会在写入前重新核对权限与资源状态。
 - **运行状态与调度恢复**：补充 WatchDog 状态胶囊、队列和调度故障可见性、容量准入约束及恢复后的一致性校验。
 - **组件故障隔离**：可选客户端改为后台启动并传递动态模块及服务依赖；损坏的工具 schema 按工具隔离，不影响其他可用工具或主界面。认证、权限、审批、Guard 与主前端仍保持必需。
@@ -16,6 +18,8 @@
 ## English
 
 ClawMaster WatchDog 0.0.1 opens the era of AI-powered enterprise collaboration. This release strengthens enterprise task governance, optional-component isolation, desktop credential migration and update recovery so an unavailable optional capability does not prevent the core application from opening and working.
+
+macOS or Windows may show a security warning during first installation. Before downloading, read the [first-launch security warning guide](https://github.com/NSIETeam/ClawMaster/blob/desktop-v0.0.1/docs/user/guide/desktop-first-launch-security-warnings.md), verify the installer, and then decide whether to continue.
 
 - **Enterprise tasks and permissions**: Improve task outcome receipts, retry idempotency, audit responsibility, approval binding and recovery conflict protection. Workspace allocation rechecks permissions and resource state before writes.
 - **Runtime status and schedule recovery**: Add WatchDog state capsules, visible queue and scheduler failures, capacity admission controls and consistency checks after recovery.
