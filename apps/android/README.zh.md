@@ -8,6 +8,8 @@ description: 独立安卓 Agent、手机本地数据、审批规则与 APK 验�
 
 ## 概述
 
+本次重置版为 Android 0.0.1。它使用新的 Android 发布证书；从 0.2.x 安装时必须先卸载旧版，卸载会删除应用私有数据。需要保留的笔记、文档与会话请先导出。
+
 ClawMaster 安卓版在手机上运行原生 Java Agent 循环。它直接调用用户配置的、兼容 Chat Completions 的 HTTPS 模型，不连接电脑上的 ClawMaster Host。系统要求为 Android 8.0 或以上。
 
 ## 目录
@@ -56,7 +58,7 @@ Office 工具读取 Word 正文段落及顶层表格、已有电子表格单元�
 gradle -p apps/android :core:test :app:lintRelease :app:assembleRelease
 ```
 
-核心测试使用记录的模型交互，执行随应用交付的循环与文件存储，包括 Office 往返读写、修订冲突、持久化审批和任务恢复。设备测试执行发布版代码、原生审批、Activity 重建、Keystore 操作、Office 容器、切到后台继续运行及系统定时执行。流水线先向已核对校验和的 0.2.1 APK 写入虚构数据，覆盖安装候选版，再检查笔记、会话和 Keystore 保留情况；两份测试 APK 使用临时 CI 签名。随后强制结束候选版进程，检查常规启动导航，再在独立进程运行 `ColdStartCheck`，读取上一轮保存的笔记与工具回执。记录型模型证明本地执行链路，不代表真实服务商可用。
+核心测试使用记录的模型交互，执行随应用交付的循环与文件存储，包括 Office 往返读写、修订冲突、持久化审批和任务恢复。设备测试执行发布版代码、原生审批、Activity 重建、Keystore 操作、Office 容器、切到后台继续运行及系统定时执行。流水线在 API 26 与 API 36 模拟器中安装正式签名的候选 APK，运行 Agent、Office、审批和后台任务测试；随后强制结束应用，检查常规启动导航，再在独立进程运行 `ColdStartCheck`，读取上一轮保存的笔记与工具回执。记录型模型证明本地执行链路，不代表真实服务商可用。
 
 要签名并测试 release 变体，设置 `ANDROID_KEYSTORE_PATH` 和 `ANDROID_KEYSTORE_PASSWORD`，密钥别名为 `clawmaster`。随后运行 `gradle -p apps/android :app:connectedReleaseAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=team.nsi.clawmaster.android.StandaloneAgentTest,team.nsi.clawmaster.android.WorkspaceAgentTest`。升级与冷启动检查需要按流水线顺序准备。不得提交密钥库或密码。
 

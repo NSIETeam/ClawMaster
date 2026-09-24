@@ -1,4 +1,4 @@
-/** Bind a CI validation APK to source bytes; its disposable signer is not a release key. */
+/** Bind a release APK to source bytes, checksum and signing purpose. */
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -9,12 +9,12 @@ if (git('status', '--porcelain', '--untracked-files=normal')) throw new Error('A
 const record = {
   schemaVersion: 1,
   product: 'ClawMaster standalone Android',
-  version: '0.2.2',
-  versionCode: 202,
+  version: '0.0.1',
+  versionCode: 203,
   gitCommit: git('rev-parse', 'HEAD'),
   gitTree: git('rev-parse', 'HEAD^{tree}'),
   sha256: createHash('sha256').update(readFileSync(apk)).digest('hex'),
-  signingPurpose: 'disposable-ci-validation-only',
+  signingPurpose: 'persistent-android-release-key',
 }
 writeFileSync(apk + '.build.json', JSON.stringify(record, null, 2) + '\n')
 console.log(JSON.stringify(record))

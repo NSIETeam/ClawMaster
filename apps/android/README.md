@@ -8,6 +8,8 @@ English | [中文](README.zh.md)
 
 ## Summary
 
+This reset release is Android 0.0.1 and uses a new Android signing certificate. Uninstall any 0.2.x build before installation; uninstalling removes app-private data. Export notes, documents and conversations you need to keep.
+
 ClawMaster Android runs a native Java agent loop on the phone. It calls the user's HTTPS Chat Completions-compatible model directly; it does not connect to a desktop ClawMaster Host. Android 8.0 or later is required.
 
 ## Contents
@@ -56,13 +58,13 @@ Use JDK 17, Gradle 8.13, Android SDK 36 and Build Tools 35.0.0. The Android proj
 gradle -p apps/android :core:test :app:lintRelease :app:assembleRelease
 ```
 
-Core tests replay recorded model exchanges against the shipped loop and file stores, including Office round trips, revision conflicts, persisted approvals and schedule recovery. On-device instrumentation executes release code, native approvals, Activity recreation, Keystore operations, Office containers, foreground continuation and system-scheduled execution. The workflow first seeds the checksum-verified 0.2.1 APK with synthetic data, replaces it with the candidate, and checks note, conversation and Keystore retention; both test APKs use a disposable CI signer. It then force-stops the candidate, verifies ordinary launcher navigation, and runs `ColdStartCheck` in a separate process to read the preceding run's note and tool receipt. Recorded providers prove local execution, not live provider availability.
+Core tests replay recorded model exchanges against the shipped loop and file stores, including Office round trips, revision conflicts, persisted approvals and schedule recovery. On-device instrumentation executes release code, native approvals, Activity recreation, Keystore operations, Office containers, foreground continuation and system-scheduled execution. The workflow installs the persistently signed candidate APK in API 26 and API 36 emulators and runs Agent, Office, approval and background-task tests. It then force-stops the app, verifies ordinary launcher navigation, and runs `ColdStartCheck` in a separate process to read the preceding run's note and tool receipt. Recorded providers prove local execution, not live provider availability.
 
 To sign and instrument the release variant, set `ANDROID_KEYSTORE_PATH` and `ANDROID_KEYSTORE_PASSWORD`; the key alias is `clawmaster`. Then run `gradle -p apps/android :app:connectedReleaseAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=team.nsi.clawmaster.android.StandaloneAgentTest,team.nsi.clawmaster.android.WorkspaceAgentTest`. Upgrade and cold-start checks require the workflow's ordered preparation steps. Never commit the keystore or password.
 
 <a id="distribution"></a>
 ## Distribution
 
-The Android validation workflow builds a non-debuggable APK and runs emulator checks. Its temporary signing certificate is for validation only. Public distribution requires signing the verified APK with the retained release key, checking it with Android's `apksigner verify`, and recording its SHA-256 and certificate fingerprint. Updates require the same release key and a higher version code.
+The Android workflow signs the APK with a persistent release certificate stored in GitHub Actions and runs API 26 and API 36 emulator acceptance. Version 0.0.1 uses a new signing certificate; installed 0.2.x builds cannot upgrade in place and must be uninstalled first. Uninstalling clears local app data, and data migration has not been verified. Version code remains monotonic at 203.
 
 An APK build is not a Google Play publication or Android developer-account verification. The [standalone runtime decision](../../.agents/notes/implemented/architecture/2026-09-14-android-standalone-agent.md) owns separation from desktop; the [document and task decision](../../.agents/notes/implemented/architecture/2026-09-15-android-document-tasks.md) owns Office compatibility and approval recovery. The Office build downloads checksum-pinned compatibility source and Maven dependencies; licenses remain in the shaded runtime.
