@@ -130,7 +130,7 @@ test('desktop acceptance requires failed optional components to leave core use a
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /macos-arm64-dmg\/optional-component-failure-recovery/)
 })
 
-test('desktop acceptance requires OS credential stores, installed RPA, and five honest connector states', async t => {
+test('desktop acceptance requires OS credentials, honest RPA availability, and five honest connector states', async t => {
   const f = await fixture(t)
   const lane = f.manifest.targets['windows-x64-nsis']
   lane.integrations['real-model'].credentialStore = 'plaintext-file'
@@ -143,6 +143,11 @@ test('desktop acceptance requires OS credential stores, installed RPA, and five 
   assert.equal(blocked.ready, false)
   assert.ok(blocked.incomplete.some(item => item.includes('native-rpa-browser-click')))
   lane.integrations['native-rpa-browser-click'].status = 'passed'
+  lane.integrations['native-rpa-browser-click'].uiState = 'blocked'
+  const disabled = await verifyReleaseAcceptance(f.manifest, f.options)
+  assert.equal(disabled.ready, true)
+  lane.integrations['native-rpa-browser-click'].uiState = undefined
+  await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /must show a blocked state/)
   lane.integrations['native-rpa-browser-click'].availability = 'available'
   lane.integrations['native-rpa-browser-click'].browserVersion = 'Fixture Browser 1'
   lane.integrations['im-qq-ui'].uiState = 'connected'

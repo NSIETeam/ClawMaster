@@ -151,10 +151,10 @@ export async function verifyReleaseAcceptance(manifest, options) {
       const result = object(lane.integrations[integration], `${target}/${integration}`)
       assert.ok(statuses.includes(result.status), `${target}/${integration} has an invalid status`)
       assert.ok(['available', 'experimental', 'unavailable'].includes(result.availability), `${target}/${integration} availability must be explicit`)
-      if (['real-model', 'native-rpa-browser-click'].includes(integration) && result.status !== 'passed') {
+      if (integration === 'real-model' && result.status !== 'passed') {
         incomplete.push(`${target}/${integration}: no successful installed integration`)
       }
-        if (IM_UI_INTEGRATIONS.has(integration)) {
+      if (IM_UI_INTEGRATIONS.has(integration)) {
         if (result.status !== 'passed') incomplete.push(`${target}/${integration}: blocked-state UI behavior was not verified`)
         else {
           assert.ok(['available', 'unavailable'].includes(result.availability), `${integration} availability must be available or unavailable`)
@@ -169,9 +169,14 @@ export async function verifyReleaseAcceptance(manifest, options) {
           await evidenceFiles(root, result, `${target}/${integration}`)
         }
       }
-      if (integration === 'native-rpa-browser-click' && result.status === 'passed') {
-        assert.equal(result.availability, 'available', `${integration} must execute in the installed candidate`)
-        nonempty(result.browserVersion, `${integration} tested browser version`)
+      if (integration === 'native-rpa-browser-click') {
+        if (result.status !== 'passed') incomplete.push(`${target}/${integration}: declared availability was not verified`)
+        else if (result.availability === 'available') nonempty(result.browserVersion, `${integration} tested browser version`)
+        else {
+          assert.equal(result.availability, 'unavailable', `${integration} must be available or unavailable`)
+          assert.equal(result.uiState, 'blocked', `${integration} must show a blocked state when disabled`)
+          nonempty(result.reason, `${integration} unavailable reason`)
+        }
       }
       if (result.status === 'passed') {
         if (integration === 'real-model') {
