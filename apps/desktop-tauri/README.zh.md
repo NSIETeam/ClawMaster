@@ -195,7 +195,7 @@ $env:DSH_DESKTOP_LAUNCH='local'
 pnpm run dev
 ```
 
-**已安装应用：**从 GitHub Releases 选择对应系统的安装包。首次启动在启动页扫描本机环境、选择已有 DSH 主目录，并安装缺失的工具或依赖，完成后打开 Web 界面。
+**已安装应用：**从 GitHub Releases 选择对应系统的安装包。首次启动在启动页扫描本机环境、选择已有 DSH 主目录，并安装缺失的工具或依赖，完成后打开 Web 界面。如果 macOS 或 Windows 在安装或首次打开 ClawMaster 时显示安全提示，请按[首次启动安全提示指南](../../docs/user/guide/desktop-first-launch-security-warnings.zh.md)操作，并先核对安装包校验和。
 
 ## 脚本
 

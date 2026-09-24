@@ -191,7 +191,7 @@ $env:DSH_DESKTOP_LAUNCH='local'
 pnpm run dev
 ```
 
-**Installed app:** use the package for your system from GitHub Releases. First launch shows the splash while it scans the host, selects an existing DSH home, and installs missing tools or dependencies before opening the Web UI.
+**Installed app:** use the package for your system from GitHub Releases. First launch shows the splash while it scans the host, selects an existing DSH home, and installs missing tools or dependencies before opening the Web UI. If macOS or Windows warns while installing or first opening ClawMaster, follow the [first-launch security warning guide](../../docs/user/guide/desktop-first-launch-security-warnings.md) and verify the installer checksum before allowing it.
 
 ## Scripts
 

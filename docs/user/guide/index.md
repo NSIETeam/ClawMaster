@@ -25,6 +25,7 @@ The agent can read and edit workspace files, run commands, delegate work, and ma
 ## Continue
 
 - [Configure models](./providers.md)
+- [Resolve desktop first-launch security warnings](./desktop-first-launch-security-warnings.md)
 - [Use the Python SDK](./python-sdk.md)
 - [Use other CLI modes](../../../apps/cli/README.md)
 - [Develop a plugin](../develop/basic/index.md)
