@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-22-guard-reviewed-arguments.md
-2026-09-22-guard-reviewed-arguments.md: 51151c4ca6611ce6ed6f6bdec9dba38cef157ed2
-2026-09-22-guard-reviewed-arguments.zh.md: a5ece4396377319db1aa1a62d81aabdc97609d68
+2026-09-22-guard-reviewed-arguments.md: 86275d49dc6cbba6402ceb215f39554576619a77
+2026-09-22-guard-reviewed-arguments.zh.md: 1f47c84b6a42e915d55e4b28151972075284e4c3

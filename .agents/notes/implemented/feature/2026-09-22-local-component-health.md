@@ -14,6 +14,10 @@ The home reported the app connection, model evidence, scheduled workers and busi
 
 The payload is the observation date, availability and reason, the `release`/`development` mode, the component count, and the names of plugins this Host disabled. It carries no filesystem path, digest, PID, port or credential. `frontends/dsh/src/runtime-health-client.ts` reads it once when the home loads and again on refresh, and reports every failure — refused, unreachable, malformed — as unobserved.
 
+## Alternatives considered
+
+**Serve the Host inventory to every shared deployment under a general read action.** The existing `GovernanceAction` set has no action for reading local runtime facts, and the route has no organization-role decision to rely on; the implementation therefore limits the observation to local mode until that authorization is defined.
+
 ## Consequences
 
 Component health is a fifth layer on the home: an unobserved or refused route is neutral, a disabled plugin names the layer in the attention line above the collapsed details, and the details row carries the count. This is what the layer can support — the Host's record of what it loaded — and not a per-component functional check, which the row's own text states.

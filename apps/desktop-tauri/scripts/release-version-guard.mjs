@@ -8,9 +8,8 @@
  * older program than the one users were already running.
  *
  * The comparison is scoped to the candidate's `major.minor` line, because moving to
- * another line is a deliberate product decision — this repository records one as
- * "version reset 2026-09-21" in `docs/DEFECTS-DAWN.md` — while a version that trails
- * a published version of its own line is the accident above.
+ * another line is a deliberate product decision, while a version that trails a
+ * published version of its own line is the accident above.
  */
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'

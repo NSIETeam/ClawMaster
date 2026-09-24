@@ -14,6 +14,10 @@ Nothing in the product frontend caught a render error. A component that threw wh
 
 The fallback copy lives in the locale dictionary beside the other product strings, so it follows the same language rules as the surfaces it replaces. The boundary reports the caught error and its component stack on the browser console, because the visible message is for the person using the panel and the console is where diagnosis starts.
 
+## Alternatives considered
+
+**Fix only the Host failure that caused the earlier blank screens.** Those incidents originated in the Host, but this would leave independent React render failures able to blank a panel or window; the boundary was added as a separate frontend recovery path.
+
 ## Consequences
 
 A rendering fault in one panel no longer empties the window, and it no longer hides which panel failed. The boundary catches render-phase throws only: an error thrown in an event handler, a promise rejection, or a failure inside the shell's own code above the boundaries still propagates, and this note does not claim otherwise.

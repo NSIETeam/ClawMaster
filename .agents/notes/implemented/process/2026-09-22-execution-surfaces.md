@@ -18,6 +18,10 @@ The product can change the operator's machine in many ways — writing a file, r
 
 The third status is the point of the design. An inventory offering only `enforced` and `unenforced` would force a guess about every surface nobody had examined yet, and a guess reads as an answer.
 
+## Alternatives considered
+
+**Use only `enforced` and `unenforced` statuses.** The issue and design record explain that this forces an unexamined surface to be guessed into one of those states; `unclassified` keeps the missing assessment visible instead.
+
 ## Consequences
 
 The shipped inventory names nine gates and six gaps. The gaps are named individually because they are different gaps: a host-only plugin activates with no request and no approval, because that activation branch precedes the approval block; nothing decides admission for an MCP tool call, so the mount that chooses the servers and the call itself are one ungated seam; no destination allow-list exists for outbound traffic, and the single refusal that does exist covers one tool and checks an address class rather than a permitted host; model-written code is confined in a worker without any approval gating it, and the runtime's own module records that confinement as containment rather than as a gate; nothing gates a write to the user-layer harness configuration; and the guard's shell review reads a configured name list that omits the PowerShell provider the harness ships, so a deployment that mounts it runs PowerShell outside the review.

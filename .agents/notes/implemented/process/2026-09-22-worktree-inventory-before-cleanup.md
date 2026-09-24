@@ -18,6 +18,10 @@ Work accumulated in the desktop checkout faster than it could be reviewed: the r
 - `archiveUncommittedWork` writes a binary patch of the tracked changes and a tar of the tracked and untracked files, so the backup is independent of the checkout staying intact.
 - `runWorktreeInventory` is the single entry point used by the CLI and by tests, so the verified path is the shipped path.
 
+## Alternatives considered
+
+**Clean or delete uncommitted files before recording an inventory and independent archive.** Issue #11 explicitly requires preserving existing work and forbids using an empty workspace as version governance; an inventory paired with an archive records the contents and leaves recovery possible before any later cleanup.
+
 ## Consequences
 
 The inventory is evidence, not authority: it records what the checkout held at capture time, and nothing re-reads it to decide what may be deleted. A digest for a file above the size ceiling is `null`, which a reader must treat as "not digested here" rather than "unchanged".

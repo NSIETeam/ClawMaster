@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-09-22-worktree-inventory-before-cleanup.md
-2026-09-22-worktree-inventory-before-cleanup.md: f5943c47a4cb9e07c59ce1bce6d0620fae465b48
-2026-09-22-worktree-inventory-before-cleanup.zh.md: 5fe67a72ea6d24772b03c0a032d4f3cc3a410a35
+2026-09-22-worktree-inventory-before-cleanup.md: 3f41577b666116c5e5689f3043ea7d9f75284115
+2026-09-22-worktree-inventory-before-cleanup.zh.md: 8518c28a5348212479a181d888dadce08dfa7877

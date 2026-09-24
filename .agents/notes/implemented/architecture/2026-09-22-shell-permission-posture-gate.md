@@ -16,6 +16,10 @@ The posture is the source of truth for what needs justification, not a copy of t
 
 `apps/desktop-tauri/scripts/shell-permission-posture.test.mjs` runs the audit against the shipped configuration and against perturbed copies: a null or wildcard policy, inline-and-eval allowances, an unreviewed permission, a second WebView, and each closed directive dropped one at a time. Every invalid case is rejected, so the gate cannot pass by becoming permissive.
 
+## Alternatives considered
+
+**Keep the shell posture only in the frontend README.** The review found that prose could not stop a new Tauri permission, widened CSP directive, or extra WebView from shipping unnoticed; an executable audit was selected because it rejects each drift directly.
+
 ## Consequences
 
 The audit covers configuration, not enforcement. It proves what the shell is permitted to reach and that no WebView outside the reviewed set receives native commands; it does not prove a WebView behaves correctly, and it does not constrain the Node Host, the native process tree, or any plugin running with the user's privileges. Those limits stay where the frontend README's execution-authority table records them, and this audit does not restate that table.

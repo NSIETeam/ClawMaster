@@ -18,6 +18,10 @@ Product promises lived in prose across READMEs, and nothing connected a promise 
 
 The ledger is the statement of what is asserted; the checker is what makes the assertion cost something. Adding a promise therefore means adding its code path, its evidence path, or an explicit reason it has none.
 
+## Alternatives considered
+
+**Leave product promises in README prose and rely on review alone.** The issue and PR record found no link from a promise to shipped code or maintained evidence, so stale claims could remain indistinguishable from verified capabilities; the ledger makes missing evidence an explicit state.
+
 ## Consequences
 
 The checker verifies that evidence exists, not that it passes, and not that it covers the promise. A path to a test that no longer exercises the capability still satisfies it, so the ledger must be revised when evidence is repurposed rather than deleted. That limit is deliberate: deciding whether a test still covers a promise is a review judgement, and a mechanical gate that guessed would be worse than one that says what it checks.

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-22-panel-render-boundary.md
-2026-09-22-panel-render-boundary.md: 70fc3ecba9bcdaab0e12467a105faa7b8fcff93d
-2026-09-22-panel-render-boundary.zh.md: 297ae4b77e15b495b5a4ee8e1bca11fefe659d6c
+2026-09-22-panel-render-boundary.md: 5a055ba1af57455905ab97508661b452e28d453f
+2026-09-22-panel-render-boundary.zh.md: 964376ab794e37cb243e5dd5a38daeafe8726983

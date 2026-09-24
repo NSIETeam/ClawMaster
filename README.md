@@ -13,16 +13,6 @@ English | [中文](README.zh.md)
 
 ClawMaster gives WatchDog a Tauri desktop workspace for delegating tasks, reviewing approvals, and opening results beside the conversation. DSH supplies the model, Session, tool, approval, and plugin infrastructure.
 
-## Current status (kernel codename **Dawn**)
-
-> **Agents must read this first:** [docs/STATUS-2026-09-21.md](docs/STATUS-2026-09-21.md) and
-> [docs/DEFECTS-DAWN.md](docs/DEFECTS-DAWN.md), then `git log --oneline -20`, before doing any work in this repository.
-
-- Baseline: dsh 0.1.5-rc.2 (harness `72da6c767414dd30`) · desktop 0.2.3 · 93/93 sessions healthy
-- Skill auto-invocation verified (10/10 enterprise-plugin probes); 106 skills live
-- Self-heal: `session-doctor` runs every 30 minutes (launchd `com.clawmaster.session-repair`)
-- Known defects and mitigations: D1–D12 in [DEFECTS-DAWN](docs/DEFECTS-DAWN.md)
-
 ## Table of Contents
 
 - [Downloads](#downloads)
@@ -37,7 +27,7 @@ Use the assets attached to a version in [GitHub Releases](https://github.com/NSI
 
 | System | Architecture | Package |
 | --- | --- | --- |
-| macOS 11.0+ | Apple Silicon / Intel | DMG |
+| macOS 11.0+ | Apple Silicon | DMG |
 | Windows | x64 | NSIS EXE |
 | Linux | x64 | AppImage / deb |
 

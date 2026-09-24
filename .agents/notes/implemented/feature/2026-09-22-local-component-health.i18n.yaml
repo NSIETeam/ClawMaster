@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-22-local-component-health.md
-2026-09-22-local-component-health.md: 49fe841e39f613cba88cb66e5d1dc1dc68d80d60
-2026-09-22-local-component-health.zh.md: c871f3c8395883020e571fcab267bfcf270641fb
+2026-09-22-local-component-health.md: 0bd5e63c1ec5fa4297b400f0212b4d88eb8a1adf
+2026-09-22-local-component-health.zh.md: 789ba2f93b17668e2b42c05c3ae8d6bd0dfe2fa6

@@ -16,6 +16,10 @@ Status: implemented
 
 `apps/desktop-tauri/scripts/shell-permission-posture.test.mjs` 既对已发布配置运行审计，也对被篡改的副本运行：空或通配的策略、内联与 eval 许可、未评审权限、第二个 WebView，以及逐条删除每个封闭指令。每个非法用例都被拒绝，因此这道门槛无法通过变得宽松而通过。
 
+## 考虑过的替代方案
+
+**只在前端 README 中记录 Shell 姿态。** 评审发现，说明文字无法阻止新增 Tauri 权限、放宽 CSP 指令或增加 WebView 后悄然发布；因此选择可执行审计，直接拒绝每种偏移。
+
 ## 后果
 
 该审计覆盖的是配置，不是强制力。它证明外壳被允许触达什么，以及评审集合之外的 WebView 都拿不到原生命令；它不证明 WebView 行为正确，也不约束 Node Host、原生进程树，或以用户权限运行的任何插件。这些边界仍由前端 README 的执行权限表记录，本审计不重述该表。

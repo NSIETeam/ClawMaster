@@ -1,24 +1,5 @@
 # AGENTS.md
 
-## ⚠️ 开工前必读 · Read before any work (mandatory)
-
-Every agent working in this repository MUST, before making any change:
-
-1. Read [docs/STATUS-2026-09-21.md](docs/STATUS-2026-09-21.md) — current machine/repo state.
-2. Read [docs/DEFECTS-DAWN.md](docs/DEFECTS-DAWN.md) — known defects D1–D12 and their mitigations.
-3. Run `git log --oneline -20` — understand recent changes; other agents may have landed work.
-4. Run `node ~/.dsh/scripts/session-doctor.mjs --check` if touching sessions or the runtime.
-
-Hard rules learned the hard way (violating these broke the product):
-
-- **Never rename a session directory** under `~/.dsh/sessions/` — header id/cwd must match the path, or the whole history fails to load.
-- **`harness-versions/` is frozen and self-restoring** — runtime file patches are reverted at boot/maintenance; durable fixes go in this repo's source, or the user layer `~/.dsh/cordis.patch.yml`.
-- **Custom plugins go in `~/.dsh/cordis.patch.yml`** (user layer). `~/.dsh/desktop-overlay/cordis.yml` is rewritten by the app on every boot.
-- **Do not boot headless/probe processes concurrently with the app** — both open `graph.sqlite`; the loser's plugin gets rescue-disabled at boot and the UI task list goes empty without any error.
-- Injected context messages (`user/message` from plugins) MUST carry `id`, `role`, and `source` — missing fields corrupt sessions against the strict validator.
-
----
-
 DeepSeek Harness is an all-plugin Cordis agent harness. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; follow [docs/AGENTS.md](docs/AGENTS.md) for documentation.
 
 ## Pre-stable APIs and released Session data

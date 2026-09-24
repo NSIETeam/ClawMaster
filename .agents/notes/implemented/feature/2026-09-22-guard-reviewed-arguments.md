@@ -14,6 +14,10 @@ A `shellTools` entry is now either a bare tool name, reviewed through its `comma
 
 The default list becomes `['bash', 'shell', 'run_command', 'exec', { name: 'terminal_send', argument: 'text' }]`. An entry that is neither a non-empty name nor a usable `{name, argument}` pair makes the whole configured list unusable, so parsing falls back to the default list instead of accepting a partly read one — a list with an unreadable entry would otherwise silently narrow what is reviewed.
 
+## Alternatives considered
+
+**Keep a bare tool-name list and read only the fixed `command` argument.** That is the existing configuration form, but it cannot inspect `terminal_send`, whose command text is in `text`; naming the argument per tool closes that documented gap. Adding PowerShell to the same classifier was also rejected because no test measures its interpretation of PowerShell input.
+
 ## Consequences
 
 Terminal input is reviewed as a command line, which is what it is: `terminal_send` submits the bytes it writes. The review sees one submission and nothing else — not the session's earlier output, not the line the text completes — so an unfinished line or a REPL answer is classified as the text it is. Ordinary input stays `low` and passes; anything else meets the same rules as `bash`.

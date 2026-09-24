@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-22-shell-permission-posture-gate.md
-2026-09-22-shell-permission-posture-gate.md: 636984b3a8bd7e2f5e2f4a968d88f987008c4140
-2026-09-22-shell-permission-posture-gate.zh.md: 5a7d93e4c71df3cc11c5fed618cc675cc8647f6c
+2026-09-22-shell-permission-posture-gate.md: 391109cad7fe4e57e2ee9bf23094381ab1d504a9
+2026-09-22-shell-permission-posture-gate.zh.md: 88128c9fdf97d6163201e195c0934048c7a9d0a6
