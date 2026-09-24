@@ -204,12 +204,9 @@ public final class MainActivity extends Activity implements AgentController.List
             for (int i = 0; i < history.length(); i++) {
                 JSONObject item = history.getJSONObject(i);
                 String role = item.getString("role");
-                if ("tool".equals(role)) {
-                    addCard(getString(R.string.tool_result, item.optString("tool_call_id")) + "\n" + item.optString("content"), false);
-                } else {
-                    String body = item.isNull("content") ? "" : item.optString("content");
-                    if (!body.isEmpty()) addCard(getString("user".equals(role) ? R.string.you : R.string.assistant) + "\n\n" + body, "user".equals(role));
-                }
+                if ("tool".equals(role)) continue;
+                String body = item.isNull("content") ? "" : item.optString("content");
+                if (!body.isEmpty()) addCard(getString("user".equals(role) ? R.string.you : R.string.assistant) + "\n\n" + body, "user".equals(role));
             }
             String state = controller.status();
             int label = 0;

@@ -14,9 +14,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static org.junit.Assert.*;
+import static org.hamcrest.Matchers.containsString;
 
 /** A separate instrumentation process verifies data from the preceding installed-app run. */
 @RunWith(AndroidJUnit4.class)
@@ -44,6 +47,7 @@ public final class ColdStartCheck {
                 catch (Exception e) { throw new AssertionError(e); }
             });
             onView(withId(R.id.messages)).check(matches(isDisplayed()));
+            onView(withText(containsString("Tool result"))).check(doesNotExist());
             scenario.onActivity(activity -> {
                 View view = activity.getWindow().getDecorView();
                 Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);

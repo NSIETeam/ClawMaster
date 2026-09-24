@@ -26,6 +26,8 @@ Open Settings, enter a model API base URL, model ID and API key, then save. The 
 
 The agent can search, read and propose writes to phone-local notes. Every agent write opens a native approval dialog. Existing-note writes require the revision that was read; edits made while approval is pending cause a conflict. Manual note editing uses the same revision checks.
 
+Tool calls and raw tool results remain in the saved conversation for agent continuity but are hidden from the default chat view.
+
 Conversation history, notes and pending write approvals persist across restarts. User-initiated tasks use a visible foreground service and can continue after leaving the screen. A run stops after eight minutes or when Android stops its service/job. An interrupted tool with no durable receipt has an unknown outcome and is never retried automatically.
 
 ### Documents
