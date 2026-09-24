@@ -7,13 +7,12 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
-/** Required installer lanes; Android has its own capability and scenario requirements. */
+/** Required installer lanes for supported desktop releases. */
 export const ACCEPTANCE_TARGETS = Object.freeze({
   'macos-arm64-dmg': { platform: 'darwin', architecture: 'arm64', signature: 'developer-id-notarized', extension: '.dmg' },
   'windows-x64-nsis': { platform: 'win32', architecture: 'x64', signature: 'authenticode', extension: '.exe' },
   'linux-x64-appimage': { platform: 'linux', architecture: 'x64', signature: 'minisign', extension: '.AppImage' },
   'linux-x64-deb': { platform: 'linux', architecture: 'x64', signature: 'minisign', extension: '.deb' },
-  'android-universal-apk': { platform: 'android', architecture: 'universal', signature: 'android-apk', extension: '.apk' },
 })
 /** The explicitly narrower beta installer matrix; stable releases retain ACCEPTANCE_TARGETS. */
 export const BETA_ACCEPTANCE_TARGETS = Object.freeze({
@@ -28,7 +27,6 @@ export function acceptanceTargetsForVersion(version) {
 
 const COMMON_SCENARIOS = ['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart', 'upgrade-data-preservation', 'uninstall-data-policy']
 const DESKTOP_SCENARIOS = [...COMMON_SCENARIOS, 'unicode-space-path', 'update-rollback', 'optional-component-failure-recovery', 'approval-allow', 'approval-deny', 'cancel-task', 'write-failure-no-commit']
-const ANDROID_SCENARIOS = [...COMMON_SCENARIOS, 'approval-allow', 'approval-deny', 'cancel-task', 'conversation-persistence']
 const DESKTOP_INTEGRATIONS = [
   'real-model', 'office-save', 'wechat-selected-read', 'native-rpa-browser-click',
   'im-weixin-ui', 'im-feishu-ui', 'im-dingtalk-ui', 'im-qq-ui', 'im-wecom-ui',
@@ -133,7 +131,7 @@ export async function verifyReleaseAcceptance(manifest, options) {
     nonempty(lane.signature.publisher, `${target} publisher identity`)
     await evidenceFiles(root, lane.signature, `${target} signature`)
     object(lane.scenarios, `${target} scenarios`)
-    for (const scenario of policy.platform === 'android' ? ANDROID_SCENARIOS : DESKTOP_SCENARIOS) {
+    for (const scenario of DESKTOP_SCENARIOS) {
       const result = object(lane.scenarios[scenario], `${target}/${scenario}`)
       assert.ok(statuses.includes(result.status), `${target}/${scenario} has an invalid status`)
       if (result.status !== 'passed') incomplete.push(`${target}/${scenario}: ${result.status}: ${nonempty(result.reason, 'Scenario reason')}`)
@@ -149,7 +147,7 @@ export async function verifyReleaseAcceptance(manifest, options) {
       }
     }
     object(lane.integrations, `${target} integrations`)
-    for (const integration of policy.platform === 'android' ? ['real-model'] : DESKTOP_INTEGRATIONS) {
+    for (const integration of DESKTOP_INTEGRATIONS) {
       const result = object(lane.integrations[integration], `${target}/${integration}`)
       assert.ok(statuses.includes(result.status), `${target}/${integration} has an invalid status`)
       assert.ok(['available', 'experimental', 'unavailable'].includes(result.availability), `${target}/${integration} availability must be explicit`)
@@ -178,7 +176,7 @@ export async function verifyReleaseAcceptance(manifest, options) {
       if (result.status === 'passed') {
         if (integration === 'real-model') {
           const credentialStore = {
-            darwin: 'macos-keychain', win32: 'windows-credential-manager', linux: 'linux-secret-service', android: 'android-keystore',
+            darwin: 'macos-keychain', win32: 'windows-credential-manager', linux: 'linux-secret-service',
           }[policy.platform]
           assert.equal(result.credentialStore, credentialStore, `${target} real-model must resolve its key from the OS secure credential store`)
         }

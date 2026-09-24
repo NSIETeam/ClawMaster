@@ -51,10 +51,10 @@ test('a complete per-installer matrix validates artifacts and retained evidence'
   assert.equal((await verifyReleaseAcceptance(f.manifest, f.options)).ready, true)
 })
 
-test('missing platforms, Intel substitution and another platform observation cannot count as acceptance', async t => {
+test('missing desktop platforms, Intel substitution and another platform observation cannot count as acceptance', async t => {
   const f = await fixture(t)
   const missing = structuredClone(f.manifest)
-  delete missing.targets['android-universal-apk']
+  delete missing.targets['linux-x64-appimage']
   await assert.rejects(verifyReleaseAcceptance(missing, f.options), /Every supported installer/)
   const intel = structuredClone(f.manifest)
   intel.targets['macos-x64-dmg'] = intel.targets['macos-arm64-dmg']
@@ -84,8 +84,8 @@ test('ad-hoc or updater signatures cannot replace publisher notarization and Aut
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /publisher verification/)
 })
 
-test('missing restart, rollback, old-version retention and Android approval evidence blocks publication', async t => {
-  for (const [target, scenario] of [['macos-arm64-dmg', 'exit-restart'], ['linux-x64-deb', 'update-rollback'], ['android-universal-apk', 'approval-deny']]) {
+test('missing restart, rollback and old-version retention evidence blocks publication', async t => {
+  for (const [target, scenario] of [['macos-arm64-dmg', 'exit-restart'], ['linux-x64-deb', 'update-rollback']]) {
     const f = await fixture(t)
     f.manifest.targets[target].scenarios[scenario] = { status: 'not-run', reason: 'Awaiting device' }
     const observed = await verifyReleaseAcceptance(f.manifest, { ...f.options, requireComplete: false })
@@ -103,7 +103,7 @@ test('unverified trial integrations stay explicitly unavailable and real-model v
   f.manifest.targets['macos-arm64-dmg'].integrations['wechat-selected-read'].availability = 'available'
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /advertised available/)
   f.manifest.targets['macos-arm64-dmg'].integrations['wechat-selected-read'].availability = 'experimental'
-  f.manifest.targets['android-universal-apk'].integrations['real-model'] = { status: 'blocked', availability: 'unavailable', reason: 'No provider test credentials' }
+  f.manifest.targets['linux-x64-appimage'].integrations['real-model'] = { status: 'blocked', availability: 'unavailable', reason: 'No provider test credentials' }
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /successful installed integration/)
 })
 

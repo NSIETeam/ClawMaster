@@ -22,7 +22,6 @@ function installersFor(releaseVersion) {
     else if (target === 'windows-x64-nsis') result[target] = updater['windows-x86_64']
     else if (target === 'linux-x64-appimage') result[target] = updater['linux-x86_64']
     else if (target === 'linux-x64-deb') result[target] = updater['linux-x86_64-deb']
-    else if (target === 'android-universal-apk') result[target] = `clawmaster-${releaseVersion}-android-universal.apk`
   }
   return result
 }
@@ -166,8 +165,8 @@ test('package sizes over the 20 MiB optimization target are reported but do not 
   await assert.doesNotReject(verifyReleaseAssets(f.options))
 })
 
-test('a checksummed release still requires the candidate DMG and Android installer', async t => {
-  for (const target of ['macos-arm64-dmg', 'android-universal-apk']) {
+test('a checksummed release still requires the candidate DMG and Windows installer', async t => {
+  for (const target of ['macos-arm64-dmg', 'windows-x64-nsis']) {
     const f = await fixture(t)
     await rm(join(f.root, f.installers[target]))
     await writeFile(join(f.root, f.installers[target].replace(version, '0.2.2')), 'old installer')
@@ -176,17 +175,17 @@ test('a checksummed release still requires the candidate DMG and Android install
   }
 })
 
-test('beta release assets require only Windows NSIS and macOS ARM64 acceptance; stable still requires every lane', async t => {
+test('beta release assets require only Windows NSIS and macOS ARM64 acceptance; stable requires every desktop lane', async t => {
   const betaVersion = '0.2.4-beta.1'
   const beta = await fixture(t, betaVersion)
   const verified = await verifyReleaseAssets(beta.options)
   assert.equal(verified.targetSet, 'beta')
   assert.deepEqual(Object.keys(beta.manifest.targets).sort(), ['macos-arm64-dmg', 'windows-x64-nsis'])
-  assert.equal(beta.manifest.targets['android-universal-apk'], undefined)
+  assert.equal(beta.manifest.targets['linux-x64-deb'], undefined)
   assert.equal(beta.manifest.targets['linux-x64-appimage'], undefined)
   const stable = await fixture(t)
   assert.deepEqual(Object.keys(stable.manifest.targets).sort(), Object.keys(acceptanceTargetsForVersion(version)).sort())
-  assert.ok(stable.manifest.targets['android-universal-apk'])
+  assert.deepEqual(Object.keys(stable.manifest.targets).sort(), ['linux-x64-appimage', 'linux-x64-deb', 'macos-arm64-dmg', 'windows-x64-nsis'])
 })
 
 test('the final verifier rejects incomplete or foreign acceptance even after checksums are regenerated', async t => {

@@ -84,7 +84,7 @@ test('publication runs the strict installed-evidence gate before manifest genera
   assert.equal(existsSync(join(root, 'publication-reached')), false)
   mkdirSync(join(root, 'release-assets'))
   const manifest = { schemaVersion: 1, version: '0.2.3', sourceCommit: git(['rev-parse', 'HEAD']), supportedUpgradeVersions: ['0.2.2'],
-    targets: Object.fromEntries(['macos-arm64-dmg', 'windows-x64-nsis', 'linux-x64-appimage', 'linux-x64-deb', 'android-universal-apk'].map(target => [target, { status: 'not-run', reason: 'No installed acceptance evidence' }])) }
+    targets: Object.fromEntries(['macos-arm64-dmg', 'windows-x64-nsis', 'linux-x64-appimage', 'linux-x64-deb'].map(target => [target, { status: 'not-run', reason: 'No installed acceptance evidence' }])) }
   writeFileSync(join(root, 'release-assets/acceptance-manifest.json'), JSON.stringify(manifest))
   const result = run()
   assert.equal(result.error, undefined)

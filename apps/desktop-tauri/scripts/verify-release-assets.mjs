@@ -26,7 +26,6 @@ export function installerAssetsForVersion(version) {
     else if (target === 'windows-x64-nsis') result[target] = assets['windows-x86_64']
     else if (target === 'linux-x64-appimage') result[target] = assets['linux-x86_64']
     else if (target === 'linux-x64-deb') result[target] = assets['linux-x86_64-deb']
-    else if (target === 'android-universal-apk') result[target] = `clawmaster-${version}-android-universal.apk`
   }
   return result
 }
