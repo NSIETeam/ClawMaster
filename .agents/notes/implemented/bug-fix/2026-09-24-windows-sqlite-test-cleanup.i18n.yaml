@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-24-windows-sqlite-test-cleanup.md
+2026-09-24-windows-sqlite-test-cleanup.md: 64b9fe4e65be8b7b33c6aeb87011321f403d2869
+2026-09-24-windows-sqlite-test-cleanup.zh.md: 4c3adc4ab4fd645f2008de380768f6a60676f62b

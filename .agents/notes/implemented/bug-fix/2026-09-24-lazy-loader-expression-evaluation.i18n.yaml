@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-24-lazy-loader-expression-evaluation.md
-2026-09-24-lazy-loader-expression-evaluation.md: 377cf7c0058dbf44f04addafb43ce04f49ea165e
-2026-09-24-lazy-loader-expression-evaluation.zh.md: 66c43d20907b4ff788ffc5f2e80fc00be3f07b04
+2026-09-24-lazy-loader-expression-evaluation.md: e9148b78d4ae991a350c2f46f389b0d0315724e2
+2026-09-24-lazy-loader-expression-evaluation.zh.md: 444a52725cce431ff1f9452b4882a2f05a32bdfe

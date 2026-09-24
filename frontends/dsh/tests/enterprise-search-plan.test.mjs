@@ -15,12 +15,15 @@ function planOf(db, sql) {
 /** Open a freshly created store, keep its schema, and return a read-only query planner for it. */
 async function plannedStore(t) {
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-search-plan-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  let db;
+  t.after(async () => {
+    db?.close();
+    await rm(root, { recursive: true, force: true });
+  });
   const databasePath = join(root, 'enterprise.sqlite');
   const store = await openEnterpriseStore(databasePath);
   store.close();
-  const db = new DatabaseSync(databasePath);
-  t.after(() => db.close());
+  db = new DatabaseSync(databasePath);
   // The exact-match predicate is registered by the store; a plan only needs it to exist, at the store's arity.
   db.function('clawmaster_contains', { deterministic: true }, (value, search) => (typeof value === 'string' && typeof search === 'string' ? 1 : 0));
   return db;
