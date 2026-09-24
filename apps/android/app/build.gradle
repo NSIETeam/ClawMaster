@@ -12,7 +12,7 @@ android {
         testInstrumentationRunnerArguments class: "team.nsi.clawmaster.android.StandaloneAgentTest,team.nsi.clawmaster.android.WorkspaceAgentTest"
     }
     signingConfigs {
-        validation {
+        release {
             if (System.getenv("ANDROID_KEYSTORE_PATH")) {
                 storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
                 storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
@@ -26,7 +26,7 @@ android {
         release {
             minifyEnabled false
             debuggable false
-            if (System.getenv("ANDROID_KEYSTORE_PATH")) signingConfig signingConfigs.validation
+            if (System.getenv("ANDROID_KEYSTORE_PATH")) signingConfig signingConfigs.release
         }
     }
     testBuildType "release"

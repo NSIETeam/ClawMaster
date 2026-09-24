@@ -75,7 +75,6 @@ jobs:
             adb pull /sdcard/Android/data/team.nsi.clawmaster.android/files/release-screen.png apps/android/app/build/release-screen.png
       - name: Record APK integrity and source
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs apps/android/app/build/outputs/apk/release/app-release.apk
           node apps/android/scripts/record-apk.mjs apps/android/app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs apps/android/app/build/outputs/apk/release/app-release.apk | tee apps/android/app/build/apk-signature.txt
       - uses: actions/upload-artifact@v4
