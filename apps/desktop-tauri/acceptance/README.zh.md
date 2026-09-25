@@ -15,6 +15,7 @@ description: "收集并验证已安装 ClawMaster 桌面版本的交付证据。
 - [收集证据](#collect-evidence)
 - [必需观测](#required-observations)
 - [验证发布准备状态](#validate-publication-readiness)
+- [配置发布者签名](#configure-publisher-signing)
 - [当前验证限制](#current-verification-limits)
 
 <a id="collect-evidence"></a>
@@ -41,6 +42,17 @@ description: "收集并验证已安装 ClawMaster 桌面版本的交付证据。
 运行 `node apps/desktop-tauri/scripts/release-acceptance.mjs --manifest <manifest.json> --root <artifact-directory> --commit <full-commit> --version <candidate>`。验收不完整时，正常命令以失败状态退出。`--report-only` 为准备过程返回缺失项；其成功退出不代表允许发布。源码提交必须标识产生安装包的候选版本，不能改成后续保存验收报告的提交。
 
 [Windows 原生收集器](../scripts/verify-windows-native.ps1)与 [macOS 收集器](../scripts/verify-macos-native.mjs)提供各自文档约定的启动、进程归属及重启观测。报告会保留启动和就绪时的可执行文件路径及进程创建身份；后续采样必须仍然匹配，因此不能用相同的数字 PID 隐藏 PID 复用或进程替换。将其输出与其他必需场景一并保留。校验器不会用构建通过补齐缺失字段，也不会发布、修改版本、安装程序或迁移用户数据。
+
+<a id="configure-publisher-signing"></a>
+## 配置发布者签名
+
+缺少发布者凭据时，GitHub Actions 可以构建未签名候选包，但该候选包不能通过稳定版发布验收。每个平台的凭据必须完整配置；只配置一部分会在打包前使构建失败。
+
+macOS 需要将 base64 编码的 Developer ID `.p12` 保存为 `APPLE_CERTIFICATE`，导出密码保存为 `APPLE_CERTIFICATE_PASSWORD`，并将 App Store Connect 的 issuer、key ID 和 base64 编码的 `.p8` 内容分别保存为 `APPLE_API_ISSUER`、`APPLE_API_KEY` 和 `APPLE_API_KEY_CONTENT` 密钥。将精确的 Developer ID Application 身份设为仓库变量 `APPLE_SIGNING_IDENTITY`，将其 Team ID 设为 `APPLE_TEAM_ID`。构建会验证应用签名、Team ID、已钉附票据和 Gatekeeper 评估结果。
+
+Windows 需要将 base64 编码的代码签名 `.pfx` 保存为 `WINDOWS_SIGNING_PFX`，密码保存为 `WINDOWS_SIGNING_PFX_PASSWORD`。将该证书的 40 位 SHA-1 指纹设为仓库变量 `WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT`。运行器只导入指纹固定的证书，Tauri 会签署应用和 NSIS 安装包，构建会用预期指纹检查每个生成的可执行文件。
+
+现有 Tauri 更新密钥用于签署更新负载元数据，不能代替任一平台发布者证书。构建签名检查通过也不能代替上文的已安装应用场景和独立证据。
 
 <a id="current-verification-limits"></a>
 ## 当前验证限制

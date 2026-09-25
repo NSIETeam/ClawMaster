@@ -15,6 +15,7 @@ Each candidate needs evidence from its installed desktop application. The [accep
 - [Collect evidence](#collect-evidence)
 - [Required observations](#required-observations)
 - [Validate publication readiness](#validate-publication-readiness)
+- [Configure publisher signing](#configure-publisher-signing)
 - [Current verification limits](#current-verification-limits)
 
 <a id="collect-evidence"></a>
@@ -41,6 +42,17 @@ Every lane needs a successful real-model request whose credential came from that
 Run `node apps/desktop-tauri/scripts/release-acceptance.mjs --manifest <manifest.json> --root <artifact-directory> --commit <full-commit> --version <candidate>`. The normal command exits unsuccessfully for incomplete acceptance. `--report-only` returns the incomplete list for preparation; its successful exit is not permission to publish. The source commit must identify the candidate that produced the installers, not the later commit that stores an acceptance report.
 
 The [native Windows collector](../scripts/verify-windows-native.ps1) and [macOS collector](../scripts/verify-macos-native.mjs) establish their documented launch, process ownership and restart observations. Their reports retain executable paths and process creation identities at launch and at readiness; a later sample must still match, so PID reuse or replacement cannot be hidden by a matching numeric PID. Retain their output alongside the additional required scenarios. The checker does not fill missing fields from a passing build. It does not publish, alter a release, install a program or migrate user data.
+
+<a id="configure-publisher-signing"></a>
+## Configure publisher signing
+
+GitHub Actions can build an unsigned candidate when publisher credentials are absent, but that candidate cannot pass stable publication acceptance. Configure all credentials for a platform together; a partial set fails the build before packaging.
+
+For macOS, store the base64-encoded Developer ID `.p12` as `APPLE_CERTIFICATE`, its export password as `APPLE_CERTIFICATE_PASSWORD`, and the App Store Connect issuer, key ID and base64-encoded `.p8` contents as `APPLE_API_ISSUER`, `APPLE_API_KEY` and `APPLE_API_KEY_CONTENT` secrets. Set `APPLE_SIGNING_IDENTITY` to the exact Developer ID Application identity and `APPLE_TEAM_ID` to its Team ID as repository variables. The build verifies the application signature, Team ID, stapled tickets and Gatekeeper assessment.
+
+For Windows, store the base64-encoded code-signing `.pfx` as `WINDOWS_SIGNING_PFX` and its password as `WINDOWS_SIGNING_PFX_PASSWORD`. Set `WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT` to that certificate's 40-character SHA-1 thumbprint as a repository variable. The runner imports only that pinned certificate, Tauri signs the application and NSIS installer, and the build checks every produced executable against the expected thumbprint.
+
+The existing Tauri updater key signs update payload metadata; it does not replace either platform publisher certificate. A completed build signature check also does not replace the installed-app scenarios and independent evidence required above.
 
 <a id="current-verification-limits"></a>
 ## Current verification limits

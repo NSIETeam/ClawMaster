@@ -266,16 +266,93 @@ jobs:
           node --test apps/desktop-tauri/scripts/prepare-office-runtime.test.mjs
           node apps/desktop-tauri/scripts/prepare-office-runtime.mjs
 
+      - name: Prepare Windows publisher certificate
+        if: runner.os == 'Windows'
+        env:
+          WINDOWS_SIGNING_PFX: ${{ secrets.WINDOWS_SIGNING_PFX }}
+          WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+          WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          & ./apps/desktop-tauri/scripts/prepare-windows-signing.ps1
+
       - name: Build desktop bundles
         env:
-          APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && '-' || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && vars.APPLE_SIGNING_IDENTITY || '-' }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           $ErrorActionPreference = 'Stop'
           if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
           $PSNativeCommandUseErrorActionPreference = $true
-          pnpm --dir apps/desktop-tauri exec tauri build --target ${{ matrix.target }} --bundles '${{ matrix.bundles }}' ${{ runner.os == 'Linux' && '--verbose' || '' }}
+          if ('${{ runner.os }}' -eq 'macOS' -and $env:APPLE_SIGNING_IDENTITY -ne '-') {
+            $env:APPLE_API_KEY_PATH = Join-Path $env:RUNNER_TEMP "AuthKey_$($env:APPLE_API_KEY).p8"
+          }
+          if ('${{ runner.os }}' -eq 'macOS') {
+            node apps/desktop-tauri/scripts/prepare-macos-signing.mjs
+            if ($LASTEXITCODE -ne 0) { throw 'macOS signing credentials are incomplete or invalid' }
+          }
+          $tauriArgs = @('build', '--target', '${{ matrix.target }}', '--bundles', '${{ matrix.bundles }}')
+          if ($env:CLAWMASTER_WINDOWS_SIGNING_CONFIG) { $tauriArgs += @('--config', $env:CLAWMASTER_WINDOWS_SIGNING_CONFIG) }
+          if ('${{ runner.os }}' -eq 'Linux') { $tauriArgs += '--verbose' }
+          pnpm --dir apps/desktop-tauri exec tauri @tauriArgs
+
+      - name: Verify macOS Developer ID signature and notarization
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY || '-' }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [[ "$APPLE_SIGNING_IDENTITY" == "-" ]]; then
+            echo 'macOS candidate is unsigned; stable publication acceptance will reject it.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          bundle_root="apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle"
+          app="$(find "$bundle_root" -type d -name '*.app' -print -quit)"
+          dmg="$(find "$bundle_root" -type f -name '*.dmg' -print -quit)"
+          test -n "$app" && test -n "$dmg"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          details="$(codesign -dv --verbose=4 "$app" 2>&1)"
+          grep -F "Authority=$APPLE_SIGNING_IDENTITY" <<<"$details"
+          grep -F "TeamIdentifier=$APPLE_TEAM_ID" <<<"$details"
+          xcrun stapler validate "$app"
+          xcrun stapler validate "$dmg"
+          spctl --assess --type execute --verbose=4 "$app"
+          echo 'macOS Developer ID signature, notarization tickets, and Gatekeeper assessment passed.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify Windows Authenticode signatures
+        if: runner.os == 'Windows'
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($env:CLAWMASTER_WINDOWS_SIGNED -ne 'true') {
+            "Windows candidate is unsigned; stable publication acceptance will reject it." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            exit 0
+          }
+          $expected = ($env:WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT -replace '\s', '').ToUpperInvariant()
+          $releaseRoot = "apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release"
+          $executables = Get-ChildItem -LiteralPath $releaseRoot -Recurse -File -Filter '*.exe'
+          if (-not $executables) { throw 'No Windows application or installer executables were produced.' }
+          foreach ($executable in $executables) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $executable.FullName
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint -ne $expected) {
+              throw "Authenticode verification failed for $($executable.Name)."
+            }
+          }
+          "Authenticode verified for $($executables.Count) Windows executable(s), certificate $expected." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
       - name: Verify prepared payload
         run: |

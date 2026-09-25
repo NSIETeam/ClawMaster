@@ -122,6 +122,38 @@ test('every shipped frontend has frozen build dependencies before product verifi
   assert.ok(!mac.run.includes('--close-mode terminate'))
 })
 
+test('release builds import and verify publisher signatures without weakening the stable publication gate', () => {
+  const steps = workflow.jobs.build.steps
+  const windowsSetup = steps.findIndex(step => step.name === 'Prepare Windows publisher certificate')
+  const buildIndex = steps.findIndex(step => step.name === 'Build desktop bundles')
+  const macVerify = steps.findIndex(step => step.name === 'Verify macOS Developer ID signature and notarization')
+  const windowsVerify = steps.findIndex(step => step.name === 'Verify Windows Authenticode signatures')
+  assert.ok(windowsSetup >= 0 && windowsSetup < buildIndex)
+  assert.ok(macVerify > buildIndex && windowsVerify > buildIndex)
+  assert.equal(steps[windowsSetup].env.WINDOWS_SIGNING_PFX, '${{ secrets.WINDOWS_SIGNING_PFX }}')
+  assert.equal(steps[windowsSetup].env.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT, '${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}')
+  assert.equal(steps[buildIndex].env.APPLE_CERTIFICATE, '${{ secrets.APPLE_CERTIFICATE }}')
+  assert.equal(steps[buildIndex].env.APPLE_API_KEY_CONTENT, '${{ secrets.APPLE_API_KEY_CONTENT }}')
+  assert.match(steps[buildIndex].run, /prepare-macos-signing\.mjs/u)
+  assert.match(steps[buildIndex].run, /CLAWMASTER_WINDOWS_SIGNING_CONFIG/u)
+  assert.match(steps[macVerify].run, /codesign --verify --deep --strict/u)
+  assert.match(steps[macVerify].run, /xcrun stapler validate/u)
+  assert.match(steps[windowsVerify].run, /Get-AuthenticodeSignature/u)
+  assert.ok(steps[windowsVerify].run.indexOf("if ($env:CLAWMASTER_WINDOWS_SIGNED -ne 'true')") < steps[windowsVerify].run.indexOf('Get-AuthenticodeSignature'))
+  const acceptance = workflow.jobs.release.steps.find(step => step.name === 'Require complete installed acceptance evidence')
+  assert.match(acceptance.run, /release-acceptance\.mjs/u)
+  assert.doesNotMatch(acceptance.run, /--report-only/u)
+})
+
+test('platform signing preparation helpers are present and keep unsigned output candidate-only', () => {
+  const mac = readFileSync(new URL('./prepare-macos-signing.mjs', import.meta.url), 'utf8')
+  const windows = readFileSync(new URL('./prepare-windows-signing.ps1', import.meta.url), 'utf8')
+  assert.match(mac, /stable publication acceptance will reject/u)
+  assert.match(windows, /stable publication acceptance will reject/u)
+  assert.match(windows, /Import-PfxCertificate/u)
+  assert.match(windows, /certificateThumbprint/u)
+})
+
 test('WeChat approval and updater target replays run on Unix after their built runtime and before packaging', () => {
   const steps = workflow.jobs.build.steps
   const replay = steps.findIndex(step => step.name === 'Replay WeChat approvals and unavailable update targets')
