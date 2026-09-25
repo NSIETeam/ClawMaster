@@ -19,3 +19,7 @@ Allowing unsigned stable publication would contradict the publisher identity req
 ## Consequences
 
 Repository operators must configure Apple Developer ID and App Store Connect secrets plus Windows code-signing secrets and the pinned certificate thumbprint before stable publication. Build signature checks prove the produced signatures and notarization state; they do not replace clean-install scenarios, upgrades, model use, integrations or retained acceptance evidence.
+
+## Verification
+
+`test:bundle` runs the macOS and Windows signing-preparation tests with the desktop packaging tests. Windows-specific certificate import and workflow parsing execute on the Windows CI runner; a local run without PowerShell skips those platform checks.

@@ -19,3 +19,7 @@ macOS CI 接受完整的 Developer ID、App Store Connect API 密钥和 Team ID 
 ## Consequences
 
 仓库运维人员必须在稳定版发布前配置 Apple Developer ID 和 App Store Connect 密钥，以及 Windows 代码签名密钥和固定证书指纹。构建签名检查证明产物签名和公证状态，但不能代替干净安装场景、升级、模型使用、集成测试或留存验收证据。
+
+## Verification
+
+`test:bundle` 会将 macOS 和 Windows 签名准备测试纳入桌面打包测试。Windows 专属的证书导入与工作流解析在 Windows CI 运行器上执行；本机没有 PowerShell 时会跳过这些平台检查。
