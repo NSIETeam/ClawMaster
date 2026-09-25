@@ -69,7 +69,7 @@ async function fixture(t, releaseVersion = version) {
       status: 'passed', platform: policy.platform, architecture: policy.architecture, osVersion: 'fixture OS', environment: 'clean-vm',
       installedVersion: releaseVersion, sourceCommit: commit, artifact: { file: installers[target], sha256: hash(await readFile(join(root, installers[target]))) },
       signature: { ...passed(), kind: policy.signature, publisher: 'Fixture Publisher' },
-      scenarios: Object.fromEntries(['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart', 'upgrade-data-preservation',
+      scenarios: Object.fromEntries(['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart',
         'uninstall-data-policy', 'unicode-space-path', 'update-rollback', 'optional-component-failure-recovery', 'approval-allow', 'approval-deny', 'cancel-task', 'write-failure-no-commit', 'conversation-persistence'].map(key => [key, passed()])),
     upgrades: { '0.2.2': { ...passed(), preserved: { settings: true, credentials: true, sessions: true, businessData: true } } },
       integrations: { 'real-model': { ...passed(), availability: 'available', credentialStore: {

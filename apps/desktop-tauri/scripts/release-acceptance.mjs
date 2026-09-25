@@ -25,7 +25,7 @@ export function acceptanceTargetsForVersion(version) {
   return /^\d+\.\d+\.\d+-beta\.[1-9]\d*$/u.test(version) ? BETA_ACCEPTANCE_TARGETS : ACCEPTANCE_TARGETS
 }
 
-const COMMON_SCENARIOS = ['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart', 'upgrade-data-preservation', 'uninstall-data-policy']
+const COMMON_SCENARIOS = ['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart', 'uninstall-data-policy']
 const DESKTOP_SCENARIOS = [...COMMON_SCENARIOS, 'unicode-space-path', 'update-rollback', 'optional-component-failure-recovery', 'approval-allow', 'approval-deny', 'cancel-task', 'write-failure-no-commit']
 const DESKTOP_INTEGRATIONS = [
   'real-model', 'office-save', 'wechat-selected-read', 'native-rpa-browser-click',
@@ -55,7 +55,8 @@ function nonempty(value, label) {
 export function createAcceptanceTemplate(version, sourceCommit, supportedUpgradeVersions) {
   assert.match(sourceCommit, commitPattern)
   nonempty(version, 'Candidate version')
-  assert.ok(Array.isArray(supportedUpgradeVersions) && supportedUpgradeVersions.length > 0)
+  assert.ok(Array.isArray(supportedUpgradeVersions))
+  assert.ok(supportedUpgradeVersions.length > 0 || version === '0.0.1', 'Only the reset 0.0.1 release may declare no supported automatic upgrades')
   return { schemaVersion: 1, version, sourceCommit, supportedUpgradeVersions,
     targets: Object.fromEntries(Object.keys(acceptanceTargetsForVersion(version)).map(target => [target, { status: 'not-run', reason: 'Installed candidate acceptance has not been collected for this target' }])) }
 }
@@ -100,7 +101,8 @@ export async function verifyReleaseAcceptance(manifest, options) {
   const root = resolve(options.root)
   const rootInfo = await lstat(root)
   assert.ok(rootInfo.isDirectory() && !rootInfo.isSymbolicLink(), 'Evidence root must be a real directory')
-  assert.ok(Array.isArray(manifest.supportedUpgradeVersions) && manifest.supportedUpgradeVersions.length > 0, 'Supported upgrade versions must be enumerated')
+  assert.ok(Array.isArray(manifest.supportedUpgradeVersions), 'Supported upgrade versions must be enumerated')
+  assert.ok(manifest.supportedUpgradeVersions.length > 0 || manifest.version === '0.0.1', 'Only the reset 0.0.1 release may omit automatic upgrade support')
   assert.equal(new Set(manifest.supportedUpgradeVersions).size, manifest.supportedUpgradeVersions.length, 'Upgrade support versions must be unique')
   for (const version of manifest.supportedUpgradeVersions) assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u)
   object(manifest.targets, 'Acceptance targets')

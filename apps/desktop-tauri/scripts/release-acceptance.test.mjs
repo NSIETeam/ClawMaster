@@ -28,7 +28,7 @@ async function fixture(t) {
       status: 'passed', platform: policy.platform, architecture: policy.architecture, osVersion: 'fixture OS', environment: 'clean-vm',
       installedVersion: version, sourceCommit: commit, artifact: { file, sha256: hash(`synthetic ${name}`) },
       signature: { ...passed(), kind: policy.signature, publisher: 'Fixture Publisher' },
-      scenarios: Object.fromEntries(['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart', 'upgrade-data-preservation',
+      scenarios: Object.fromEntries(['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart',
         'uninstall-data-policy', 'unicode-space-path', 'update-rollback', 'optional-component-failure-recovery', 'approval-allow', 'approval-deny', 'cancel-task', 'write-failure-no-commit',
         'conversation-persistence'].map(key => [key, passed()])),
       upgrades: { '0.2.2': { ...passed(), preserved: { settings: true, credentials: true, sessions: true, businessData: true } } },
@@ -157,6 +157,23 @@ test('desktop acceptance requires OS credentials, honest RPA availability, and f
 test('beta template contains only the Windows and macOS installer lanes', () => {
   const template = createAcceptanceTemplate('0.2.3-beta.1', commit, ['0.2.2'])
   assert.deepEqual(Object.keys(template.targets).sort(), ['macos-arm64-dmg', 'windows-x64-nsis'])
+})
+
+test('the reset 0.0.1 release may require manual reinstall without duplicate upgrade evidence', async t => {
+  const f = await fixture(t)
+  f.manifest.version = '0.0.1'
+  f.options.expectedVersion = '0.0.1'
+  f.manifest.supportedUpgradeVersions = []
+  for (const lane of Object.values(f.manifest.targets)) {
+    lane.installedVersion = '0.0.1'
+    lane.upgrades = {}
+  }
+  assert.equal((await verifyReleaseAcceptance(f.manifest, f.options)).ready, true)
+  assert.deepEqual(createAcceptanceTemplate('0.0.1', commit, []).supportedUpgradeVersions, [])
+  assert.throws(() => createAcceptanceTemplate('0.2.4', commit, []), /Only the reset 0\.0\.1 release/)
+  const unsupportedLater = structuredClone(f.manifest)
+  unsupportedLater.version = '0.2.4'
+  await assert.rejects(verifyReleaseAcceptance(unsupportedLater, { ...f.options, expectedVersion: '0.2.4' }), /Only the reset 0\.0\.1 release/)
 })
 
 test('an evidence path cannot escape its root or replace a retained file with a symlink', async t => {

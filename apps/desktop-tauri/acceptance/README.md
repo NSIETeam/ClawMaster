@@ -21,7 +21,7 @@ Each candidate needs evidence from its installed desktop application. The [accep
 <a id="collect-evidence"></a>
 ## Collect evidence
 
-Start a template with `--template --version <candidate> --commit <full-commit> --upgrade-from <supported-old-version>`; repeat `--upgrade-from` for each supported version. The tool writes JSON to standard output and marks every installer `not-run`. Save the manifest with the corresponding files in a private evidence directory. Credentials and actual business conversations do not belong in the evidence artifact.
+Start a template with `--template --version <candidate> --commit <full-commit>` and repeat `--upgrade-from <supported-old-version>` for each supported automatic upgrade. The reset `0.0.1` release may omit `--upgrade-from`; this records that users must reinstall and that the release does not promise to preserve data from earlier versions. The tool writes JSON to standard output and marks every installer `not-run`. Save the manifest with the corresponding files in a private evidence directory. Credentials and actual business conversations do not belong in the evidence artifact.
 
 The installer lanes cover Apple Silicon DMG, Windows x64 NSIS, Linux x64 AppImage and Linux x64 DEB. Intel Mac and Android are excluded. Record the actual platform, architecture, OS version, isolated environment, installed product version and source commit. Hash each exact installer; a successful build, extracted payload, or another platform's window cannot establish an installed result.
 
@@ -30,7 +30,7 @@ A completed lane includes `artifact: { file, sha256 }`, a `signature` result, `s
 <a id="required-observations"></a>
 ## Required observations
 
-Desktop checks cover installation, first startup in a clean user profile, network-failure recovery, normal exit and restart, Chinese and space-containing paths, supported-version upgrades, uninstall data policy, update rollback, optional-component-failure recovery, approval allow/deny, cancellation, and failed writes with no partial commit. The optional-component scenario disables one feature component and verifies that the app stays open, that feature reports unavailable, and core session use plus unrelated features continue. Every upgrade records preservation of settings, credentials, sessions and business data.
+Desktop checks cover installation, first startup in a clean user profile, network-failure recovery, normal exit and restart, Chinese and space-containing paths, uninstall data policy, update rollback, optional-component-failure recovery, approval allow/deny, cancellation, and failed writes with no partial commit. The optional-component scenario disables one feature component and verifies that the app stays open, that feature reports unavailable, and core session use plus unrelated features continue. Each declared automatic upgrade is tested in its version-specific matrix and records whether settings, credentials, sessions and business data were preserved; the reset `0.0.1` release declares no automatic upgrade path.
 
 Publisher verification uses `developer-id-notarized` on macOS, `authenticode` on Windows, and `minisign` for Linux release payloads. Record the observed publisher identity and retain the operating system's verification output. An ad-hoc macOS signature and a Tauri download signature cannot substitute for Developer ID, Apple notarization or Authenticode. Missing certificates produce `blocked`, with the missing prerequisite in `reason`.
 

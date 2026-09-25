@@ -21,7 +21,7 @@ description: "收集并验证已安装 ClawMaster 桌面版本的交付证据。
 <a id="collect-evidence"></a>
 ## 收集证据
 
-使用 `--template --version <candidate> --commit <full-commit> --upgrade-from <supported-old-version>` 创建模板；为每个支持的旧版本重复指定 `--upgrade-from`。工具向标准输出写入 JSON，并将所有安装器标为 `not-run`。将清单及对应文件存入私有证据目录。凭据及真实业务对话不属于验收产物。
+使用 `--template --version <candidate> --commit <full-commit>` 创建模板，并为每个支持自动升级的旧版本重复指定 `--upgrade-from <supported-old-version>`。重置版 `0.0.1` 可以不指定 `--upgrade-from`；这表示用户必须重新安装，且本版本不承诺保留旧版本数据。工具向标准输出写入 JSON，并将所有安装器标为 `not-run`。将清单及对应文件存入私有证据目录。凭据及真实业务对话不属于验收产物。
 
 桌面安装器检查通道涵盖 Apple Silicon DMG、Windows x64 NSIS、Linux x64 AppImage 和 Linux x64 DEB，不包含 Intel Mac 与 Android。记录实际平台、架构、系统版本、隔离环境、已安装程序版本及源码提交。对每份精确安装包计算哈希；构建成功、解压产物或另一平台窗口均不能证明安装后结果。
 
@@ -30,7 +30,7 @@ description: "收集并验证已安装 ClawMaster 桌面版本的交付证据。
 <a id="required-observations"></a>
 ## 必需观测
 
-桌面检查涵盖安装、干净用户配置首次启动、断网恢复、正常退出及重启、中文及空格路径、支持旧版本升级、卸载数据策略、更新回滚、可选组件故障恢复、批准/拒绝、取消，以及失败写入没有部分提交。可选组件场景会禁用一个功能组件，并验证应用仍保持打开、受影响功能明确显示不可用、核心会话及其他无关功能仍可继续使用。每项升级记录设置、凭据、会话及业务数据的保留结果。
+桌面检查涵盖安装、干净用户配置首次启动、断网恢复、正常退出及重启、中文及空格路径、卸载数据策略、更新回滚、可选组件故障恢复、批准/拒绝、取消，以及失败写入没有部分提交。可选组件场景会禁用一个功能组件，并验证应用仍保持打开、受影响功能明确显示不可用、核心会话及其他无关功能仍可继续使用。每条已声明的自动升级路径都在对应版本矩阵中测试，并记录设置、凭据、会话及业务数据是否保留；重置版 `0.0.1` 不声明自动升级路径。
 
 发布者校验在 macOS 使用 `developer-id-notarized`、Windows 使用 `authenticode`、Linux 发布包使用 `minisign`。记录观测到的发布者身份并保留系统校验输出。macOS 临时签名与 Tauri 下载签名不能替代 Developer ID、Apple 公证或 Authenticode。证书缺失应标为 `blocked`，并在 `reason` 中说明缺少的前置条件。
 
