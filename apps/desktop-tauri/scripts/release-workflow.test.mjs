@@ -135,6 +135,8 @@ test('release builds import and verify publisher signatures without weakening th
   assert.equal(steps[buildIndex].env.APPLE_CERTIFICATE, '${{ secrets.APPLE_CERTIFICATE }}')
   assert.equal(steps[buildIndex].env.APPLE_API_KEY_CONTENT, '${{ secrets.APPLE_API_KEY_CONTENT }}')
   assert.match(steps[buildIndex].run, /prepare-macos-signing\.mjs/u)
+  assert.match(steps[buildIndex].run, /Remove-Item "Env:\$name"/u)
+  assert.match(steps[buildIndex].run, /if \(\$env:APPLE_SIGNING_IDENTITY -eq '-'\)/u)
   assert.match(steps[buildIndex].run, /CLAWMASTER_WINDOWS_SIGNING_CONFIG/u)
   assert.match(steps[macVerify].run, /codesign --verify --deep --strict/u)
   assert.match(steps[macVerify].run, /xcrun stapler validate/u)

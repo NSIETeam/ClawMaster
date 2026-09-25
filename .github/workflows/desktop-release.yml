@@ -299,6 +299,11 @@ jobs:
           if ('${{ runner.os }}' -eq 'macOS') {
             node apps/desktop-tauri/scripts/prepare-macos-signing.mjs
             if ($LASTEXITCODE -ne 0) { throw 'macOS signing credentials are incomplete or invalid' }
+            if ($env:APPLE_SIGNING_IDENTITY -eq '-') {
+              foreach ($name in @('APPLE_CERTIFICATE', 'APPLE_CERTIFICATE_PASSWORD', 'APPLE_API_ISSUER', 'APPLE_API_KEY', 'APPLE_API_KEY_CONTENT', 'APPLE_TEAM_ID')) {
+                Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+              }
+            }
           }
           $tauriArgs = @('build', '--target', '${{ matrix.target }}', '--bundles', '${{ matrix.bundles }}')
           if ($env:CLAWMASTER_WINDOWS_SIGNING_CONFIG) { $tauriArgs += @('--config', $env:CLAWMASTER_WINDOWS_SIGNING_CONFIG) }
