@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-验收仅允许精确版本 `0.0.1` 将 macOS 记录为 `ad-hoc-unnotarized`，将 Windows 记录为 `unsigned`，并要求保留签名状态证据、在 `signature.reason` 中明确说明限制。Linux AppImage 和 DEB 签名仍为必需项。首次启动教程说明校验和验证及操作系统警告处理步骤。之后的每个稳定版仍要求现有的 macOS 公证和 Windows Authenticode。`0.0.1` 清单可以不声明升级来源，用户必须手动安装。
+验收仅允许精确版本 `0.0.1` 将 macOS 记录为 `ad-hoc-unnotarized`，将 Windows 记录为 `unsigned`，并要求保留签名状态证据、在 `signature.reason` 中明确说明限制。Linux AppImage 和 DEB 签名仍为必需项。首次启动教程说明校验和验证及操作系统警告处理步骤。之后的每个稳定版仍要求现有的 macOS 公证和 Windows Authenticode。`0.0.1` 清单可以不声明升级来源，用户必须手动安装。该版本跳过 IM 界面集成检查；后续稳定版仍保留这些检查。
 
 ## Alternatives considered
 
@@ -18,12 +18,12 @@ Status: implemented
 
 **所有稳定版都接受未签名产物：**这会取消未来版本的发布者身份校验。因此例外仅由精确版本 `0.0.1` 触发。
 
-**删除所有签名检查：**Linux 更新负载签名保护另一条交付路径，因此继续保留。
+**要求 0.0.1 验收 IM 界面：**重置版无需配置消息客户端即可验证桌面核心就绪状态；后续稳定版继续保留这些集成检查。
 
 ## Consequences
 
-重置版没有 Apple 公证或 Windows 发布者身份，因此首次启动可能显示平台安全警告。校验和验证与关联教程帮助用户核对下载字节并谨慎继续。此例外不会削弱后续稳定版策略。
+重置版没有 Apple 公证或 Windows 发布者身份，因此首次启动可能显示平台安全警告。校验和验证与关联教程帮助用户核对下载字节并谨慎继续。重置版不会宣称消息集成已就绪。后续稳定版继续执行原有 IM 界面检查。签名例外不会削弱后续稳定版策略。
 
 ## Verification
 
-验收测试证明 `0.0.1` 仅接受有明确记录的 macOS 临时签名和 Windows 未签名状态，后续稳定版仍要求原有签名类型。Linux 通道仍在 `0.0.1` 矩阵中，并要求 Minisign 证据。
+验收测试证明 `0.0.1` 仅接受有明确记录的 macOS 临时签名和 Windows 未签名状态，后续稳定版仍要求原有签名类型。Linux 通道仍在 `0.0.1` 矩阵中，并要求 Minisign 证据。回归测试证明只有 `0.0.1` 可以缺少 IM 界面结果。

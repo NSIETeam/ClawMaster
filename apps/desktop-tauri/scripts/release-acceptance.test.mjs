@@ -164,6 +164,19 @@ test('desktop acceptance requires failed optional components to leave core use a
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /macos-arm64-dmg\/optional-component-failure-recovery/)
 })
 
+test('reset 0.0.1 skips IM UI integrations while later stable releases retain them', async t => {
+  const reset = await fixture(t)
+  resetCandidate(reset)
+  for (const lane of Object.values(reset.manifest.targets)) {
+    for (const channel of ['weixin', 'feishu', 'dingtalk', 'qq', 'wecom']) delete lane.integrations[`im-${channel}-ui`]
+  }
+  assert.equal((await verifyReleaseAcceptance(reset.manifest, reset.options)).ready, true)
+
+  const stable = await fixture(t)
+  delete stable.manifest.targets['windows-x64-nsis'].integrations['im-qq-ui']
+  await assert.rejects(verifyReleaseAcceptance(stable.manifest, stable.options), /windows-x64-nsis\/im-qq-ui/)
+})
+
 test('desktop acceptance requires OS credentials, honest RPA availability, and five honest connector states', async t => {
   const f = await fixture(t)
   const lane = f.manifest.targets['windows-x64-nsis']

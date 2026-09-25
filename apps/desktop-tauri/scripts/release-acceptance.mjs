@@ -40,6 +40,9 @@ const DESKTOP_INTEGRATIONS = [
   'im-weixin-ui', 'im-feishu-ui', 'im-dingtalk-ui', 'im-qq-ui', 'im-wecom-ui',
 ]
 const IM_UI_INTEGRATIONS = new Set(['im-weixin-ui', 'im-feishu-ui', 'im-dingtalk-ui', 'im-qq-ui', 'im-wecom-ui'])
+function requiredIntegrations(version) {
+  return version === '0.0.1' ? DESKTOP_INTEGRATIONS.filter(name => !IM_UI_INTEGRATIONS.has(name)) : DESKTOP_INTEGRATIONS
+}
 const sha256Pattern = /^[a-f0-9]{64}$/u
 const commitPattern = /^[a-f0-9]{40}$/u
 const statuses = ['passed', 'failed', 'blocked', 'not-run']
@@ -161,7 +164,7 @@ export async function verifyReleaseAcceptance(manifest, options) {
       }
     }
     object(lane.integrations, `${target} integrations`)
-    for (const integration of DESKTOP_INTEGRATIONS) {
+    for (const integration of requiredIntegrations(manifest.version)) {
       const result = object(lane.integrations[integration], `${target}/${integration}`)
       assert.ok(statuses.includes(result.status), `${target}/${integration} has an invalid status`)
       assert.ok(['available', 'experimental', 'unavailable'].includes(result.availability), `${target}/${integration} availability must be explicit`)
