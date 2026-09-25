@@ -267,7 +267,7 @@ jobs:
           node apps/desktop-tauri/scripts/prepare-office-runtime.mjs
 
       - name: Prepare Windows publisher certificate
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.RELEASE_TAG != 'desktop-v0.0.1'
         env:
           WINDOWS_SIGNING_PFX: ${{ secrets.WINDOWS_SIGNING_PFX }}
           WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
@@ -280,13 +280,16 @@ jobs:
 
       - name: Build desktop bundles
         env:
-          APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && vars.APPLE_SIGNING_IDENTITY || '-' }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
-          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '-' || runner.os == 'macOS' && vars.APPLE_SIGNING_IDENTITY || '-' }}
+          APPLE_CERTIFICATE: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '' || secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '' || secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '' || secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '' || secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_CONTENT: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '' || secrets.APPLE_API_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '' || vars.APPLE_TEAM_ID }}
+          WINDOWS_SIGNING_PFX: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '' || secrets.WINDOWS_SIGNING_PFX }}
+          WINDOWS_SIGNING_PFX_PASSWORD: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '' || secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+          WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT: ${{ env.RELEASE_TAG == 'desktop-v0.0.1' && '' || vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
@@ -305,13 +308,16 @@ jobs:
               }
             }
           }
+          if ('${{ runner.os }}' -eq 'Windows' -and $env:RELEASE_TAG -eq 'desktop-v0.0.1') {
+            "CLAWMASTER_WINDOWS_SIGNED=false" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
           $tauriArgs = @('build', '--target', '${{ matrix.target }}', '--bundles', '${{ matrix.bundles }}')
           if ($env:CLAWMASTER_WINDOWS_SIGNING_CONFIG) { $tauriArgs += @('--config', $env:CLAWMASTER_WINDOWS_SIGNING_CONFIG) }
           if ('${{ runner.os }}' -eq 'Linux') { $tauriArgs += '--verbose' }
           pnpm --dir apps/desktop-tauri exec tauri @tauriArgs
 
       - name: Verify macOS Developer ID signature and notarization
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.RELEASE_TAG != 'desktop-v0.0.1'
         shell: bash
         env:
           APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY || '-' }}
@@ -374,7 +380,7 @@ jobs:
           cargo test --locked --manifest-path apps/desktop-tauri/src-tauri/Cargo.toml --target ${{ matrix.target }}
 
       - name: Verify macOS signature
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.RELEASE_TAG != 'desktop-v0.0.1'
         shell: bash
         run: codesign --verify --deep --strict apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/ClawMaster.app
 

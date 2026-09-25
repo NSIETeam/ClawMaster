@@ -131,16 +131,22 @@ test('release builds verify publisher signatures while keeping the reset excepti
   assert.ok(windowsSetup >= 0 && windowsSetup < buildIndex)
   assert.ok(macVerify > buildIndex && windowsVerify > buildIndex)
   assert.equal(steps[windowsSetup].env.WINDOWS_SIGNING_PFX, '${{ secrets.WINDOWS_SIGNING_PFX }}')
+  assert.equal(steps[windowsSetup].if, "runner.os == 'Windows' && env.RELEASE_TAG != 'desktop-v0.0.1'")
   assert.equal(steps[windowsSetup].env.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT, '${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}')
-  assert.equal(steps[buildIndex].env.APPLE_CERTIFICATE, '${{ secrets.APPLE_CERTIFICATE }}')
-  assert.equal(steps[buildIndex].env.APPLE_API_KEY_CONTENT, '${{ secrets.APPLE_API_KEY_CONTENT }}')
+  assert.match(steps[buildIndex].env.APPLE_SIGNING_IDENTITY, /env\.RELEASE_TAG == 'desktop-v0\.0\.1' && '-'/u)
+  assert.match(steps[buildIndex].env.APPLE_CERTIFICATE, /env\.RELEASE_TAG == 'desktop-v0\.0\.1' && ''/u)
+  assert.match(steps[buildIndex].env.APPLE_API_KEY_CONTENT, /env\.RELEASE_TAG == 'desktop-v0\.0\.1' && ''/u)
+  assert.match(steps[buildIndex].env.WINDOWS_SIGNING_PFX, /env\.RELEASE_TAG == 'desktop-v0\.0\.1' && ''/u)
+  assert.match(steps[buildIndex].env.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT, /env\.RELEASE_TAG == 'desktop-v0\.0\.1' && ''/u)
   assert.match(steps[buildIndex].run, /prepare-macos-signing\.mjs/u)
+  assert.match(steps[buildIndex].run, /CLAWMASTER_WINDOWS_SIGNED=false/u)
   assert.match(steps[buildIndex].run, /Remove-Item "Env:\$name"/u)
   assert.match(steps[buildIndex].run, /if \(\$env:APPLE_SIGNING_IDENTITY -eq '-'\)/u)
   assert.match(steps[buildIndex].run, /CLAWMASTER_WINDOWS_SIGNING_CONFIG/u)
   assert.match(steps[macVerify].run, /codesign --verify --deep --strict/u)
   assert.match(steps[macVerify].run, /xcrun stapler validate/u)
   assert.match(steps[windowsVerify].run, /Get-AuthenticodeSignature/u)
+  assert.equal(steps[macVerify].if, "runner.os == 'macOS' && env.RELEASE_TAG != 'desktop-v0.0.1'")
   assert.ok(steps[windowsVerify].run.indexOf("if ($env:CLAWMASTER_WINDOWS_SIGNED -ne 'true')") < steps[windowsVerify].run.indexOf('Get-AuthenticodeSignature'))
   const acceptance = workflow.jobs.release.steps.find(step => step.name === 'Require complete installed acceptance evidence')
   assert.match(acceptance.run, /release-acceptance\.mjs/u)
@@ -169,6 +175,7 @@ test('WeChat approval and updater target replays run on Unix after their built r
 function windowsSteps() {
   const unixOnly = new Set([
     "runner.os == 'Linux'", "runner.os == 'macOS'", "runner.os == 'macOS' || runner.os == 'Linux'",
+    "runner.os == 'macOS' && env.RELEASE_TAG != 'desktop-v0.0.1'",
   ])
   return workflow.jobs.build.steps.filter(step => step.run && !unixOnly.has(step.if))
 }
