@@ -19,9 +19,17 @@ export const BETA_ACCEPTANCE_TARGETS = Object.freeze({
   'macos-arm64-dmg': ACCEPTANCE_TARGETS['macos-arm64-dmg'],
   'windows-x64-nsis': ACCEPTANCE_TARGETS['windows-x64-nsis'],
 })
+/** The reset release records missing OS publisher signatures explicitly; later stable releases remain signed. */
+export const RESET_ACCEPTANCE_TARGETS = Object.freeze({
+  'macos-arm64-dmg': { ...ACCEPTANCE_TARGETS['macos-arm64-dmg'], signature: 'ad-hoc-unnotarized' },
+  'windows-x64-nsis': { ...ACCEPTANCE_TARGETS['windows-x64-nsis'], signature: 'unsigned' },
+  'linux-x64-appimage': ACCEPTANCE_TARGETS['linux-x64-appimage'],
+  'linux-x64-deb': ACCEPTANCE_TARGETS['linux-x64-deb'],
+})
 
 /** @param {string} version @returns {typeof ACCEPTANCE_TARGETS} Installed target matrix selected by the exact program version. */
 export function acceptanceTargetsForVersion(version) {
+  if (version === '0.0.1') return RESET_ACCEPTANCE_TARGETS
   return /^\d+\.\d+\.\d+-beta\.[1-9]\d*$/u.test(version) ? BETA_ACCEPTANCE_TARGETS : ACCEPTANCE_TARGETS
 }
 
@@ -130,7 +138,11 @@ export async function verifyReleaseAcceptance(manifest, options) {
     object(lane.signature, `${target} signature`)
     assert.equal(lane.signature.kind, policy.signature, `${target} requires operating-system publisher verification, not a substitute signature`)
     assert.equal(lane.signature.status, 'passed', `${target} signing or notarization is not verified`)
-    nonempty(lane.signature.publisher, `${target} publisher identity`)
+    if (policy.signature === 'unsigned' || policy.signature === 'ad-hoc-unnotarized') {
+      nonempty(lane.signature.reason, `${target} unsigned-signature disclosure`)
+    } else {
+      nonempty(lane.signature.publisher, `${target} publisher identity`)
+    }
     await evidenceFiles(root, lane.signature, `${target} signature`)
     object(lane.scenarios, `${target} scenarios`)
     for (const scenario of DESKTOP_SCENARIOS) {

@@ -9,9 +9,9 @@ import test from 'node:test'
 const script = fileURLToPath(new URL('./prepare-windows-signing.ps1', import.meta.url))
 const pwsh = process.env.CLAWMASTER_TEST_PWSH ?? 'pwsh'
 const probe = spawnSync(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$PSVersionTable.PSVersion.ToString()'], { encoding: 'utf8' })
-const available = !probe.error && probe.status === 0
+const available = process.platform === 'win32' && !probe.error && probe.status === 0
 
-test('Windows signing setup handles absent, incomplete and certificate-backed runner configuration', { skip: available ? false : 'PowerShell is unavailable' }, t => {
+test('Windows signing setup handles absent, incomplete and certificate-backed runner configuration', { skip: available ? false : 'Windows certificate cmdlets are unavailable on this platform' }, t => {
   const root = mkdtempSync(join(tmpdir(), 'ClawMaster Windows signing '))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const githubEnv = join(root, 'github-env')

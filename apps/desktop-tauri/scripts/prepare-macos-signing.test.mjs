@@ -35,6 +35,6 @@ test('complete credentials create a private App Store Connect key file for the r
   const result = prepareMacSigning({ ...valid, GITHUB_ENV: githubEnv }, root)
   assert.equal(result.signed, true)
   assert.equal(readFileSync(result.keyPath, 'utf8'), Buffer.from(privateKey, 'base64').toString('utf8'))
-  assert.equal(statSync(result.keyPath).mode & 0o777, 0o600)
+  if (process.platform !== 'win32') assert.equal(statSync(result.keyPath).mode & 0o777, 0o600)
   assert.equal(readFileSync(githubEnv, 'utf8'), `APPLE_API_KEY_PATH=${result.keyPath}\n`)
 })

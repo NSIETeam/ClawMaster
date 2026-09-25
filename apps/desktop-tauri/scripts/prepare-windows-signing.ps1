@@ -11,7 +11,7 @@ $supplied = @(
 
 if (-not ($supplied | Where-Object { $_ })) {
   "CLAWMASTER_WINDOWS_SIGNED=false" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-  "Windows candidate is unsigned; stable publication acceptance will reject it." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+  "Windows candidate is unsigned; only reset 0.0.1 acceptance permits this state." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
   exit 0
 }
 if ($supplied | Where-Object { -not $_ }) { throw 'Windows signing requires the PFX, its password, and the pinned certificate thumbprint.' }

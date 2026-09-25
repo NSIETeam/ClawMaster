@@ -319,7 +319,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$APPLE_SIGNING_IDENTITY" == "-" ]]; then
-            echo 'macOS candidate is unsigned; stable publication acceptance will reject it.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'macOS package uses ad-hoc signing without notarization. Reset 0.0.1 acceptance records this limitation; later stable releases require Developer ID and notarization.' >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           bundle_root="apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle"
@@ -344,7 +344,7 @@ jobs:
           if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
           $PSNativeCommandUseErrorActionPreference = $true
           if ($env:CLAWMASTER_WINDOWS_SIGNED -ne 'true') {
-            "Windows candidate is unsigned; stable publication acceptance will reject it." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            "Windows package is unsigned. Reset 0.0.1 acceptance records this limitation; later stable releases require Authenticode." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
             exit 0
           }
           $expected = ($env:WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT -replace '\s', '').ToUpperInvariant()

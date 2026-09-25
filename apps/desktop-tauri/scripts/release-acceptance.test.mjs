@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
-import { ACCEPTANCE_TARGETS, createAcceptanceTemplate, verifyReleaseAcceptance } from './release-acceptance.mjs'
+import { ACCEPTANCE_TARGETS, acceptanceTargetsForVersion, createAcceptanceTemplate, verifyReleaseAcceptance } from './release-acceptance.mjs'
 
 const commit = 'a'.repeat(40)
 const version = '0.2.3'
@@ -46,6 +46,27 @@ async function fixture(t) {
     options: { root, expectedCommit: commit, expectedVersion: version } }
 }
 
+function resetCandidate(f) {
+  f.manifest.version = '0.0.1'
+  f.options.expectedVersion = '0.0.1'
+  f.manifest.supportedUpgradeVersions = []
+  for (const [target, kind, reason] of [
+    ['macos-arm64-dmg', 'ad-hoc-unnotarized', 'Ad-hoc signed; not notarized or verified by Apple Developer ID.'],
+    ['windows-x64-nsis', 'unsigned', 'Unsigned installer; Windows publisher identity is not verified.'],
+  ]) {
+    const lane = f.manifest.targets[target]
+    lane.installedVersion = '0.0.1'
+    lane.upgrades = {}
+    lane.signature.kind = kind
+    lane.signature.reason = reason
+    delete lane.signature.publisher
+  }
+  for (const lane of Object.values(f.manifest.targets)) {
+    lane.installedVersion = '0.0.1'
+    lane.upgrades = {}
+  }
+}
+
 test('a complete per-installer matrix validates artifacts and retained evidence', async t => {
   const f = await fixture(t)
   assert.equal((await verifyReleaseAcceptance(f.manifest, f.options)).ready, true)
@@ -82,6 +103,19 @@ test('ad-hoc or updater signatures cannot replace publisher notarization and Aut
   f.manifest.targets['macos-arm64-dmg'].signature.kind = 'developer-id-notarized'
   f.manifest.targets['windows-x64-nsis'].signature.kind = 'minisign'
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /publisher verification/)
+})
+
+test('only reset 0.0.1 accepts documented unsigned macOS and Windows builds', async t => {
+  const f = await fixture(t)
+  resetCandidate(f)
+  assert.equal((await verifyReleaseAcceptance(f.manifest, f.options)).ready, true)
+  assert.equal(acceptanceTargetsForVersion('0.2.4')['macos-arm64-dmg'].signature, 'developer-id-notarized')
+  assert.equal(acceptanceTargetsForVersion('0.2.4')['windows-x64-nsis'].signature, 'authenticode')
+
+  const stable = await fixture(t)
+  stable.manifest.targets['macos-arm64-dmg'].signature.kind = 'ad-hoc-unnotarized'
+  stable.manifest.targets['macos-arm64-dmg'].signature.reason = 'Not notarized.'
+  await assert.rejects(verifyReleaseAcceptance(stable.manifest, stable.options), /publisher verification/)
 })
 
 test('missing restart, rollback and old-version retention evidence blocks publication', async t => {
@@ -161,13 +195,7 @@ test('beta template contains only the Windows and macOS installer lanes', () => 
 
 test('the reset 0.0.1 release may require manual reinstall without duplicate upgrade evidence', async t => {
   const f = await fixture(t)
-  f.manifest.version = '0.0.1'
-  f.options.expectedVersion = '0.0.1'
-  f.manifest.supportedUpgradeVersions = []
-  for (const lane of Object.values(f.manifest.targets)) {
-    lane.installedVersion = '0.0.1'
-    lane.upgrades = {}
-  }
+  resetCandidate(f)
   assert.equal((await verifyReleaseAcceptance(f.manifest, f.options)).ready, true)
   assert.deepEqual(createAcceptanceTemplate('0.0.1', commit, []).supportedUpgradeVersions, [])
   assert.throws(() => createAcceptanceTemplate('0.2.4', commit, []), /Only the reset 0\.0\.1 release/)

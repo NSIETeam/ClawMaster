@@ -122,7 +122,7 @@ test('every shipped frontend has frozen build dependencies before product verifi
   assert.ok(!mac.run.includes('--close-mode terminate'))
 })
 
-test('release builds import and verify publisher signatures without weakening the stable publication gate', () => {
+test('release builds verify publisher signatures while keeping the reset exception version-scoped', () => {
   const steps = workflow.jobs.build.steps
   const windowsSetup = steps.findIndex(step => step.name === 'Prepare Windows publisher certificate')
   const buildIndex = steps.findIndex(step => step.name === 'Build desktop bundles')
@@ -147,11 +147,11 @@ test('release builds import and verify publisher signatures without weakening th
   assert.doesNotMatch(acceptance.run, /--report-only/u)
 })
 
-test('platform signing preparation helpers are present and keep unsigned output candidate-only', () => {
+test('platform signing helpers record the reset-only unsigned exception and retain signed setup', () => {
   const mac = readFileSync(new URL('./prepare-macos-signing.mjs', import.meta.url), 'utf8')
   const windows = readFileSync(new URL('./prepare-windows-signing.ps1', import.meta.url), 'utf8')
-  assert.match(mac, /stable publication acceptance will reject/u)
-  assert.match(windows, /stable publication acceptance will reject/u)
+  assert.match(mac, /only reset 0\.0\.1 acceptance permits/u)
+  assert.match(windows, /only reset 0\.0\.1 acceptance permits/u)
   assert.match(windows, /Import-PfxCertificate/u)
   assert.match(windows, /certificateThumbprint/u)
 })

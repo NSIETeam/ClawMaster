@@ -60,5 +60,5 @@ export function prepareMacSigning(environment = process.env, temporaryDirectory 
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const result = prepareMacSigning()
-  process.stdout.write(result.signed ? 'macOS Developer ID signing and notarization credentials are configured.\n' : 'macOS build is unsigned; stable publication acceptance will reject it.\n')
+  process.stdout.write(result.signed ? 'macOS Developer ID signing and notarization credentials are configured.\n' : 'macOS build will use ad-hoc signing without notarization; only reset 0.0.1 acceptance permits this state.\n')
 }
